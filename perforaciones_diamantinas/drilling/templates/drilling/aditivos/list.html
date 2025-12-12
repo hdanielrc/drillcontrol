@@ -1,0 +1,31 @@
+{% extends 'drilling/base.html' %}
+{% block title %}Lista de Aditivos{% endblock %}
+{% block content %}
+<h2>Aditivos</h2>
+<a href="{% url 'aditivo-create' %}" class="btn btn-primary mb-3">Nuevo Aditivo</a>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Categoría</th>
+      <th>Unidad por defecto</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for aditivo in aditivos %}
+    <tr>
+      <td>{{ aditivo.nombre }}</td>
+      <td>{{ aditivo.get_categoria_display }}</td>
+      <td>{{ aditivo.unidad_medida_default.simbolo }}</td>
+      <td>
+        <a href="{% url 'aditivo-update' aditivo.pk %}" class="btn btn-sm btn-warning">Editar</a>
+        <a href="{% url 'aditivo-delete' aditivo.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="text-center">No hay aditivos registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

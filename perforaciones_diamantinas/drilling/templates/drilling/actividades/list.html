@@ -1,0 +1,29 @@
+{% extends 'drilling/base.html' %}
+{% block title %}Lista de Actividades{% endblock %}
+{% block content %}
+<h2>Actividades</h2>
+<a href="{% url 'actividades-create' %}" class="btn btn-primary mb-3">Nueva Actividad</a>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Descripción</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for actividad in actividades %}
+    <tr>
+      <td>{{ actividad.nombre }}</td>
+      <td>{{ actividad.descripcion }}</td>
+      <td>
+        <a href="{% url 'actividades-update' actividad.pk %}" class="btn btn-sm btn-warning">Editar</a>
+        <a href="{% url 'actividades-delete' actividad.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3" class="text-center">No hay actividades registradas.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

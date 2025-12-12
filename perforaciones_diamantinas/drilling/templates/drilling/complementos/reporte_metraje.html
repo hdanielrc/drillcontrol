@@ -1,0 +1,342 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Reporte de Metraje - Productos Diamantados{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-gem"></i> Reporte de Metraje Acumulado - Productos Diamantados</h2>
+            <div>
+                <a href="{% url 'complemento-list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver a Productos
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de Búsqueda -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" id="filtrosForm">
+                    <div class="row">
+                        <!-- Contrato (solo para admin) -->
+                        {% if user.can_manage_all_contracts %}
+                        <div class="col-md-3">
+                            <label for="contrato" class="form-label">Contrato</label>
+                            <select class="form-select" id="contrato" name="contrato">
+                                <option value="">Todos los contratos</option>
+                                {% for contrato in contratos %}
+                                <option value="{{ contrato.id }}" 
+                                    {% if filtros.contrato_id == contrato.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ contrato.nombre_contrato }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        <!-- Tipo de Producto -->
+                        <div class="col-md-3">
+                            <label for="tipo_complemento" class="form-label">Tipo de Producto</label>
+                            <select class="form-select" id="tipo_complemento" name="tipo_complemento">
+                                <option value="">Todos los tipos</option>
+                                {% for tipo in tipos_complemento %}
+                                <option value="{{ tipo.id }}" 
+                                    {% if filtros.tipo_complemento_id == tipo.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ tipo.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Código/Serie -->
+                        <div class="col-md-3">
+                            <label for="codigo_serie" class="form-label">Código/Serie</label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="codigo_serie" 
+                                name="codigo_serie"
+                                placeholder="Buscar por código o serie"
+                                value="{{ filtros.codigo_serie }}"
+                            >
+                        </div>
+
+                        <!-- Estado -->
+                        <div class="col-md-3">
+                            <label for="estado" class="form-label">Estado</label>
+                            <select class="form-select" id="estado" name="estado">
+                                <option value="">Todos los estados</option>
+                                {% for key, value in estados %}
+                                <option value="{{ key }}" 
+                                    {% if filtros.estado == key %}selected{% endif %}>
+                                    {{ value }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12 text-end">
+                            <a href="{% url 'reporte-metraje-complementos' %}" class="btn btn-secondary">
+                                <i class="fas fa-eraser"></i> Limpiar Filtros
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas Resumen -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white">Total Metraje Acumulado</h6>
+                        <h2 class="mb-0">{{ totales.total_metros_general|default:0|floatformat:2 }} m</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-ruler-vertical fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white">Productos Únicos</h6>
+                        <h2 class="mb-0">{{ totales.productos_unicos|default:0 }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-gem fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white">Total Usos Registrados</h6>
+                        <h2 class="mb-0">{{ totales.total_registros|default:0 }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-tools fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Metraje por Producto -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-table"></i> Metraje Acumulado por Producto</h5>
+                <button class="btn btn-light btn-sm" onclick="exportarExcel()">
+                    <i class="fas fa-file-excel"></i> Exportar Excel
+                </button>
+            </div>
+            <div class="card-body">
+                {% if resumen_complementos %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Nota:</strong> Los metros mostrados son acumulados de todos los usos registrados en turnos.
+                    El "metraje por uso" se calcula como: metros_fin - metros_inicio de cada turno.
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="tablaMetraje">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Tipo</th>
+                                <th>Categoría</th>
+                                <th>Código/Serie</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Total Metros</th>
+                                <th class="text-center">Cantidad Usos</th>
+                                <th class="text-center">Promedio x Uso</th>
+                                <th class="text-center">Primer Uso</th>
+                                <th class="text-center">Último Uso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for complemento in resumen_complementos %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><strong>{{ complemento.tipo_complemento__nombre }}</strong></td>
+                                <td>
+                                    {% if complemento.tipo_complemento__categoria %}
+                                        <span class="badge bg-secondary">{{ complemento.tipo_complemento__categoria }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ complemento.codigo_serie }}</code></td>
+                                <td class="text-center">
+                                    {% if complemento.tipo_complemento__estado == 'NUEVO' %}
+                                        <span class="badge bg-success">Nuevo</span>
+                                    {% elif complemento.tipo_complemento__estado == 'EN_USO' %}
+                                        <span class="badge bg-primary">En Uso</span>
+                                    {% elif complemento.tipo_complemento__estado == 'DESCARTADO' %}
+                                        <span class="badge bg-danger">Descartado</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ complemento.tipo_complemento__estado }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <strong class="text-primary">{{ complemento.total_metros|floatformat:2 }} m</strong>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ complemento.cantidad_usos }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {{ complemento.metros_promedio|floatformat:2 }} m
+                                </td>
+                                <td class="text-center">
+                                    <small>{{ complemento.primer_uso|date:"d/m/Y" }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <small>{{ complemento.ultimo_uso|date:"d/m/Y" }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="5" class="text-end">TOTALES:</th>
+                                <th class="text-center">
+                                    <strong class="text-primary">{{ totales.total_metros_general|floatformat:2 }} m</strong>
+                                </th>
+                                <th class="text-center">
+                                    <strong>{{ totales.total_registros }}</strong>
+                                </th>
+                                <th colspan="3"></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                    <h5>No se encontraron productos diamantados con uso registrado</h5>
+                    <p class="mb-0">Los productos se registran automáticamente al crear turnos con complementos</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script para exportar a Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+function exportarExcel() {
+    const tabla = document.getElementById('tablaMetraje');
+    
+    if (!tabla) {
+        alert('No hay datos para exportar');
+        return;
+    }
+    
+    // Crear workbook y worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.table_to_sheet(tabla);
+    
+    // Ajustar ancho de columnas
+    const colWidths = [];
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+        let max_width = 10;
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            const cell = ws[XLSX.utils.encode_cell({r: R, c: C})];
+            if (cell && cell.v) {
+                const len = cell.v.toString().length;
+                if (len > max_width) max_width = len;
+            }
+        }
+        colWidths.push({wch: Math.min(max_width + 2, 50)});
+    }
+    ws['!cols'] = colWidths;
+    
+    // Agregar worksheet al workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Metraje Productos');
+    
+    // Guardar archivo
+    const fecha = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `metraje_productos_diamantados_${fecha}.xlsx`);
+}
+
+// Atajos de teclado
+document.addEventListener('keydown', function(e) {
+    // Ctrl + E = Exportar
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        exportarExcel();
+    }
+});
+</script>
+
+<style>
+.opacity-50 {
+    opacity: 0.5;
+}
+
+.card-title {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.badge {
+    padding: 0.35em 0.65em;
+}
+
+code {
+    background-color: #f8f9fa;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+/* Estilo para la tabla en modo responsive */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+}
+
+/* Hover en filas de la tabla */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+    cursor: pointer;
+}
+</style>
+
+{% endblock %}

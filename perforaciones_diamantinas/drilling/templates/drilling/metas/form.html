@@ -1,0 +1,177 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}{% if is_edit %}Editar Meta{% else %}Nueva Meta{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-bullseye"></i> 
+                        {% if is_edit %}Editar Meta de Máquina{% else %}Nueva Meta de Máquina{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Información General -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="contrato" class="form-label required">Contrato</label>
+                                <select name="contrato" id="contrato" class="form-select" required>
+                                    <option value="">Seleccione un contrato</option>
+                                    {% for contrato in contratos %}
+                                        <option value="{{ contrato.id }}" 
+                                                {% if is_edit and meta.contrato_id == contrato.id %}selected{% endif %}>
+                                            {{ contrato.nombre_contrato }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="maquina" class="form-label required">Máquina</label>
+                                <select name="maquina" id="maquina" class="form-select" required>
+                                    <option value="">Seleccione una máquina</option>
+                                    {% for maquina in maquinas %}
+                                        <option value="{{ maquina.id }}" 
+                                                {% if is_edit and meta.maquina_id == maquina.id %}selected{% endif %}>
+                                            {{ maquina.nombre }} ({{ maquina.tipo }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Período Estándar (Mes Operativo) -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">📆 Mes Operativo (26-25)</h6>
+                                <small class="text-muted">El período irá del día 26 del mes anterior al 25 del mes seleccionado</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="año" class="form-label required">Año</label>
+                                        <select name="año" id="año" class="form-select" required>
+                                            {% for año_item in años_disponibles %}
+                                                <option value="{{ año_item }}" 
+                                                        {% if is_edit and meta.año == año_item %}selected{% endif %}>
+                                                    {{ año_item }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label for="mes" class="form-label required">Mes Operativo</label>
+                                        <select name="mes" id="mes" class="form-select" required>
+                                            {% for mes_num, mes_nombre in meses %}
+                                                <option value="{{ mes_num }}" 
+                                                        {% if is_edit and meta.mes == mes_num %}selected{% endif %}>
+                                                    {{ mes_nombre }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Período Personalizado (Opcional) -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">📅 Período Personalizado (Opcional)</h6>
+                                <small class="text-muted">Complete solo si necesita un período diferente al mes operativo estándar</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
+                                        <input type="date" 
+                                               name="fecha_inicio" 
+                                               id="fecha_inicio" 
+                                               class="form-control"
+                                               {% if is_edit and meta.fecha_inicio %}value="{{ meta.fecha_inicio|date:'Y-m-d' }}"{% endif %}>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label for="fecha_fin" class="form-label">Fecha Fin</label>
+                                        <input type="date" 
+                                               name="fecha_fin" 
+                                               id="fecha_fin" 
+                                               class="form-control"
+                                               {% if is_edit and meta.fecha_fin %}value="{{ meta.fecha_fin|date:'Y-m-d' }}"{% endif %}>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info mt-3 mb-0">
+                                    <i class="fas fa-info-circle"></i> 
+                                    <strong>Nota:</strong> Si completa las fechas personalizadas, el sistema usará estas fechas en lugar del mes operativo.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Meta -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="meta_metros" class="form-label required">Meta en Metros</label>
+                                <input type="number" 
+                                       name="meta_metros" 
+                                       id="meta_metros" 
+                                       class="form-control" 
+                                       step="0.01" 
+                                       min="0.01"
+                                       {% if is_edit %}value="{{ meta.meta_metros }}"{% endif %}
+                                       required>
+                                <small class="text-muted">Metraje objetivo para el período</small>
+                            </div>
+                            
+                            {% if is_edit %}
+                            <div class="col-md-6">
+                                <label for="activo" class="form-label">Estado</label>
+                                <select name="activo" id="activo" class="form-select">
+                                    <option value="1" {% if meta.activo %}selected{% endif %}>Activa</option>
+                                    <option value="0" {% if not meta.activo %}selected{% endif %}>Inactiva</option>
+                                </select>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="mb-4">
+                            <label for="observaciones" class="form-label">Observaciones</label>
+                            <textarea name="observaciones" 
+                                      id="observaciones" 
+                                      class="form-control" 
+                                      rows="3"
+                                      placeholder="Notas adicionales sobre la meta (ej: 'Meta ajustada por mantenimiento programado')">{% if is_edit %}{{ meta.observaciones }}{% endif %}</textarea>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'metas-maquina-list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 
+                                {% if is_edit %}Actualizar Meta{% else %}Crear Meta{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.required:after {
+    content: " *";
+    color: red;
+}
+</style>
+{% endblock %}

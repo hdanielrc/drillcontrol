@@ -1,0 +1,312 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}
+{% if object %}Editar Trabajador{% else %}Nuevo Trabajador{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .section-header {
+        background: #f8f9fa;
+        padding: 10px 15px;
+        margin: 20px 0 15px 0;
+        border-left: 4px solid #0d6efd;
+        border-radius: 4px;
+    }
+    .required-field::after {
+        content: " *";
+        color: red;
+    }
+    .auto-calculated {
+        background-color: #e7f3ff;
+        border-left: 3px solid #0d6efd;
+    }
+    .form-group-compact {
+        margin-bottom: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        {% if object %}
+                            <i class="fas fa-edit"></i> Editar: {{ object.nombres }} {{ object.apellidos }}
+                        {% else %}
+                            <i class="fas fa-user-plus"></i> Nuevo Trabajador
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate autocomplete="off">
+                        {% csrf_token %}
+                        
+                        <!-- SECCIÓN: DATOS BÁSICOS -->
+                        <div class="section-header">
+                            <h6 class="mb-0"><i class="fas fa-user"></i> Datos Básicos</h6>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label required-field">Nombres</label>
+                                {{ form.nombres }}
+                                {% if form.nombres.errors %}<div class="text-danger small">{{ form.nombres.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label required-field">Apellidos</label>
+                                {{ form.apellidos }}
+                                {% if form.apellidos.errors %}<div class="text-danger small">{{ form.apellidos.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label required-field">DNI</label>
+                                {{ form.dni }}
+                                {% if form.dni.errors %}<div class="text-danger small">{{ form.dni.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label required-field">Cargo</label>
+                                {{ form.cargo }}
+                                <small class="form-text text-muted">El grupo se asigna automáticamente según el cargo</small>
+                                {% if form.cargo.errors %}<div class="text-danger small">{{ form.cargo.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Grupo Funcional</label>
+                                {% if object and object.grupo %}
+                                    <input type="text" class="form-control" value="{{ object.get_grupo_display }}" readonly disabled>
+                                    <small class="form-text text-success">✓ Asignado automáticamente</small>
+                                {% else %}
+                                    <input type="text" class="form-control" value="Se asignará al guardar" readonly disabled>
+                                    <small class="form-text text-muted">Se calculará según el cargo seleccionado</small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Área</label>
+                                {{ form.area }}
+                                {% if form.area.errors %}<div class="text-danger small">{{ form.area.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Fecha de Ingreso</label>
+                                {{ form.fecha_ingreso }}
+                                {% if form.fecha_ingreso.errors %}<div class="text-danger small">{{ form.fecha_ingreso.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Teléfono</label>
+                                {{ form.telefono }}
+                                {% if form.telefono.errors %}<div class="text-danger small">{{ form.telefono.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Email</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12 form-group-compact">
+                                <label class="form-label required-field">Contrato</label>
+                                {{ form.contrato }}
+                                {% if form.contrato.errors %}<div class="text-danger small">{{ form.contrato.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN: FOTOCHECK -->
+                        <div class="section-header">
+                            <h6 class="mb-0"><i class="fas fa-id-card"></i> Fotocheck</h6>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 form-group-compact">
+                                <label class="form-label">Fecha de Emisión</label>
+                                {{ form.fotocheck_fecha_emision }}
+                                <small class="form-text text-muted">Al completar, se calculará automáticamente la caducidad</small>
+                                {% if form.fotocheck_fecha_emision.errors %}<div class="text-danger small">{{ form.fotocheck_fecha_emision.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 form-group-compact">
+                                <label class="form-label">Fecha de Caducidad</label>
+                                {{ form.fotocheck_fecha_caducidad }}
+                                <small class="form-text text-muted">Se calcula automáticamente (1 año después)</small>
+                                {% if form.fotocheck_fecha_caducidad.errors %}<div class="text-danger small">{{ form.fotocheck_fecha_caducidad.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN: EXAMEN MÉDICO OCUPACIONAL (EMO) -->
+                        <div class="section-header">
+                            <h6 class="mb-0"><i class="fas fa-heartbeat"></i> Examen Médico Ocupacional (EMO)</h6>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Fecha de Realización</label>
+                                {{ form.emo_fecha_realizado }}
+                                <small class="form-text text-muted">Al completar, se calcularán vencimiento y programación</small>
+                                {% if form.emo_fecha_realizado.errors %}<div class="text-danger small">{{ form.emo_fecha_realizado.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Fecha de Vencimiento</label>
+                                {{ form.emo_fecha_vencimiento }}
+                                <small class="form-text text-muted">1 año - 1 día después de realizado</small>
+                                {% if form.emo_fecha_vencimiento.errors %}<div class="text-danger small">{{ form.emo_fecha_vencimiento.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Programación Próximo EMO</label>
+                                {{ form.emo_programacion }}
+                                <small class="form-text text-muted">30 días antes del vencimiento</small>
+                                {% if form.emo_programacion.errors %}<div class="text-danger small">{{ form.emo_programacion.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12 form-group-compact">
+                                <label class="form-label">Estado del EMO</label>
+                                {{ form.emo_estado }}
+                                <small class="form-text text-muted">Ejemplo: APTO, APTO CON RESTRICCIONES, etc.</small>
+                                {% if form.emo_estado.errors %}<div class="text-danger small">{{ form.emo_estado.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN: ASIGNACIONES (Opcional - Solo Organigrama) -->
+                        <div class="section-header">
+                            <h6 class="mb-0"><i class="fas fa-sitemap"></i> Asignaciones (Opcional)</h6>
+                        </div>
+                        
+                        <div class="alert alert-info small">
+                            <i class="fas fa-info-circle"></i> Estas asignaciones son opcionales y solo para visualización en el organigrama.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">{{ form.maquina_asignada.label }}</label>
+                                {{ form.maquina_asignada }}
+                                {% if form.maquina_asignada.errors %}<div class="text-danger small">{{ form.maquina_asignada.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">{{ form.guardia_asignada.label }}</label>
+                                {{ form.guardia_asignada }}
+                                {% if form.guardia_asignada.errors %}<div class="text-danger small">{{ form.guardia_asignada.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label">{{ form.vehiculo_asignado.label }}</label>
+                                {{ form.vehiculo_asignado }}
+                                {% if form.vehiculo_asignado.errors %}<div class="text-danger small">{{ form.vehiculo_asignado.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Estados (hidden con valores por defecto) -->
+                        {{ form.estado }}
+                        {{ form.subestado }}
+                    
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger mt-3">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                    
+                        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                            <a href="{% url 'trabajador-list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-save"></i>
+                                {% if object %}Actualizar{% else %}Crear{% endif %} Trabajador
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Función para agregar días a una fecha
+    function addDays(date, days) {
+        const result = new Date(date);
+        result.setDate(result.getDate() + days);
+        return result;
+    }
+    
+    // Función para agregar un año menos un día
+    function addOneYearMinusOneDay(date) {
+        const result = new Date(date);
+        result.setFullYear(result.getFullYear() + 1);
+        result.setDate(result.getDate() - 1);
+        return result;
+    }
+    
+    // Función para formatear fecha a YYYY-MM-DD
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // AUTO-CÁLCULO: Fotocheck Caducidad (1 año después de emisión)
+    const fotocheckEmision = document.getElementById('id_fotocheck_fecha_emision');
+    const fotocheckCaducidad = document.getElementById('id_fotocheck_fecha_caducidad');
+    
+    if (fotocheckEmision && fotocheckCaducidad) {
+        fotocheckEmision.addEventListener('change', function() {
+            if (this.value) {
+                const emisionDate = new Date(this.value + 'T00:00:00');
+                const caducidadDate = new Date(emisionDate);
+                caducidadDate.setFullYear(caducidadDate.getFullYear() + 1);
+                fotocheckCaducidad.value = formatDate(caducidadDate);
+                fotocheckCaducidad.classList.add('auto-calculated');
+            }
+        });
+    }
+    
+    // AUTO-CÁLCULO: EMO Vencimiento (1 año - 1 día después de realizado)
+    const emoRealizado = document.getElementById('id_emo_fecha_realizado');
+    const emoVencimiento = document.getElementById('id_emo_fecha_vencimiento');
+    const emoProgramacion = document.getElementById('id_emo_programacion');
+    
+    if (emoRealizado && emoVencimiento && emoProgramacion) {
+        emoRealizado.addEventListener('change', function() {
+            if (this.value) {
+                const realizadoDate = new Date(this.value + 'T00:00:00');
+                
+                // Vencimiento: 1 año - 1 día
+                const vencimientoDate = addOneYearMinusOneDay(realizadoDate);
+                emoVencimiento.value = formatDate(vencimientoDate);
+                emoVencimiento.classList.add('auto-calculated');
+                
+                // Programación: 30 días antes del vencimiento
+                const programacionDate = addDays(vencimientoDate, -30);
+                emoProgramacion.value = formatDate(programacionDate);
+                emoProgramacion.classList.add('auto-calculated');
+            }
+        });
+    }
+    
+    // Permitir edición manual de campos calculados al hacer click
+    [fotocheckCaducidad, emoVencimiento, emoProgramacion].forEach(field => {
+        if (field) {
+            field.addEventListener('focus', function() {
+                this.removeAttribute('readonly');
+                this.classList.remove('auto-calculated');
+            });
+        }
+    });
+    
+    // Atajo: Ctrl+S para guardar
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            document.querySelector('form').submit();
+        }
+    });
+});
+</script>
+{% endblock %}

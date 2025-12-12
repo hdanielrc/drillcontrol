@@ -1,0 +1,14 @@
+# --- Entornos Virtuales y Sistemas ---
+venv/
+env/
+.vscode/
+__pycache__/
+*.pyc
+
+# --- Archivos de Configuración Secretos ---
+.env
+db.sqlite3
+
+# --- Archivos innecesarios que vi en tu foto ---
+ngrok-v3-stable-windows-amd64.exe
+%DOWNLOAD%

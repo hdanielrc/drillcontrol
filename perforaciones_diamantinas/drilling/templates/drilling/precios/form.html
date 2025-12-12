@@ -1,0 +1,159 @@
+{% extends "drilling/base.html" %}
+{% load static %}
+
+{% block title %}{% if editing %}Editar{% else %}Nuevo{% endif %} Precio Unitario{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2>
+                <i class="fas fa-dollar-sign"></i> 
+                {% if editing %}Editar Precio Unitario{% else %}Nuevo Precio Unitario{% endif %}
+            </h2>
+        </div>
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Información del Precio</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="contrato" class="form-label fw-bold">Contrato *</label>
+                        {% if editing %}
+                            <input type="text" class="form-control" value="{{ precio.contrato.nombre_contrato }}" readonly>
+                            <input type="hidden" name="contrato" value="{{ precio.contrato.id }}">
+                        {% else %}
+                            <select name="contrato" id="contrato" class="form-select" required>
+                                <option value="">-- Seleccione un contrato --</option>
+                                {% for c in contratos %}
+                                    <option value="{{ c.id }}">{{ c.nombre_contrato }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="servicio" class="form-label fw-bold">Servicio *</label>
+                        {% if editing %}
+                            <input type="text" class="form-control" value="{{ precio.servicio.nombre }}" readonly>
+                            <input type="hidden" name="servicio" value="{{ precio.servicio.id }}">
+                        {% else %}
+                            <select name="servicio" id="servicio" class="form-select" required>
+                                <option value="">-- Seleccione un servicio --</option>
+                                {% for s in servicios %}
+                                    <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="precio_unitario" class="form-label fw-bold">Precio Unitario *</label>
+                        <input type="number" 
+                               name="precio_unitario" 
+                               id="precio_unitario" 
+                               class="form-control"
+                               step="0.01"
+                               min="0.01"
+                               value="{% if editing %}{{ precio.precio_unitario }}{% endif %}"
+                               required>
+                        <small class="form-text text-muted">Precio por metro perforado</small>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="moneda" class="form-label fw-bold">Moneda *</label>
+                        <select name="moneda" id="moneda" class="form-select" required>
+                            <option value="USD" {% if editing and precio.moneda == 'USD' %}selected{% endif %}>USD - Dólares</option>
+                            <option value="BOB" {% if editing and precio.moneda == 'BOB' %}selected{% endif %}>BOB - Bolivianos</option>
+                            <option value="PEN" {% if editing and precio.moneda == 'PEN' %}selected{% endif %}>PEN - Soles</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="fecha_inicio_vigencia" class="form-label fw-bold">Fecha Inicio Vigencia *</label>
+                        <input type="date" 
+                               name="fecha_inicio_vigencia" 
+                               id="fecha_inicio_vigencia" 
+                               class="form-control"
+                               value="{% if editing %}{{ precio.fecha_inicio_vigencia|date:'Y-m-d' }}{% endif %}"
+                               required>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="fecha_fin_vigencia" class="form-label fw-bold">Fecha Fin Vigencia (Opcional)</label>
+                        <input type="date" 
+                               name="fecha_fin_vigencia" 
+                               id="fecha_fin_vigencia" 
+                               class="form-control"
+                               value="{% if editing and precio.fecha_fin_vigencia %}{{ precio.fecha_fin_vigencia|date:'Y-m-d' }}{% endif %}">
+                        <small class="form-text text-muted">Dejar vacío para vigencia indefinida</small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="observaciones" class="form-label fw-bold">Observaciones</label>
+                        <textarea name="observaciones" 
+                                  id="observaciones" 
+                                  class="form-control" 
+                                  rows="3">{% if editing %}{{ precio.observaciones }}{% endif %}</textarea>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" 
+                                   name="activo" 
+                                   value="1" 
+                                   class="form-check-input" 
+                                   id="activo"
+                                   {% if not editing or precio.activo %}checked{% endif %}>
+                            <label class="form-check-label" for="activo">
+                                Activo (disponible para uso)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'precios-unitarios-list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 
+                        {% if editing %}Actualizar{% else %}Crear{% endif %} Precio
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Información adicional -->
+    {% if not editing %}
+    <div class="card mt-4">
+        <div class="card-body">
+            <h6><i class="fas fa-info-circle"></i> Información:</h6>
+            <ul>
+                <li>El precio unitario se aplicará a las metas del servicio seleccionado</li>
+                <li>La vigencia determina en qué fechas aplica este precio</li>
+                <li>Puedes tener múltiples precios para el mismo servicio con diferentes vigencias</li>
+                <li>El sistema usa el precio vigente al momento del cálculo</li>
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

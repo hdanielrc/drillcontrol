@@ -1,0 +1,31 @@
+{% extends 'drilling/base.html' %}
+{% block title %}Lista de Productos Diamantados{% endblock %}
+{% block content %}
+<h2>Productos Diamantados</h2>
+<a href="{% url 'complemento-create' %}" class="btn btn-primary mb-3">Nuevo Producto Diamantado</a>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Categoría</th>
+      <th>Descripción</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for complemento in complementos %}
+    <tr>
+      <td>{{ complemento.nombre }}</td>
+      <td>{{ complemento.get_categoria_display }}</td>
+      <td>{{ complemento.descripcion }}</td>
+      <td>
+        <a href="{% url 'complemento-update' complemento.pk %}" class="btn btn-sm btn-warning">Editar</a>
+        <a href="{% url 'complemento-delete' complemento.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="text-center">No hay productos diamantados registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,357 @@
+{% extends "drilling/base.html" %}
+{% load static %}
+
+{% block title %}Gestionar Metas por Contrato{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress {
+        height: 25px;
+    }
+    .progress-bar {
+        font-weight: bold;
+        line-height: 25px;
+    }
+    .badge-meta {
+        font-size: 0.9rem;
+        padding: 0.4em 0.7em;
+    }
+    .table-metas th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+    .meta-input {
+        width: 120px;
+    }
+    .form-check-input {
+        width: 1.2em;
+        height: 1.2em;
+        cursor: pointer;
+    }
+    .periodo-info {
+        background-color: #e7f3ff;
+        border-left: 4px solid #0d6efd;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2><i class="fas fa-chart-line"></i> Gestionar Metas por Contrato</h2>
+            <p class="text-muted">Configure las metas mensuales para todas las máquinas del contrato</p>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" id="filtrosForm">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="contrato" class="form-label fw-bold">Contrato</label>
+                        <select name="contrato" id="contrato" class="form-select" onchange="this.form.submit()">
+                            {% for c in contratos %}
+                                <option value="{{ c.id }}" {% if contrato_id == c.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ c.nombre_contrato }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="año" class="form-label fw-bold">Año</label>
+                        <select name="año" id="año" class="form-select" onchange="this.form.submit()">
+                            {% for a in años_disponibles %}
+                                <option value="{{ a }}" {% if año == a|stringformat:"s" %}selected{% endif %}>{{ a }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="mes" class="form-label fw-bold">Mes</label>
+                        <select name="mes" id="mes" class="form-select" onchange="this.form.submit()">
+                            {% for m_num, m_nombre in meses %}
+                                <option value="{{ m_num }}" {% if mes == m_num|stringformat:"s" %}selected{% endif %}>{{ m_nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if periodo_texto %}
+    <div class="periodo-info">
+        <strong><i class="fas fa-calendar-alt"></i> Período:</strong> {{ periodo_texto }}
+        <span class="text-muted">(Del 26 del mes anterior al 25 del mes seleccionado)</span>
+    </div>
+    {% endif %}
+
+    {% if contrato and precios_unitarios %}
+    <div class="alert alert-info">
+        <strong><i class="fas fa-dollar-sign"></i> Precios Unitarios Vigentes:</strong>
+        {% for precio in precios_unitarios %}
+            <span class="badge bg-primary me-2">{{ precio.servicio.nombre }}: {{ precio.moneda }} {{ precio.precio_unitario }}/m</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if contrato and maquinas_data %}
+    <!-- Formulario de Metas -->
+    <form method="POST" id="metasForm">
+        {% csrf_token %}
+        <input type="hidden" name="contrato" value="{{ contrato_id }}">
+        <input type="hidden" name="año" value="{{ año }}">
+        <input type="hidden" name="mes" value="{{ mes }}">
+        
+        <!-- Servicio común para todas las metas -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        <label for="servicio" class="form-label fw-bold">
+                            <i class="fas fa-cog"></i> Servicio/Actividad (Común para todas)
+                        </label>
+                        <select name="servicio" id="servicio" class="form-select">
+                            <option value="">-- Seleccione un servicio para valorización --</option>
+                            {% for s in servicios_disponibles %}
+                                <option value="{{ s.id }}">{{ s.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">
+                            El servicio seleccionado se aplicará a todas las metas que se creen o actualicen
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-tachometer-alt"></i> Metas - {{ contrato.nombre_contrato }}
+                    <span class="float-end">
+                        <small>Total: {{ maquinas_data|length }} máquina(s)</small>
+                    </span>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-metas mb-0">
+                        <thead class="sticky-header">
+                            <tr>
+                                <th style="width: 3%">#</th>
+                                <th style="width: 15%">Máquina</th>
+                                <th style="width: 10%">Meta (m)</th>
+                                <th style="width: 5%">Activo</th>
+                                <th style="width: 12%">Servicio</th>
+                                <th style="width: 10%">Valor Meta</th>
+                                <th style="width: 10%">Real (m)</th>
+                                <th style="width: 10%">Valor Real</th>
+                                <th style="width: 25%">Cumplimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in maquinas_data %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>
+                                    <strong>{{ data.maquina.nombre }}</strong>
+                                    {% if data.meta %}
+                                        <input type="hidden" name="meta_id_{{ data.maquina.id }}" value="{{ data.meta.id }}">
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <input type="number" 
+                                           name="meta_metros_{{ data.maquina.id }}" 
+                                           class="form-control meta-input" 
+                                           value="{{ data.meta_metros|floatformat:2 }}"
+                                           step="0.01"
+                                           min="0"
+                                           placeholder="0.00">
+                                </td>
+                                <td class="text-center">
+                                    <div class="form-check d-inline-block">
+                                        <input type="checkbox" 
+                                               name="activo_{{ data.maquina.id }}" 
+                                               class="form-check-input" 
+                                               value="1"
+                                               {% if data.activo %}checked{% endif %}>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if data.servicio %}
+                                        <small class="badge bg-secondary">{{ data.servicio.nombre }}</small>
+                                    {% else %}
+                                        <small class="text-muted">Sin servicio</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if data.valorizacion and data.valorizacion.tiene_precio %}
+                                        <small class="text-success">
+                                            {{ data.valorizacion.moneda }} {{ data.valorizacion.meta_monto|floatformat:2 }}
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info badge-meta">{{ data.metros_reales|floatformat:2 }} m</span>
+                                    <br><small class="text-muted">({{ data.total_turnos }} turnos)</small>
+                                </td>
+                                <td>
+                                    {% if data.valorizacion and data.valorizacion.tiene_precio %}
+                                        <small class="{% if data.valorizacion.diferencia_monto >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ data.valorizacion.moneda }} {{ data.valorizacion.real_monto|floatformat:2 }}
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if data.meta_metros > 0 %}
+                                        {% if data.porcentaje_cumplimiento >= 100 %}
+                                            {% with porcentaje=data.porcentaje_cumplimiento|floatformat:1 %}
+                                            <div class="progress">
+                                                <div class="progress-bar bg-success" role="progressbar" 
+                                                     style="width: 100%;" 
+                                                     aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                                                    {{ porcentaje }}%
+                                                </div>
+                                            </div>
+                                            {% endwith %}
+                                        {% elif data.porcentaje_cumplimiento >= 80 %}
+                                            {% with porcentaje=data.porcentaje_cumplimiento|floatformat:1 %}
+                                            <div class="progress">
+                                                <div class="progress-bar bg-info" role="progressbar" 
+                                                     style="width: {{ porcentaje }}%;" 
+                                                     aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
+                                                    {{ porcentaje }}%
+                                                </div>
+                                            </div>
+                                            {% endwith %}
+                                        {% elif data.porcentaje_cumplimiento >= 50 %}
+                                            {% with porcentaje=data.porcentaje_cumplimiento|floatformat:1 %}
+                                            <div class="progress">
+                                                <div class="progress-bar bg-warning" role="progressbar" 
+                                                     style="width: {{ porcentaje }}%;" 
+                                                     aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
+                                                    {{ porcentaje }}%
+                                                </div>
+                                            </div>
+                                            {% endwith %}
+                                        {% else %}
+                                            {% with porcentaje=data.porcentaje_cumplimiento|floatformat:1 %}
+                                            <div class="progress">
+                                                <div class="progress-bar bg-danger" role="progressbar" 
+                                                     style="width: {{ porcentaje }}%;" 
+                                                     aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
+                                                    {{ porcentaje }}%
+                                                </div>
+                                            </div>
+                                            {% endwith %}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Sin meta definida</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> Los cambios se guardarán para el período {{ periodo_texto }}
+                        </small>
+                    </div>
+                    <div>
+                        <a href="{% url 'metas-maquina-list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Todas las Metas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No hay máquinas operativas para el contrato seleccionado o no se ha seleccionado ningún contrato.
+    </div>
+    {% endif %}
+
+    <!-- Leyenda -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <h6 class="card-title"><i class="fas fa-question-circle"></i> Leyenda</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Cumplimiento:</strong></p>
+                    <ul class="list-unstyled ms-3">
+                        <li><span class="badge bg-danger">0-49%</span> Bajo</li>
+                        <li><span class="badge bg-warning text-dark">50-79%</span> Regular</li>
+                        <li><span class="badge bg-info">80-99%</span> Bueno</li>
+                        <li><span class="badge bg-success">≥100%</span> Excelente</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Instrucciones:</strong></p>
+                    <ul class="ms-3">
+                        <li>Ingrese la meta en metros para cada máquina</li>
+                        <li>Marque "Activo" para incluir la meta en reportes</li>
+                        <li>Deje el campo vacío o en 0 si no desea establecer meta</li>
+                        <li>El sistema mostrará el cumplimiento en tiempo real</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Confirmación antes de enviar
+    document.getElementById('metasForm').addEventListener('submit', function(e) {
+        const metasInputs = document.querySelectorAll('input[name^="meta_metros_"]');
+        let metasConValor = 0;
+        
+        metasInputs.forEach(input => {
+            if (input.value && parseFloat(input.value) > 0) {
+                metasConValor++;
+            }
+        });
+        
+        if (metasConValor === 0) {
+            e.preventDefault();
+            alert('No se ingresaron valores de meta. Por favor, ingrese al menos una meta para continuar.');
+            return false;
+        }
+    });
+    
+    // Resaltar filas al hacer hover
+    document.querySelectorAll('.table-metas tbody tr').forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f0f8ff';
+        });
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Eliminar Trabajador{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4><i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación</h4>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-user-times fa-3x text-danger mb-3"></i>
+                    <h5>¿Está seguro que desea eliminar este trabajador?</h5>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Información del trabajador:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>ID:</strong> {{ object.id }}</li>
+                        <li><strong>Nombre:</strong> {{ object.nombre }}</li>
+                        <li><strong>Cargo:</strong> {{ object.get_cargo_display }}</li>
+                        <li><strong>RUT:</strong> {{ object.rut|default:"No especificado" }}</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>¡Atención!</strong> Esta acción no se puede deshacer. 
+                    El trabajador será eliminado permanentemente del sistema.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'trabajador-list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Sí, Eliminar Trabajador
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

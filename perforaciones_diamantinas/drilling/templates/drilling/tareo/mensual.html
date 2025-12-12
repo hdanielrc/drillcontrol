@@ -1,0 +1,728 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}Tareo de Asistencia - {{ nombre_periodo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-calendar-check"></i> Tareo de Asistencia</h2>
+                
+                {% if contratos_disponibles %}
+                <div class="d-flex gap-2">
+                    <select class="form-select" id="selectContrato" onchange="cambiarContrato()">
+                        {% for c in contratos_disponibles %}
+                        <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                            {{ c.nombre_contrato }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegación y controles -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <!-- Selector de modo de visualización -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Modo de Visualización:</label>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="modo" id="modoSemana" value="semana" 
+                                       {% if modo == 'semana' %}checked{% endif %} onchange="cambiarModo('semana')">
+                                <label class="btn btn-outline-primary" for="modoSemana">
+                                    <i class="fas fa-calendar-week"></i> Semana
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="modo" id="modoQuincena" value="quincena" 
+                                       {% if modo == 'quincena' %}checked{% endif %} onchange="cambiarModo('quincena')">
+                                <label class="btn btn-outline-primary" for="modoQuincena">
+                                    <i class="fas fa-calendar-alt"></i> Quincena
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="modo" id="modoMes" value="mes" 
+                                       {% if modo == 'mes' %}checked{% endif %} onchange="cambiarModo('mes')">
+                                <label class="btn btn-outline-primary" for="modoMes">
+                                    <i class="fas fa-calendar"></i> Mes Completo
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="modo" id="modoPersonalizado" value="personalizado" 
+                                       {% if modo == 'personalizado' %}checked{% endif %} onchange="mostrarRangoPersonalizado()">
+                                <label class="btn btn-outline-primary" for="modoPersonalizado">
+                                    <i class="fas fa-calendar-day"></i> Personalizado
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Rango personalizado (oculto por defecto) -->
+                    <div class="row mb-3" id="rangoPersonalizado" style="display: {% if modo == 'personalizado' %}flex{% else %}none{% endif %};">
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha Inicio:</label>
+                            <input type="date" class="form-control" id="fechaInicio" value="{{ fecha_inicio|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha Fin:</label>
+                            <input type="date" class="form-control" id="fechaFin" value="{{ fecha_fin|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button class="btn btn-primary" onclick="aplicarRangoPersonalizado()">
+                                <i class="fas fa-search"></i> Aplicar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Navegación del período -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_anterior|date:'Y-m-d' }}" 
+                           class="btn btn-outline-primary">
+                            <i class="fas fa-chevron-left"></i> Período Anterior
+                        </a>
+                        
+                        <div class="text-center">
+                            <h5 class="mb-0">{{ nombre_periodo }}</h5>
+                            <small class="text-muted">{{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</small>
+                        </div>
+                        
+                        <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_siguiente|date:'Y-m-d' }}" 
+                           class="btn btn-outline-primary">
+                            Período Siguiente <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de herramientas -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <strong>Total Trabajadores:</strong> {{ total_trabajadores }}
+                        </div>
+                        
+                        <div class="d-flex gap-2 align-items-center">
+                            <label class="mb-0">Selección Múltiple:</label>
+                            <button class="btn btn-sm btn-info" onclick="iniciarSeleccionMultiple()">
+                                <i class="fas fa-check-square"></i> Activar
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()" id="btnCancelar" style="display: none;">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" onclick="guardarCambios()">
+                                <i class="fas fa-save"></i> Guardar Cambios
+                            </button>
+                            <button class="btn btn-primary" onclick="exportarExcel()">
+                                <i class="fas fa-file-excel"></i> Exportar Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de selección múltiple (oculto por defecto) -->
+    <div class="row mb-3" id="panelSeleccionMultiple" style="display: none;">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <strong><i class="fas fa-magic"></i> Modo Selección Múltiple Activo</strong>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">Selecciona las celdas que desees modificar (clic en las celdas), luego elige el estado:</p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        {% for codigo, nombre in estados_asistencia %}
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="aplicarEstadoMultiple('{{ codigo }}', '{{ nombre }}')">
+                            {{ nombre }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-2">
+                        <span id="celdasSeleccionadas">0 celdas seleccionadas</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Matriz de asistencia -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                        <table class="table table-bordered table-hover table-sm mb-0" id="tablaAsistencia">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th class="text-center sticky-column" style="min-width: 50px; z-index: 1001;">#</th>
+                                    <th class="text-center sticky-column-2" style="min-width: 200px; z-index: 1001;">Trabajador</th>
+                                    <th class="text-center" style="min-width: 150px;">Cargo</th>
+                                    <th class="text-center" style="min-width: 80px;">Grupo</th>
+                                    <th class="text-center" style="min-width: 70px;">Guardia</th>
+                                    {% for dia in dias_rango %}
+                                    <th class="text-center {% if dia.es_domingo %}table-danger{% elif dia.es_sabado %}table-warning{% endif %}" 
+                                        style="min-width: 60px; font-size: 0.75rem;">
+                                        {{ dia.nombre_dia }}<br>
+                                        <small>{{ dia.dia }}</small>
+                                    </th>
+                                    {% endfor %}
+                                    <th class="text-center" style="min-width: 80px;">Total Días</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for grupo in grupos_ordenados %}
+                                <!-- Separador de Grupo -->
+                                <tr class="table-primary">
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-center fw-bold">
+                                        <i class="fas fa-users"></i> {{ grupo.nombre|upper }} 
+                                        <span class="badge bg-primary ms-2">{{ grupo.total_trabajadores }} trabajadores</span>
+                                    </td>
+                                </tr>
+                                
+                                {% for guardia in grupo.guardias %}
+                                <!-- Separador de Guardia -->
+                                {% if guardia.key != 'SIN_GUARDIA' %}
+                                <tr class="table-info">
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-4">
+                                        <i class="fas fa-shield-alt"></i> <strong>{{ guardia.nombre }}</strong>
+                                        <span class="badge bg-info ms-2">{{ guardia.trabajadores|length }} trabajadores</span>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                
+                                <!-- Trabajadores de esta guardia -->
+                                {% for item in guardia.trabajadores %}
+                                <tr data-trabajador-id="{{ item.trabajador.id }}" class="trabajador-row">
+                                    <td class="sticky-column bg-light text-center" style="z-index: 1000; font-size: 0.8rem;">
+                                        {{ forloop.parentloop.parentloop.counter }}{{ forloop.parentloop.counter }}{{ forloop.counter }}
+                                    </td>
+                                    <td class="sticky-column-2 bg-light" style="z-index: 1000;">
+                                        <strong>{{ item.trabajador.apellidos }}, {{ item.trabajador.nombres }}</strong>
+                                        <br><small class="text-muted">DNI: {{ item.trabajador.dni }}</small>
+                                    </td>
+                                    <td class="text-center" style="font-size: 0.8rem;">
+                                        {{ item.trabajador.cargo.nombre }}
+                                    </td>
+                                    <td class="text-center" style="font-size: 0.75rem;">
+                                        <span class="badge bg-secondary">{{ item.trabajador.get_grupo_display|default:"Sin Grupo" }}</span>
+                                    </td>
+                                    <td class="text-center" style="font-size: 0.75rem;">
+                                        {% if item.trabajador.guardia_asignada %}
+                                        <span class="badge bg-info">{{ item.trabajador.guardia_asignada }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    {% for asist in item.asistencias %}
+                                    <td class="celda-asistencia text-center {% if asist.es_domingo %}table-danger{% elif asist.es_sabado %}table-warning{% endif %}" 
+                                        data-trabajador-id="{{ item.trabajador.id }}"
+                                        data-fecha="{{ asist.fecha|date:'Y-m-d' }}"
+                                        data-estado="{{ asist.estado }}"
+                                        data-tipo="{{ asist.tipo }}"
+                                        onclick="abrirModalAsistencia({{ item.trabajador.id }}, '{{ asist.fecha|date:'Y-m-d' }}', '{{ asist.estado }}', '{{ asist.observaciones|escapejs }}', '{{ asist.tipo }}')"
+                                        title="{{ asist.estado_display }} - {{ asist.tipo_display }}{% if asist.observaciones %} | {{ asist.observaciones }}{% endif %}"
+                                        style="cursor: pointer; padding: 2px; font-size: 0.7rem;">
+                                        {% if asist.estado %}
+                                        <span class="badge-estado" data-estado="{{ asist.estado }}">
+                                            {% if asist.estado == 'TRABAJADO' %}T
+                                            {% elif asist.estado == 'DIA_LIBRE' %}DL
+                                            {% elif asist.estado == 'DIA_APOYO' %}DA
+                                            {% elif asist.estado == 'PERMISO_PATERNIDAD' %}PT
+                                            {% elif asist.estado == 'DESCANSO_MEDICO' %}DM
+                                            {% elif asist.estado == 'STAND_BY' %}SB
+                                            {% elif asist.estado == 'SUBSIDIO' %}SUB
+                                            {% elif asist.estado == 'INDUCCION' %}I
+                                            {% elif asist.estado == 'INDUCCION_VIRTUAL' %}IV
+                                            {% elif asist.estado == 'RECORRIDO' %}R
+                                            {% elif asist.estado == 'FALTA' %}F
+                                            {% elif asist.estado == 'PERMISO' %}P
+                                            {% elif asist.estado == 'SUSPENSION' %}S
+                                            {% elif asist.estado == 'VACACIONES' %}V
+                                            {% else %}{{ asist.estado_display|truncatewords:1|slice:":3" }}
+                                            {% endif %}
+                                        </span>
+                                        {% if user.role == 'ADMIN_SISTEMA' and asist.tipo == 'PAGABLE' %}
+                                        <small class="text-success" style="font-size: 0.6rem;">💰</small>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                    <td class="text-center" style="font-size: 0.75rem;">
+                                        <span class="resumen-trabajador" data-trabajador-id="{{ item.trabajador.id }}">-</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                                {% empty %}
+                                <tr>
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-center py-5">
+                                        <i class="fas fa-info-circle"></i> No hay trabajadores activos en este contrato
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leyenda de códigos (estilo Romina) -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-info-circle"></i> <strong>LEYENDA - CÓDIGOS DE ASISTENCIA</strong>
+                </div>
+                <div class="card-body leyenda-codigos">
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="codigo-item"><strong>T</strong> = Trabajado</div>
+                            <div class="codigo-item"><strong>DL</strong> = Día Libre</div>
+                            <div class="codigo-item"><strong>DA</strong> = Día Apoyo</div>
+                            <div class="codigo-item"><strong>F</strong> = Falta</div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="codigo-item"><strong>P</strong> = Permiso</div>
+                            <div class="codigo-item"><strong>S</strong> = Suspensión</div>
+                            <div class="codigo-item"><strong>V</strong> = Vacaciones</div>
+                            <div class="codigo-item"><strong>PT</strong> = Paternidad</div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="codigo-item"><strong>DM</strong> = Descanso Médico</div>
+                            <div class="codigo-item"><strong>SB</strong> = Stand By</div>
+                            <div class="codigo-item"><strong>SUB</strong> = Subsidio</div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="codigo-item"><strong>I</strong> = Inducción</div>
+                            <div class="codigo-item"><strong>IV</strong> = Inducción Virtual</div>
+                            <div class="codigo-item"><strong>R</strong> = Recorrido</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar asistencia individual -->
+<div class="modal fade" id="modalAsistencia" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-calendar-day"></i> Registrar Asistencia
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalTrabajadorId">
+                <input type="hidden" id="modalFecha">
+                
+                <div class="mb-3">
+                    <strong>Fecha:</strong> <span id="modalFechaDisplay"></span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Estado de Asistencia:</label>
+                    <select class="form-select" id="modalEstado" onchange="actualizarTipoAutomatico()">
+                        <option value="">-- Seleccionar --</option>
+                        {% for codigo, nombre in estados_asistencia %}
+                        <option value="{{ codigo }}">{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                {% if user.role == 'ADMIN_SISTEMA' %}
+                <div class="mb-3">
+                    <label class="form-label">Tipo:</label>
+                    <select class="form-select" id="modalTipo">
+                        <option value="PAGABLE">Pagable</option>
+                        <option value="NO_PAGABLE">No Pagable</option>
+                    </select>
+                    <small class="text-muted">
+                        💡 Se sugiere automáticamente según el estado. Puede modificarse manualmente.
+                    </small>
+                </div>
+                {% else %}
+                <input type="hidden" id="modalTipo" value="PAGABLE">
+                <div class="mb-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> El tipo (Pagable/No Pagable) se asigna automáticamente según el estado.
+                    </small>
+                </div>
+                {% endif %}
+                
+                <div class="mb-3">
+                    <label class="form-label">Observaciones (opcional):</label>
+                    <textarea class="form-control" id="modalObservaciones" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarAsistenciaModal()">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% csrf_token %}
+
+<style>
+    .sticky-column {
+        position: sticky;
+        left: 0;
+        background-color: #f8f9fa;
+        z-index: 1000;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    }
+    
+    .sticky-column-2 {
+        position: sticky;
+        left: 50px; /* Después de la columna # */
+        background-color: #f8f9fa;
+        z-index: 1000;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    }
+    
+    .table thead th.sticky-column,
+    .table thead th.sticky-column-2 {
+        z-index: 1001 !important;
+    }
+    
+    .celda-asistencia {
+        transition: all 0.2s ease;
+    }
+    
+    .celda-asistencia:hover {
+        background-color: #fff3cd !important;
+        transform: scale(1.05);
+    }
+    
+    .celda-asistencia.seleccionada {
+        background-color: #cfe2ff !important;
+        border: 2px solid #0d6efd !important;
+    }
+    
+    /* Separadores de grupos */
+    .table-primary td {
+        background-color: #084298 !important;
+        color: white !important;
+        font-weight: bold;
+        padding: 10px !important;
+    }
+    
+    .table-info td {
+        background-color: #0dcaf0 !important;
+        color: #000 !important;
+        font-weight: 500;
+        padding: 6px 12px !important;
+    }
+    
+    .trabajador-row:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .badge-estado {
+        display: inline-block;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: bold;
+    }
+    
+    /* Códigos estilo Romina */
+    .badge-estado[data-estado="TRABAJADO"] { background: #d1e7dd; color: #0f5132; }
+    .badge-estado[data-estado="DIA_LIBRE"] { background: #cfe2ff; color: #084298; }
+    .badge-estado[data-estado="DIA_APOYO"] { background: #e7f1ff; color: #052c65; }
+    .badge-estado[data-estado="PERMISO_PATERNIDAD"] { background: #fff3cd; color: #664d03; }
+    .badge-estado[data-estado="DESCANSO_MEDICO"] { background: #f8d7da; color: #842029; }
+    .badge-estado[data-estado="STAND_BY"] { background: #f8f9fa; color: #495057; }
+    .badge-estado[data-estado="SUBSIDIO"] { background: #fff3cd; color: #997404; }
+    .badge-estado[data-estado="INDUCCION"] { background: #d1ecf1; color: #0c5460; }
+    .badge-estado[data-estado="INDUCCION_VIRTUAL"] { background: #d1ecf1; color: #0c5460; }
+    .badge-estado[data-estado="RECORRIDO"] { background: #e2e3e5; color: #383d41; }
+    .badge-estado[data-estado="FALTA"] { background: #f8d7da; color: #721c24; }
+    .badge-estado[data-estado="PERMISO"] { background: #fff3cd; color: #856404; }
+    .badge-estado[data-estado="SUSPENSION"] { background: #f5c6cb; color: #721c24; }
+    .badge-estado[data-estado="VACACIONES"] { background: #d4edda; color: #155724; }
+    
+    /* Leyenda de códigos */
+    .leyenda-codigos {
+        font-size: 0.75rem;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        margin-top: 10px;
+    }
+    
+    .codigo-item {
+        display: inline-block;
+        margin-right: 15px;
+        margin-bottom: 5px;
+    }
+    
+    .codigo-item strong {
+        font-family: monospace;
+        background: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    .badge-estado[data-estado="VACACIONES"] { background: #d4edda; color: #155724; }
+    .badge-estado[data-estado="LICENCIA_SIN_GOCE"] { background: #f8d7da; color: #721c24; }
+    .badge-estado[data-estado="CESADO"] { background: #343a40; color: #fff; }
+    .badge-estado[data-estado="TRABAJO_CALIENTE"] { background: #ffc107; color: #000; }
+    .badge-estado[data-estado="LICENCIA_FALLECIMIENTO"] { background: #6c757d; color: #fff; }
+    .badge-estado[data-estado="LICENCIA_CON_GOCE"] { background: #d4edda; color: #155724; }
+    .badge-estado[data-estado=""] { background: #e9ecef; color: #6c757d; }
+</style>
+
+<script>
+    let cambiosPendientes = [];
+    let modoSeleccionMultiple = false;
+    let celdasSeleccionadas = [];
+    
+    function cambiarContrato() {
+        const contratoId = document.getElementById('selectContrato').value;
+        const modo = '{{ modo }}';
+        const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
+        window.location.href = `?contrato=${contratoId}&modo=${modo}&fecha_inicio=${fechaInicio}`;
+    }
+    
+    function cambiarModo(nuevoModo) {
+        const contratoId = {{ contrato.id }};
+        // Para semana, usar el lunes de la semana actual
+        const hoy = new Date();
+        const diaActual = hoy.getDay() || 7; // 0=Domingo -> 7, 1=Lunes -> 1, etc.
+        const lunes = new Date(hoy);
+        lunes.setDate(hoy.getDate() - (diaActual - 1));
+        const fechaInicio = lunes.toISOString().split('T')[0];
+        
+        window.location.href = `?contrato=${contratoId}&modo=${nuevoModo}&fecha_inicio=${fechaInicio}`;
+    }
+    
+    function mostrarRangoPersonalizado() {
+        document.getElementById('rangoPersonalizado').style.display = 'flex';
+    }
+    
+    function aplicarRangoPersonalizado() {
+        const contratoId = {{ contrato.id }};
+        const fechaInicio = document.getElementById('fechaInicio').value;
+        const fechaFin = document.getElementById('fechaFin').value;
+        
+        if (!fechaInicio || !fechaFin) {
+            alert('Debe seleccionar ambas fechas');
+            return;
+        }
+        
+        if (new Date(fechaInicio) > new Date(fechaFin)) {
+            alert('La fecha de inicio debe ser menor o igual a la fecha fin');
+            return;
+        }
+        
+        window.location.href = `?contrato=${contratoId}&modo=personalizado&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+    }
+    
+    function abrirModalAsistencia(trabajadorId, fecha, estadoActual, observaciones, tipoActual) {
+        if (modoSeleccionMultiple) {
+            toggleSeleccionCelda(event.target.closest('.celda-asistencia'));
+            return;
+        }
+        
+        document.getElementById('modalTrabajadorId').value = trabajadorId;
+        document.getElementById('modalFecha').value = fecha;
+        document.getElementById('modalFechaDisplay').textContent = formatearFecha(fecha);
+        document.getElementById('modalEstado').value = estadoActual || '';
+        document.getElementById('modalTipo').value = tipoActual || 'PAGABLE';
+        document.getElementById('modalObservaciones').value = observaciones || '';
+        
+        // Auto-sugerir tipo si hay estado
+        if (estadoActual) {
+            actualizarTipoAutomatico();
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAsistencia'));
+        modal.show();
+    }
+    
+    function actualizarTipoAutomatico() {
+        const estado = document.getElementById('modalEstado').value;
+        const estadosPagables = ['TRABAJADO', 'DIA_LIBRE', 'INDUCCION', 'INDUCCION_VIRTUAL'];
+        
+        if (estadosPagables.includes(estado)) {
+            document.getElementById('modalTipo').value = 'PAGABLE';
+        } else if (estado) {
+            document.getElementById('modalTipo').value = 'NO_PAGABLE';
+        }
+    }
+    
+    function formatearFecha(fechaStr) {
+        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        
+        const fecha = new Date(fechaStr + 'T00:00:00');
+        const diaSemana = dias[fecha.getDay()];
+        const dia = fecha.getDate();
+        const mes = meses[fecha.getMonth()];
+        const año = fecha.getFullYear();
+        
+        return `${diaSemana} ${dia} de ${mes} de ${año}`;
+    }
+    
+    function guardarAsistenciaModal() {
+        const trabajadorId = document.getElementById('modalTrabajadorId').value;
+        const fecha = document.getElementById('modalFecha').value;
+        const estado = document.getElementById('modalEstado').value;
+        const tipo = document.getElementById('modalTipo').value;
+        const observaciones = document.getElementById('modalObservaciones').value;
+        
+        if (!estado) {
+            alert('Debe seleccionar un estado');
+            return;
+        }
+        
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        fetch('/tareo/guardar-asistencia/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                trabajador_id: trabajadorId,
+                fecha: fecha,
+                estado: estado,
+                tipo: tipo,
+                observaciones: observaciones
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                location.reload();
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error al guardar');
+        });
+    }
+    
+    // SELECCIÓN MÚLTIPLE
+    function iniciarSeleccionMultiple() {
+        modoSeleccionMultiple = true;
+        celdasSeleccionadas = [];
+        document.getElementById('panelSeleccionMultiple').style.display = 'block';
+        document.getElementById('btnCancelar').style.display = 'inline-block';
+        actualizarContadorSeleccion();
+    }
+    
+    function cancelarSeleccionMultiple() {
+        modoSeleccionMultiple = false;
+        celdasSeleccionadas = [];
+        document.getElementById('panelSeleccionMultiple').style.display = 'none';
+        document.getElementById('btnCancelar').style.display = 'none';
+        document.querySelectorAll('.celda-asistencia.seleccionada').forEach(celda => {
+            celda.classList.remove('seleccionada');
+        });
+        actualizarContadorSeleccion();
+    }
+    
+    function toggleSeleccionCelda(celda) {
+        const index = celdasSeleccionadas.findIndex(c => c === celda);
+        if (index > -1) {
+            celdasSeleccionadas.splice(index, 1);
+            celda.classList.remove('seleccionada');
+        } else {
+            celdasSeleccionadas.push(celda);
+            celda.classList.add('seleccionada');
+        }
+        actualizarContadorSeleccion();
+    }
+    
+    function actualizarContadorSeleccion() {
+        document.getElementById('celdasSeleccionadas').textContent = 
+            `${celdasSeleccionadas.length} celdas seleccionadas`;
+    }
+    
+    function aplicarEstadoMultiple(estado, nombreEstado) {
+        if (celdasSeleccionadas.length === 0) {
+            alert('No hay celdas seleccionadas');
+            return;
+        }
+        
+        if (!confirm(`¿Aplicar "${nombreEstado}" a ${celdasSeleccionadas.length} celdas seleccionadas?`)) {
+            return;
+        }
+        
+        const asistencias = celdasSeleccionadas.map(celda => ({
+            trabajador_id: parseInt(celda.dataset.trabajadorId),
+            fecha: celda.dataset.fecha,
+            estado: estado,
+            observaciones: ''
+        }));
+        
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        fetch('/tareo/guardar-asistencias-masivas/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ asistencias: asistencias })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                location.reload();
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error al guardar');
+        });
+    }
+    
+    function guardarCambios() {
+        alert('Todos los cambios se guardan automáticamente');
+    }
+    
+    function exportarExcel() {
+        const contratoId = {{ contrato.id }};
+        const modo = '{{ modo }}';
+        const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
+        const fechaFin = '{{ fecha_fin|date:"Y-m-d" }}';
+        window.location.href = `/tareo/exportar-excel/?contrato=${contratoId}&modo=${modo}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+    }
+</script>
+
+{% endblock %}

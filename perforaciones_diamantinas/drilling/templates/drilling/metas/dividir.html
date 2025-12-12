@@ -1,0 +1,321 @@
+{% extends "drilling/base.html" %}
+{% load static %}
+
+{% block title %}Dividir Meta - {{ meta.maquina.nombre }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-card {
+        border-left: 4px solid #0d6efd;
+        background-color: #f8f9fa;
+    }
+    .warning-card {
+        border-left: 4px solid #ffc107;
+        background-color: #fff3cd;
+    }
+    .stat-box {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #0d6efd;
+        margin-bottom: 1rem;
+    }
+    .stat-box h6 {
+        color: #0d6efd;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .stat-box .value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #333;
+    }
+    .divider-line {
+        border-top: 3px dashed #dee2e6;
+        margin: 2rem 0;
+        position: relative;
+    }
+    .divider-line::after {
+        content: "División";
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 0 1rem;
+        color: #6c757d;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2><i class="fas fa-cut"></i> Dividir Meta en Dos Períodos</h2>
+            <p class="text-muted">Ajuste la meta a mitad del período creando dos metas con valores diferentes</p>
+        </div>
+    </div>
+
+    <!-- Información de la Meta Original -->
+    <div class="card info-card mb-4">
+        <div class="card-body">
+            <h5 class="card-title"><i class="fas fa-info-circle"></i> Meta Original</h5>
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Máquina:</strong><br>
+                    <span class="badge bg-primary" style="font-size: 1rem;">{{ meta.maquina.nombre }}</span>
+                </div>
+                <div class="col-md-3">
+                    <strong>Contrato:</strong><br>
+                    {{ meta.contrato.nombre_contrato }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Período:</strong><br>
+                    {{ fecha_inicio|date:"d/m/Y" }} - {{ fecha_fin|date:"d/m/Y" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Meta Original:</strong><br>
+                    <span class="badge bg-success" style="font-size: 1rem;">{{ meta.meta_metros }} metros</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas Actuales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6><i class="fas fa-ruler"></i> Metros Reales</h6>
+                <div class="value">{{ metros_reales_total|floatformat:2 }}m</div>
+                <small class="text-muted">Perforados hasta hoy</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6><i class="fas fa-calendar-day"></i> Turnos</h6>
+                <div class="value">{{ total_turnos }}</div>
+                <small class="text-muted">Completados</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6><i class="fas fa-chart-line"></i> Promedio Diario</h6>
+                <div class="value">{{ promedio_diario|floatformat:2 }}m</div>
+                <small class="text-muted">Por día trabajado</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6><i class="fas fa-project-diagram"></i> Proyección</h6>
+                <div class="value">{{ proyeccion|floatformat:2 }}m</div>
+                <small class="text-muted">A fin de período</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advertencia -->
+    <div class="alert warning-card alert-warning">
+        <h6 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> ¿Qué hace esta operación?</h6>
+        <ul class="mb-0">
+            <li><strong>Desactiva</strong> la meta original y ajusta su fecha fin al día anterior a la división</li>
+            <li><strong>Crea</strong> una nueva meta desde la fecha de división hasta el fin del período original</li>
+            <li><strong>Mantiene</strong> el historial completo para análisis y reportes</li>
+            <li>Los metros ya perforados se registran en las observaciones de la meta original</li>
+        </ul>
+    </div>
+
+    <!-- Formulario de División -->
+    <form method="POST">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Configurar División de Meta</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="fecha_division" class="form-label fw-bold">
+                                <i class="fas fa-calendar-check"></i> Fecha de División *
+                            </label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   id="fecha_division" 
+                                   name="fecha_division"
+                                   min="{{ fecha_inicio|date:'Y-m-d' }}"
+                                   max="{{ fecha_fin|date:'Y-m-d' }}"
+                                   value="{{ fecha_hoy|date:'Y-m-d' }}"
+                                   required>
+                            <small class="form-text text-muted">
+                                Desde esta fecha comenzará la nueva meta. 
+                                La meta original terminará el día anterior.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="nueva_meta_metros" class="form-label fw-bold">
+                                <i class="fas fa-bullseye"></i> Nueva Meta (metros) *
+                            </label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="nueva_meta_metros" 
+                                   name="nueva_meta_metros"
+                                   step="0.01"
+                                   min="0.01"
+                                   value="{{ meta.meta_metros }}"
+                                   required>
+                            <small class="form-text text-muted">
+                                Meta en metros para el período restante.
+                                La meta original era: <strong>{{ meta.meta_metros }}m</strong>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualización de División -->
+                <div class="divider-line"></div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="alert alert-secondary">
+                            <h6><i class="fas fa-clock"></i> Período 1 (Original - Finalizado)</h6>
+                            <p class="mb-1">
+                                <strong>Fechas:</strong> 
+                                {{ fecha_inicio|date:"d/m/Y" }} - <span id="fecha_fin_periodo1">--</span>
+                            </p>
+                            <p class="mb-1">
+                                <strong>Meta:</strong> {{ meta.meta_metros }} metros
+                            </p>
+                            <p class="mb-0">
+                                <strong>Estado:</strong> 
+                                <span class="badge bg-secondary">Se desactivará</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-primary">
+                            <h6><i class="fas fa-forward"></i> Período 2 (Nueva Meta - Activa)</h6>
+                            <p class="mb-1">
+                                <strong>Fechas:</strong> 
+                                <span id="fecha_inicio_periodo2">--</span> - {{ fecha_fin|date:"d/m/Y" }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>Meta:</strong> 
+                                <span id="preview_nueva_meta">0</span> metros
+                            </p>
+                            <p class="mb-0">
+                                <strong>Estado:</strong> 
+                                <span class="badge bg-success">Activa</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cálculo de días -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info">
+                            <strong><i class="fas fa-calculator"></i> Información de días:</strong>
+                            <ul class="mb-0">
+                                <li>Período 1: <span id="dias_periodo1">--</span> días</li>
+                                <li>Período 2: <span id="dias_periodo2">--</span> días</li>
+                                <li>Meta diaria sugerida Período 2: <span id="meta_diaria_periodo2">--</span> m/día</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'metas-maquina-list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-warning" onclick="return confirm('¿Está seguro de dividir esta meta? Esta acción no se puede deshacer.')">
+                        <i class="fas fa-cut"></i> Dividir Meta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Información adicional -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <h6><i class="fas fa-lightbulb"></i> Casos de uso comunes:</h6>
+            <ul>
+                <li><strong>Ajuste por rendimiento:</strong> Si la máquina va mejor o peor de lo esperado</li>
+                <li><strong>Cambio de condiciones:</strong> Nueva zona, cambio de equipo, etc.</li>
+                <li><strong>Corrección de planificación:</strong> Meta inicial no realista</li>
+                <li><strong>Evento especial:</strong> Mantenimiento, parada programada, etc.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Calcular y mostrar preview al cambiar valores
+    const fechaDivisionInput = document.getElementById('fecha_division');
+    const nuevaMetaInput = document.getElementById('nueva_meta_metros');
+    const fechaInicio = new Date('{{ fecha_inicio|date:"Y-m-d" }}');
+    const fechaFin = new Date('{{ fecha_fin|date:"Y-m-d" }}');
+
+    function actualizarPreview() {
+        const fechaDivision = new Date(fechaDivisionInput.value);
+        const nuevaMeta = parseFloat(nuevaMetaInput.value) || 0;
+
+        if (fechaDivisionInput.value && !isNaN(fechaDivision.getTime())) {
+            // Período 1: inicio hasta día anterior a división
+            const fechaFinPeriodo1 = new Date(fechaDivision);
+            fechaFinPeriodo1.setDate(fechaFinPeriodo1.getDate() - 1);
+            document.getElementById('fecha_fin_periodo1').textContent = 
+                fechaFinPeriodo1.toLocaleDateString('es-ES');
+
+            // Período 2: división hasta fin
+            document.getElementById('fecha_inicio_periodo2').textContent = 
+                fechaDivision.toLocaleDateString('es-ES');
+
+            // Calcular días
+            const diasPeriodo1 = Math.floor((fechaFinPeriodo1 - fechaInicio) / (1000 * 60 * 60 * 24)) + 1;
+            const diasPeriodo2 = Math.floor((fechaFin - fechaDivision) / (1000 * 60 * 60 * 24)) + 1;
+
+            document.getElementById('dias_periodo1').textContent = diasPeriodo1;
+            document.getElementById('dias_periodo2').textContent = diasPeriodo2;
+
+            // Meta diaria sugerida
+            if (diasPeriodo2 > 0 && nuevaMeta > 0) {
+                const metaDiaria = (nuevaMeta / diasPeriodo2).toFixed(2);
+                document.getElementById('meta_diaria_periodo2').textContent = metaDiaria;
+            } else {
+                document.getElementById('meta_diaria_periodo2').textContent = '--';
+            }
+        } else {
+            document.getElementById('fecha_fin_periodo1').textContent = '--';
+            document.getElementById('fecha_inicio_periodo2').textContent = '--';
+            document.getElementById('dias_periodo1').textContent = '--';
+            document.getElementById('dias_periodo2').textContent = '--';
+            document.getElementById('meta_diaria_periodo2').textContent = '--';
+        }
+
+        // Preview nueva meta
+        document.getElementById('preview_nueva_meta').textContent = nuevaMeta.toFixed(2);
+    }
+
+    fechaDivisionInput.addEventListener('change', actualizarPreview);
+    nuevaMetaInput.addEventListener('input', actualizarPreview);
+
+    // Inicializar preview
+    actualizarPreview();
+
+    // Sugerencia inteligente basada en proyección
+    const proyeccion = parseFloat('{{ proyeccion|floatformat:2 }}');
+    if (proyeccion > 0) {
+        nuevaMetaInput.value = proyeccion.toFixed(2);
+        actualizarPreview();
+    }
+</script>
+{% endblock %}
+{% endblock %}

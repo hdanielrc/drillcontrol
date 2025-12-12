@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestión de Contrato{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    {% load static %}
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <style>
+        /* Estilo Manager: Colores vivos, enfoque operativo */
+        :root {
+            --manager-primary: #2563eb;
+            --manager-success: #10b981;
+            --manager-warning: #f59e0b;
+            --manager-danger: #ef4444;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .dashboard-card {
+            border-radius: 12px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+        
+        .quick-action-btn {
+            min-height: 120px;
+            font-size: 1.1rem;
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+        
+        .quick-action-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .nav-link {
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+        }
+        
+        .dropdown-menu {
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        
+        .badge-role {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <!-- Navbar Manager -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'dashboard' %}">
+                <i class="fas fa-drill"></i> <strong>Gestión de Contrato</strong>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'dashboard' %}">
+                            <i class="fas fa-home"></i> Inicio
+                        </a>
+                    </li>
+                    
+                    <!-- TRABAJADORES - Destacado con acceso al hub -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'trabajadores-hub' %}">
+                            <i class="fas fa-users"></i> <strong>TRABAJADORES</strong>
+                        </a>
+                    </li>
+                    
+                    <!-- SONDAJES -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-map-marked-alt"></i> Sondajes
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'sondaje-list' %}">
+                                <i class="fas fa-list"></i> Ver Sondajes
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'sondaje-create' %}">
+                                <i class="fas fa-plus"></i> Nuevo Sondaje
+                            </a></li>
+                        </ul>
+                    </li>
+                    
+                    <!-- TURNOS -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-clock"></i> Turnos
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'crear-turno-completo' %}">
+                                <i class="fas fa-plus-circle"></i> Crear Turno
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'listar-turnos' %}">
+                                <i class="fas fa-list"></i> Ver Turnos
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+                
+                <!-- Usuario -->
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle"></i> {{ user.first_name }} {{ user.last_name }}
+                            <span class="badge bg-warning text-dark badge-role">Manager</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header">
+                                <i class="fas fa-building"></i> {{ user.contrato.nombre_contrato }}
+                            </h6></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'change_password' %}">
+                                <i class="fas fa-key"></i> Cambiar Contraseña
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item" style="cursor: pointer; border: none; background: none; text-align: left; width: 100%;">
+                                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Content -->
+    <div class="container-fluid mt-4">
+        <!-- Messages -->
+        {% if messages %}
+        <div class="row">
+            <div class="col-12">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {% if message.tags == 'success' %}
+                        <i class="fas fa-check-circle"></i>
+                    {% elif message.tags == 'danger' %}
+                        <i class="fas fa-exclamation-triangle"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i class="fas fa-exclamation-circle"></i>
+                    {% elif message.tags == 'info' %}
+                        <i class="fas fa-info-circle"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>

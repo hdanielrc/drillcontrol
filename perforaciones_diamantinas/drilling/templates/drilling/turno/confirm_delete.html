@@ -1,0 +1,19 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Eliminar Turno{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>Eliminar Turno #{{ object.id }}</h3>
+    </div>
+    <div class="card-body">
+        <p>¿Estás seguro que quieres eliminar este turno?</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Eliminar</button>
+            <a href="{% url 'listar-turnos' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

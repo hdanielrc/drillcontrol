@@ -1,0 +1,15 @@
+{% extends 'drilling/base.html' %}
+{% block title %}Eliminar Unidad{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h4>Eliminar Unidad</h4>
+    <p>¿Seguro que desea eliminar "{{ object.nombre }}" ({{ object.simbolo }})?</p>
+    <form method="post">
+      {% csrf_token %}
+      <a href="{% url 'unidad-list' %}" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-danger">Eliminar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

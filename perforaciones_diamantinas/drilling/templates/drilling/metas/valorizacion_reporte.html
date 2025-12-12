@@ -1,0 +1,237 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}Reporte de Valorización de Metas{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-file-invoice-dollar"></i> Reporte de Valorización de Metas</h2>
+        {% if valorizacion_data %}
+        <div>
+            <button class="btn btn-success" onclick="exportarExcel()">
+                <i class="fas fa-file-excel"></i> Exportar Excel
+            </button>
+            <button class="btn btn-danger" onclick="exportarPDF()">
+                <i class="fas fa-file-pdf"></i> Exportar PDF
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="contrato" class="form-label">Contrato</label>
+                    <select name="contrato" id="contrato" class="form-select" onchange="this.form.submit()">
+                        {% for c in contratos %}
+                            <option value="{{ c.id }}" {% if contrato_id|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>
+                                {{ c.nombre_contrato }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="año" class="form-label">Año</label>
+                    <select name="año" id="año" class="form-select" onchange="this.form.submit()">
+                        {% for año_item in años_disponibles %}
+                            <option value="{{ año_item }}" {% if año|stringformat:"s" == año_item|stringformat:"s" %}selected{% endif %}>
+                                {{ año_item }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="mes" class="form-label">Mes</label>
+                    <select name="mes" id="mes" class="form-select" onchange="this.form.submit()">
+                        {% for mes_num, mes_nombre in meses %}
+                            <option value="{{ mes_num }}" {% if mes|stringformat:"s" == mes_num|stringformat:"s" %}selected{% endif %}>
+                                {{ mes_nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if contrato %}
+    <!-- Resumen General -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-title">Meta Total (Metros)</h6>
+                    <h3 class="mb-0">{{ resumen.total_meta_metros|floatformat:2 }} m</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-title">Real Total (Metros)</h6>
+                    <h3 class="mb-0">{{ resumen.total_real_metros|floatformat:2 }} m</h3>
+                    <small>{{ resumen.porcentaje_cumplimiento|floatformat:1 }}% cumplimiento</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6 class="card-title">Valorización Meta</h6>
+                    <h3 class="mb-0">{{ resumen.moneda }} {{ resumen.total_meta_monto|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white {% if resumen.diferencia_monto >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                <div class="card-body">
+                    <h6 class="card-title">Valorización Real</h6>
+                    <h3 class="mb-0">{{ resumen.moneda }} {{ resumen.total_real_monto|floatformat:2 }}</h3>
+                    <small>
+                        {% if resumen.diferencia_monto >= 0 %}
+                        <i class="fas fa-arrow-up"></i> +{{ resumen.moneda }} {{ resumen.diferencia_monto|floatformat:2 }}
+                        {% else %}
+                        <i class="fas fa-arrow-down"></i> {{ resumen.moneda }} {{ resumen.diferencia_monto|floatformat:2 }}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Valorización por Máquina -->
+    {% if valorizacion_data %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-table"></i> Detalle de Valorización por Máquina</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="tablaValorizacion">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Máquina</th>
+                            <th>Servicio</th>
+                            <th class="text-center">Meta (m)</th>
+                            <th class="text-center">Real (m)</th>
+                            <th class="text-center">% Cumplimiento</th>
+                            <th class="text-center">Precio Unitario</th>
+                            <th class="text-center">Moneda</th>
+                            <th class="text-end">Monto Meta</th>
+                            <th class="text-end">Monto Real</th>
+                            <th class="text-end">Diferencia</th>
+                            <th class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in valorizacion_data %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.maquina.nombre }}</strong><br>
+                                <small class="text-muted">{{ item.maquina.codigo }}</small>
+                            </td>
+                            <td>{{ item.servicio.nombre }}</td>
+                            <td class="text-center">{{ item.valorizacion.meta_metros|floatformat:2 }}</td>
+                            <td class="text-center">{{ item.valorizacion.real_metros|floatformat:2 }}</td>
+                            <td class="text-center">
+                                <span class="badge 
+                                    {% if item.valorizacion.porcentaje_cumplimiento >= 100 %}bg-success
+                                    {% elif item.valorizacion.porcentaje_cumplimiento >= 80 %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ item.valorizacion.porcentaje_cumplimiento|floatformat:1 }}%
+                                </span>
+                            </td>
+                            <td class="text-center">{{ item.valorizacion.precio_unitario|floatformat:2 }}</td>
+                            <td class="text-center">{{ item.valorizacion.moneda }}</td>
+                            <td class="text-end">{{ item.valorizacion.meta_monto|floatformat:2 }}</td>
+                            <td class="text-end">
+                                <strong>{{ item.valorizacion.real_monto|floatformat:2 }}</strong>
+                            </td>
+                            <td class="text-end 
+                                {% if item.valorizacion.diferencia >= 0 %}text-success
+                                {% else %}text-danger{% endif %}">
+                                {% if item.valorizacion.diferencia >= 0 %}
+                                +{{ item.valorizacion.diferencia|floatformat:2 }}
+                                {% else %}
+                                {{ item.valorizacion.diferencia|floatformat:2 }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.valorizacion.porcentaje_cumplimiento >= 100 %}
+                                <span class="badge bg-success">Cumplido</span>
+                                {% elif item.valorizacion.porcentaje_cumplimiento >= 80 %}
+                                <span class="badge bg-warning">En Progreso</span>
+                                {% else %}
+                                <span class="badge bg-danger">Por Debajo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-secondary">
+                        <tr>
+                            <th colspan="2" class="text-end">TOTALES:</th>
+                            <th class="text-center">{{ resumen.total_meta_metros|floatformat:2 }}</th>
+                            <th class="text-center">{{ resumen.total_real_metros|floatformat:2 }}</th>
+                            <th class="text-center">
+                                <span class="badge 
+                                    {% if resumen.porcentaje_cumplimiento >= 100 %}bg-success
+                                    {% elif resumen.porcentaje_cumplimiento >= 80 %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ resumen.porcentaje_cumplimiento|floatformat:1 }}%
+                                </span>
+                            </th>
+                            <th colspan="2"></th>
+                            <th class="text-end"><strong>{{ resumen.moneda }} {{ resumen.total_meta_monto|floatformat:2 }}</strong></th>
+                            <th class="text-end"><strong>{{ resumen.moneda }} {{ resumen.total_real_monto|floatformat:2 }}</strong></th>
+                            <th class="text-end 
+                                {% if resumen.diferencia_monto >= 0 %}text-success
+                                {% else %}text-danger{% endif %}">
+                                <strong>
+                                {% if resumen.diferencia_monto >= 0 %}
+                                +{{ resumen.moneda }} {{ resumen.diferencia_monto|floatformat:2 }}
+                                {% else %}
+                                {{ resumen.moneda }} {{ resumen.diferencia_monto|floatformat:2 }}
+                                {% endif %}
+                                </strong>
+                            </th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No hay metas registradas para el período seleccionado.
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> Seleccione un contrato para ver el reporte de valorización.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function exportarExcel() {
+        alert('Función de exportar a Excel en desarrollo');
+        // Aquí se implementará la exportación a Excel
+    }
+    
+    function exportarPDF() {
+        alert('Función de exportar a PDF en desarrollo');
+        // Aquí se implementará la exportación a PDF
+    }
+</script>
+{% endblock %}

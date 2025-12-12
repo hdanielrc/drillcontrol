@@ -1,0 +1,54 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Eliminar Sondaje{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4><i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación</h4>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-map-marked-alt fa-3x text-danger mb-3"></i>
+                    <h5>¿Está seguro que desea eliminar este sondaje?</h5>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Información del sondaje:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Nombre:</strong> {{ object.nombre_sondaje }}</li>
+                        <li><strong>Profundidad:</strong> {{ object.profundidad }} m</li>
+                        <li><strong>Inclinación:</strong> {{ object.inclinacion }}°</li>
+                        <li><strong>Estado:</strong> {{ object.get_estado_display }}</li>
+                        <li><strong>Fecha inicio:</strong> {{ object.fecha_inicio|date:"d/m/Y" }}</li>
+                        {% if object.fecha_fin %}
+                        <li><strong>Fecha fin:</strong> {{ object.fecha_fin|date:"d/m/Y" }}</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>¡Atención!</strong> Esta acción no se puede deshacer. 
+                    El sondaje y todos los turnos asociados serán eliminados permanentemente del sistema.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'sondaje-list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Sí, Eliminar Sondaje
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

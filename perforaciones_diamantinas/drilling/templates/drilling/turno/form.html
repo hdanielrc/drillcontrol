@@ -1,0 +1,84 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Editar Turno{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>Editar Turno</h3>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Datos del turno</h5>
+                    {{ form.as_p }}
+                </div>
+                <div class="col-md-6">
+                    <h5>Máquina</h5>
+                    {{ tm_form.as_p }}
+                    <h5>Avance</h5>
+                    {{ avance_form.as_p }}
+                </div>
+            </div>
+
+            <hr>
+            <h5>Trabajadores</h5>
+            {{ trabajador_fs.management_form }}
+            {% for f in trabajador_fs %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        {{ f.as_p }}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <h5>Productos Diamantados</h5>
+            {{ complemento_fs.management_form }}
+            {% for f in complemento_fs %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        {{ f.as_p }}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <h5>Aditivos</h5>
+            {{ aditivo_fs.management_form }}
+            {% for f in aditivo_fs %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        {{ f.as_p }}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <h5>Actividades</h5>
+            {{ actividad_fs.management_form }}
+            {% for f in actividad_fs %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        {{ f.as_p }}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <h5>Corridas</h5>
+            {{ corrida_fs.management_form }}
+            {% for f in corrida_fs %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        {{ f.as_p }}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="{% url 'listar-turnos' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

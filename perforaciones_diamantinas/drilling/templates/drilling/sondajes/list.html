@@ -1,0 +1,145 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Sondajes - {{ user.contrato.nombre_contrato }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-map-marked-alt"></i> Gestión de Sondajes</h2>
+    <a href="{% url 'sondaje-create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Nuevo Sondaje
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4 filters-card">
+    <div class="card-body">
+        <form method="GET" class="row g-3 filters-row">
+            <div class="col-md-4">
+                <label class="form-label">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    {% for value, label in estados %}
+                    <option value="{{ value }}" {% if filtros.estado == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                    <a href="{% url 'sondaje-list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i> Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-list"></i> Listado de Sondajes</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Profundidad</th>
+                        <th>Inclinación</th>
+                        <th>Fecha Inicio</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sondaje in sondajes %}
+                    <tr>
+                        <td>
+                            <strong>{{ sondaje.nombre_sondaje }}</strong>
+                            {% if sondaje.fecha_fin %}
+                                <br><small class="text-muted">Finalizado: {{ sondaje.fecha_fin|date:"d/m/Y" }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ sondaje.profundidad }} m</span>
+                            <br><small class="text-muted">Cota: {{ sondaje.cota_collar }} m</small>
+                        </td>
+                        <td>{{ sondaje.inclinacion }}°</td>
+                        <td>{{ sondaje.fecha_inicio|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if sondaje.estado == 'ACTIVO' %}
+                                <span class="status-indicator status-active"></span>
+                                <span class="badge bg-success">{{ sondaje.get_estado_display }}</span>
+                            {% elif sondaje.estado == 'PAUSADO' %}
+                                <span class="status-indicator status-warning"></span>
+                                <span class="badge bg-warning text-dark">{{ sondaje.get_estado_display }}</span>
+                            {% elif sondaje.estado == 'FINALIZADO' %}
+                                <span class="status-indicator status-inactive"></span>
+                                <span class="badge bg-secondary">{{ sondaje.get_estado_display }}</span>
+                            {% else %}
+                                <span class="status-indicator status-danger"></span>
+                                <span class="badge bg-danger">{{ sondaje.get_estado_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'sondaje-update' sondaje.pk %}" 
+                                   class="btn btn-outline-primary" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'sondaje-delete' sondaje.pk %}" 
+                                   class="btn btn-outline-danger" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-map-marked-alt fa-2x mb-2"></i><br>
+                            No hay sondajes registrados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginación -->
+        {% if is_paginated %}
+        <nav aria-label="Paginación">
+            <ul class="pagination justify-content-center mt-3">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-chevron-left"></i> Anterior
+                        </a>
+                    </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            Siguiente <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

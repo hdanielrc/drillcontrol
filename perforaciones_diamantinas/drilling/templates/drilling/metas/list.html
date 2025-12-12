@@ -1,0 +1,207 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}Metas de Máquinas{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-bullseye"></i> Metas de Máquinas</h2>
+        <a href="{% url 'metas-maquina-create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Meta
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="contrato" class="form-label">Contrato</label>
+                    <select name="contrato" id="contrato" class="form-select">
+                        <option value="">Todos</option>
+                        {% for contrato in contratos %}
+                            <option value="{{ contrato.id }}" {% if filtros.contrato_id|stringformat:"s" == contrato.id|stringformat:"s" %}selected{% endif %}>
+                                {{ contrato.nombre_contrato }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="maquina" class="form-label">Máquina</label>
+                    <select name="maquina" id="maquina" class="form-select">
+                        <option value="">Todas</option>
+                        {% for maquina in maquinas %}
+                            <option value="{{ maquina.id }}" {% if filtros.maquina_id|stringformat:"s" == maquina.id|stringformat:"s" %}selected{% endif %}>
+                                {{ maquina.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="año" class="form-label">Año</label>
+                    <select name="año" id="año" class="form-select">
+                        <option value="">Todos</option>
+                        {% for año_item in años_disponibles %}
+                            <option value="{{ año_item }}" {% if filtros.año|stringformat:"s" == año_item|stringformat:"s" %}selected{% endif %}>
+                                {{ año_item }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="mes" class="form-label">Mes</label>
+                    <select name="mes" id="mes" class="form-select">
+                        <option value="">Todos</option>
+                        {% for mes_num, mes_nombre in meses %}
+                            <option value="{{ mes_num }}" {% if filtros.mes|stringformat:"s" == mes_num|stringformat:"s" %}selected{% endif %}>
+                                {{ mes_nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+            
+            <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" name="activas" id="activas" value="1" 
+                       {% if filtros.solo_activas %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label" for="activas">
+                    Solo mostrar metas activas
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Metas -->
+    <div class="card">
+        <div class="card-body">
+            {% if metas_con_cumplimiento %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Período</th>
+                                <th>Contrato</th>
+                                <th>Máquina</th>
+                                <th>Meta (m)</th>
+                                <th>Real (m)</th>
+                                <th>Cumplimiento</th>
+                                <th>Brecha (m)</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in metas_con_cumplimiento %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-{{ item.periodo_badge }}">{{ item.estado_periodo }}</span><br>
+                                        <small class="text-muted">
+                                            {{ item.fecha_inicio|date:"d/m/Y" }} - {{ item.fecha_fin|date:"d/m/Y" }}
+                                        </small>
+                                        {% if item.meta.fecha_inicio %}
+                                            <br><small class="text-info">📅 Personalizado</small>
+                                        {% else %}
+                                            <br><small class="text-muted">📆 Mes Operativo</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.meta.contrato.nombre_contrato }}</td>
+                                    <td>
+                                        <strong>{{ item.meta.maquina.nombre }}</strong><br>
+                                        <small class="text-muted">{{ item.meta.maquina.tipo }}</small>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong>{{ item.meta.meta_metros|floatformat:2 }}</strong>
+                                    </td>
+                                    <td class="text-end">
+                                        {{ item.metros_reales|floatformat:2 }}
+                                        <br><small class="text-muted">({{ item.total_turnos }} turnos)</small>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 25px;">
+                                            <div class="progress-bar bg-{{ item.badge_class }}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ item.porcentaje_cumplimiento|floatformat:0 }}%"
+                                                 aria-valuenow="{{ item.porcentaje_cumplimiento }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                {{ item.porcentaje_cumplimiento|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="{% if item.brecha > 0 %}text-danger{% else %}text-success{% endif %}">
+                                            {{ item.brecha|floatformat:2 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ item.badge_class }}">
+                                            {{ item.estado_cumplimiento }}
+                                        </span>
+                                        {% if not item.meta.activo %}
+                                            <br><span class="badge bg-secondary mt-1">Inactiva</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'metas-maquina-edit' item.meta.pk %}" 
+                                               class="btn btn-outline-primary" 
+                                               title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if item.meta.activo %}
+                                            <a href="{% url 'metas-maquina-dividir' item.meta.pk %}" 
+                                               class="btn btn-outline-warning" 
+                                               title="Dividir Meta">
+                                                <i class="fas fa-cut"></i>
+                                            </a>
+                                            {% endif %}
+                                            <form method="post" 
+                                                  action="{% url 'metas-maquina-delete' item.meta.pk %}" 
+                                                  style="display: inline;"
+                                                  onsubmit="return confirm('¿Está seguro de eliminar esta meta?');">
+                                                {% csrf_token %}
+                                                <button type="submit" 
+                                                        class="btn btn-outline-danger" 
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No hay metas registradas con los filtros seleccionados.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.progress {
+    background-color: #e9ecef;
+}
+.progress-bar {
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+</style>
+{% endblock %}

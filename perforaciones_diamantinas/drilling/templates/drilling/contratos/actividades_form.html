@@ -1,0 +1,29 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Actividades por Contrato{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Actividades para el contrato: {{ contrato }}</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Selecciona las actividades que aplican a este contrato</label>
+                <div class="list-group">
+                    {% for actividad in actividades %}
+                    <label class="list-group-item">
+                        <input type="checkbox" name="actividades" value="{{ actividad.id }}" {% if actividad in contrato.actividades.all %}checked{% endif %}>
+                        {{ actividad.nombre }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'contrato-list' %}" class="btn btn-secondary me-2">Volver</a>
+                <button class="btn btn-primary">Guardar asignaciones</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

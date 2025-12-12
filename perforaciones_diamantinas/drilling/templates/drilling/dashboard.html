@@ -1,0 +1,217 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Dashboard - {{ contract.nombre_contrato }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>Dashboard - {{ contract.nombre_contrato }}</h1>
+                {% if is_system_admin %}
+                <span class="badge bg-warning">Vista de Administrador del Sistema</span>
+                {% endif %}
+            </div>
+            <div class="text-end">
+                <small class="text-muted">
+                    <i class="fas fa-calendar"></i> {{ "now"|date:"d/m/Y H:i" }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métricas principales -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white dashboard-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title">{{ sondajes_activos }}</h4>
+                        <p class="card-text mb-0">Sondajes Activos</p>
+                    </div>
+                    <i class="fas fa-map-marked-alt fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white dashboard-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title">{{ turnos_hoy }}</h4>
+                        <p class="card-text mb-0">Turnos Hoy</p>
+                    </div>
+                    <i class="fas fa-clock fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white dashboard-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title">{{ metros_perforados_mes|floatformat:1 }}m</h4>
+                        <p class="card-text mb-0">Metros este Mes</p>
+                    </div>
+                    <i class="fas fa-drill fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white dashboard-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title">{{ maquinas_operativas }}</h4>
+                        <p class="card-text mb-0">Máquinas Operativas</p>
+                    </div>
+                    <i class="fas fa-industry fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Accesos rápidos -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-rocket"></i> Accesos Rápidos</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{% url 'sondaje-list' %}" class="btn btn-dark w-100 mb-2">
+                            <i class="fas fa-map-marked-alt"></i><br>
+                            <small>Sondajes</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'crear-turno-completo' %}" class="btn btn-primary w-100 mb-2">
+                            <i class="fas fa-plus-circle"></i><br>
+                            <small>Nuevo Turno</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'trabajador-list' %}" class="btn btn-secondary w-100 mb-2">
+                            <i class="fas fa-users"></i><br>
+                            <small>Trabajadores</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'maquina-list' %}" class="btn btn-info w-100 mb-2">
+                            <i class="fas fa-industry"></i><br>
+                            <small>Máquinas</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Últimos turnos y stock crítico -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-clock"></i> Últimos Turnos</h5>
+            </div>
+            <div class="card-body">
+                {% if ultimos_turnos %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Sondaje(s)</th>
+                                <th>Turno</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for turno in ultimos_turnos %}
+                            <tr>
+                                <td>{{ turno.fecha|date:"d/m" }}</td>
+                                        <td>
+                                            {% with turno.sondajes.all as s_list %}
+                                                {% if s_list %}
+                                                    {% for s in s_list %}
+                                                        {{ s.nombre_sondaje }}{% if not forloop.last %}, {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            {% endwith %}
+                                        </td>
+                                <td>{{ turno.tipo_turno.nombre }}</td>
+                                <td>
+                                    <span class="badge {% if turno.estado == 'COMPLETADO' %}bg-success{% elif turno.estado == 'BORRADOR' %}bg-warning{% elif turno.estado == 'APROBADO' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                        {{ turno.estado }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">No hay turnos registrados</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-exclamation-triangle text-warning"></i> Stock Crítico</h5>
+            </div>
+            <div class="card-body">
+                {% if stock_critico %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Stock</th>
+                                <th>Unidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in stock_critico %}
+                            <tr>
+                                <td>
+                                    <small>{{ stock.descripcion|truncatechars:30 }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if stock.disponible <= 2 %}danger{% elif stock.disponible <= 5 %}warning{% else %}success{% endif %}">
+                                        {{ stock.disponible|floatformat:1 }}
+                                    </span>
+                                </td>
+                                <td>{{ stock.unidad_medida.simbolo }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">
+                    <i class="fas fa-check-circle text-success"></i><br>
+                    Sin productos en stock crítico
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

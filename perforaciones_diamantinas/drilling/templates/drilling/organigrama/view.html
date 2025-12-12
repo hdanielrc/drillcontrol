@@ -1,0 +1,2189 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+{% load organigrama_extras %}
+
+{% block title %}Organigrama - {{ contrato.nombre_contrato }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="container-fluid">
+    <!-- Header con selector de contrato y botón de descarga -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-sitemap"></i> Organigrama</h2>
+                    <p class="text-muted mb-0">
+                        {{ contrato.nombre_contrato }} 
+                        <span class="badge bg-info">{{ total_trabajadores }} trabajadores activos</span>
+                    </p>
+                    <!-- Navegación semanal -->
+                    <div class="mt-2">
+                        <a href="?contrato={{ contrato.id }}&fecha_inicio={{ semana_anterior|date:'Y-m-d' }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-chevron-left"></i> Semana Anterior
+                        </a>
+                        <span class="mx-2 fw-bold">
+                            <i class="fas fa-calendar-alt"></i> Semana {{ semana_numero }}/{{ anio }}
+                            <small class="text-muted">({{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }})</small>
+                        </span>
+                        <a href="?contrato={{ contrato.id }}&fecha_inicio={{ semana_siguiente|date:'Y-m-d' }}" class="btn btn-sm btn-outline-primary">
+                            Semana Siguiente <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    {% if contratos_disponibles %}
+                    <form method="GET" class="d-inline me-2">
+                        <select name="contrato" class="form-select d-inline-block" style="width: auto;" onchange="this.form.submit()">
+                            {% for c in contratos_disponibles %}
+                            <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                                {{ c.nombre_contrato }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% endif %}
+                    <button id="btnDescargar" class="btn btn-success">
+                        <i class="fas fa-download"></i> Descargar PNG
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organigrama -->
+    <div class="row">
+        <div class="col-12">
+            <div id="organigrama-container" class="card">
+                <div class="card-body" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 600px;">
+                    <!-- Header del organigrama -->
+                    <div class="text-center mb-4">
+                        <h3 class="fw-bold text-primary">{{ contrato.nombre_contrato }}</h3>
+                        <p class="text-muted">Estructura Organizacional</p>
+                        <div class="alert alert-info py-2 px-3 d-inline-block">
+                            <i class="fas fa-info-circle"></i> 
+                            <small><strong>Nota:</strong> Este organigrama es una representación esquemática. 
+                            Las asignaciones de máquinas mostradas son referenciales y no afectan las asignaciones operativas diarias.</small>
+                        </div>
+                    </div>
+
+                    {% if niveles %}
+                        <div class="organigrama-wrapper">
+                            <!-- NIVEL 1: RESIDENTE (Top Center) -->
+                            {% if niveles.1 %}
+                            <div class="nivel-jerarquico mb-4" data-nivel="1">
+                                <div class="text-center mb-3">
+                                    <div class="cargo-badge nivel-1">
+                                        <i class="fas fa-crown"></i> NIVEL 1 - RESIDENTE
+                                    </div>
+                                </div>
+                                <div class="trabajadores-grid justify-content-center">
+                                    {% for trabajador in niveles.1 %}
+                                    <div class="trabajador-card">
+                                        <div class="card shadow-sm h-100 border-warning">
+                                            <div class="card-body text-center">
+                                                <div class="avatar-circle nivel-1 mb-2">
+                                                    <i class="fas fa-user-tie fa-2x text-white"></i>
+                                                </div>
+                                                <h6 class="mb-1 fw-bold">{{ trabajador.nombres }}</h6>
+                                                <p class="mb-1 text-muted small">{{ trabajador.apellidos }}</p>
+                                                <small class="text-primary fw-bold">{{ trabajador.cargo.nombre }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="connector-line"></div>
+                            </div>
+                            {% endif %}
+
+                            <!-- NIVEL 2: ADMINISTRADOR | JEFE LOGÍSTICA | ING. SEGURIDAD (Left to Right) -->
+                            {% if niveles.2 %}
+                            <div class="nivel-jerarquico mb-4" data-nivel="2">
+                                <div class="text-center mb-3">
+                                    <div class="cargo-badge nivel-2">
+                                        <i class="fas fa-user-cog"></i> NIVEL 2 - GERENCIAS
+                                    </div>
+                                </div>
+                                <div class="trabajadores-grid-nivel2">
+                                    {% for trabajador in niveles.2 %}
+                                    <div class="trabajador-card">
+                                        <div class="card shadow-sm h-100 border-info">
+                                            <div class="card-body text-center">
+                                                <div class="avatar-circle nivel-2 mb-2">
+                                                    <i class="fas fa-user-cog fa-2x text-white"></i>
+                                                </div>
+                                                <h6 class="mb-1 fw-bold">{{ trabajador.nombres }}</h6>
+                                                <p class="mb-1 text-muted small">{{ trabajador.apellidos }}</p>
+                                                <small class="text-info fw-bold">{{ trabajador.cargo.nombre }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="connector-line"></div>
+                            </div>
+                            {% endif %}
+
+                            <!-- NIVEL 3: SUPERVISOR OPERATIVO (Center) -->
+                            {% if niveles.3 %}
+                            <div class="nivel-jerarquico mb-4" data-nivel="3">
+                                <div class="text-center mb-3">
+                                    <div class="cargo-badge nivel-3">
+                                        <i class="fas fa-clipboard-list"></i> NIVEL 3 - SUPERVISIÓN
+                                    </div>
+                                </div>
+                                <div class="trabajadores-grid justify-content-center">
+                                    {% for trabajador in niveles.3 %}
+                                    <div class="trabajador-card">
+                                        <div class="card shadow-sm h-100 border-success">
+                                            <div class="card-body text-center">
+                                                <div class="avatar-circle nivel-3 mb-2">
+                                                    <i class="fas fa-user-check fa-2x text-white"></i>
+                                                </div>
+                                                <h6 class="mb-1 fw-bold">{{ trabajador.nombres }}</h6>
+                                                <p class="mb-1 text-muted small">{{ trabajador.apellidos }}</p>
+                                                <small class="text-success fw-bold">{{ trabajador.cargo.nombre }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="connector-line"></div>
+                            </div>
+                            {% endif %}
+
+                            <!-- NIVEL 4: OPERACIONES CON DRAG & DROP -->
+                            {% if niveles.4 %}
+                            <div class="nivel-jerarquico mb-4" data-nivel="4">
+                                <div class="text-center mb-4">
+                                    <div class="cargo-badge nivel-4">
+                                        <i class="fas fa-hard-hat"></i> NIVEL 4 - OPERACIONES (Drag & Drop)
+                                    </div>
+                                </div>
+
+                                <!-- NIVEL 1 DEL NIVEL 4: Recursos Disponibles (sueltos) -->
+                                <div class="recursos-disponibles mb-5">
+                                    <h5 class="text-center mb-3"><i class="fas fa-box-open"></i> Recursos Disponibles</h5>
+                                    
+                                    <div class="row g-3">
+                                        <!-- Máquinas Disponibles -->
+                                        <div class="col-md-3">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-primary text-white">
+                                                    <i class="fas fa-cog"></i> Máquinas
+                                                </div>
+                                                <div class="card-body recursos-pool" id="poolMaquinas">
+                                                    {% for maquina in maquinas_disponibles %}
+                                                    <div class="item-draggable maquina-item" 
+                                                         draggable="true" 
+                                                         data-type="maquina"
+                                                         data-id="{{ maquina.id }}"
+                                                         data-nombre="{{ maquina.nombre }}">
+                                                        <i class="fas fa-cog"></i>
+                                                        <span>{{ maquina.nombre }}</span>
+                                                        <small class="d-block text-muted">{{ maquina.tipo }}</small>
+                                                    </div>
+                                                    {% empty %}
+                                                    <p class="text-muted text-center">No hay máquinas disponibles</p>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Vehículos para Conductores -->
+                                        <div class="col-md-3">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-success text-white">
+                                                    <i class="fas fa-truck"></i> Vehículos
+                                                </div>
+                                                <div class="card-body recursos-pool" id="poolVehiculos">
+                                                    {% for vehiculo in vehiculos_disponibles %}
+                                                    <div class="item-draggable vehiculo-item" 
+                                                         draggable="true" 
+                                                         data-type="vehiculo"
+                                                         data-id="{{ vehiculo.id }}"
+                                                         data-nombre="{{ vehiculo.placa }}">
+                                                        <i class="fas fa-truck"></i>
+                                                        <span>{{ vehiculo.placa }}</span>
+                                                        <small class="d-block text-muted">{{ vehiculo.get_tipo_display }}</small>
+                                                    </div>
+                                                    {% empty %}
+                                                    <p class="text-muted text-center">No hay vehículos disponibles</p>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Conductores -->
+                                        <div class="col-md-3">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-info text-white">
+                                                    <i class="fas fa-user-tie"></i> Conductores
+                                                </div>
+                                                <div class="card-body recursos-pool" id="poolConductores">
+                                                    {% for item in conductores %}
+                                                    <div class="item-draggable trabajador-item" 
+                                                         draggable="true"
+                                                         data-type="trabajador"
+                                                         data-id="{{ item.trabajador.id }}"
+                                                         data-nombre="{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}">
+                                                        <i class="fas fa-user"></i>
+                                                        <span>{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}</span>
+                                                        <small class="d-block text-muted">{{ item.trabajador.cargo.nombre }}</small>
+                                                    </div>
+                                                    {% empty %}
+                                                    <p class="text-muted text-center">No hay conductores</p>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Personal Standby -->
+                                        <div class="col-md-3">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-secondary text-white">
+                                                    <i class="fas fa-users"></i> Personal Standby / Sin Asignar
+                                                </div>
+                                                <div class="card-body recursos-pool" id="poolStandby">
+                                                    {% for item in personal_standby %}
+                                                    <div class="item-draggable trabajador-item" 
+                                                         draggable="true"
+                                                         data-type="trabajador"
+                                                         data-id="{{ item.trabajador.id }}"
+                                                         data-nombre="{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}">
+                                                        <i class="fas fa-user"></i>
+                                                        <span>{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}</span>
+                                                        <small class="d-block text-muted">{{ item.trabajador.cargo.nombre }}</small>
+                                                    </div>
+                                                    {% empty %}
+                                                    <p class="text-muted text-center">No hay personal standby</p>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- NIVEL 2 DEL NIVEL 4: Área de Asignación de Máquinas con sus Guardias -->
+                                <div class="maquinas-asignadas-container mb-4">
+                                    <h5 class="text-center mb-3">
+                                        <i class="fas fa-layer-group"></i> Máquinas Asignadas 
+                                        <small class="text-muted">(Arrastra máquina desde el pool arriba)</small>
+                                    </h5>
+                                    
+                                    <!-- Contenedor donde se crearán dinámicamente las máquinas con sus guardias -->
+                                    <div id="maquinasAsignadasArea" class="row g-3">
+                                        <div class="col-12">
+                                            <div class="dropzone-maquinas text-center p-5 border border-2 border-dashed rounded" 
+                                                 ondrop="dropMaquina(event)" 
+                                                 ondragover="allowDrop(event)">
+                                                <i class="fas fa-arrow-down fa-3x text-muted mb-3"></i>
+                                                <p class="text-muted">Arrastra una máquina aquí para crear su sección con guardias A, B, C</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- CONDUCTORES CON GUARDIAS -->
+                                <div class="conductores-guardias-container mb-4">
+                                    <h5 class="text-center mb-3">
+                                        <i class="fas fa-user-tie"></i> Guardias de Conductores
+                                        <small class="text-muted">(Arrastra conductores a su guardia)</small>
+                                    </h5>
+                                    
+                                    <div class="row g-3">
+                                        <!-- GUARDIA A - Conductores -->
+                                        <div class="col-md-4">
+                                            <div class="card border-info">
+                                                <div class="card-header bg-info text-white">
+                                                    <i class="fas fa-shield-alt"></i> GUARDIA A - Conductores
+                                                </div>
+                                                <div class="card-body conductores-dropzone" 
+                                                     data-guardia="A"
+                                                     ondrop="dropConductor(event)" 
+                                                     ondragover="allowDrop(event)"
+                                                     ondragleave="removeDragOver(event)">
+                                                    {% for guardia in conductores_por_guardia.A %}
+                                                    <div class="trabajador-asignado conductor" data-conductor-id="{{ guardia.conductor.id }}"{% if guardia.vehiculo %} data-vehiculo-id="{{ guardia.vehiculo.id }}"{% endif %}>
+                                                        <i class="fas fa-user-tie"></i>
+                                                        <span>{{ guardia.conductor.nombres }} {{ guardia.conductor.apellidos }}</span>
+                                                        {% if guardia.vehiculo %}
+                                                        <small class="d-block text-success">🚗 {{ guardia.vehiculo.placa }}</small>
+                                                        {% else %}
+                                                        <small class="d-block text-muted">Sin vehículo</small>
+                                                        {% endif %}
+                                                        <button class="btn-remove-trabajador" onclick="removerConductor(this)" title="Quitar">×</button>
+                                                    </div>
+                                                    {% endfor %}
+                                                    <p class="text-muted text-center mb-0 py-2"><small>Arrastra conductores aquí</small></p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- GUARDIA B - Conductores -->
+                                        <div class="col-md-4">
+                                            <div class="card border-info">
+                                                <div class="card-header bg-info text-white">
+                                                    <i class="fas fa-shield-alt"></i> GUARDIA B - Conductores
+                                                </div>
+                                                <div class="card-body conductores-dropzone" 
+                                                     data-guardia="B"
+                                                     ondrop="dropConductor(event)" 
+                                                     ondragover="allowDrop(event)"
+                                                     ondragleave="removeDragOver(event)">
+                                                    {% for guardia in conductores_por_guardia.B %}
+                                                    <div class="trabajador-asignado conductor" data-conductor-id="{{ guardia.conductor.id }}"{% if guardia.vehiculo %} data-vehiculo-id="{{ guardia.vehiculo.id }}"{% endif %}>
+                                                        <i class="fas fa-user-tie"></i>
+                                                        <span>{{ guardia.conductor.nombres }} {{ guardia.conductor.apellidos }}</span>
+                                                        {% if guardia.vehiculo %}
+                                                        <small class="d-block text-success">🚗 {{ guardia.vehiculo.placa }}</small>
+                                                        {% else %}
+                                                        <small class="d-block text-muted">Sin vehículo</small>
+                                                        {% endif %}
+                                                        <button class="btn-remove-trabajador" onclick="removerConductor(this)" title="Quitar">×</button>
+                                                    </div>
+                                                    {% endfor %}
+                                                    <p class="text-muted text-center mb-0 py-2"><small>Arrastra conductores aquí</small></p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- GUARDIA C - Conductores -->
+                                        <div class="col-md-4">
+                                            <div class="card border-info">
+                                                <div class="card-header bg-info text-white">
+                                                    <i class="fas fa-shield-alt"></i> GUARDIA C - Conductores
+                                                </div>
+                                                <div class="card-body conductores-dropzone" 
+                                                     data-guardia="C"
+                                                     ondrop="dropConductor(event)" 
+                                                     ondragover="allowDrop(event)"
+                                                     ondragleave="removeDragOver(event)">
+                                                    {% for guardia in conductores_por_guardia.C %}
+                                                    <div class="trabajador-asignado conductor" data-conductor-id="{{ guardia.conductor.id }}"{% if guardia.vehiculo %} data-vehiculo-id="{{ guardia.vehiculo.id }}"{% endif %}>
+                                                        <i class="fas fa-user-tie"></i>
+                                                        <span>{{ guardia.conductor.nombres }} {{ guardia.conductor.apellidos }}</span>
+                                                        {% if guardia.vehiculo %}
+                                                        <small class="d-block text-success">🚗 {{ guardia.vehiculo.placa }}</small>
+                                                        {% else %}
+                                                        <small class="d-block text-muted">Sin vehículo</small>
+                                                        {% endif %}
+                                                        <button class="btn-remove-trabajador" onclick="removerConductor(this)" title="Quitar">×</button>
+                                                    </div>
+                                                    {% endfor %}
+                                                    <p class="text-muted text-center mb-0 py-2"><small>Arrastra conductores aquí</small></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ASIGNACIÓN DE EQUIPOS A TRABAJADORES -->
+                                <div class="equipos-asignacion-container mb-4">
+                                    <h5 class="text-center mb-3">
+                                        <i class="fas fa-laptop"></i> Asignación de Equipos a Trabajadores
+                                        <small class="text-muted">(Laptops, Celulares, Módems, Impresoras, Detectores, Radios, etc.)</small>
+                                    </h5>
+                                    
+                                    <div class="card">
+                                        <div class="card-header bg-primary text-white">
+                                            <i class="fas fa-toolbox"></i> Gestión de Equipos
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <!-- Lista de Trabajadores Activos -->
+                                                <div class="col-md-6">
+                                                    <h6><i class="fas fa-users"></i> Trabajadores Operativos</h6>
+                                                    <div class="list-group" id="listaTrabajadoresEquipos" style="max-height: 500px; overflow-y: auto;">
+                                                        {% for item in trabajadores_operativos %}
+                                                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <strong>{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}</strong>
+                                                                <br>
+                                                                <small class="text-muted">{{ item.trabajador.cargo.nombre }}</small>
+                                                                <div class="equipos-asignados-trabajador mt-1" data-trabajador-id="{{ item.trabajador.id }}">
+                                                                    {% if item.trabajador.id in equipos_por_trabajador %}
+                                                                        {% for asig_equipo in equipos_por_trabajador|get_item:item.trabajador.id %}
+                                                                        <span class="badge bg-info me-1" data-equipo-id="{{ asig_equipo.equipo.id }}">
+                                                                            <i class="fas fa-{{ asig_equipo.equipo.tipo|get_icon_equipo }}"></i> 
+                                                                            {{ asig_equipo.equipo.codigo_interno }}
+                                                                            <button class="btn-close btn-close-white btn-sm ms-1" 
+                                                                                    onclick="quitarEquipoTrabajador({{ item.trabajador.id }}, {{ asig_equipo.equipo.id }})"
+                                                                                    style="font-size: 0.6rem; padding: 0.1rem 0.2rem;"></button>
+                                                                        </span>
+                                                                        {% endfor %}
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                            <button class="btn btn-sm btn-primary" 
+                                                                    onclick="abrirModalAsignarEquipo({{ item.trabajador.id }}, '{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}')">
+                                                                <i class="fas fa-plus"></i> Asignar Equipo
+                                                            </button>
+                                                        </div>
+                                                        {% endfor %}
+                                                        
+                                                        {% for item in personal_standby %}
+                                                        <div class="list-group-item list-group-item-action list-group-item-secondary d-flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <strong>{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}</strong>
+                                                                <br>
+                                                                <small class="text-muted">{{ item.trabajador.cargo.nombre }} - Stand By</small>
+                                                                <div class="equipos-asignados-trabajador mt-1" data-trabajador-id="{{ item.trabajador.id }}">
+                                                                    {% if item.trabajador.id in equipos_por_trabajador %}
+                                                                        {% for asig_equipo in equipos_por_trabajador|get_item:item.trabajador.id %}
+                                                                        <span class="badge bg-info me-1" data-equipo-id="{{ asig_equipo.equipo.id }}">
+                                                                            <i class="fas fa-{{ asig_equipo.equipo.tipo|get_icon_equipo }}"></i> 
+                                                                            {{ asig_equipo.equipo.codigo_interno }}
+                                                                            <button class="btn-close btn-close-white btn-sm ms-1" 
+                                                                                    onclick="quitarEquipoTrabajador({{ item.trabajador.id }}, {{ asig_equipo.equipo.id }})"
+                                                                                    style="font-size: 0.6rem; padding: 0.1rem 0.2rem;"></button>
+                                                                        </span>
+                                                                        {% endfor %}
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                            <button class="btn btn-sm btn-primary" 
+                                                                    onclick="abrirModalAsignarEquipo({{ item.trabajador.id }}, '{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}')">
+                                                                <i class="fas fa-plus"></i> Asignar Equipo
+                                                            </button>
+                                                        </div>
+                                                        {% endfor %}
+                                                        
+                                                        {% for item in conductores %}
+                                                        <div class="list-group-item list-group-item-action list-group-item-info d-flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <strong>{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}</strong>
+                                                                <br>
+                                                                <small class="text-muted">{{ item.trabajador.cargo.nombre }} - Conductor</small>
+                                                                <div class="equipos-asignados-trabajador mt-1" data-trabajador-id="{{ item.trabajador.id }}">
+                                                                    {% if item.trabajador.id in equipos_por_trabajador %}
+                                                                        {% for asig_equipo in equipos_por_trabajador|get_item:item.trabajador.id %}
+                                                                        <span class="badge bg-info me-1" data-equipo-id="{{ asig_equipo.equipo.id }}">
+                                                                            <i class="fas fa-{{ asig_equipo.equipo.tipo|get_icon_equipo }}"></i> 
+                                                                            {{ asig_equipo.equipo.codigo_interno }}
+                                                                            <button class="btn-close btn-close-white btn-sm ms-1" 
+                                                                                    onclick="quitarEquipoTrabajador({{ item.trabajador.id }}, {{ asig_equipo.equipo.id }})"
+                                                                                    style="font-size: 0.6rem; padding: 0.1rem 0.2rem;"></button>
+                                                                        </span>
+                                                                        {% endfor %}
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                            <button class="btn btn-sm btn-primary" 
+                                                                    onclick="abrirModalAsignarEquipo({{ item.trabajador.id }}, '{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}')">
+                                                                <i class="fas fa-plus"></i> Asignar Equipo
+                                                            </button>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Panel de Equipos Disponibles -->
+                                                <div class="col-md-6">
+                                                    <h6><i class="fas fa-boxes"></i> Equipos Disponibles</h6>
+                                                    
+                                                    <!-- Filtro por tipo de equipo -->
+                                                    <div class="mb-3">
+                                                        <select class="form-select form-select-sm" id="filtroTipoEquipo" onchange="filtrarEquiposPorTipo()">
+                                                            <option value="">Todos los tipos</option>
+                                                            <option value="LAPTOP">💻 Laptops</option>
+                                                            <option value="CELULAR">📱 Celulares</option>
+                                                            <option value="MODEM">📡 Módems</option>
+                                                            <option value="IMPRESORA">🖨️ Impresoras</option>
+                                                            <option value="DETECTOR_TORMENTAS">⚡ Detectores de Tormentas</option>
+                                                            <option value="ENMICADORA">🎤 Enmicadoras</option>
+                                                            <option value="RADIO">📻 Radios</option>
+                                                            <option value="TABLET">📲 Tablets</option>
+                                                            <option value="GPS">🗺️ GPS</option>
+                                                            <option value="OTRO">📦 Otros</option>
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div class="list-group" id="listaEquiposDisponibles" style="max-height: 500px; overflow-y: auto;">
+                                                        {% for equipo in equipos_disponibles %}
+                                                        <div class="list-group-item equipo-disponible-item" data-tipo="{{ equipo.tipo }}" data-equipo-id="{{ equipo.id }}">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <div>
+                                                                    <i class="fas fa-{{ equipo.tipo|get_icon_equipo }} text-primary"></i>
+                                                                    <strong>{{ equipo.codigo_interno }}</strong>
+                                                                    <span class="badge bg-secondary">{{ equipo.get_tipo_display }}</span>
+                                                                    {% if equipo.estado == 'ASIGNADO' %}
+                                                                    <span class="badge bg-warning">Asignado</span>
+                                                                    {% else %}
+                                                                    <span class="badge bg-success">Disponible</span>
+                                                                    {% endif %}
+                                                                    <br>
+                                                                    <small class="text-muted">
+                                                                        {% if equipo.marca %}{{ equipo.marca }}{% endif %}
+                                                                        {% if equipo.modelo %} - {{ equipo.modelo }}{% endif %}
+                                                                        {% if equipo.numero_telefono %} | Tel: {{ equipo.numero_telefono }}{% endif %}
+                                                                    </small>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% empty %}
+                                                        <div class="alert alert-info">No hay equipos disponibles</div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Botón para guardar asignaciones -->
+                                <div class="text-center mt-4">
+                                    <button class="btn btn-success btn-lg" onclick="guardarAsignaciones()">
+                                        <i class="fas fa-save"></i> Guardar Asignaciones
+                                    </button>
+                                    <button class="btn btn-warning btn-lg ms-2" onclick="limpiarAsignaciones()">
+                                        <i class="fas fa-eraser"></i> Limpiar Todo
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                            <p class="text-muted">No hay trabajadores activos en este contrato</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para asignar máquina -->
+<div class="modal fade" id="modalAsignarMaquina" tabindex="-1" aria-labelledby="modalAsignarMaquinaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAsignarMaquinaLabel">
+                    <i class="fas fa-cog"></i> Asignar Máquina
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Asignar máquina a: <strong id="trabajadorNombre"></strong></p>
+                <input type="hidden" id="trabajadorId">
+                
+                <label for="selectMaquina" class="form-label">Seleccionar Máquina:</label>
+                <select id="selectMaquina" class="form-select">
+                    <option value="">-- Seleccionar --</option>
+                    {% for maquina in maquinas_disponibles %}
+                    <option value="{{ maquina.id }}">{{ maquina.nombre }} ({{ maquina.tipo }})</option>
+                    {% endfor %}
+                </select>
+                
+                <div id="mensajeAsignacion" class="alert mt-3" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="asignarMaquina()">
+                    <i class="fas fa-check"></i> Asignar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para asignar vehículo a conductor -->
+<div class="modal fade" id="modalAsignarVehiculo" tabindex="-1" aria-labelledby="modalAsignarVehiculoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalAsignarVehiculoLabel">
+                    <i class="fas fa-truck"></i> Asignar Vehículo a Conductor
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Conductor: <strong id="conductorNombreModal"></strong></p>
+                <p>Guardia: <strong id="guardiaModal"></strong></p>
+                <input type="hidden" id="conductorIdModal">
+                <input type="hidden" id="guardiaIdModal">
+                <input type="hidden" id="dropzoneTarget">
+                
+                <label for="selectVehiculo" class="form-label">
+                    <i class="fas fa-truck"></i> Seleccionar Vehículo (Opcional):
+                </label>
+                <select id="selectVehiculo" class="form-select">
+                    <option value="">-- Sin vehículo --</option>
+                    {% for vehiculo in vehiculos_disponibles %}
+                    <option value="{{ vehiculo.id }}">{{ vehiculo.placa }} - {{ vehiculo.marca }} {{ vehiculo.modelo }} ({{ vehiculo.tipo }})</option>
+                    {% endfor %}
+                </select>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle"></i> El vehículo es opcional. Puedes asignarlo más tarde.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmarAsignacionConductor()">
+                    <i class="fas fa-check"></i> Asignar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para asignar equipos a trabajadores -->
+<div class="modal fade" id="modalAsignarEquipos" tabindex="-1" aria-labelledby="modalAsignarEquiposLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalAsignarEquiposLabel">
+                    <i class="fas fa-laptop"></i> Asignar Equipos a Trabajador
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Trabajador: <strong id="trabajadorNombreEquipoModal"></strong></p>
+                <input type="hidden" id="trabajadorIdEquipoModal">
+                
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-filter"></i> Filtrar por tipo de equipo:
+                    </label>
+                    <select class="form-select" id="filtroTipoEquipoModal" onchange="filtrarEquiposModal()">
+                        <option value="">Todos los tipos</option>
+                        <option value="LAPTOP">💻 Laptops</option>
+                        <option value="CELULAR">📱 Celulares</option>
+                        <option value="MODEM">📡 Módems</option>
+                        <option value="IMPRESORA">🖨️ Impresoras</option>
+                        <option value="DETECTOR_TORMENTAS">⚡ Detectores de Tormentas</option>
+                        <option value="ENMICADORA">🎤 Enmicadoras</option>
+                        <option value="RADIO">📻 Radios</option>
+                        <option value="TABLET">📲 Tablets</option>
+                        <option value="GPS">🗺️ GPS</option>
+                        <option value="OTRO">📦 Otros</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-boxes"></i> Seleccionar Equipo(s):
+                    </label>
+                    <div id="listaEquiposModal" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 10px;">
+                        {% for equipo in equipos_disponibles %}
+                        <div class="form-check equipo-modal-item" data-tipo="{{ equipo.tipo }}" data-equipo-id="{{ equipo.id }}">
+                            <input class="form-check-input" type="checkbox" value="{{ equipo.id }}" id="equipo_{{ equipo.id }}">
+                            <label class="form-check-label" for="equipo_{{ equipo.id }}">
+                                <strong>{{ equipo.codigo_interno }}</strong>
+                                <span class="badge bg-secondary">{{ equipo.get_tipo_display }}</span>
+                                {% if equipo.estado == 'ASIGNADO' %}
+                                <span class="badge bg-warning">Ya Asignado</span>
+                                {% else %}
+                                <span class="badge bg-success">Disponible</span>
+                                {% endif %}
+                                <br>
+                                <small class="text-muted">
+                                    {% if equipo.marca %}{{ equipo.marca }}{% endif %}
+                                    {% if equipo.modelo %} - {{ equipo.modelo }}{% endif %}
+                                    {% if equipo.numero_telefono %} | Tel: {{ equipo.numero_telefono }}{% endif %}
+                                </small>
+                            </label>
+                        </div>
+                        {% empty %}
+                        <div class="alert alert-info">No hay equipos disponibles para asignar</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="actaEntregaEquipo">
+                    <label class="form-check-label" for="actaEntregaEquipo">
+                        <i class="fas fa-file-signature"></i> Acta de entrega firmada
+                    </label>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="observacionesEquipo" class="form-label">
+                        <i class="fas fa-comment"></i> Observaciones:
+                    </label>
+                    <textarea class="form-control" id="observacionesEquipo" rows="2" placeholder="Notas sobre la asignación..."></textarea>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Puedes seleccionar múltiples equipos para el mismo trabajador.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmarAsignacionEquipos()">
+                    <i class="fas fa-check"></i> Asignar Equipo(s)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Contenedor del organigrama */
+    #organigrama-container {
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .organigrama-wrapper {
+        position: relative;
+        padding: 20px;
+    }
+
+    /* Niveles jerárquicos */
+    .nivel-jerarquico {
+        position: relative;
+    }
+
+    /* Badge del cargo con colores por nivel */
+    .cargo-badge {
+        display: inline-block;
+        color: white;
+        padding: 12px 30px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .cargo-badge.nivel-1 {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .cargo-badge.nivel-2 {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .cargo-badge.nivel-3 {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .cargo-badge.nivel-4 {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    /* ============================================= */
+    /* DRAG & DROP STYLES - NIVEL 4 */
+    /* ============================================= */
+    
+    /* Recursos disponibles (pools) */
+    .recursos-disponibles {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        border: 2px dashed #dee2e6;
+    }
+
+    .recursos-pool {
+        min-height: 200px;
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    /* Items arrastrables */
+    .item-draggable {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+        cursor: grab;
+        transition: all 0.2s ease;
+        user-select: none;
+    }
+
+    .item-draggable:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: #6c757d;
+    }
+
+    .item-draggable:active {
+        cursor: grabbing;
+    }
+
+    .item-draggable.dragging {
+        opacity: 0.5;
+        transform: scale(0.95);
+    }
+
+    .maquina-item {
+        border-left: 4px solid #0d6efd;
+        background: linear-gradient(135deg, #f0f8ff 0%, #e8f4ff 100%);
+    }
+
+    .maquina-item:hover {
+        border-left-color: #0a58ca;
+    }
+
+    .trabajador-item {
+        border-left: 4px solid #198754;
+        background: linear-gradient(135deg, #f0fff4 0%, #e8f5e9 100%);
+    }
+
+    .trabajador-item:hover {
+        border-left-color: #146c43;
+    }
+
+    /* Guardias dropzones */
+    .guardias-container {
+        background: #fff;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .guardia-dropzone {
+        background: #f8f9fa;
+        border: 3px dashed #ced4da;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        min-height: 300px;
+    }
+
+    .guardia-dropzone.drag-over {
+        border-color: #0d6efd;
+        background: #e7f1ff;
+        transform: scale(1.02);
+    }
+
+    .guardia-header {
+        padding: 15px;
+        border-radius: 12px 12px 0 0;
+        font-weight: 700;
+        text-align: center;
+        font-size: 1.1rem;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .guardia-header.guardia-a {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    }
+
+    .guardia-header.guardia-b {
+        background: linear-gradient(135deg, #4dabf7 0%, #339af0 100%);
+    }
+
+    .guardia-header.guardia-c {
+        background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
+    }
+
+    .guardia-content {
+        padding: 15px;
+        min-height: 250px;
+    }
+
+    /* Contenedor de máquina dentro de guardia */
+    .maquina-container {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .maquina-container-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .maquina-container-header .remove-btn {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .maquina-container-header .remove-btn:hover {
+        background: rgba(255,255,255,0.4);
+    }
+
+    /* Zona de drop de trabajadores dentro de máquina */
+    .trabajadores-dropzone {
+        min-height: 100px;
+        background: #f8f9fa;
+        border: 2px dashed #ced4da;
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 10px;
+    }
+
+    .trabajadores-dropzone.drag-over {
+        border-color: #198754;
+        background: #e8f5e9;
+    }
+
+    .trabajadores-dropzone.has-items {
+        border-style: solid;
+        border-color: #198754;
+    }
+
+    .trabajador-asignado {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-left: 4px solid #198754;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .trabajador-asignado:hover {
+        background: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .trabajador-asignado.perforista {
+        background: #fff9e6;
+        border-left-color: #ffc107;
+        font-weight: 600;
+    }
+
+    .trabajador-asignado .remove-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+
+    .trabajador-asignado .remove-btn:hover {
+        background: #bb2d3b;
+    }
+
+    /* Grid de trabajadores */
+    .trabajadores-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    /* Grid nivel 2 - distribución horizontal */
+    .trabajadores-grid-nivel2 {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        gap: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    /* Tarjeta de trabajador */
+    .trabajador-card {
+        flex: 0 0 auto;
+        width: 220px;
+    }
+
+    .trabajador-card .card {
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .trabajador-card .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+
+    /* Avatar circular con colores por nivel */
+    .avatar-circle {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .avatar-circle.nivel-1 {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .avatar-circle.nivel-2 {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .avatar-circle.nivel-3 {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .avatar-circle.nivel-4 {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    /* Línea conectora entre niveles */
+    .connector-line {
+        width: 4px;
+        height: 40px;
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        margin: 20px auto;
+        border-radius: 2px;
+        opacity: 0.6;
+    }
+
+    /* Contenedor de máquinas en grid */
+    .maquinas-container-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+        gap: 30px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    /* Grupo de máquina (máquina + guardias) */
+    .maquina-grupo {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    /* Header de la máquina (arriba, centrado) */
+    .maquina-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 10px;
+        font-size: 1.3rem;
+        font-weight: 700;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        display: inline-block;
+        min-width: 300px;
+    }
+
+    /* Fila de guardias (horizontal) */
+    .guardias-row {
+        display: flex;
+        justify-content: space-around;
+        gap: 15px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    /* Columna de cada guardia */
+    .guardia-columna {
+        flex: 1;
+        min-width: 160px;
+        max-width: 220px;
+    }
+
+    /* Badge de guardia */
+    .guardia-badge {
+        text-align: center;
+        padding: 10px;
+        border-radius: 8px 8px 0 0;
+        font-weight: 700;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+        border: 2px solid;
+        margin-bottom: -2px;
+    }
+
+    .badge-guardia-a {
+        background-color: #ffcccc;
+        border-color: #ff6666;
+        color: #cc0000;
+    }
+
+    .badge-guardia-b {
+        background-color: #cce5ff;
+        border-color: #6699ff;
+        color: #0044cc;
+    }
+
+    .badge-guardia-c {
+        background-color: #ccffcc;
+        border-color: #66cc66;
+        color: #006600;
+    }
+
+    .badge-guardia-none {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+        color: #856404;
+    }
+
+    /* Contenedor de trabajadores por guardia */
+    .trabajadores-guardia {
+        border: 2px solid #e0e0e0;
+        border-radius: 0 0 8px 8px;
+        padding: 10px;
+        background: #fafafa;
+        min-height: 100px;
+    }
+
+    .badge-guardia-a + .trabajadores-guardia {
+        border-color: #ff6666;
+    }
+
+    .badge-guardia-b + .trabajadores-guardia {
+        border-color: #6699ff;
+    }
+
+    .badge-guardia-c + .trabajadores-guardia {
+        border-color: #66cc66;
+    }
+
+    /* Tarjeta de trabajador mini */
+    .trabajador-card-mini {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .trabajador-card-mini:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    /* Perforista destacado en amarillo */
+    .trabajador-card-mini.perforista {
+        background: #ffffcc;
+        border-color: #ffcc00;
+        font-weight: 600;
+    }
+
+    .cargo-label {
+        font-size: 0.7rem;
+        color: #666;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+        font-weight: 600;
+    }
+
+    .trabajador-nombre {
+        font-size: 0.85rem;
+        color: #333;
+        line-height: 1.2;
+    }
+
+    .trabajador-card-mini.perforista .cargo-label {
+        color: #996600;
+    }
+
+    .trabajador-card-mini.perforista .trabajador-nombre {
+        color: #000;
+        font-weight: 700;
+    }
+
+    /* Sin máquina asignada */
+    .sin-maquina-card {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .trabajadores-grid,
+        .trabajadores-grid-nivel2 {
+            gap: 15px;
+        }
+
+        .trabajador-card {
+            width: 180px;
+        }
+
+        .cargo-badge {
+            font-size: 0.9rem;
+            padding: 10px 20px;
+        }
+
+        .maquinas-container {
+            grid-template-columns: 1fr;
+        }
+
+        .trabajador-mini {
+            width: 140px;
+        }
+    }
+
+    /* Para impresión/descarga */
+    @media print {
+        .btn, .form-select {
+            display: none !important;
+        }
+
+        #organigrama-container {
+            box-shadow: none;
+            border: 1px solid #ddd;
+        }
+    }
+
+    /* ============================================ */
+    /* ESTILOS PARA DRAG & DROP */
+    /* ============================================ */
+    
+    /* Recursos pool */
+    .recursos-pool {
+        min-height: 150px;
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+    }
+    
+    /* Items arrastrables */
+    .item-draggable {
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+        cursor: move;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .item-draggable:hover {
+        border-color: #667eea;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .item-draggable.dragging {
+        opacity: 0.5;
+        transform: rotate(2deg);
+    }
+    
+    .item-draggable.maquina-item {
+        border-left: 4px solid #667eea;
+    }
+    
+    .item-draggable.vehiculo-item {
+        border-left: 4px solid #51cf66;
+    }
+    
+    .item-draggable.trabajador-item {
+        border-left: 4px solid #43e97b;
+    }
+    
+    /* Dropzone para máquinas */
+    .dropzone-maquinas {
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .dropzone-maquinas.drag-over {
+        background: #e3f2fd;
+        border-color: #2196f3 !important;
+    }
+    
+    /* Sección de guardia dentro de cada máquina */
+    .guardia-section {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .guardia-section .guardia-header {
+        padding: 10px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 0.9rem;
+        color: white;
+    }
+    
+    .guardia-section.guardia-a .guardia-header {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+    }
+    
+    .guardia-section.guardia-b .guardia-header {
+        background: linear-gradient(135deg, #4dabf7, #339af0);
+    }
+    
+    .guardia-section.guardia-c .guardia-header {
+        background: linear-gradient(135deg, #51cf66, #37b24d);
+    }
+    
+    /* Dropzone para trabajadores dentro de guardias */
+    .trabajadores-dropzone {
+        min-height: 100px;
+        padding: 10px;
+        background: #fafafa;
+        border-top: 2px dashed #ddd;
+        transition: all 0.3s ease;
+    }
+    
+    .trabajadores-dropzone.drag-over {
+        background: #fff9c4;
+        border-color: #fbc02d;
+    }
+    
+    .trabajadores-dropzone.has-items {
+        background: white;
+    }
+    
+    /* Trabajador asignado */
+    .trabajador-asignado {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+    }
+    
+    .trabajador-asignado:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        transform: translateX(3px);
+    }
+    
+    .trabajador-asignado.perforista {
+        background: #fff9c4;
+        border-color: #fbc02d;
+        font-weight: 600;
+    }
+    
+    .trabajador-asignado .remove-btn {
+        background: #f44336;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 0;
+        font-size: 12px;
+    }
+    
+    .trabajador-asignado .remove-btn:hover {
+        background: #d32f2f;
+        transform: scale(1.1);
+    }
+    
+    /* Animación drag over */
+    .drag-over {
+        animation: pulse 0.5s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+    }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+    // ============================================
+    // DRAG & DROP FUNCTIONALITY
+    // ============================================
+    
+    let draggedElement = null;
+    let draggedData = {};
+
+    // Inicializar drag & drop
+    document.addEventListener('DOMContentLoaded', function() {
+        initDragAndDrop();
+    });
+
+    function initDragAndDrop() {
+        // Agregar eventos a items arrastrables
+        document.querySelectorAll('.item-draggable').forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+        });
+    }
+
+    function handleDragStart(e) {
+        draggedElement = this;
+        draggedData = {
+            type: this.dataset.type,
+            id: this.dataset.id,
+            nombre: this.dataset.nombre,
+            html: this.outerHTML
+        };
+        
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+    }
+
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+    }
+
+    function allowDrop(e) {
+        e.preventDefault();
+        const target = e.target.closest('.dropzone-maquinas, .trabajadores-dropzone');
+        if (target) target.classList.add('drag-over');
+    }
+
+    function removeDragOver(e) {
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }
+
+    // Drop de máquina en el área de máquinas asignadas (crea estructura completa)
+    function dropMaquina(e) {
+        e.preventDefault();
+        removeDragOver();
+        
+        if (draggedData.type !== 'maquina') {
+            alert('Solo puedes arrastrar máquinas aquí');
+            return;
+        }
+
+        const maquinasArea = document.getElementById('maquinasAsignadasArea');
+        if (!maquinasArea) return;
+        
+        // Verificar si la máquina ya está asignada
+        const existing = document.querySelector(`[data-maquina-id="${draggedData.id}"]`);
+        if (existing) {
+            alert('Esta máquina ya está asignada');
+            return;
+        }
+        
+        // Remover placeholder si existe
+        const placeholder = maquinasArea.querySelector('.dropzone-maquinas');
+        if (placeholder) placeholder.remove();
+        
+        // Crear contenedor completo: Máquina + 3 Guardias (A, B, C)
+        const maquinaCard = document.createElement('div');
+        maquinaCard.className = 'col-12 mb-4';
+        maquinaCard.innerHTML = `
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-cog"></i> <strong>${draggedData.nombre}</strong></span>
+                    <button class="btn btn-sm btn-danger" onclick="removerMaquina(this)" title="Eliminar máquina">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3" data-maquina-id="${draggedData.id}">
+                        <!-- GUARDIA A -->
+                        <div class="col-md-4">
+                            <div class="guardia-section guardia-a">
+                                <div class="guardia-header">
+                                    <i class="fas fa-shield-alt"></i> GUARDIA A
+                                </div>
+                                <div class="trabajadores-dropzone" 
+                                     data-maquina-id="${draggedData.id}" 
+                                     data-guardia="A"
+                                     ondrop="dropTrabajador(event)" 
+                                     ondragover="allowDrop(event)"
+                                     ondragleave="removeDragOver(event)">
+                                    <p class="text-muted text-center mb-0 py-2"><small>Arrastra trabajadores aquí</small></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- GUARDIA B -->
+                        <div class="col-md-4">
+                            <div class="guardia-section guardia-b">
+                                <div class="guardia-header">
+                                    <i class="fas fa-shield-alt"></i> GUARDIA B
+                                </div>
+                                <div class="trabajadores-dropzone" 
+                                     data-maquina-id="${draggedData.id}" 
+                                     data-guardia="B"
+                                     ondrop="dropTrabajador(event)" 
+                                     ondragover="allowDrop(event)"
+                                     ondragleave="removeDragOver(event)">
+                                    <p class="text-muted text-center mb-0 py-2"><small>Arrastra trabajadores aquí</small></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- GUARDIA C -->
+                        <div class="col-md-4">
+                            <div class="guardia-section guardia-c">
+                                <div class="guardia-header">
+                                    <i class="fas fa-shield-alt"></i> GUARDIA C
+                                </div>
+                                <div class="trabajadores-dropzone" 
+                                     data-maquina-id="${draggedData.id}" 
+                                     data-guardia="C"
+                                     ondrop="dropTrabajador(event)" 
+                                     ondragover="allowDrop(event)"
+                                     ondragleave="removeDragOver(event)">
+                                    <p class="text-muted text-center mb-0 py-2"><small>Arrastra trabajadores aquí</small></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        maquinasArea.appendChild(maquinaCard);
+        
+        // Remover máquina del pool
+        if (draggedElement) draggedElement.remove();
+    }
+
+    // Drop de trabajador en guardia específica de una máquina
+    function dropTrabajador(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeDragOver();
+        
+        if (draggedData.type !== 'trabajador') {
+            alert('Solo puedes arrastrar trabajadores aquí');
+            return;
+        }
+
+        const dropzone = e.target.closest('.trabajadores-dropzone');
+        if (!dropzone) return;
+        
+        // Agregar trabajador
+        const trabajadorDiv = document.createElement('div');
+        trabajadorDiv.className = 'trabajador-asignado';
+        trabajadorDiv.dataset.trabajadorId = draggedData.id;
+        
+        // Obtener cargo del elemento original
+        const cargoText = draggedElement.querySelector('small')?.textContent || '';
+        const isPerforista = cargoText.toLowerCase().includes('perforista');
+        if (isPerforista) trabajadorDiv.classList.add('perforista');
+        
+        trabajadorDiv.innerHTML = `
+            <span>
+                <i class="fas fa-user"></i> ${draggedData.nombre}
+                <small class="d-block text-muted" style="font-size: 0.7rem;">${cargoText}</small>
+            </span>
+            <button class="remove-btn" onclick="removerTrabajador(this)">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // Remover placeholder si existe
+        const placeholder = dropzone.querySelector('p.text-muted');
+        if (placeholder) placeholder.remove();
+        
+        dropzone.appendChild(trabajadorDiv);
+        dropzone.classList.add('has-items');
+        
+        // Remover del pool
+        if (draggedElement) draggedElement.remove();
+    }
+
+    // Remover máquina completa (con todas sus guardias)
+    function removerMaquina(btn) {
+        const card = btn.closest('.col-12');
+        const maquinaContainer = card.querySelector('[data-maquina-id]');
+        
+        if (!confirm('¿Eliminar esta máquina y todos sus trabajadores asignados?')) {
+            return;
+        }
+        
+        // Devolver trabajadores al pool standby
+        maquinaContainer.querySelectorAll('.trabajador-asignado').forEach(trab => {
+            const trabajadorId = trab.dataset.trabajadorId;
+            const nombreCompleto = trab.querySelector('span').textContent.trim().split('\n')[0].replace('👤', '').trim();
+            const cargo = trab.querySelector('small').textContent;
+            devolverTrabajadorAPool(trabajadorId, nombreCompleto, cargo);
+        });
+        
+        card.remove();
+        
+        // Si no quedan máquinas, mostrar placeholder
+        const maquinasArea = document.getElementById('maquinasAsignadasArea');
+        if (maquinasArea.children.length === 0) {
+            maquinasArea.innerHTML = `
+                <div class="col-12">
+                    <div class="dropzone-maquinas text-center p-5 border border-2 border-dashed rounded" 
+                         ondrop="dropMaquina(event)" 
+                         ondragover="allowDrop(event)">
+                        <i class="fas fa-arrow-down fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Arrastra una máquina aquí para crear su sección con guardias A, B, C</p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    // Remover trabajador de guardia
+    function removerTrabajador(btn) {
+        const trabajadorDiv = btn.closest('.trabajador-asignado');
+        const trabajadorId = trabajadorDiv.dataset.trabajadorId;
+        const nombreCompleto = trabajadorDiv.querySelector('span').textContent.trim().split('\n')[0].replace('👤', '').trim();
+        const cargo = trabajadorDiv.querySelector('small').textContent;
+        
+        // Devolver al pool standby
+        devolverTrabajadorAPool(trabajadorId, nombreCompleto, cargo);
+        
+        trabajadorDiv.remove();
+    }
+
+    function devolverTrabajadorAPool(trabajadorId, nombre, cargo) {
+        const poolStandby = document.getElementById('poolStandby');
+        
+        const trabajadorItem = document.createElement('div');
+        trabajadorItem.className = 'item-draggable trabajador-item';
+        trabajadorItem.draggable = true;
+        trabajadorItem.dataset.type = 'trabajador';
+        trabajadorItem.dataset.id = trabajadorId;
+        trabajadorItem.dataset.nombre = nombre;
+        trabajadorItem.innerHTML = `
+            <i class="fas fa-user"></i>
+            <span>${nombre}</span>
+            <small class="d-block text-muted">${cargo}</small>
+        `;
+        
+        // Agregar eventos de drag
+        trabajadorItem.addEventListener('dragstart', handleDragStart);
+        trabajadorItem.addEventListener('dragend', handleDragEnd);
+        
+        // Remover mensaje "No hay personal" si existe
+        const noHay = poolStandby.querySelector('p.text-muted');
+        if (noHay) noHay.remove();
+        
+        poolStandby.appendChild(trabajadorItem);
+    }
+
+    // ============================================
+    // FUNCIONES PARA CONDUCTORES
+    // ============================================
+    
+    // Drop de conductor en guardia de conductores
+    function dropConductor(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeDragOver();
+        
+        if (draggedData.type !== 'trabajador') {
+            alert('Solo puedes arrastrar trabajadores aquí');
+            return;
+        }
+
+        // Verificar que sea conductor
+        const cargoText = draggedElement.querySelector('small')?.textContent || '';
+        if (!cargoText.toLowerCase().includes('conductor')) {
+            alert('⚠️ Solo puedes arrastrar conductores a esta sección');
+            return;
+        }
+
+        const dropzone = e.target.closest('.conductores-dropzone');
+        if (!dropzone) return;
+        
+        const guardia = dropzone.dataset.guardia;
+        
+        // Abrir modal para seleccionar vehículo
+        document.getElementById('conductorNombreModal').textContent = draggedData.nombre;
+        document.getElementById('guardiaModal').textContent = 'Guardia ' + guardia;
+        document.getElementById('conductorIdModal').value = draggedData.id;
+        document.getElementById('guardiaIdModal').value = guardia;
+        document.getElementById('dropzoneTarget').value = guardia; // Para identificar el dropzone
+        document.getElementById('selectVehiculo').value = '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAsignarVehiculo'));
+        modal.show();
+    }
+    
+    // Confirmar asignación de conductor con vehículo
+    function confirmarAsignacionConductor() {
+        const conductorId = document.getElementById('conductorIdModal').value;
+        const conductorNombre = document.getElementById('conductorNombreModal').textContent;
+        const guardia = document.getElementById('guardiaIdModal').value;
+        const vehiculoId = document.getElementById('selectVehiculo').value;
+        const vehiculoText = document.getElementById('selectVehiculo').selectedOptions[0]?.text || 'Sin vehículo';
+        
+        // Encontrar el dropzone de la guardia correspondiente
+        const dropzone = document.querySelector(`.conductores-dropzone[data-guardia="${guardia}"]`);
+        if (!dropzone) return;
+        
+        // Obtener cargo del elemento original
+        const cargoText = draggedElement?.querySelector('small')?.textContent || 'Conductor';
+        
+        // Agregar conductor al dropzone
+        const conductorDiv = document.createElement('div');
+        conductorDiv.className = 'trabajador-asignado conductor';
+        conductorDiv.dataset.conductorId = conductorId;
+        if (vehiculoId) {
+            conductorDiv.dataset.vehiculoId = vehiculoId;
+        }
+        conductorDiv.innerHTML = `
+            <i class="fas fa-user-tie"></i>
+            <span>${conductorNombre}</span>
+            ${vehiculoId ? `<small class="d-block text-success">🚗 ${vehiculoText.split(' - ')[0]}</small>` : '<small class="d-block text-muted">Sin vehículo</small>'}
+            <button class="btn-remove-trabajador" onclick="removerConductor(this)" title="Quitar">×</button>
+        `;
+        
+        // Remover mensaje de placeholder si existe
+        const placeholder = dropzone.querySelector('p.text-muted');
+        if (placeholder) placeholder.style.display = 'none';
+        
+        dropzone.appendChild(conductorDiv);
+        
+        // Remover del pool
+        if (draggedElement) draggedElement.remove();
+        
+        // Cerrar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalAsignarVehiculo'));
+        modal.hide();
+    }
+
+    // Remover conductor de guardia
+    function removerConductor(btn) {
+        const conductorDiv = btn.closest('.trabajador-asignado');
+        const conductorId = conductorDiv.dataset.conductorId;
+        const nombreCompleto = conductorDiv.querySelector('span').textContent.trim();
+        const cargo = conductorDiv.querySelector('small').textContent;
+        
+        // Devolver al pool de conductores
+        devolverConductorAPool(conductorId, nombreCompleto, cargo);
+        
+        conductorDiv.remove();
+        
+        // Mostrar placeholder si no hay conductores
+        const dropzone = btn.closest('.conductores-dropzone');
+        if (dropzone && !dropzone.querySelector('.trabajador-asignado')) {
+            const placeholder = dropzone.querySelector('p.text-muted');
+            if (placeholder) placeholder.style.display = 'block';
+        }
+    }
+
+    function devolverConductorAPool(conductorId, nombre, cargo) {
+        const poolConductores = document.getElementById('poolConductores');
+        
+        const conductorItem = document.createElement('div');
+        conductorItem.className = 'item-draggable trabajador-item';
+        conductorItem.draggable = true;
+        conductorItem.dataset.type = 'trabajador';
+        conductorItem.dataset.id = conductorId;
+        conductorItem.dataset.nombre = nombre;
+        conductorItem.innerHTML = `
+            <i class="fas fa-user"></i>
+            <span>${nombre}</span>
+            <small class="d-block text-muted">${cargo}</small>
+        `;
+        
+        // Agregar eventos de drag
+        conductorItem.addEventListener('dragstart', handleDragStart);
+        conductorItem.addEventListener('dragend', handleDragEnd);
+        
+        // Remover mensaje "No hay conductores" si existe
+        const noHay = poolConductores.querySelector('p.text-muted');
+        if (noHay) noHay.remove();
+        
+        poolConductores.appendChild(conductorItem);
+    }
+
+    // ============================================
+    // GUARDAR ASIGNACIONES (actualizado para incluir conductores)
+    // ============================================
+
+    // Guardar asignaciones
+    function guardarAsignaciones() {
+        const asignaciones = [];
+        const guardiasConductores = [];
+        
+        // Recorrer todas las máquinas y sus guardias
+        document.querySelectorAll('[data-maquina-id]').forEach(maqContainer => {
+            const maquinaId = maqContainer.dataset.maquinaId;
+            
+            // Recorrer cada guardia (A, B, C)
+            maqContainer.querySelectorAll('.trabajadores-dropzone').forEach(dropzone => {
+                const guardia = dropzone.dataset.guardia;
+                
+                // Recorrer trabajadores en esta guardia
+                dropzone.querySelectorAll('.trabajador-asignado').forEach(trab => {
+                    asignaciones.push({
+                        trabajador_id: parseInt(trab.dataset.trabajadorId),
+                        maquina_id: parseInt(maquinaId),
+                        guardia: guardia,
+                        estado: 'OPERATIVO'
+                    });
+                });
+            });
+        });
+        
+        // Recorrer guardias de conductores
+        document.querySelectorAll('.conductores-dropzone').forEach(dropzone => {
+            const guardia = dropzone.dataset.guardia;
+            
+            // Recorrer conductores en esta guardia
+            dropzone.querySelectorAll('.trabajador-asignado.conductor').forEach(conductor => {
+                const conductorData = {
+                    conductor_id: parseInt(conductor.dataset.conductorId),
+                    guardia: guardia,
+                    estado: 'ACTIVO'
+                };
+                
+                // Agregar vehiculo_id si existe
+                if (conductor.dataset.vehiculoId) {
+                    conductorData.vehiculo_id = parseInt(conductor.dataset.vehiculoId);
+                }
+                
+                guardiasConductores.push(conductorData);
+            });
+        });
+        
+        if (asignaciones.length === 0 && guardiasConductores.length === 0) {
+            alert('⚠️ No hay asignaciones ni guardias de conductores para guardar');
+            return;
+        }
+        
+        console.log('Asignaciones a guardar:', asignaciones);
+        console.log('Guardias de conductores:', guardiasConductores);
+        
+        // Obtener CSRF token
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Mostrar loading
+        const btn = event.target;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        btn.disabled = true;
+        
+        // Guardar asignaciones de máquinas primero
+        const promises = [];
+        
+        if (asignaciones.length > 0) {
+            promises.push(
+                fetch('/api/organigrama/guardar-asignaciones/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({ 
+                        asignaciones: asignaciones,
+                        organigrama_semanal_id: {{ organigrama_semanal.id }}
+                    })
+                }).then(r => r.json())
+            );
+        }
+        
+        // Guardar guardias de conductores
+        if (guardiasConductores.length > 0) {
+            promises.push(
+                fetch('/api/organigrama/guardar-guardias-conductores/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({ 
+                        guardias: guardiasConductores,
+                        organigrama_semanal_id: {{ organigrama_semanal.id }}
+                    })
+                }).then(r => r.json())
+            );
+        }
+        
+        // Esperar a que todas las peticiones terminen
+        Promise.all(promises)
+            .then(results => {
+                const allSuccess = results.every(data => data.success);
+                if (allSuccess) {
+                    alert('✅ Asignaciones y guardias guardadas correctamente');
+                    location.reload();
+                } else {
+                    const errors = results.filter(r => !r.success).map(r => r.message).join('\n');
+                    alert('❌ Error al guardar:\n' + errors);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al guardar asignaciones');
+            })
+            .finally(() => {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            });
+    }
+
+    // Limpiar asignaciones
+    function limpiarAsignaciones() {
+        if (!confirm('¿Estás seguro de limpiar todas las asignaciones? Esta acción no se puede deshacer.')) {
+            return;
+        }
+        location.reload();
+    }
+
+    // ============================================
+    // GESTIÓN DE EQUIPOS
+    // ============================================
+    
+    // Abrir modal para asignar equipos
+    function abrirModalAsignarEquipo(trabajadorId, trabajadorNombre) {
+        document.getElementById('trabajadorIdEquipoModal').value = trabajadorId;
+        document.getElementById('trabajadorNombreEquipoModal').textContent = trabajadorNombre;
+        document.getElementById('filtroTipoEquipoModal').value = '';
+        document.getElementById('actaEntregaEquipo').checked = false;
+        document.getElementById('observacionesEquipo').value = '';
+        
+        // Desmarcar todos los checkboxes
+        document.querySelectorAll('#listaEquiposModal input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+        
+        // Mostrar todos los equipos
+        filtrarEquiposModal();
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAsignarEquipos'));
+        modal.show();
+    }
+    
+    // Filtrar equipos en el modal
+    function filtrarEquiposModal() {
+        const filtro = document.getElementById('filtroTipoEquipoModal').value;
+        const items = document.querySelectorAll('#listaEquiposModal .equipo-modal-item');
+        
+        items.forEach(item => {
+            const tipo = item.dataset.tipo;
+            if (filtro === '' || tipo === filtro) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    // Filtrar equipos en el panel principal
+    function filtrarEquiposPorTipo() {
+        const filtro = document.getElementById('filtroTipoEquipo').value;
+        const items = document.querySelectorAll('#listaEquiposDisponibles .equipo-disponible-item');
+        
+        items.forEach(item => {
+            const tipo = item.dataset.tipo;
+            if (filtro === '' || tipo === filtro) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    // Confirmar asignación de equipos
+    function confirmarAsignacionEquipos() {
+        const trabajadorId = document.getElementById('trabajadorIdEquipoModal').value;
+        const actaEntrega = document.getElementById('actaEntregaEquipo').checked;
+        const observaciones = document.getElementById('observacionesEquipo').value;
+        
+        // Obtener equipos seleccionados
+        const equiposSeleccionados = [];
+        document.querySelectorAll('#listaEquiposModal input[type="checkbox"]:checked').forEach(cb => {
+            equiposSeleccionados.push(cb.value);
+        });
+        
+        if (equiposSeleccionados.length === 0) {
+            alert('⚠️ Debes seleccionar al menos un equipo');
+            return;
+        }
+        
+        // Crear asignaciones
+        const asignaciones = equiposSeleccionados.map(equipoId => ({
+            trabajador_id: parseInt(trabajadorId),
+            equipo_id: parseInt(equipoId),
+            estado: 'ACTIVO',
+            acta_entrega: actaEntrega,
+            observaciones: observaciones
+        }));
+        
+        // Guardar en el servidor
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        fetch('/api/organigrama/guardar-asignaciones-equipos/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                asignaciones: asignaciones,
+                organigrama_semanal_id: {{ organigrama_semanal.id }}
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                
+                // Actualizar interfaz
+                const contenedor = document.querySelector(`.equipos-asignados-trabajador[data-trabajador-id="${trabajadorId}"]`);
+                if (contenedor) {
+                    // Agregar badges de equipos
+                    equiposSeleccionados.forEach(equipoId => {
+                        const checkbox = document.getElementById('equipo_' + equipoId);
+                        const label = checkbox.nextElementSibling;
+                        const codigoEquipo = label.querySelector('strong').textContent;
+                        const tipoEquipo = label.querySelector('.badge').textContent;
+                        
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-info me-1';
+                        badge.dataset.equipoId = equipoId;
+                        badge.innerHTML = `
+                            <i class="fas fa-laptop"></i> ${codigoEquipo}
+                            <button class="btn-close btn-close-white btn-sm ms-1" 
+                                    onclick="quitarEquipoTrabajador(${trabajadorId}, ${equipoId})"
+                                    style="font-size: 0.6rem; padding: 0.1rem 0.2rem;"></button>
+                        `;
+                        contenedor.appendChild(badge);
+                    });
+                }
+                
+                // Cerrar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAsignarEquipos'));
+                modal.hide();
+            } else {
+                alert('❌ Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error al asignar equipos');
+        });
+    }
+    
+    // Quitar equipo de trabajador
+    function quitarEquipoTrabajador(trabajadorId, equipoId) {
+        if (!confirm('¿Quitar este equipo del trabajador?')) {
+            return;
+        }
+        
+        // Marcar como devuelto en el servidor
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        fetch('/api/organigrama/guardar-asignaciones-equipos/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                asignaciones: [{
+                    trabajador_id: parseInt(trabajadorId),
+                    equipo_id: parseInt(equipoId),
+                    estado: 'DEVUELTO'
+                }],
+                organigrama_semanal_id: {{ organigrama_semanal.id }}
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // Remover badge de la interfaz
+                const contenedor = document.querySelector(`.equipos-asignados-trabajador[data-trabajador-id="${trabajadorId}"]`);
+                if (contenedor) {
+                    const badge = contenedor.querySelector(`[data-equipo-id="${equipoId}"]`);
+                    if (badge) {
+                        badge.remove();
+                    }
+                }
+                alert('✅ Equipo devuelto correctamente');
+            } else {
+                alert('❌ Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error al devolver equipo');
+        });
+    }
+
+    // ============================================
+    // MODAL Y DESCARGA (código existente)
+    // ============================================
+    // Función para abrir modal de asignación de máquina
+    function abrirModalAsignar(trabajadorId, trabajadorNombre) {
+        document.getElementById('trabajadorId').value = trabajadorId;
+        document.getElementById('trabajadorNombre').textContent = trabajadorNombre;
+        document.getElementById('selectMaquina').value = '';
+        document.getElementById('mensajeAsignacion').style.display = 'none';
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAsignarMaquina'));
+        modal.show();
+    }
+
+    // Función para asignar máquina via AJAX
+    function asignarMaquina() {
+        // Esta función ahora es manejada por el sistema de drag & drop
+        alert('✨ Usa el sistema de arrastrar y soltar para asignar trabajadores a máquinas.\n\n1. Arrastra trabajadores desde el pool a las máquinas\n2. Asigna guardias (A, B, C)\n3. Haz clic en "Guardar Asignaciones"');
+        
+        // Cerrar el modal
+        const modalElement = document.getElementById('modalAsignarMaquina');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+    }
+
+    // Función para descargar como PNG
+    document.getElementById('btnDescargar').addEventListener('click', function() {
+        const btn = this;
+        const originalText = btn.innerHTML;
+        
+        // Mostrar loading
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+        btn.disabled = true;
+
+        // Capturar el contenedor del organigrama
+        const container = document.getElementById('organigrama-container');
+        
+        html2canvas(container, {
+            backgroundColor: null,
+            scale: 2, // Mayor calidad
+            logging: false,
+            useCORS: true
+        }).then(canvas => {
+            // Convertir a blob y descargar
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const fecha = new Date().toISOString().split('T')[0];
+                link.download = `organigrama_{{ contrato.nombre_contrato|slugify }}_${fecha}.png`;
+                link.href = url;
+                link.click();
+                
+                // Restaurar botón
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                
+                // Limpiar URL
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+            });
+            
+        }).catch(error => {
+            console.error('Error al generar imagen:', error);
+            alert('Error al generar la imagen. Por favor intenta nuevamente.');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    });
+</script>
+{% endblock %}

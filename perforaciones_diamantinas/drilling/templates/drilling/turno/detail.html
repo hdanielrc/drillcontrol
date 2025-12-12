@@ -1,0 +1,24 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Detalle Turno #{{ turno.id }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>Turno #{{ turno.id }}</h3>
+    </div>
+    <div class="card-body">
+        <p><strong>Fecha:</strong> {{ turno.fecha }}</p>
+        <p><strong>Sondaje:</strong> {{ turno.sondaje.nombre_sondaje }}</p>
+        <p><strong>Máquina:</strong> {{ turno.maquina.nombre }}</p>
+        <p><strong>Tipo:</strong> {{ turno.tipo_turno.nombre }}</p>
+    </div>
+    <div class="card-footer">
+        <a href="{% url 'listar-turnos' %}" class="btn btn-secondary">Volver</a>
+        {% if user.can_supervise_operations %}
+            <a href="{% url 'turno-update' turno.id %}" class="btn btn-primary">Editar</a>
+            <a href="{% url 'turno-delete' turno.id %}" class="btn btn-danger">Eliminar</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

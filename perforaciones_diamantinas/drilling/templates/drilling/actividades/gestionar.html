@@ -1,0 +1,121 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Gestionar Actividades{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-tasks"></i> Gestionar Actividades</h2>
+            <div>
+                <a href="{% url 'asignar-actividades-contrato' %}" class="btn btn-primary">
+                    <i class="fas fa-link"></i> Asignar a Contratos
+                </a>
+                <a href="{% url 'actividades-list' %}" class="btn btn-secondary">
+                    <i class="fas fa-list"></i> Ver Lista
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-cog"></i> Configuración de Actividades</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Información:</strong> Marque las actividades que son <strong>cobrables</strong> al cliente. 
+                    Las actividades no cobrables (como Stand By, Inoperativo) no se facturarán.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%">#</th>
+                                    <th style="width: 25%">Nombre</th>
+                                    <th style="width: 20%">Tipo</th>
+                                    <th style="width: 35%">Descripción</th>
+                                    <th style="width: 15%" class="text-center">
+                                        <i class="fas fa-dollar-sign"></i> Cobrable
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for actividad in actividades %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ actividad.nombre }}</strong>
+                                        {% if actividad.descripcion_corta %}
+                                        <br><small class="text-muted">{{ actividad.descripcion_corta }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if actividad.tipo_actividad == 'OPERATIVO' %}
+                                            <span class="badge bg-success">{{ actividad.get_tipo_actividad_display }}</span>
+                                        {% elif actividad.tipo_actividad == 'INOPERATIVO' %}
+                                            <span class="badge bg-danger">{{ actividad.get_tipo_actividad_display }}</span>
+                                        {% elif actividad.tipo_actividad == 'STAND_BY_CLIENTE' %}
+                                            <span class="badge bg-warning text-dark">{{ actividad.get_tipo_actividad_display }}</span>
+                                        {% elif actividad.tipo_actividad == 'STAND_BY_ROCKDRILL' %}
+                                            <span class="badge bg-info">{{ actividad.get_tipo_actividad_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ actividad.get_tipo_actividad_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ actividad.descripcion|truncatewords:15|default:"-" }}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-flex justify-content-center">
+                                            <input 
+                                                class="form-check-input" 
+                                                type="checkbox" 
+                                                name="cobrable_{{ actividad.id }}"
+                                                id="cobrable_{{ actividad.id }}"
+                                                {% if actividad.es_cobrable %}checked{% endif %}
+                                                style="cursor: pointer; width: 3rem; height: 1.5rem;"
+                                            >
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        No hay actividades registradas
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-check-input:checked {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+</style>
+{% endblock %}

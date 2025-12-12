@@ -1,0 +1,314 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}Gestión de Trabajadores{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="text-center mb-5">
+        <h1 class="display-4">
+            <i class="fas fa-users text-primary"></i> Gestión de Trabajadores
+        </h1>
+        <p class="lead text-muted">Centro de control y administración del personal del contrato</p>
+        {% if user.contrato %}
+        <span class="badge bg-primary fs-6">{{ user.contrato.nombre_contrato }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Sección: Información y Consultas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-3">
+                <i class="fas fa-info-circle text-info"></i> Información y Consultas
+            </h3>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-list fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Listado de Trabajadores</h5>
+                    <p class="card-text text-muted">
+                        Ver todos los trabajadores del contrato con sus datos completos
+                    </p>
+                    <a href="{% url 'trabajador-list' %}" class="btn btn-primary">
+                        <i class="fas fa-eye"></i> Ver Listado
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-sitemap fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title">Organigrama</h5>
+                    <p class="card-text text-muted">
+                        Estructura jerárquica del personal con asignaciones de máquinas y guardias
+                    </p>
+                    <a href="{% url 'organigrama' %}" class="btn btn-success">
+                        <i class="fas fa-sitemap"></i> Ver Organigrama
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-user-plus fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title">Nuevo Trabajador</h5>
+                    <p class="card-text text-muted">
+                        Registrar un nuevo trabajador en el sistema
+                    </p>
+                    <a href="{% url 'trabajador-create' %}" class="btn btn-info">
+                        <i class="fas fa-plus"></i> Agregar Trabajador
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 shadow-sm hover-card border-primary">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-laptop fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Equipos</h5>
+                    <p class="card-text text-muted">
+                        Gestionar inventario y asignar equipos a trabajadores
+                    </p>
+                    <a href="{% url 'equipos-dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-th-large"></i> Ver Panel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección: Asistencias y Tareo -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-3">
+                <i class="fas fa-calendar-check text-warning"></i> Asistencias y Control
+            </h3>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-calendar-alt fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Tareo de Asistencias</h5>
+                    <p class="card-text text-muted">
+                        Matriz de asistencias diarias con 19 estados diferentes (TRABAJADO, VACACIONES, etc.)
+                    </p>
+                    <div class="mb-2">
+                        <span class="badge bg-success">Pagable/No Pagable</span>
+                        <span class="badge bg-info">Por Semana/Mes</span>
+                    </div>
+                    <a href="{% url 'tareo-mensual' %}" class="btn btn-warning">
+                        <i class="fas fa-calendar-check"></i> Abrir Tareo
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card h-100 shadow-sm hover-card bg-light">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-file-excel fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title">Reportes de Asistencias</h5>
+                    <p class="card-text text-muted">
+                        Exportar reportes de asistencias en Excel o PDF
+                    </p>
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-download"></i> Próximamente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección: Documentos y Archivos -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-3">
+                <i class="fas fa-folder-open text-secondary"></i> Documentación
+            </h3>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm hover-card bg-light">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-file-contract fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title">Contratos Laborales</h5>
+                    <p class="card-text text-muted">
+                        Gestión de contratos y documentos legales del personal
+                    </p>
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-file-alt"></i> Próximamente
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm hover-card bg-light">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-id-card fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title">Certificaciones</h5>
+                    <p class="card-text text-muted">
+                        Control de certificaciones y capacitaciones del personal
+                    </p>
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-certificate"></i> Próximamente
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm hover-card bg-light">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-medkit fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title">Fichas Médicas</h5>
+                    <p class="card-text text-muted">
+                        Historial médico y exámenes ocupacionales
+                    </p>
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-notes-medical"></i> Próximamente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección: Reportes y Análisis -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-3">
+                <i class="fas fa-chart-line text-danger"></i> Reportes y Análisis
+            </h3>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm hover-card bg-light">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-chart-bar fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title">Estadísticas de Personal</h5>
+                    <p class="card-text text-muted">
+                        Análisis de rotación, ausentismo y productividad
+                    </p>
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-chart-pie"></i> Próximamente
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm hover-card bg-light">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-dollar-sign fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title">Planilla y Costos</h5>
+                    <p class="card-text text-muted">
+                        Cálculo de planilla, horas extras y costos laborales
+                    </p>
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-calculator"></i> Próximamente
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm hover-card bg-light">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-file-pdf fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title">Reportes Personalizados</h5>
+                    <p class="card-text text-muted">
+                        Generar reportes personalizados según necesidades
+                    </p>
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-file-export"></i> Próximamente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen de Estado -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-info-circle"></i> Estado del Sistema
+                    </h5>
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h3 class="text-primary">{{ total_trabajadores|default:0 }}</h3>
+                            <p class="text-muted mb-0">Trabajadores Activos</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-success">3</h3>
+                            <p class="text-muted mb-0">Módulos Disponibles</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-warning">6</h3>
+                            <p class="text-muted mb-0">Módulos en Desarrollo</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-info">{{ user.contrato.trabajadores.count|default:0 }}</h3>
+                            <p class="text-muted mb-0">Personal del Contrato</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hover-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    
+    .card {
+        border-radius: 10px;
+    }
+    
+    .btn {
+        border-radius: 20px;
+        padding: 10px 25px;
+    }
+</style>
+{% endblock %}

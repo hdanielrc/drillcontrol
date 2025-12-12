@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Perforaciones Diamantinas{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    {% load static %}
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'dashboard' %}">
+                <i class="fas fa-drill"></i> Perforaciones Diamantinas
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'dashboard' %}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cogs"></i> Gestión
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'trabajador-list' %}">
+                                <i class="fas fa-users"></i> Trabajadores
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'maquina-list' %}">
+                                <i class="fas fa-industry"></i> Máquinas
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'sondaje-list' %}">
+                                <i class="fas fa-map-marked-alt"></i> Sondajes
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'tareo-mensual' %}">
+                                <i class="fas fa-calendar-check"></i> Asistencias
+                            </a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-clock"></i> Turnos
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'crear-turno-completo' %}">
+                                <i class="fas fa-plus"></i> Crear Turno
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'listar-turnos' %}">
+                                <i class="fas fa-list"></i> Listar Turnos
+                            </a></li>
+                            {% if user.can_supervise_operations %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'metas-maquina-gestionar' %}">
+                                <i class="fas fa-bullseye"></i> Gestionar Metas
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'metas-maquina-list' %}">
+                                <i class="fas fa-list-alt"></i> Ver Todas las Metas
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'metas-valorizacion-reporte' %}">
+                                <i class="fas fa-chart-bar"></i> Reporte de Valorización
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'precios-unitarios-list' %}">
+                                <i class="fas fa-dollar-sign"></i> Precios Unitarios
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'reporte-horas-extras' %}">
+                                <i class="fas fa-user-clock"></i> Horas Extras
+                            </a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-boxes"></i> Inventario
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'abastecimiento-list' %}">
+                                <i class="fas fa-truck"></i> Abastecimiento
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'consumo-list' %}">
+                                <i class="fas fa-minus-circle"></i> Consumo
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'stock-disponible' %}">
+                                <i class="fas fa-warehouse"></i> Stock Disponible
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'vista-stock-almacen' %}">
+                                <i class="fas fa-cloud"></i> Stock Almacén (API)
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'importar-abastecimiento' %}">
+                                <i class="fas fa-file-excel"></i> Importar Excel
+                            </a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-tools"></i> Configuración
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'actividades-list' %}">
+                                <i class="fas fa-tasks"></i> Actividades
+                            </a></li>
+                            {% if is_system_admin %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'gestionar-actividades' %}">
+                                <i class="fas fa-cog"></i> Gestionar Actividades
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'asignar-actividades-contrato' %}">
+                                <i class="fas fa-link"></i> Asignar a Contratos
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'gestionar-horas-extras' %}">
+                                <i class="fas fa-cog"></i> Gestionar Horas Extras
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'reporte-horas-extras' %}">
+                                <i class="fas fa-user-clock"></i> Reporte Horas Extras
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="{% url 'tipo-turno-list' %}">
+                                <i class="fas fa-clock"></i> Tipos de Turno
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'complemento-list' %}">
+                                <i class="fas fa-puzzle-piece"></i> Productos Diamantados
+                            </a></li>
+                            {% if user.can_supervise_operations %}
+                            <li><a class="dropdown-item" href="{% url 'reporte-metraje-complementos' %}">
+                                <i class="fas fa-ruler-vertical"></i> Reporte Metraje Productos
+                            </a></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="{% url 'aditivo-list' %}">
+                                <i class="fas fa-flask"></i> Aditivos
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'unidad-list' %}">
+                                <i class="fas fa-balance-scale"></i> Unidades
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i> {{ user.first_name }} {{ user.last_name }}
+                            {% if is_system_admin %}
+                                <span class="badge bg-warning">Admin</span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header">
+                                {% if user.contrato %}
+                                    <i class="fas fa-building"></i> {{ user.contrato.nombre_contrato }}
+                                {% else %}
+                                    <i class="fas fa-globe"></i> Todos los Contratos
+                                {% endif %}
+                            </h6></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'change_password' %}">
+                                <i class="fas fa-key"></i> Cambiar Contraseña
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item" style="cursor: pointer; border: none; background: none; text-align: left; width: 100%;">
+                                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Content -->
+    <div class="container-fluid mt-4">
+        <!-- Messages -->
+        {% if messages %}
+        <div class="row">
+            <div class="col-12">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {% if message.tags == 'success' %}
+                        <i class="fas fa-check-circle"></i>
+                    {% elif message.tags == 'danger' %}
+                        <i class="fas fa-exclamation-triangle"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i class="fas fa-exclamation-circle"></i>
+                    {% elif message.tags == 'info' %}
+                        <i class="fas fa-info-circle"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>

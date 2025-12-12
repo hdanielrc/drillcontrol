@@ -1,0 +1,306 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}{% if edit_mode %}Editar{% else %}Nuevo{% endif %} Equipo{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2>
+        <i class="fas fa-laptop"></i> 
+        {% if edit_mode %}Editar Equipo{% else %}Nuevo Equipo{% endif %}
+    </h2>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'trabajadores-hub' %}">Trabajadores</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'equipos-list' %}">Equipos</a></li>
+            <li class="breadcrumb-item active">{% if edit_mode %}Editar{% else %}Nuevo{% endif %}</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-{% if edit_mode %}edit{% else %}plus{% endif %}"></i>
+                    {% if edit_mode %}Editar Equipo: {{ equipo.codigo_interno }}{% else %}Datos del Nuevo Equipo{% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <!-- Contrato (solo para admin) -->
+                    {% if contratos %}
+                    <div class="mb-3">
+                        <label for="contrato" class="form-label required">
+                            <i class="fas fa-building"></i> Contrato
+                        </label>
+                        <select name="contrato" id="contrato" class="form-select" required>
+                            <option value="">-- Seleccionar Contrato --</option>
+                            {% for contrato in contratos %}
+                            <option value="{{ contrato.id }}" {% if edit_mode and equipo.contrato.id == contrato.id %}selected{% endif %}>
+                                {{ contrato.nombre_contrato }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Información Básica -->
+                    <fieldset class="border p-3 mb-3">
+                        <legend class="w-auto px-2 text-primary">Información Básica</legend>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="tipo" class="form-label required">
+                                        <i class="fas fa-tag"></i> Tipo de Equipo
+                                    </label>
+                                    <select name="tipo" id="tipo" class="form-select" required>
+                                        <option value="">-- Seleccionar Tipo --</option>
+                                        {% for value, label in tipos_equipo %}
+                                        <option value="{{ value }}" {% if edit_mode and equipo.tipo == value %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="codigo_interno" class="form-label required">
+                                        <i class="fas fa-barcode"></i> Código Interno
+                                    </label>
+                                    <input type="text" 
+                                           name="codigo_interno" 
+                                           id="codigo_interno" 
+                                           class="form-control" 
+                                           value="{% if edit_mode %}{{ equipo.codigo_interno }}{% endif %}"
+                                           placeholder="Ej: LAP-001, CEL-002"
+                                           required>
+                                    <div class="form-text">Código único de identificación</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="marca" class="form-label">
+                                        <i class="fas fa-industry"></i> Marca
+                                    </label>
+                                    <input type="text" 
+                                           name="marca" 
+                                           id="marca" 
+                                           class="form-control" 
+                                           value="{% if edit_mode %}{{ equipo.marca }}{% endif %}"
+                                           placeholder="Ej: HP, Samsung, Motorola">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="modelo" class="form-label">
+                                        <i class="fas fa-cube"></i> Modelo
+                                    </label>
+                                    <input type="text" 
+                                           name="modelo" 
+                                           id="modelo" 
+                                           class="form-control" 
+                                           value="{% if edit_mode %}{{ equipo.modelo }}{% endif %}"
+                                           placeholder="Ej: ProBook 450, Galaxy S21">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="numero_serie" class="form-label">
+                                <i class="fas fa-hashtag"></i> Número de Serie
+                            </label>
+                            <input type="text" 
+                                   name="numero_serie" 
+                                   id="numero_serie" 
+                                   class="form-control" 
+                                   value="{% if edit_mode %}{{ equipo.numero_serie }}{% endif %}"
+                                   placeholder="Número de serie del fabricante">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="descripcion" class="form-label">
+                                <i class="fas fa-align-left"></i> Descripción
+                            </label>
+                            <textarea name="descripcion" 
+                                      id="descripcion" 
+                                      class="form-control" 
+                                      rows="2"
+                                      placeholder="Características adicionales del equipo">{% if edit_mode %}{{ equipo.descripcion }}{% endif %}</textarea>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Información de Comunicación -->
+                    <fieldset class="border p-3 mb-3">
+                        <legend class="w-auto px-2 text-info">
+                            <i class="fas fa-phone"></i> Comunicación (Celulares/Radios/Módems)
+                        </legend>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Completa esta sección solo si el equipo es un celular, radio o módem.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="numero_telefono" class="form-label">
+                                        <i class="fas fa-phone"></i> Número de Teléfono / IMEI
+                                    </label>
+                                    <input type="text" 
+                                           name="numero_telefono" 
+                                           id="numero_telefono" 
+                                           class="form-control" 
+                                           value="{% if edit_mode %}{{ equipo.numero_telefono }}{% endif %}"
+                                           placeholder="Ej: 987654321">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="operador" class="form-label">
+                                        <i class="fas fa-sim-card"></i> Operador
+                                    </label>
+                                    <input type="text" 
+                                           name="operador" 
+                                           id="operador" 
+                                           class="form-control" 
+                                           value="{% if edit_mode %}{{ equipo.operador }}{% endif %}"
+                                           placeholder="Ej: Claro, Movistar, Entel">
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Fechas y Estado -->
+                    <fieldset class="border p-3 mb-3">
+                        <legend class="w-auto px-2 text-success">Fechas y Estado</legend>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="fecha_adquisicion" class="form-label">
+                                        <i class="fas fa-calendar-plus"></i> Fecha de Adquisición
+                                    </label>
+                                    <input type="date" 
+                                           name="fecha_adquisicion" 
+                                           id="fecha_adquisicion" 
+                                           class="form-control" 
+                                           value="{% if edit_mode and equipo.fecha_adquisicion %}{{ equipo.fecha_adquisicion|date:'Y-m-d' }}{% endif %}">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="fecha_garantia_vencimiento" class="form-label">
+                                        <i class="fas fa-calendar-times"></i> Vencimiento Garantía
+                                    </label>
+                                    <input type="date" 
+                                           name="fecha_garantia_vencimiento" 
+                                           id="fecha_garantia_vencimiento" 
+                                           class="form-control" 
+                                           value="{% if edit_mode and equipo.fecha_garantia_vencimiento %}{{ equipo.fecha_garantia_vencimiento|date:'Y-m-d' }}{% endif %}">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="estado" class="form-label required">
+                                        <i class="fas fa-info-circle"></i> Estado
+                                    </label>
+                                    <select name="estado" id="estado" class="form-select" required>
+                                        {% for value, label in estados_equipo %}
+                                        <option value="{{ value }}" {% if edit_mode and equipo.estado == value %}selected{% elif not edit_mode and value == 'DISPONIBLE' %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Observaciones -->
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">
+                            <i class="fas fa-comment"></i> Observaciones
+                        </label>
+                        <textarea name="observaciones" 
+                                  id="observaciones" 
+                                  class="form-control" 
+                                  rows="3"
+                                  placeholder="Notas adicionales sobre el equipo">{% if edit_mode %}{{ equipo.observaciones }}{% endif %}</textarea>
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'equipos-list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> 
+                            {% if edit_mode %}Actualizar Equipo{% else %}Guardar Equipo{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.required::after {
+    content: " *";
+    color: red;
+}
+
+fieldset {
+    border-radius: 0.25rem;
+}
+
+legend {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+.card {
+    border: none;
+}
+
+.form-text {
+    font-size: 0.875rem;
+}
+</style>
+
+<script>
+// Mostrar/ocultar sección de comunicación según el tipo
+document.getElementById('tipo').addEventListener('change', function() {
+    const tiposComunicacion = ['CELULAR', 'MODEM', 'RADIO'];
+    const seccionComunicacion = document.querySelector('fieldset:nth-of-type(2)');
+    
+    if (tiposComunicacion.includes(this.value)) {
+        seccionComunicacion.style.display = 'block';
+    } else {
+        seccionComunicacion.style.display = 'none';
+    }
+});
+
+// Trigger al cargar si estamos editando
+window.addEventListener('load', function() {
+    const tipoSelect = document.getElementById('tipo');
+    if (tipoSelect.value) {
+        tipoSelect.dispatchEvent(new Event('change'));
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends 'drilling/base_admin.html' %}
+
+{% block title %}Dashboard Administrativo{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-1"><i class="fas fa-chart-pie"></i> Dashboard Ejecutivo</h2>
+                <p class="text-muted mb-0">Vista consolidada de todos los contratos</p>
+            </div>
+            <div class="text-end">
+                <small class="text-muted">
+                    <i class="fas fa-calendar"></i> {{ "now"|date:"d/m/Y H:i" }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPIs Consolidados -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="metric-card primary">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <small class="text-muted text-uppercase" style="font-size: 0.7rem; font-weight: 600;">Contratos Activos</small>
+                    <h3 class="mb-1 mt-1">{{ contratos_activos }}</h3>
+                    <small class="text-success"><i class="fas fa-check-circle"></i> Operativos</small>
+                </div>
+                <i class="fas fa-file-contract fa-2x text-primary opacity-25"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="metric-card success">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <small class="text-muted text-uppercase" style="font-size: 0.7rem; font-weight: 600;">Metros Perforados (Mes)</small>
+                    <h3 class="mb-1 mt-1">{{ metros_perforados_mes|floatformat:1 }}m</h3>
+                    <small class="text-muted">Total consolidado</small>
+                </div>
+                <i class="fas fa-drill fa-2x text-success opacity-25"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="metric-card warning">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <small class="text-muted text-uppercase" style="font-size: 0.7rem; font-weight: 600;">Usuarios Activos</small>
+                    <h3 class="mb-1 mt-1">{{ usuarios_activos }}</h3>
+                    <small class="text-muted">En el sistema</small>
+                </div>
+                <i class="fas fa-users fa-2x text-warning opacity-25"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="metric-card danger">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <small class="text-muted text-uppercase" style="font-size: 0.7rem; font-weight: 600;">Turnos Hoy</small>
+                    <h3 class="mb-1 mt-1">{{ turnos_hoy_total }}</h3>
+                    <small class="text-muted">Todos los contratos</small>
+                </div>
+                <i class="fas fa-clock fa-2x text-danger opacity-25"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métricas por Contrato -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-building"></i> Resumen por Contrato</h5>
+                <span class="badge bg-secondary">{{ contratos_activos }} contratos</span>
+            </div>
+            <div class="card-body">
+                {% if metricas_por_contrato %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Contrato</th>
+                                <th class="text-center">Sondajes</th>
+                                <th class="text-center">Trabajadores</th>
+                                <th class="text-center">Turnos (Mes)</th>
+                                <th class="text-end">Metros (Mes)</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for metrica in metricas_por_contrato %}
+                            <tr>
+                                <td>
+                                    <strong>{{ metrica.nombre_contrato }}</strong><br>
+                                    <small class="text-muted">{{ metrica.cliente }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ metrica.sondajes_activos }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary">{{ metrica.trabajadores_activos }}</span>
+                                </td>
+                                <td class="text-center">{{ metrica.turnos_mes }}</td>
+                                <td class="text-end"><strong>{{ metrica.metros_mes|floatformat:1 }}m</strong></td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">{{ metrica.estado }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No hay datos disponibles</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actividad Reciente y Alertas -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-history"></i> Actividad Reciente</h5>
+            </div>
+            <div class="card-body">
+                {% if ultimos_turnos %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Contrato</th>
+                                <th>Sondaje</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for turno in ultimos_turnos %}
+                            <tr>
+                                <td><small>{{ turno.fecha|date:"d/m" }}</small></td>
+                                <td><small>{{ turno.contrato_nombre|truncatechars:20 }}</small></td>
+                                <td>
+                                    <small>
+                                        {% with turno.sondajes.all as s_list %}
+                                            {% if s_list %}
+                                                {% for s in s_list %}
+                                                    {{ s.nombre_sondaje }}{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        {% endwith %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge {% if turno.estado == 'COMPLETADO' %}bg-success{% elif turno.estado == 'APROBADO' %}bg-primary{% else %}bg-secondary{% endif %}" style="font-size: 0.65rem;">
+                                        {{ turno.estado }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                    <p class="text-muted small mb-0">Sin actividad reciente</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle text-warning"></i> Stock Crítico</h5>
+            </div>
+            <div class="card-body">
+                {% if stock_critico %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Contrato</th>
+                                <th class="text-end">Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in stock_critico %}
+                            <tr>
+                                <td><small>{{ stock.descripcion|truncatechars:25 }}</small></td>
+                                <td><small>{{ stock.contrato_nombre|truncatechars:15 }}</small></td>
+                                <td class="text-end">
+                                    <span class="badge {% if stock.disponible <= 2 %}bg-danger{% elif stock.disponible <= 5 %}bg-warning{% else %}bg-success{% endif %}" style="font-size: 0.7rem;">
+                                        {{ stock.disponible|floatformat:1 }} {{ stock.unidad_medida.simbolo }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <p class="text-muted small mb-0">Stock en niveles normales</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}
+{% if object %}Editar Sondaje{% else %}Nuevo Sondaje{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>
+                    {% if object %}
+                        <i class="fas fa-edit"></i> Editar Sondaje: {{ object.nombre_sondaje }}
+                    {% else %}
+                        <i class="fas fa-plus"></i> Nuevo Sondaje
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="{{ form.nombre_sondaje.id_for_label }}" class="form-label">
+                                    <i class="fas fa-map-marker-alt"></i> Nombre del Sondaje *
+                                </label>
+                                {{ form.nombre_sondaje }}
+                                {% if form.nombre_sondaje.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.nombre_sondaje.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.estado.id_for_label }}" class="form-label">
+                                    <i class="fas fa-info-circle"></i> Estado *
+                                </label>
+                                {{ form.estado }}
+                                {% if form.estado.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.estado.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">
+                                    <i class="fas fa-calendar-alt"></i> Fecha de Inicio *
+                                </label>
+                                {{ form.fecha_inicio }}
+                                {% if form.fecha_inicio.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.fecha_inicio.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.fecha_fin.id_for_label }}" class="form-label">
+                                    <i class="fas fa-calendar-check"></i> Fecha de Fin
+                                </label>
+                                {{ form.fecha_fin }}
+                                {% if form.fecha_fin.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.fecha_fin.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">Opcional - Solo si el sondaje está finalizado</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.profundidad.id_for_label }}" class="form-label">
+                                    <i class="fas fa-arrows-alt-v"></i> Profundidad (m) *
+                                </label>
+                                {{ form.profundidad }}
+                                {% if form.profundidad.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.profundidad.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">Profundidad total planificada en metros</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.inclinacion.id_for_label }}" class="form-label">
+                                    <i class="fas fa-angle-right"></i> Inclinación (°) *
+                                </label>
+                                {{ form.inclinacion }}
+                                {% if form.inclinacion.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.inclinacion.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">Ángulo de inclinación (-90° a 90°)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.cota_collar.id_for_label }}" class="form-label">
+                                    <i class="fas fa-mountain"></i> Cota Collar (m) *
+                                </label>
+                                {{ form.cota_collar }}
+                                {% if form.cota_collar.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.cota_collar.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">Elevación del collar del sondaje</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'sondaje-list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i>
+                            {% if object %}Actualizar{% else %}Crear{% endif %} Sondaje
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

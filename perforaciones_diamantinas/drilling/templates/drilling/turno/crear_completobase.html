@@ -1,0 +1,1122 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Crear Turno Completo{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-plus-circle"></i> Crear Turno Completo</h2>
+            <a href="{% url 'listar-turnos' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> Ver Turnos
+            </a>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="form-turno">
+    {% csrf_token %}
+    <!-- Hidden inputs to carry JSON payloads for dynamic sections -->
+    <input type="hidden" name="trabajadores" id="hid-trabajadores" value="[]">
+    <input type="hidden" name="complementos" id="hid-complementos" value="[]">
+    <input type="hidden" name="aditivos" id="hid-aditivos" value="[]">
+    <input type="hidden" name="actividades" id="hid-actividades" value="[]">
+    <input type="hidden" name="corridas" id="hid-corridas" value="[]">
+    {% if edit_mode %}
+    <script id="edit-data" type="application/json">
+    {
+        "trabajadores": {{ edit_trabajadores_json|default:'[]'|safe }},
+        "complementos": {{ edit_complementos_json|default:'[]'|safe }},
+        "aditivos": {{ edit_aditivos_json|default:'[]'|safe }},
+        "actividades": {{ edit_actividades_json|default:'[]'|safe }},
+        "corridas": {{ edit_corridas_json|default:'[]'|safe }},
+        "sondaje_ids": {{ edit_sondaje_ids|default:'[]'|safe }},
+        "sondajes": {{ edit_sondajes_json|default:'[]'|safe }},
+        "maquina_id": {{ edit_maquina_id|default:'null' }},
+        "tipo_turno_id": {{ edit_tipo_turno_id|default:'null' }},
+    "fecha": "{{ edit_fecha|default:''|escapejs }}",
+    "hora_inicio_maq": "{{ edit_hora_inicio_maq|default:''|escapejs }}",
+        "hora_fin_maq": "{{ edit_hora_fin_maq|default:''|escapejs }}",
+        "estado_bomba": "{{ edit_estado_bomba|default:''|escapejs }}",
+        "estado_unidad": "{{ edit_estado_unidad|default:''|escapejs }}",
+        "estado_rotacion": "{{ edit_estado_rotacion|default:''|escapejs }}"
+        }
+        </script>
+    {% endif %}
+    
+    <!-- Datos básicos del turno -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="fas fa-info-circle"></i> Información Básica del Turno</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <label class="form-label">Sondajes *</label>
+                        <button type="button" class="btn btn-primary btn-sm" id="agregar-sondaje-btn">
+                            <i class="fas fa-plus"></i> Agregar Sondaje
+                        </button>
+                    </div>
+                    <div id="sondajes-seccion">
+                        <!-- Filas de sondajes dinámicas (cada select debe llamarse 'sondajes' para permitirse múltiples valores) -->
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label for="maquina" class="form-label">Máquina *</label>
+                        <select id="maquina" name="maquina" class="form-select" required>
+                            <option value="">Seleccionar máquina</option>
+                            {% for maquina in maquinas %}
+                            <option value="{{ maquina.id }}">{{ maquina.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label for="tipo_turno" class="form-label">Tipo de Turno *</label>
+                        <select id="tipo_turno" name="tipo_turno" class="form-select" required>
+                            <option value="">Selecciona tipo de turno</option>
+                            {% for tipo in tipos_turno %}
+                            <option value="{{ tipo.id }}">{{ tipo.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label for="fecha" class="form-label">Fecha *</label>
+                        <input type="date" id="fecha" name="fecha" class="form-control" required value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trabajadores del turno -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-users"></i> Trabajadores del Turno</h5>
+            <button type="button" class="btn btn-primary btn-sm" id="agregar-trabajador-btn">
+                <i class="fas fa-plus"></i> Agregar Trabajador
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="trabajadores-seccion">
+                <!-- Trabajadores se agregan aquí dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalles de la máquina -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="fas fa-industry"></i> Detalles de la Máquina</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label for="hora_inicio_maq" class="form-label">Horómetro Inicio</label>
+                        <input type="number" id="hora_inicio_maq" name="hora_inicio_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1200">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label for="hora_fin_maq" class="form-label">Horómetro Fin</label>
+                        <input type="number" id="hora_fin_maq" name="hora_fin_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1206">
+                    </div>
+                </div>
+                <div class="col-12">
+                    <small class="text-muted">Ingrese las lecturas de horómetro (ej. 1200 y 1206). La diferencia se sumará al contador <code>horometro</code> de la máquina al guardar el turno.</small>
+                </div>
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label for="estado_bomba" class="form-label">Estado Bomba</label>
+                        <select id="estado_bomba" name="estado_bomba" class="form-select">
+                            <option value="OPERATIVO">Operativo</option>
+                            <option value="DEFICIENTE">Deficiente</option>
+                            <option value="INOPERATIVO">Inoperativo</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label for="estado_unidad" class="form-label">Estado Unidad</label>
+                        <select id="estado_unidad" name="estado_unidad" class="form-select">
+                            <option value="OPERATIVO">Operativo</option>
+                            <option value="DEFICIENTE">Deficiente</option>
+                            <option value="INOPERATIVO">Inoperativo</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label for="estado_rotacion" class="form-label">Estado Rotación</label>
+                        <select id="estado_rotacion" name="estado_rotacion" class="form-select">
+                            <option value="OPERATIVO">Operativo</option>
+                            <option value="DEFICIENTE">Deficiente</option>
+                            <option value="INOPERATIVO">Inoperativo</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productos Diamantados -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-puzzle-piece"></i> Productos Diamantados</h5>
+            <div>
+                <small class="text-muted">Los productos diamantados se asignan por sondaje. Añada sondajes arriba para mostrar subsecciones.</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="complementos-seccion">
+                <!-- Se crearán subsecciones por sondaje: .complemento-subsection (data-sondaje-id) -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Aditivos -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-flask"></i> Aditivos</h5>
+            <div>
+                <small class="text-muted">Los aditivos se asignan por sondaje. Añada sondajes arriba para mostrar subsecciones.</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="aditivos-seccion">
+                <!-- Se crearán subsecciones por sondaje: .aditivo-subsection (data-sondaje-id) -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Actividades -->
+    <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-tasks"></i> Actividades</h5>
+            <div>
+                <button type="button" class="btn btn-outline-secondary btn-sm me-2" id="nueva-actividad-btn" data-bs-toggle="modal" data-bs-target="#modalNuevaActividad">
+                    <i class="fas fa-plus-circle"></i> Nueva Actividad
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="agregar-actividad-btn">
+                    <i class="fas fa-plus"></i> Agregar Actividad
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="actividades-seccion">
+                <!-- Actividades se agregan aquí dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Corridas -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-route"></i> Corridas</h5>
+            <button type="button" class="btn btn-primary btn-sm" id="agregar-corrida-btn">
+                <i class="fas fa-plus"></i> Agregar Corrida
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="corridas-seccion">
+                <!-- Corridas se agregan aquí dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Avance del turno: ahora calculado desde los metrajes por sondaje (TurnoSondaje) -->
+
+    <!-- Botones de acción -->
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'listar-turnos' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-save"></i> Guardar Turno Completo
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // NOTE: Select2, client-side date default and inline activity creation were removed to
+    // keep `crear_completo.html` focused on serializing dynamic rows. The master list of
+    // actividades must be managed separately and assigned to contracts via a dedicated view.
+    // =============================================
+    // FUNCIONES PARA TRABAJADORES
+    // =============================================
+    
+    function crearTrabajadorRow() {
+        const trabajadorCount = document.querySelectorAll('.trabajador-row').length;
+        return `
+        <div class="trabajador-row border rounded p-3 mb-3 bg-light">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Trabajador</label>
+                    <select name="trabajador_${trabajadorCount}" class="form-select" required>
+                        <option value="">Seleccionar trabajador</option>
+                        {% for trabajador in trabajadores %}
+                        <option value="{{ trabajador.dni }}">{{ trabajador.apellidos }}, {{ trabajador.nombres }}{% if trabajador.dni %} - {{ trabajador.dni }}{% endif %} - {{ trabajador.get_cargo_display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Función</label>
+                    <select name="funcion_${trabajadorCount}" class="form-select" required>
+                        <option value="">Seleccionar función</option>
+                        <option value="OPERADOR_PRINCIPAL">Operador Principal</option>
+                        <option value="OPERADOR_APOYO">Operador Apoyo</option>
+                        <option value="AYUDANTE">Ayudante</option>
+                        <option value="SUPERVISOR">Supervisor</option>
+                        <option value="MECANICO">Mecánico</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Observaciones</label>
+                    <input type="text" name="obs_${trabajadorCount}" class="form-control" placeholder="Observaciones">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-trabajador">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    document.getElementById('agregar-trabajador-btn').addEventListener('click', function() {
+        document.getElementById('trabajadores-seccion').insertAdjacentHTML('beforeend', crearTrabajadorRow());
+    });
+    
+    document.getElementById('trabajadores-seccion').addEventListener('click', function(event) {
+        if (event.target.closest('.btn-remove-trabajador')) {
+            event.target.closest('.trabajador-row').remove();
+        }
+    });
+    
+    // =============================================
+    // FUNCIONES PARA COMPLEMENTOS
+    // =============================================
+    
+    function crearComplementoRow() {
+        const complementoCount = document.querySelectorAll('.complemento-row').length;
+        return `
+        <div class="complemento-row border rounded p-3 mb-3 bg-light">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Producto Diamantado (Serie)</label>
+                    <select name="tipo_complemento_${complementoCount}" class="form-select select-complemento" required>
+                        <option value="">Seleccionar producto diamantado</option>
+                        {% for complemento in tipos_complemento %}
+                        <option value="{{ complemento.id }}" data-serie="{{ complemento.serie }}" data-codigo="{{ complemento.codigo }}">
+                            {{ complemento.nombre }}{% if complemento.serie %} - Serie: {{ complemento.serie }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Serie</label>
+                    <input type="text" name="codigo_serie_${complementoCount}" class="form-control" placeholder="Serie" readonly required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Metros Inicio</label>
+                    <input type="number" step="0.01" name="metros_inicio_${complementoCount}" class="form-control" min="0" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Metros Fin</label>
+                    <input type="number" step="0.01" name="metros_fin_${complementoCount}" class="form-control" min="0" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Metros Turno</label>
+                    <input type="number" step="0.01" name="metros_turno_${complementoCount}" class="form-control" readonly>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-complemento">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    // Si existe el botón global (compatibilidad), evitar errores
+    var addCompBtn = document.getElementById('agregar-complemento-btn');
+    if (addCompBtn) {
+        addCompBtn.addEventListener('click', function() {
+            document.getElementById('complementos-seccion').insertAdjacentHTML('beforeend', crearComplementoRow());
+            ensureSondajeSubsections();
+        });
+    }
+    
+    document.getElementById('complementos-seccion').addEventListener('click', function(event) {
+        if (event.target.closest('.btn-remove-complemento')) {
+            event.target.closest('.complemento-row').remove();
+        }
+    });
+    
+    // Auto-completar serie cuando se selecciona un producto diamantado
+    document.getElementById('complementos-seccion').addEventListener('change', function(event) {
+        if (event.target.classList.contains('select-complemento')) {
+            const row = event.target.closest('.complemento-row');
+            const select = event.target;
+            const selectedOption = select.options[select.selectedIndex];
+            const serie = selectedOption.getAttribute('data-serie') || '';
+            const serieInput = row.querySelector('input[name*="codigo_serie"]');
+            if (serieInput) {
+                serieInput.value = serie;
+            }
+        }
+    });
+    
+    // Auto-cálculo de metros de turno en complementos
+    document.getElementById('complementos-seccion').addEventListener('input', function(event) {
+        if (event.target.name && (event.target.name.includes('metros_inicio') || event.target.name.includes('metros_fin'))) {
+            const row = event.target.closest('.complemento-row');
+            const inicio = parseFloat(row.querySelector('input[name*="metros_inicio"]').value) || 0;
+            const fin = parseFloat(row.querySelector('input[name*="metros_fin"]').value) || 0;
+            const turno = fin - inicio;
+            row.querySelector('input[name*="metros_turno"]').value = turno >= 0 ? turno.toFixed(2) : '';
+        }
+    });
+    
+    // =============================================
+    // FUNCIONES PARA ADITIVOS
+    // =============================================
+    
+    function crearAditivoRow() {
+        const aditivoCount = document.querySelectorAll('.aditivo-row').length;
+        return `
+        <div class="aditivo-row border rounded p-3 mb-3 bg-light">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Tipo de Aditivo</label>
+                    <select name="tipo_aditivo_${aditivoCount}" class="form-select" required>
+                        <option value="">Seleccionar aditivo</option>
+                        {% for aditivo in tipos_aditivo %}
+                        <option value="{{ aditivo.id }}" data-codigo="{{ aditivo.codigo }}">
+                            {{ aditivo.nombre }}{% if aditivo.codigo %} ({{ aditivo.codigo }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Cantidad Usada</label>
+                    <input type="number" step="0.01" name="cantidad_usada_${aditivoCount}" class="form-control" min="0" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Unidad de Medida</label>
+                    <select name="unidad_medida_${aditivoCount}" class="form-select" required>
+                        <option value="">Seleccionar unidad</option>
+                        {% for unidad in unidades_medida %}
+                        <option value="{{ unidad.id }}">{{ unidad.simbolo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-aditivo">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    var addAditBtn = document.getElementById('agregar-aditivo-btn');
+    if (addAditBtn) {
+        addAditBtn.addEventListener('click', function() {
+            document.getElementById('aditivos-seccion').insertAdjacentHTML('beforeend', crearAditivoRow());
+            ensureSondajeSubsections();
+        });
+    }
+    
+    document.getElementById('aditivos-seccion').addEventListener('click', function(event) {
+        if (event.target.closest('.btn-remove-aditivo')) {
+            event.target.closest('.aditivo-row').remove();
+        }
+    });
+
+    // =============================================
+    // FUNCIONES PARA SONDajes (Múltiples)
+    // =============================================
+
+    function crearSondajeRow() {
+        const idx = document.querySelectorAll('.sondaje-row').length;
+        return `
+        <div class="sondaje-row border rounded p-2 mb-2 bg-light d-flex align-items-center">
+            <div class="flex-grow-1">
+                <select name="sondajes" class="form-select form-select-sm">
+                    <option value="">Seleccionar sondaje</option>
+                    {% for sondaje in sondajes %}
+                    <option value="{{ sondaje.id }}">{{ sondaje.nombre_sondaje }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="ms-2" style="width:140px;">
+                <input type="number" step="0.01" name="sondajes_metraje" class="form-control form-control-sm" placeholder="Metraje (m)" min="0">
+            </div>
+            <div class="ms-2">
+                <button type="button" class="btn btn-danger btn-sm btn-remove-sondaje"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>`;
+    }
+
+    document.getElementById('agregar-sondaje-btn').addEventListener('click', function() {
+        document.getElementById('sondajes-seccion').insertAdjacentHTML('beforeend', crearSondajeRow());
+        ensureSondajeSubsections();
+    });
+
+    document.getElementById('sondajes-seccion').addEventListener('click', function(event) {
+        if (event.target.closest('.btn-remove-sondaje')) {
+            event.target.closest('.sondaje-row').remove();
+            ensureSondajeSubsections();
+        }
+    });
+
+    function ensureSondajeSubsections(){
+        // Crear subsecciones en complementos y aditivos por cada sondaje seleccionado
+        const sondajeRows = Array.from(document.querySelectorAll('.sondaje-row'));
+        const complementosCont = document.getElementById('complementos-seccion');
+        const aditivosCont = document.getElementById('aditivos-seccion');
+
+        // Track existing ids
+        const existingComp = {};
+        complementosCont.querySelectorAll('.complemento-subsection').forEach(function(el){ existingComp[el.dataset.sondajeId] = el; });
+        const existingAdit = {};
+        aditivosCont.querySelectorAll('.aditivo-subsection').forEach(function(el){ existingAdit[el.dataset.sondajeId] = el; });
+
+        // Build list of current sondaje ids in order
+        const current = [];
+        sondajeRows.forEach(function(row){
+            const sel = row.querySelector('select[name="sondajes"]');
+            if (sel && sel.value) current.push({id: sel.value, text: sel.options[sel.selectedIndex].text});
+        });
+
+        // Remove subsections for sondajes no present
+        Object.keys(existingComp).forEach(function(k){ if (!current.find(s=>s.id==k)) existingComp[k].remove(); });
+        Object.keys(existingAdit).forEach(function(k){ if (!current.find(s=>s.id==k)) existingAdit[k].remove(); });
+
+        // Create subsections for new sondajes
+        current.forEach(function(s){
+                if (!existingComp[s.id]){
+                const div = document.createElement('div');
+                div.className = 'complemento-subsection mb-3 border rounded p-2';
+                div.dataset.sondajeId = s.id;
+                    div.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-2"><strong>Productos Diamantados para: ${s.text}</strong><button type="button" class="btn btn-sm btn-primary btn-add-complemento" data-sondaje-id="${s.id}"><i class="fas fa-plus"></i> Agregar Producto Diamantado</button></div><div class="complementos-list"></div>`;
+                complementosCont.appendChild(div);
+            }
+            if (!existingAdit[s.id]){
+                const div2 = document.createElement('div');
+                div2.className = 'aditivo-subsection mb-3 border rounded p-2';
+                div2.dataset.sondajeId = s.id;
+                div2.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-2"><strong>Aditivos para: ${s.text}</strong><button type="button" class="btn btn-sm btn-primary btn-add-aditivo" data-sondaje-id="${s.id}"><i class="fas fa-plus"></i> Agregar Aditivo</button></div><div class="aditivos-list"></div>`;
+                aditivosCont.appendChild(div2);
+            }
+            // If subsection already existed, update its header text in case the select text changed
+            if (existingComp[s.id]){
+                try{
+                    const header = existingComp[s.id].querySelector('strong');
+                    if (header) header.textContent = 'Productos Diamantados para: ' + s.text;
+                }catch(e){ }
+            }
+            if (existingAdit[s.id]){
+                try{
+                    const header2 = existingAdit[s.id].querySelector('strong');
+                    if (header2) header2.textContent = 'Aditivos para: ' + s.text;
+                }catch(e){ }
+            }
+        });
+    }
+
+    // Crear/actualizar subsecciones cuando cambia el select de sondaje
+    document.getElementById('sondajes-seccion').addEventListener('change', function(event){
+        if (event.target && event.target.matches('select[name="sondajes"]')){
+            // Cuando el usuario selecciona un sondaje en una fila, regenerar subsecciones
+            ensureSondajeSubsections();
+        }
+    });
+
+    // Delegation: add complemento/aditivo inside subsections
+    document.getElementById('complementos-seccion').addEventListener('click', function(event){
+        if (event.target.closest('.btn-add-complemento')){
+            const btn = event.target.closest('.btn-add-complemento');
+            const sid = btn.dataset.sondajeId;
+            const container = btn.closest('.complemento-subsection').querySelector('.complementos-list');
+            container.insertAdjacentHTML('beforeend', crearComplementoRowForSondaje(sid));
+        }
+        if (event.target.closest('.btn-remove-complemento')){
+            event.target.closest('.complemento-row').remove();
+        }
+    });
+    
+    // Auto-completar serie en subsecciones de complementos
+    document.getElementById('complementos-seccion').addEventListener('change', function(event) {
+        if (event.target.classList.contains('select-complemento')) {
+            const row = event.target.closest('.complemento-row');
+            const select = event.target;
+            const selectedOption = select.options[select.selectedIndex];
+            const serie = selectedOption.getAttribute('data-serie') || '';
+            const serieInput = row.querySelector('input[name*="codigo_serie"]');
+            if (serieInput) {
+                serieInput.value = serie;
+            }
+        }
+    });
+
+    document.getElementById('aditivos-seccion').addEventListener('click', function(event){
+        if (event.target.closest('.btn-add-aditivo')){
+            const btn = event.target.closest('.btn-add-aditivo');
+            const sid = btn.dataset.sondajeId;
+            const container = btn.closest('.aditivo-subsection').querySelector('.aditivos-list');
+            container.insertAdjacentHTML('beforeend', crearAditivoRowForSondaje(sid));
+        }
+        if (event.target.closest('.btn-remove-aditivo')){
+            event.target.closest('.aditivo-row').remove();
+        }
+    });
+
+    function crearComplementoRowForSondaje(sondajeId){
+        const idx = document.querySelectorAll('.complemento-row').length;
+        return `
+        <div class="complemento-row border rounded p-2 mb-2 bg-white">
+            <input type="hidden" name="comp_sondaje_id_${idx}" value="${sondajeId}" class="comp-sondaje-id">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Producto Diamantado (Serie)</label>
+                    <select name="tipo_complemento_${idx}" class="form-select select-complemento" required>
+                        <option value="">Seleccionar producto diamantado</option>
+                        {% for complemento in tipos_complemento %}
+                        <option value="{{ complemento.id }}" data-serie="{{ complemento.serie }}" data-codigo="{{ complemento.codigo }}">
+                            {{ complemento.nombre }}{% if complemento.serie %} - Serie: {{ complemento.serie }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Serie</label>
+                    <input type="text" name="codigo_serie_${idx}" class="form-control" placeholder="Serie" readonly required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Metros Inicio</label>
+                    <input type="number" step="0.01" name="metros_inicio_${idx}" class="form-control" min="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Metros Fin</label>
+                    <input type="number" step="0.01" name="metros_fin_${idx}" class="form-control" min="0">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-complemento"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function crearAditivoRowForSondaje(sondajeId){
+        const idx = document.querySelectorAll('.aditivo-row').length;
+        return `
+        <div class="aditivo-row border rounded p-2 mb-2 bg-white">
+            <input type="hidden" name="ad_sondaje_id_${idx}" value="${sondajeId}" class="ad-sondaje-id">
+            <div class="row">
+                <div class="col-md-5">
+                    <label class="form-label">Tipo de Aditivo</label>
+                    <select name="tipo_aditivo_${idx}" class="form-select">
+                        <option value="">Seleccionar aditivo</option>
+                        {% for aditivo in tipos_aditivo %}
+                        <option value="{{ aditivo.id }}" data-codigo="{{ aditivo.codigo }}">
+                            {{ aditivo.nombre }}{% if aditivo.codigo %} ({{ aditivo.codigo }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Cantidad Usada</label>
+                    <input type="number" step="0.01" name="cantidad_usada_${idx}" class="form-control" min="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Unidad</label>
+                    <select name="unidad_medida_${idx}" class="form-select">
+                        <option value="">Unidad</option>
+                        {% for unidad in unidades_medida %}
+                        <option value="{{ unidad.id }}">{{ unidad.simbolo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-aditivo"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    // If server provided edit-data, it will be available as JSON inside a
+    // <script id="edit-data" type="application/json"> tag. Parse it and
+    // populate dynamic rows (avoids placing Django tags directly inside JS
+    // control flow which some static analyzers complain about).
+    var editDataScript = document.getElementById('edit-data');
+    if (editDataScript) {
+        try {
+            var editData = JSON.parse(editDataScript.textContent || '{}');
+            // Expose for debugging and log to console
+            window.__editData = editData;
+            console.info('edit-data parsed:', editData);
+            // Also populate the hidden JSON inputs so the values are visible for debugging
+            try {
+                if (document.getElementById('hid-trabajadores')) document.getElementById('hid-trabajadores').value = JSON.stringify(editData.trabajadores || []);
+                if (document.getElementById('hid-complementos')) document.getElementById('hid-complementos').value = JSON.stringify(editData.complementos || []);
+                if (document.getElementById('hid-aditivos')) document.getElementById('hid-aditivos').value = JSON.stringify(editData.aditivos || []);
+                if (document.getElementById('hid-actividades')) document.getElementById('hid-actividades').value = JSON.stringify(editData.actividades || []);
+                if (document.getElementById('hid-corridas')) document.getElementById('hid-corridas').value = JSON.stringify(editData.corridas || []);
+            } catch (e) {
+                console.warn('No se pudieron inicializar inputs ocultos con edit-data:', e);
+            }
+
+            // Populate top-level fields (after hidden inputs so they exist)
+            try {
+                // sondaje_ids puede ser un array con 0..N ids. Pre-poblar creando filas.
+                if (Array.isArray(editData.sondajes) && editData.sondajes.length > 0) {
+                    // editData.sondajes es una lista de objetos {id, metros}
+                    document.getElementById('sondajes-seccion').innerHTML = '';
+                    editData.sondajes.forEach(function(sobj) {
+                        document.getElementById('agregar-sondaje-btn').click();
+                        var last = document.querySelectorAll('.sondaje-row');
+                        var row = last[last.length - 1];
+                        if (!row) return;
+                        var sel = row.querySelector('select[name="sondajes"]');
+                        var met = row.querySelector('input[name="sondajes_metraje"]');
+                        if (sel) sel.value = sobj.id || '';
+                        if (met) met.value = (typeof sobj.metros !== 'undefined') ? sobj.metros : '';
+                    });
+                } else if (Array.isArray(editData.sondaje_ids) && editData.sondaje_ids.length > 0) {
+                    // Fallback: solo ids
+                    document.getElementById('sondajes-seccion').innerHTML = '';
+                    editData.sondaje_ids.forEach(function(sid) {
+                        document.getElementById('agregar-sondaje-btn').click();
+                        var last = document.querySelectorAll('.sondaje-row');
+                        var row = last[last.length - 1];
+                        if (!row) return;
+                        var sel = row.querySelector('select[name="sondajes"]');
+                        if (sel) sel.value = sid || '';
+                    });
+                }
+                if (editData.maquina_id && document.getElementById('maquina')) document.getElementById('maquina').value = editData.maquina_id;
+                if (editData.tipo_turno_id && document.getElementById('tipo_turno')) document.getElementById('tipo_turno').value = editData.tipo_turno_id;
+                if (editData.fecha && document.getElementById('fecha')) document.getElementById('fecha').value = editData.fecha;
+                if (editData.hora_inicio_maq && document.getElementById('hora_inicio_maq')) document.getElementById('hora_inicio_maq').value = editData.hora_inicio_maq;
+                if (editData.hora_fin_maq && document.getElementById('hora_fin_maq')) document.getElementById('hora_fin_maq').value = editData.hora_fin_maq;
+                if (editData.estado_bomba && document.getElementById('estado_bomba')) document.getElementById('estado_bomba').value = editData.estado_bomba;
+                if (editData.estado_unidad && document.getElementById('estado_unidad')) document.getElementById('estado_unidad').value = editData.estado_unidad;
+                if (editData.estado_rotacion && document.getElementById('estado_rotacion')) document.getElementById('estado_rotacion').value = editData.estado_rotacion;
+            } catch (e) {
+                console.warn('No se pudieron poblar campos principales desde editData:', e);
+            }
+
+            (editData.trabajadores || []).forEach(function(t) {
+                document.getElementById('agregar-trabajador-btn').click();
+                var last = document.querySelectorAll('.trabajador-row');
+                var row = last[last.length - 1];
+                if (!row) return;
+                var selTrab = row.querySelector('select[name^="trabajador_"]');
+                if (selTrab) selTrab.value = t.trabajador_id || '';
+                var selFunc = row.querySelector('select[name^="funcion_"]');
+                if (selFunc) selFunc.value = t.funcion || '';
+                var obs = row.querySelector('input[name^="obs_"]');
+                if (obs) obs.value = t.observaciones || '';
+            });
+
+            // Prefill complementos agrupados por sondaje
+            if (Array.isArray(editData.complementos) && editData.complementos.length > 0) {
+                // Ensure sondaje subsections exist
+                ensureSondajeSubsections();
+                editData.complementos.forEach(function(c) {
+                    var sid = c.sondaje_id || (editData.sondaje_ids && editData.sondaje_ids[0]) || null;
+                    if (!sid) return;
+                    // find subsection
+                    var sub = document.querySelector('.complemento-subsection[data-sondaje-id="' + sid + '"]');
+                    if (!sub) return;
+                    var list = sub.querySelector('.complementos-list');
+                    list.insertAdjacentHTML('beforeend', crearComplementoRowForSondaje(sid));
+                    var last = list.querySelectorAll('.complemento-row');
+                    var row = last[last.length - 1];
+                    if (!row) return;
+                    var tipo = row.querySelector('select[name^="tipo_complemento_"]');
+                    if (tipo) tipo.value = c.tipo_complemento_id || '';
+                    var cod = row.querySelector('input[name^="codigo_serie_"]');
+                    if (cod) cod.value = c.codigo_serie || '';
+                    var mi = row.querySelector('input[name^="metros_inicio_"]');
+                    if (mi) mi.value = c.metros_inicio || '';
+                    var mf = row.querySelector('input[name^="metros_fin_"]');
+                    if (mf) mf.value = c.metros_fin || '';
+                });
+            }
+
+            // Prefill aditivos grouped by sondaje
+            if (Array.isArray(editData.aditivos) && editData.aditivos.length > 0) {
+                ensureSondajeSubsections();
+                editData.aditivos.forEach(function(a) {
+                    var sid = a.sondaje_id || (editData.sondaje_ids && editData.sondaje_ids[0]) || null;
+                    if (!sid) return;
+                    var sub = document.querySelector('.aditivo-subsection[data-sondaje-id="' + sid + '"]');
+                    if (!sub) return;
+                    var list = sub.querySelector('.aditivos-list');
+                    list.insertAdjacentHTML('beforeend', crearAditivoRowForSondaje(sid));
+                    var last = list.querySelectorAll('.aditivo-row');
+                    var row = last[last.length - 1];
+                    if (!row) return;
+                    var tipo = row.querySelector('select[name^="tipo_aditivo_"]');
+                    if (tipo) tipo.value = a.tipo_aditivo_id || '';
+                    var cant = row.querySelector('input[name^="cantidad_usada_"]');
+                    if (cant) cant.value = a.cantidad_usada || '';
+                    var um = row.querySelector('select[name^="unidad_medida_"]');
+                    if (um) um.value = a.unidad_medida_id || '';
+                });
+            }
+
+            (editData.actividades || []).forEach(function(act) {
+                document.getElementById('agregar-actividad-btn').click();
+                var last = document.querySelectorAll('.actividad-row');
+                var row = last[last.length - 1];
+                if (!row) return;
+                var sel = row.querySelector('select[name^="actividad_"]');
+                if (sel) sel.value = act.actividad_id || '';
+                var hi = row.querySelector('input[name^="hora_inicio_"]');
+                if (hi && act.hora_inicio) hi.value = act.hora_inicio;
+                var hf = row.querySelector('input[name^="hora_fin_"]');
+                if (hf && act.hora_fin) hf.value = act.hora_fin;
+                var obs = row.querySelector('input[name^="obs_act_"]');
+                if (obs) obs.value = act.observaciones || '';
+            });
+
+            (editData.corridas || []).forEach(function(cr) {
+                document.getElementById('agregar-corrida-btn').click();
+                var last = document.querySelectorAll('.corrida-row');
+                var row = last[last.length - 1];
+                if (!row) return;
+                var num = row.querySelector('input[name^="corrida_numero_"]');
+                if (num) num.value = cr.corrida_numero || '';
+                var desde = row.querySelector('input[name^="desde_"]');
+                if (desde) desde.value = cr.desde || '';
+                var hasta = row.querySelector('input[name^="hasta_"]');
+                if (hasta) hasta.value = cr.hasta || '';
+                var lt = row.querySelector('input[name^="longitud_testigo_"]');
+                if (lt) lt.value = cr.longitud_testigo || '';
+                var pr = row.querySelector('input[name^="pct_recuperacion_"]');
+                if (pr) pr.value = cr.pct_recuperacion || '';
+                var pa = row.querySelector('input[name^="pct_retorno_agua_"]');
+                if (pa) pa.value = cr.pct_retorno_agua || '';
+                var lit = row.querySelector('input[name^="litologia_"]');
+                if (lit) lit.value = cr.litologia || '';
+            });
+
+        } catch (e) {
+            console.error('Error al parsear edit-data:', e);
+        }
+
+        // Asegurar que exista al menos una fila de sondaje para el usuario
+        try {
+            if (document.getElementById('sondajes-seccion') && document.querySelectorAll('.sondaje-row').length === 0) {
+                document.getElementById('agregar-sondaje-btn').click();
+            }
+        } catch (e) {
+            // No bloquear si el DOM no está listo exactamente como esperamos
+        }
+    }
+    
+    // =============================================
+    // FUNCIONES PARA ACTIVIDADES
+    // =============================================
+    
+    function crearActividadRow() {
+        const actividadCount = document.querySelectorAll('.actividad-row').length;
+        return `
+        <div class="actividad-row border rounded p-3 mb-3 bg-light">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Actividad</label>
+                    <select name="actividad_${actividadCount}" class="form-select" required>
+                        <option value="">Seleccionar actividad</option>
+                        {% for actividad in tipos_actividad %}
+                        <option value="{{ actividad.id }}">{{ actividad.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Hora Inicio</label>
+                    <input type="time" name="hora_inicio_act_${actividadCount}" class="form-control" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Hora Fin</label>
+                    <input type="time" name="hora_fin_act_${actividadCount}" class="form-control" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Observaciones</label>
+                    <input type="text" name="obs_act_${actividadCount}" class="form-control" placeholder="Observaciones">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-actividad">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    document.getElementById('agregar-actividad-btn').addEventListener('click', function() {
+        document.getElementById('actividades-seccion').insertAdjacentHTML('beforeend', crearActividadRow());
+    });
+    document.getElementById('actividades-seccion').addEventListener('click', function(event) {
+        if (event.target.closest('.btn-remove-actividad')) {
+            event.target.closest('.actividad-row').remove();
+        }
+    });
+    
+    // =============================================
+    // FUNCIONES PARA CORRIDAS
+    // =============================================
+    
+    function crearCorridaRow() {
+        const corridaCount = document.querySelectorAll('.corrida-row').length + 1;
+        return `
+        <div class="corrida-row border rounded p-3 mb-3 bg-light">
+            <div class="row">
+                <div class="col-md-1">
+                    <label class="form-label">Corrida #</label>
+                    <input type="number" name="corrida_numero_${corridaCount}" class="form-control" value="${corridaCount}" min="1" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Desde (m)</label>
+                    <input type="number" step="0.01" name="desde_${corridaCount}" class="form-control" min="0" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Hasta (m)</label>
+                    <input type="number" step="0.01" name="hasta_${corridaCount}" class="form-control" min="0" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Long. Testigo</label>
+                    <input type="number" step="0.01" name="longitud_testigo_${corridaCount}" class="form-control" min="0" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">% Recuperación</label>
+                    <input type="number" step="0.01" name="pct_recuperacion_${corridaCount}" class="form-control" min="0" max="100" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">% Retorno Agua</label>
+                    <input type="number" step="0.01" name="pct_retorno_agua_${corridaCount}" class="form-control" min="0" max="100" required>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-corrida">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12">
+                    <label class="form-label">Litología</label>
+                    <textarea name="litologia_${corridaCount}" class="form-control" rows="2" placeholder="Descripción de la litología" required></textarea>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    document.getElementById('agregar-corrida-btn').addEventListener('click', function() {
+        document.getElementById('corridas-seccion').insertAdjacentHTML('beforeend', crearCorridaRow());
+    });
+    
+    document.getElementById('corridas-seccion').addEventListener('click', function(event) {
+        if (event.target.closest('.btn-remove-corrida')) {
+            event.target.closest('.corrida-row').remove();
+        }
+    });
+    
+    // =============================================
+    // PROCESAMIENTO DEL FORMULARIO
+    // =============================================
+    
+    document.getElementById('form-turno').addEventListener('submit', function(e) {
+        // Validación cliente: horómetro numeric y horómetro fin >= inicio
+        try {
+            const hIniEl = document.getElementById('hora_inicio_maq');
+            const hFinEl = document.getElementById('hora_fin_maq');
+            if (hIniEl && hFinEl) {
+                const hi = hIniEl.value;
+                const hf = hFinEl.value;
+                if (hi !== '' && hf !== '') {
+                    const hiNum = parseFloat(hi);
+                    const hfNum = parseFloat(hf);
+                    if (isNaN(hiNum) || isNaN(hfNum)) {
+                        e.preventDefault();
+                        alert('Por favor ingrese valores numéricos válidos para Horómetro Inicio/Fin.');
+                        return;
+                    }
+                    if (hfNum < hiNum) {
+                        e.preventDefault();
+                        alert('Horómetro Fin debe ser mayor o igual que Horómetro Inicio.');
+                        return;
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('Validación de horómetro falló:', err);
+        }
+        // VALIDACIÓN: para cada sondaje que tenga complementos o aditivos, exigir metraje > 0
+        try {
+            const sondajeRows = Array.from(document.querySelectorAll('.sondaje-row'));
+            for (const row of sondajeRows) {
+                const sel = row.querySelector('select[name="sondajes"]');
+                const metInput = row.querySelector('input[name="sondajes_metraje"]');
+                const sondajeId = sel ? sel.value : null;
+                const sondajeText = sel ? (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '') : '';
+                if (!sondajeId) continue; // saltar filas vacías
+
+                // comprobar si existen complementos/aditivos para este sondaje
+                const compSub = document.querySelector('.complemento-subsection[data-sondaje-id="' + sondajeId + '"]');
+                const aditSub = document.querySelector('.aditivo-subsection[data-sondaje-id="' + sondajeId + '"]');
+                const hasComp = compSub && compSub.querySelector('.complemento-row');
+                const hasAdit = aditSub && aditSub.querySelector('.aditivo-row');
+                if ((hasComp || hasAdit)) {
+                    const metVal = metInput ? metInput.value : '';
+                    if (metVal === '' || isNaN(parseFloat(metVal)) || parseFloat(metVal) <= 0) {
+                        e.preventDefault();
+                        alert('El sondaje "' + (sondajeText || sondajeId) + '" tiene productos diamantados/aditivos asociados pero no tiene metraje válido. Por favor indique el metraje (mayor que 0) en esa fila antes de guardar.');
+                        return;
+                    }
+                }
+            }
+        } catch (err) {
+            // Si la validación falla por algún motivo, no bloquear el envío (pero loguear)
+            console.warn('Validación de metraje por sondaje falló:', err);
+        }
+        
+        // Recopilar datos de trabajadores
+        const trabajadores = [];
+        document.querySelectorAll('.trabajador-row').forEach((row, index) => {
+            const trabajador = row.querySelector(`select[name="trabajador_${index}"]`).value;
+            const funcion = row.querySelector(`select[name="funcion_${index}"]`).value;
+            const obs = row.querySelector(`input[name="obs_${index}"]`).value;
+            
+            if (trabajador && funcion) {
+                trabajadores.push({
+                    trabajador_id: trabajador,
+                    funcion: funcion,
+                    observaciones: obs
+                });
+            }
+        });
+        
+        // Recopilar datos de complementos
+        const complementos = [];
+        document.querySelectorAll('.complemento-row').forEach((row, index) => {
+            const tipo = row.querySelector(`select[name*="tipo_complemento"]`).value;
+            const serie = row.querySelector(`input[name*="codigo_serie"]`).value;
+            const inicio = row.querySelector(`input[name*="metros_inicio"]`).value;
+            const fin = row.querySelector(`input[name*="metros_fin"]`).value;
+            // buscar sondaje asociado (hidden input o data attribute)
+            let sondajeIdEl = row.querySelector('.comp-sondaje-id');
+            let sondajeId = null;
+            if (sondajeIdEl) sondajeId = sondajeIdEl.value;
+            // fallback: buscar closest subsection
+            if (!sondajeId) {
+                const sub = row.closest('.complemento-subsection');
+                if (sub) sondajeId = sub.dataset.sondajeId;
+            }
+            if (tipo && inicio !== undefined && fin !== undefined) {
+                complementos.push({
+                    tipo_complemento_id: tipo,
+                    codigo_serie: serie,
+                    metros_inicio: inicio,
+                    metros_fin: fin,
+                    sondaje_id: sondajeId
+                });
+            }
+        });
+        
+        // Recopilar datos de aditivos
+        const aditivos = [];
+        document.querySelectorAll('.aditivo-row').forEach((row, index) => {
+            const tipo = row.querySelector(`select[name*="tipo_aditivo"]`).value;
+            const cantidad = row.querySelector(`input[name*="cantidad_usada"]`).value;
+            const unidad = row.querySelector(`select[name*="unidad_medida"]`).value;
+            let sondajeIdEl = row.querySelector('.ad-sondaje-id');
+            let sondajeId = null;
+            if (sondajeIdEl) sondajeId = sondajeIdEl.value;
+            if (!sondajeId) {
+                const sub = row.closest('.aditivo-subsection');
+                if (sub) sondajeId = sub.dataset.sondajeId;
+            }
+            if (tipo && cantidad && unidad) {
+                aditivos.push({
+                    tipo_aditivo_id: tipo,
+                    cantidad_usada: cantidad,
+                    unidad_medida_id: unidad,
+                    sondaje_id: sondajeId
+                });
+            }
+        });
+        
+        // Recopilar datos de actividades
+        const actividades = [];
+        document.querySelectorAll('.actividad-row').forEach((row, index) => {
+            const actividad = row.querySelector(`select[name*="actividad"]`).value;
+            const horaInicio = row.querySelector(`input[name*="hora_inicio_act"]`).value;
+            const horaFin = row.querySelector(`input[name*="hora_fin_act"]`).value;
+            const obs = row.querySelector(`input[name*="obs_act"]`).value;
+            
+            if (actividad && horaInicio && horaFin) {
+                actividades.push({
+                    actividad_id: actividad,
+                    hora_inicio: horaInicio,
+                    hora_fin: horaFin,
+                    observaciones: obs
+                });
+            }
+        });
+        
+        // Recopilar datos de corridas
+        const corridas = [];
+        document.querySelectorAll('.corrida-row').forEach((row, index) => {
+            const numero = row.querySelector(`input[name*="corrida_numero"]`).value;
+            const desde = row.querySelector(`input[name*="desde"]`).value;
+            const hasta = row.querySelector(`input[name*="hasta"]`).value;
+            const longitud = row.querySelector(`input[name*="longitud_testigo"]`).value;
+            const recuperacion = row.querySelector(`input[name*="pct_recuperacion"]`).value;
+            const retorno = row.querySelector(`input[name*="pct_retorno_agua"]`).value;
+            const litologia = row.querySelector(`textarea[name*="litologia"]`).value;
+            
+            if (numero && desde && hasta && longitud && recuperacion && retorno && litologia) {
+                corridas.push({
+                    corrida_numero: numero,
+                    desde: desde,
+                    hasta: hasta,
+                    longitud_testigo: longitud,
+                    pct_recuperacion: recuperacion,
+                    pct_retorno_agua: retorno,
+                    litologia: litologia
+                });
+            }
+        });
+        
+        // NOTE: the hidden inputs are populated earlier in the script (hid-trabajadores, etc.).
+        // Populate the hidden inputs so the server receives the JSON payloads
+        try {
+            if (document.getElementById('hid-trabajadores')) document.getElementById('hid-trabajadores').value = JSON.stringify(trabajadores);
+            if (document.getElementById('hid-complementos')) document.getElementById('hid-complementos').value = JSON.stringify(complementos);
+            if (document.getElementById('hid-aditivos')) document.getElementById('hid-aditivos').value = JSON.stringify(aditivos);
+            if (document.getElementById('hid-actividades')) document.getElementById('hid-actividades').value = JSON.stringify(actividades);
+            if (document.getElementById('hid-corridas')) document.getElementById('hid-corridas').value = JSON.stringify(corridas);
+        } catch (err) {
+            console.warn('No se pudieron poblar inputs ocultos antes de submit:', err);
+        }
+    });
+});
+</script>
+{% endblock %}

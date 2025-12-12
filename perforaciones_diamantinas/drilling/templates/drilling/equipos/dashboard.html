@@ -1,0 +1,262 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}Panel de Equipos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-left: 4px solid;
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card-disponible {
+        border-color: #28a745;
+    }
+    
+    .stat-card-asignado {
+        border-color: #0d6efd;
+    }
+    
+    .stat-card-mantenimiento {
+        border-color: #ffc107;
+    }
+    
+    .stat-card-total {
+        border-color: #6c757d;
+    }
+    
+    .action-card {
+        height: 100%;
+        transition: all 0.3s;
+    }
+    
+    .action-card:hover {
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        transform: translateY(-3px);
+    }
+    
+    .icon-large {
+        font-size: 3rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>
+                <i class="fas fa-laptop text-primary"></i>
+                Panel de Equipos
+            </h2>
+            <p class="text-muted">Gestión completa de inventario y asignaciones</p>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card stat-card-total shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-0">Total Equipos</h6>
+                            <h2 class="mb-0">{{ stats.total }}</h2>
+                        </div>
+                        <i class="fas fa-box icon-large text-secondary opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card stat-card-disponible shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-0">Disponibles</h6>
+                            <h2 class="mb-0 text-success">{{ stats.disponibles }}</h2>
+                        </div>
+                        <i class="fas fa-check-circle icon-large text-success opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card stat-card-asignado shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-0">Asignados</h6>
+                            <h2 class="mb-0 text-primary">{{ stats.asignados }}</h2>
+                        </div>
+                        <i class="fas fa-user-check icon-large text-primary opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card stat-card-mantenimiento shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-0">Mantenimiento</h6>
+                            <h2 class="mb-0 text-warning">{{ stats.mantenimiento }}</h2>
+                        </div>
+                        <i class="fas fa-tools icon-large text-warning opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones Rápidas -->
+    <div class="row mb-4">
+        <div class="col-12 mb-3">
+            <h4><i class="fas fa-bolt text-warning"></i> Acciones Rápidas</h4>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card action-card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-laptop fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Inventario</h5>
+                    <p class="card-text text-muted">Ver y gestionar todos los equipos</p>
+                    <a href="{% url 'equipos-list' %}" class="btn btn-primary">
+                        <i class="fas fa-boxes"></i> Ver Inventario
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card action-card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-plus-circle fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Nuevo Equipo</h5>
+                    <p class="card-text text-muted">Registrar nuevo equipo en inventario</p>
+                    <a href="{% url 'equipo-create' %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Agregar Equipo
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card action-card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-exchange-alt fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Asignaciones</h5>
+                    <p class="card-text text-muted">Ver equipos asignados a trabajadores</p>
+                    <a href="{% url 'asignaciones-equipos-list' %}" class="btn btn-info">
+                        <i class="fas fa-list"></i> Ver Asignaciones
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card action-card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-tag fa-3x text-warning mb-3"></i>
+                    <h5 class="card-title">Nueva Asignación</h5>
+                    <p class="card-text text-muted">Asignar equipo a un trabajador</p>
+                    <a href="{% url 'asignacion-equipo-create' %}" class="btn btn-warning">
+                        <i class="fas fa-hand-holding"></i> Asignar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equipos por Tipo -->
+    <div class="row">
+        <div class="col-12 mb-3">
+            <h4><i class="fas fa-chart-pie text-info"></i> Equipos por Tipo</h4>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th class="text-center">Total</th>
+                                    <th class="text-center">Disponibles</th>
+                                    <th class="text-center">Asignados</th>
+                                    <th class="text-center">Mantenimiento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tipo in equipos_por_tipo %}
+                                    <tr>
+                                        <td>
+                                            <i class="fas fa-laptop text-primary me-2"></i>
+                                            <strong>{{ tipo.tipo_display }}</strong>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-secondary">{{ tipo.total }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-success">{{ tipo.disponibles }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">{{ tipo.asignados }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-warning">{{ tipo.mantenimiento }}</span>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">
+                                            No hay equipos registrados
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Información</h6>
+                </div>
+                <div class="card-body">
+                    <h6>Estados de Equipos:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-circle text-success me-2"></i> <strong>Disponible:</strong> Listo para asignar</li>
+                        <li><i class="fas fa-circle text-primary me-2"></i> <strong>Asignado:</strong> En uso por trabajador</li>
+                        <li><i class="fas fa-circle text-warning me-2"></i> <strong>Mantenimiento:</strong> En reparación</li>
+                        <li><i class="fas fa-circle text-danger me-2"></i> <strong>Fuera de Servicio:</strong> No operativo</li>
+                        <li><i class="fas fa-circle text-dark me-2"></i> <strong>Baja:</strong> Dado de baja</li>
+                    </ul>
+                    
+                    <hr>
+                    
+                    <h6>Tipos de Equipos:</h6>
+                    <p class="small mb-0">
+                        Laptop, Celular, Módem, Impresora, Detector de Tormentas, 
+                        Enmicadora, Radio, Tablet, GPS y otros.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

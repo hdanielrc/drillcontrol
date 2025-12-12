@@ -1,0 +1,281 @@
+{% extends 'drilling/base.html' %}
+{% load organigrama_extras %}
+
+{% block title %}Gestionar Horas Extras{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-clock"></i> Gestionar Horas Extras por Contrato</h2>
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-cog"></i> Configuración de Horas Extras</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>¿Cómo funciona?</strong>
+                    <ul class="mb-0">
+                        <li>Las horas extras se calculan por <strong>turno</strong> basándose en el <strong>metraje de avance</strong></li>
+                        <li>Configure el <strong>metraje mínimo</strong> requerido para otorgar horas extras</li>
+                        <li>Puede configurar reglas <strong>generales</strong> (para todas las máquinas) o <strong>específicas</strong> por máquina</li>
+                        <li>Las configuraciones específicas por máquina tienen prioridad sobre las generales</li>
+                    </ul>
+                </div>
+
+                <!-- Selector de Contrato -->
+                <form method="get" class="mb-4">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <label for="contrato" class="form-label">
+                                <i class="fas fa-building"></i> <strong>Seleccione el Contrato:</strong>
+                            </label>
+                            <select 
+                                name="contrato" 
+                                id="contrato" 
+                                class="form-select form-select-lg" 
+                                onchange="this.form.submit()"
+                            >
+                                <option value="">-- Seleccione un contrato --</option>
+                                {% for contrato in contratos %}
+                                <option value="{{ contrato.id }}" 
+                                    {% if contrato_seleccionado and contrato.id == contrato_seleccionado.id %}selected{% endif %}>
+                                    {{ contrato.nombre_contrato }} ({{ contrato.codigo_contrato }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Cargar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                {% if contrato_seleccionado %}
+                <hr>
+                
+                <!-- Información del Contrato -->
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-building"></i> {{ contrato_seleccionado.nombre_contrato }}</h5>
+                    <p class="mb-0">
+                        <strong>Código:</strong> {{ contrato_seleccionado.codigo_contrato }} | 
+                        <strong>Estado:</strong> <span class="badge bg-success">{{ contrato_seleccionado.get_estado_display }}</span>
+                    </p>
+                </div>
+
+                <!-- Formulario de Configuración -->
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="contrato_id" value="{{ contrato_seleccionado.id }}">
+
+                    <!-- Configuración General -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-globe"></i> Configuración General (Todas las Máquinas)
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% with config_general=configuraciones|first %}
+                            {% if config_general and not config_general.maquina %}
+                            <div class="alert alert-warning">
+                                <strong>Configuración actual:</strong> 
+                                Si el turno iguala o supera <strong>{{ config_general.metros_minimos }} metros</strong>, 
+                                se otorgan <strong>{{ config_general.horas_extra }} horas extra</strong>
+                                {% if config_general.activo %}
+                                    <span class="badge bg-success">ACTIVO</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">INACTIVO</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Metraje Mínimo (m)</label>
+                                    <input 
+                                        type="number" 
+                                        step="0.01" 
+                                        name="metros_general" 
+                                        class="form-control" 
+                                        placeholder="Ej: 35.00"
+                                        value="{% for c in configuraciones %}{% if not c.maquina %}{{ c.metros_minimos }}{% endif %}{% endfor %}"
+                                    >
+                                    <small class="text-muted">Metros mínimos para otorgar horas extras</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Horas Extra a Otorgar</label>
+                                    <input 
+                                        type="number" 
+                                        step="0.01" 
+                                        name="horas_general" 
+                                        class="form-control" 
+                                        value="{% for c in configuraciones %}{% if not c.maquina %}{{ c.horas_extra }}{% else %}1.00{% endif %}{% endfor %}"
+                                    >
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <div class="form-check form-switch">
+                                        <input 
+                                            class="form-check-input" 
+                                            type="checkbox" 
+                                            name="activo_general"
+                                            id="activo_general"
+                                            {% for c in configuraciones %}{% if not c.maquina and c.activo %}checked{% endif %}{% endfor %}
+                                            style="width: 3rem; height: 1.5rem;"
+                                        >
+                                        <label class="form-check-label ms-2" for="activo_general">
+                                            <strong>Activo</strong>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuraciones por Máquina -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-industry"></i> Configuraciones Específicas por Máquina
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">
+                                <i class="fas fa-lightbulb"></i> 
+                                Configure reglas específicas para máquinas que tengan condiciones diferentes a la regla general.
+                            </p>
+
+                            {% if maquinas_contrato %}
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 25%">Máquina</th>
+                                            <th style="width: 20%">Metraje Mínimo (m)</th>
+                                            <th style="width: 15%">Horas Extra</th>
+                                            <th style="width: 15%" class="text-center">Activo</th>
+                                            <th style="width: 15%" class="text-center">Estado Actual</th>
+                                            <th style="width: 10%" class="text-center">Eliminar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for maquina in maquinas_contrato %}
+                                        {% with config=configuraciones_dict|get_item:maquina.id %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ maquina.nombre }}</strong><br>
+                                                <small class="text-muted">{{ maquina.tipo }}</small>
+                                            </td>
+                                            <td>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    name="metros_maquina_{{ maquina.id }}" 
+                                                    class="form-control"
+                                                    placeholder="Dejar vacío para usar regla general"
+                                                    value="{% if config %}{{ config.metros_minimos }}{% endif %}"
+                                                >
+                                            </td>
+                                            <td>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    name="horas_maquina_{{ maquina.id }}" 
+                                                    class="form-control"
+                                                    value="{% if config %}{{ config.horas_extra }}{% else %}1.00{% endif %}"
+                                                >
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="form-check form-switch d-flex justify-content-center">
+                                                    <input 
+                                                        class="form-check-input" 
+                                                        type="checkbox" 
+                                                        name="activo_maquina_{{ maquina.id }}"
+                                                        {% if config and config.activo %}checked{% endif %}
+                                                        style="width: 2.5rem; height: 1.2rem;"
+                                                    >
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                {% if config %}
+                                                    <span class="badge bg-primary">
+                                                        <i class="fas fa-cog"></i> Configurado
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-globe"></i> Usa regla general
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if config %}
+                                                <div class="form-check d-flex justify-content-center">
+                                                    <input 
+                                                        class="form-check-input" 
+                                                        type="checkbox" 
+                                                        name="eliminar_maquina_{{ maquina.id }}"
+                                                        style="width: 1.5rem; height: 1.5rem;"
+                                                    >
+                                                </div>
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning text-center">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                No hay máquinas operativas en este contrato
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save"></i> Guardar Configuración
+                        </button>
+                    </div>
+                </form>
+
+                {% else %}
+                <div class="alert alert-warning text-center mt-4">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <h5>Seleccione un contrato para configurar horas extras</h5>
+                    <p class="mb-0">Elija un contrato del menú desplegable para ver y configurar las reglas de horas extras</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-check-input:checked {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+</style>
+{% endblock %}

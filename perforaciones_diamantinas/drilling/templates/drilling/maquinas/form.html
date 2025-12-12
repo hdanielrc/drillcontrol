@@ -1,0 +1,97 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}
+{% if object %}Editar Máquina{% else %}Nueva Máquina{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h4>
+                    {% if object %}
+                        <i class="fas fa-edit"></i> Editar Máquina: {{ object.nombre }}
+                    {% else %}
+                        <i class="fas fa-plus"></i> Nueva Máquina
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                            <i class="fas fa-industry"></i> Nombre de la Máquina *
+                        </label>
+                        {{ form.nombre }}
+                        {% if form.nombre.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.nombre.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Nombre identificativo único para la máquina</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                            <i class="fas fa-cogs"></i> Tipo/Modelo *
+                        </label>
+                        {{ form.tipo }}
+                        {% if form.tipo.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.tipo.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Modelo o tipo de máquina perforadora</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.estado.id_for_label }}" class="form-label">
+                            <i class="fas fa-info-circle"></i> Estado Operativo *
+                        </label>
+                        {{ form.estado }}
+                        {% if form.estado.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.estado.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Estado actual de la máquina</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.horometro.id_for_label }}" class="form-label">
+                            <i class="fas fa-clock"></i> Horómetro (horas)
+                        </label>
+                        {{ form.horometro }}
+                        {% if form.horometro.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.horometro.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Horas acumuladas registradas en la máquina. Si no aplica, puede dejar 0.</div>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'maquina-list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i>
+                            {% if object %}Actualizar{% else %}Crear{% endif %} Máquina
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

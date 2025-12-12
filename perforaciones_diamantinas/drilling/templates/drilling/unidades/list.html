@@ -1,0 +1,29 @@
+{% extends 'drilling/base.html' %}
+{% block title %}Lista de Unidades{% endblock %}
+{% block content %}
+<h2>Unidades de Medida</h2>
+<a href="{% url 'unidad-create' %}" class="btn btn-primary mb-3">Nueva Unidad</a>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Símbolo</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for unidad in unidades %}
+    <tr>
+      <td>{{ unidad.nombre }}</td>
+      <td>{{ unidad.simbolo }}</td>
+      <td>
+        <a href="{% url 'unidad-update' unidad.pk %}" class="btn btn-sm btn-warning">Editar</a>
+        <a href="{% url 'unidad-delete' unidad.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3" class="text-center">No hay unidades registradas.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

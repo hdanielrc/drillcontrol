@@ -1,0 +1,416 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Reporte de Horas Extras por Trabajador{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-user-clock"></i> Reporte de Horas Extras por Trabajador</h2>
+            <div>
+                <a href="{% url 'gestionar-horas-extras' %}" class="btn btn-primary me-2">
+                    <i class="fas fa-cog"></i> Configurar Horas Extras
+                </a>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de Búsqueda -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" id="filtrosForm">
+                    <div class="row">
+                        <!-- Rango de Fechas -->
+                        <div class="col-md-3">
+                            <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
+                            <input 
+                                type="date" 
+                                class="form-control" 
+                                id="fecha_inicio" 
+                                name="fecha_inicio"
+                                value="{{ filtros.fecha_inicio }}"
+                            >
+                        </div>
+                        <div class="col-md-3">
+                            <label for="fecha_fin" class="form-label">Fecha Fin</label>
+                            <input 
+                                type="date" 
+                                class="form-control" 
+                                id="fecha_fin" 
+                                name="fecha_fin"
+                                value="{{ filtros.fecha_fin }}"
+                            >
+                        </div>
+
+                        <!-- Contrato (solo para admin) -->
+                        {% if user.can_manage_all_contracts %}
+                        <div class="col-md-3">
+                            <label for="contrato" class="form-label">Contrato</label>
+                            <select class="form-select" id="contrato" name="contrato">
+                                <option value="">Todos los contratos</option>
+                                {% for contrato in contratos %}
+                                <option value="{{ contrato.id }}" 
+                                    {% if filtros.contrato_id == contrato.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ contrato.nombre_contrato }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        <!-- Trabajador -->
+                        <div class="col-md-3">
+                            <label for="trabajador" class="form-label">DNI Trabajador</label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="trabajador" 
+                                name="trabajador"
+                                placeholder="Ej: 12345678"
+                                value="{{ filtros.trabajador_dni }}"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12 text-end">
+                            <a href="{% url 'reporte-horas-extras' %}" class="btn btn-secondary">
+                                <i class="fas fa-eraser"></i> Limpiar Filtros
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas Resumen -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white">Total Horas Extras</h6>
+                        <h2 class="mb-0">{{ totales.total_horas|default:0|floatformat:2 }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-clock fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white">Total Turnos</h6>
+                        <h2 class="mb-0">{{ totales.total_turnos|default:0 }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-calendar-check fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white">Total Trabajadores</h6>
+                        <h2 class="mb-0">{{ totales.total_trabajadores|default:0 }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-users fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen por Trabajador -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Resumen por Trabajador</h5>
+                <button class="btn btn-light btn-sm" onclick="exportarExcel('resumen')">
+                    <i class="fas fa-file-excel"></i> Exportar Excel
+                </button>
+            </div>
+            <div class="card-body">
+                {% if trabajadores_resumen %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="tablaResumen">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>DNI</th>
+                                <th>Trabajador</th>
+                                <th>Cargo</th>
+                                <th class="text-center">Cantidad Turnos</th>
+                                <th class="text-center">Total Horas Extras</th>
+                                <th class="text-center">Promedio x Turno</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trabajador in trabajadores_resumen %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><strong>{{ trabajador.trabajador__dni }}</strong></td>
+                                <td>
+                                    <a href="?trabajador={{ trabajador.trabajador__dni }}&fecha_inicio={{ filtros.fecha_inicio }}&fecha_fin={{ filtros.fecha_fin }}" 
+                                       class="text-decoration-none">
+                                        {{ trabajador.trabajador__nombres }} {{ trabajador.trabajador__apellidos }}
+                                    </a>
+                                </td>
+                                <td>{{ trabajador.trabajador__cargo__nombre|default:"Sin cargo" }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ trabajador.cantidad_turnos }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <strong class="text-primary">{{ trabajador.total_horas_extra|floatformat:2 }} h</strong>
+                                </td>
+                                <td class="text-center">
+                                    {% widthratio trabajador.total_horas_extra trabajador.cantidad_turnos 1 as promedio %}
+                                    {{ promedio|floatformat:2 }} h
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="4" class="text-end">TOTALES:</th>
+                                <th class="text-center">{{ totales.total_turnos }}</th>
+                                <th class="text-center">
+                                    <strong class="text-primary">{{ totales.total_horas|floatformat:2 }} h</strong>
+                                </th>
+                                <th class="text-center">-</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                    <h5>No se encontraron trabajadores con horas extras</h5>
+                    <p class="mb-0">Ajuste los filtros de búsqueda o verifique la configuración de horas extras</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detalle de Horas Extras por Turno -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list-alt"></i> Detalle por Turno</h5>
+                <button class="btn btn-light btn-sm" onclick="exportarExcel('detalle')">
+                    <i class="fas fa-file-excel"></i> Exportar Excel
+                </button>
+            </div>
+            <div class="card-body">
+                {% if horas_extras %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    Mostrando los primeros 100 registros. Use filtros para refinar la búsqueda.
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm" id="tablaDetalle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Fecha</th>
+                                <th>Turno</th>
+                                <th>Trabajador</th>
+                                <th>DNI</th>
+                                <th class="text-center">Metros Turno</th>
+                                <th class="text-center">Horas Extra</th>
+                                <th class="text-center">Configuración</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for he in horas_extras %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ he.turno.fecha|date:"d/m/Y" }}</td>
+                                <td>
+                                    <a href="{% url 'turno-detail' he.turno.id %}" 
+                                       target="_blank" 
+                                       class="text-decoration-none">
+                                        Turno #{{ he.turno.id }}
+                                    </a>
+                                </td>
+                                <td>{{ he.trabajador.nombres }} {{ he.trabajador.apellidos }}</td>
+                                <td>{{ he.trabajador.dni }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary">{{ he.metros_turno|floatformat:2 }} m</span>
+                                </td>
+                                <td class="text-center">
+                                    <strong class="text-success">{{ he.horas_extra|floatformat:2 }} h</strong>
+                                </td>
+                                <td class="text-center">
+                                    {% if he.configuracion_aplicada %}
+                                    <span class="badge bg-info" 
+                                          data-bs-toggle="tooltip" 
+                                          title="Mínimo: {{ he.configuracion_aplicada.metros_minimos }}m">
+                                        <i class="fas fa-check"></i> Aplicada
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning">Manual</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ he.observaciones|default:"-" }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle fa-2x mb-3"></i>
+                    <h5>No hay registros detallados de horas extras</h5>
+                    <p class="mb-0">Configure los filtros para ver los registros</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script para exportar a Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+function exportarExcel(tipo) {
+    let tabla, nombreArchivo;
+    
+    if (tipo === 'resumen') {
+        tabla = document.getElementById('tablaResumen');
+        nombreArchivo = 'resumen_horas_extras.xlsx';
+    } else {
+        tabla = document.getElementById('tablaDetalle');
+        nombreArchivo = 'detalle_horas_extras.xlsx';
+    }
+    
+    if (!tabla) {
+        alert('No hay datos para exportar');
+        return;
+    }
+    
+    // Crear workbook y worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.table_to_sheet(tabla);
+    
+    // Ajustar ancho de columnas
+    const colWidths = [];
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+        let max_width = 10;
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            const cell = ws[XLSX.utils.encode_cell({r: R, c: C})];
+            if (cell && cell.v) {
+                const len = cell.v.toString().length;
+                if (len > max_width) max_width = len;
+            }
+        }
+        colWidths.push({wch: Math.min(max_width + 2, 50)});
+    }
+    ws['!cols'] = colWidths;
+    
+    // Agregar worksheet al workbook
+    XLSX.utils.book_append_sheet(wb, ws, tipo === 'resumen' ? 'Resumen' : 'Detalle');
+    
+    // Guardar archivo
+    XLSX.writeFile(wb, nombreArchivo);
+}
+
+// Inicializar tooltips de Bootstrap
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Atajos rápidos de teclado
+document.addEventListener('keydown', function(e) {
+    // Ctrl + E = Exportar resumen
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        exportarExcel('resumen');
+    }
+    // Ctrl + D = Exportar detalle
+    if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        exportarExcel('detalle');
+    }
+});
+</script>
+
+<style>
+.opacity-50 {
+    opacity: 0.5;
+}
+
+.card-title {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.badge {
+    padding: 0.35em 0.65em;
+}
+
+/* Estilo para la tabla en modo responsive */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+}
+
+/* Hover en filas de la tabla */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+    cursor: pointer;
+}
+
+/* Estilo para links en la tabla */
+.table a {
+    font-weight: 500;
+}
+
+.table a:hover {
+    text-decoration: underline !important;
+}
+</style>
+
+{% endblock %}
