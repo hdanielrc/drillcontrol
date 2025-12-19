@@ -1,0 +1,3 @@
+contrato_nombre,dni,nombres,apellidos,cargo_nombre,area,telefono,email,fecha_ingreso,guardia,estado,subestado
+Proyecto DDH Americana,12345678,Juan,Pérez García,Perforista DDH-I,Perforación,987654321,juan.perez@email.com,2024-01-15,A,ACTIVO,EN_OPERACION
+Proyecto DDH Americana,87654321,María,López Ramos,Ayudante DDH-I,Perforación,987654322,maria.lopez@email.com,2024-02-01,B,ACTIVO,EN_OPERACION

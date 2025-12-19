@@ -1,0 +1,13 @@
+nombre,categoria,jerarquia
+Perforista DDH-I,OPERADORES,3
+Perforista DDH-II,OPERADORES,2
+Ayudante DDH-I,OPERADORES,3
+Ayudante DDH-II,OPERADORES,2
+Ayudante Perforista,OPERADORES,3
+Maestro Muestrero,SERVICIOS_GEOLOGICOS,3
+Ayudante Muestrero,SERVICIOS_GEOLOGICOS,3
+Conductor,PERSONAL_AUXILIAR,3
+Mecánico,PERSONAL_AUXILIAR,3
+Supervisor,LINEA_MANDO,4
+Jefe de Proyecto,LINEA_MANDO,5
+Gerente de Operaciones,LINEA_MANDO,6

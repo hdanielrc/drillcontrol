@@ -1,0 +1,4 @@
+contrato_nombre,placa,tipo,marca,modelo,año,kilometraje_inicial,capacidad_pasajeros,estado
+Proyecto DDH Americana,ABC-123,CAMIONETA,Toyota,Hilux,2020,45000.50,5,OPERATIVO
+Proyecto DDH Americana,DEF-456,COMBI,Hyundai,H350,2019,78000.00,12,OPERATIVO
+Servicio Perforacion Condestable,GHI-789,PICKUP,Nissan,Frontier,2021,32000.25,5,OPERATIVO
