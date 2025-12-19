@@ -14,6 +14,10 @@ class Cliente(models.Model):
         db_table = 'clientes'
         verbose_name = 'Cliente'
         verbose_name_plural = 'Clientes'
+        indexes = [
+            models.Index(fields=['is_active']),
+            models.Index(fields=['-created_at']),
+        ]
 
     def __str__(self):
         return self.nombre
@@ -49,6 +53,12 @@ class Contrato(models.Model):
         db_table = 'contratos'
         verbose_name = 'Contrato'
         verbose_name_plural = 'Contratos'
+        indexes = [
+            models.Index(fields=['estado']),
+            models.Index(fields=['cliente', 'estado']),
+            models.Index(fields=['codigo_centro_costo']),
+            models.Index(fields=['-created_at']),
+        ]
 
     def __str__(self):
         return f"{self.cliente.nombre} - {self.nombre_contrato}"
@@ -352,6 +362,11 @@ class TipoActividad(models.Model):
 
     class Meta:
         db_table = 'tipos_actividad'
+        indexes = [
+            models.Index(fields=['tipo_actividad']),
+            models.Index(fields=['es_cobrable']),
+            models.Index(fields=['tipo_actividad', 'es_cobrable']),
+        ]
 
     def __str__(self):
         return self.nombre
@@ -483,6 +498,13 @@ class Sondaje(models.Model):
         db_table = 'sondajes'
         verbose_name = 'Sondaje'
         verbose_name_plural = 'Sondajes'
+        indexes = [
+            models.Index(fields=['estado']),
+            models.Index(fields=['contrato', 'estado']),
+            models.Index(fields=['fecha_inicio']),
+            models.Index(fields=['-fecha_inicio']),
+            models.Index(fields=['fecha_fin']),
+        ]
 
     def clean(self):
         if self.fecha_fin and self.fecha_fin < self.fecha_inicio:
@@ -507,6 +529,11 @@ class Maquina(models.Model):
 
     class Meta:
         db_table = 'maquinas'
+        indexes = [
+            models.Index(fields=['estado']),
+            models.Index(fields=['contrato', 'estado']),
+            models.Index(fields=['nombre']),
+        ]
 
     def __str__(self):
         return f"{self.nombre} - {self.contrato.nombre_contrato}"
@@ -1224,6 +1251,11 @@ class TurnoTrabajador(models.Model):
     class Meta:
         db_table = 'turno_trabajador'
         unique_together = ['turno', 'trabajador']
+        indexes = [
+            models.Index(fields=['turno']),
+            models.Index(fields=['trabajador']),
+            models.Index(fields=['funcion']),
+        ]
     
 class TurnoSondaje(models.Model):
     """Modelo intermedio que asocia un Turno con un Sondaje.
@@ -1240,6 +1272,10 @@ class TurnoSondaje(models.Model):
     class Meta:
         db_table = 'turno_sondaje'
         unique_together = ['turno', 'sondaje']
+        indexes = [
+            models.Index(fields=['turno']),
+            models.Index(fields=['sondaje']),
+        ]
 
     def clean(self):
         """Validaciones personalizadas del modelo"""
@@ -1266,6 +1302,10 @@ class TurnoAvance(models.Model):
 
     class Meta:
         db_table = 'turno_avance'
+        indexes = [
+            models.Index(fields=['turno']),
+            models.Index(fields=['-created_at']),
+        ]
     
     def save(self, *args, **kwargs):
         """
@@ -1430,6 +1470,12 @@ class TurnoComplemento(models.Model):
 
     class Meta:
         db_table = 'turno_complemento'
+        indexes = [
+            models.Index(fields=['turno']),
+            models.Index(fields=['sondaje']),
+            models.Index(fields=['tipo_complemento']),
+            models.Index(fields=['codigo_serie']),
+        ]
 
     def clean(self):
         """Validaciones personalizadas"""
@@ -1549,6 +1595,14 @@ class Abastecimiento(models.Model):
         verbose_name = 'Abastecimiento'
         verbose_name_plural = 'Abastecimientos'
         ordering = ['-fecha', '-created_at']
+        indexes = [
+            models.Index(fields=['contrato']),
+            models.Index(fields=['contrato', 'fecha']),
+            models.Index(fields=['familia']),
+            models.Index(fields=['-fecha']),
+            models.Index(fields=['codigo_producto']),
+            models.Index(fields=['serie']),
+        ]
 
     def save(self, *args, **kwargs):
         self.total = self.cantidad * self.precio_unitario

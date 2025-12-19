@@ -93,29 +93,35 @@ def dashboard(request):
         # Turnos hoy (todos los contratos)
         turnos_hoy_total = Turno.objects.filter(fecha=hoy).count()
         
-        # Métricas por contrato
+        # Métricas por contrato - OPTIMIZADO con annotate para evitar N+1 queries
+        from django.db.models import Q, Count, Sum, F
+        
+        metricas_por_contrato_qs = Contrato.objects.filter(
+            estado='ACTIVO'
+        ).select_related('cliente').annotate(
+            sondajes_activos_count=Count('sondajes', filter=Q(sondajes__estado='ACTIVO'), distinct=True),
+            trabajadores_activos_count=Count('trabajadores', filter=Q(trabajadores__estado='ACTIVO'), distinct=True),
+            turnos_mes_count=Count(
+                'turnos',
+                filter=Q(turnos__fecha__month=hoy.month, turnos__fecha__year=hoy.year),
+                distinct=True
+            ),
+            metros_mes_total=Sum(
+                'turnos__avance__metros_perforados',
+                filter=Q(turnos__fecha__month=hoy.month, turnos__fecha__year=hoy.year)
+            )
+        ).order_by('nombre_contrato')
+        
+        # Convertir a lista de diccionarios para el template
         metricas_por_contrato = []
-        for contrato in Contrato.objects.filter(estado='ACTIVO').select_related('cliente'):
-            sondajes_activos = Sondaje.objects.filter(contrato=contrato, estado='ACTIVO').count()
-            trabajadores_activos = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').count()
-            turnos_mes = Turno.objects.filter(
-                sondajes__contrato=contrato,
-                fecha__month=hoy.month,
-                fecha__year=hoy.year
-            ).distinct().count()
-            metros_mes = TurnoAvance.objects.filter(
-                turno__sondajes__contrato=contrato,
-                turno__fecha__month=hoy.month,
-                turno__fecha__year=hoy.year
-            ).aggregate(total=models.Sum('metros_perforados'))['total'] or 0
-            
+        for contrato in metricas_por_contrato_qs:
             metricas_por_contrato.append({
                 'nombre_contrato': contrato.nombre_contrato,
                 'cliente': contrato.cliente.nombre,
-                'sondajes_activos': sondajes_activos,
-                'trabajadores_activos': trabajadores_activos,
-                'turnos_mes': turnos_mes,
-                'metros_mes': metros_mes,
+                'sondajes_activos': contrato.sondajes_activos_count,
+                'trabajadores_activos': contrato.trabajadores_activos_count,
+                'turnos_mes': contrato.turnos_mes_count,
+                'metros_mes': contrato.metros_mes_total or 0,
                 'estado': contrato.estado,
             })
         
@@ -132,27 +138,32 @@ def dashboard(request):
             turno.contrato_nombre = contrato_nombre
             ultimos_turnos.append(turno)
         
-        # Stock crítico (todos los contratos)
+        # Stock crítico (todos los contratos) - OPTIMIZADO con annotate
         try:
-            stock_critico = []
-            abastecimientos = Abastecimiento.objects.select_related('unidad_medida', 'contrato')[:20]
+            from django.db.models import F, DecimalField, ExpressionWrapper
             
-            for abastecimiento in abastecimientos:
-                total_consumido = ConsumoStock.objects.filter(
-                    abastecimiento=abastecimiento
-                ).aggregate(total=models.Sum('cantidad_consumida'))['total'] or 0
-                
-                disponible = abastecimiento.cantidad - total_consumido
-                
-                if disponible <= 5:
-                    stock_critico.append({
-                        'descripcion': abastecimiento.descripcion,
-                        'disponible': disponible,
-                        'unidad_medida': abastecimiento.unidad_medida,
-                        'contrato_nombre': abastecimiento.contrato.nombre_contrato if abastecimiento.contrato else 'N/A',
-                    })
+            stock_critico = Abastecimiento.objects.select_related(
+                'unidad_medida', 'contrato'
+            ).annotate(
+                total_consumido=Sum('consumos__cantidad_consumida'),
+                disponible=ExpressionWrapper(
+                    F('cantidad') - Sum('consumos__cantidad_consumida'),
+                    output_field=DecimalField(max_digits=10, decimal_places=2)
+                )
+            ).filter(
+                disponible__lte=5
+            ).order_by('disponible')[:10]
             
-            stock_critico = sorted(stock_critico, key=lambda x: x['disponible'])[:10]
+            # Convertir a lista de diccionarios
+            stock_critico_list = []
+            for abast in stock_critico:
+                stock_critico_list.append({
+                    'descripcion': abast.descripcion,
+                    'disponible': abast.disponible or 0,
+                    'unidad_medida': abast.unidad_medida,
+                    'contrato_nombre': abast.contrato.nombre_contrato if abast.contrato else 'N/A',
+                })
+            stock_critico = stock_critico_list
         except Exception as e:
             print(f"Error en stock crítico: {e}")
             stock_critico = []
@@ -176,22 +187,24 @@ def dashboard(request):
             messages.warning(request, 'No tienes un contrato asignado. Contacta al administrador.')
             return redirect('logout')
         
-        # Métricas del contrato del manager
+        # Métricas del contrato del manager - OPTIMIZADO
         trabajadores_activos = Trabajador.objects.filter(contrato=contract, estado='ACTIVO').count()
+        
+        # Trabajadores presentes hoy (basado en turnos del contrato)
         trabajadores_presentes_hoy = TurnoTrabajador.objects.filter(
-            turno__fecha=hoy,
-            turno__sondajes__contrato=contract
+            turno__contrato=contract,
+            turno__fecha=hoy
         ).values('trabajador').distinct().count()
         
         sondajes_activos = Sondaje.objects.filter(contrato=contract, estado='ACTIVO').count()
-        turnos_hoy = Turno.objects.filter(sondajes__contrato=contract, fecha=hoy).distinct().count()
+        turnos_hoy = Turno.objects.filter(contrato=contract, fecha=hoy).count()
         
         maquinas_operativas = Maquina.objects.filter(contrato=contract, estado='OPERATIVO').count()
         
-        # Últimos turnos del contrato
+        # Últimos turnos del contrato - OPTIMIZADO
         ultimos_turnos = Turno.objects.filter(
-            sondajes__contrato=contract
-        ).select_related('tipo_turno').prefetch_related('sondajes').order_by('-fecha').distinct()[:5]
+            contrato=contract
+        ).select_related('tipo_turno', 'maquina').prefetch_related('sondajes').order_by('-fecha')[:5]
         
         # Trabajadores recientes
         trabajadores_recientes = Trabajador.objects.filter(
@@ -223,12 +236,12 @@ def dashboard(request):
             user.save()
             contract = contrato_obj
         
-        # Métricas básicas
+        # Métricas básicas - OPTIMIZADO
         sondajes_activos = Sondaje.objects.filter(contrato=contract, estado='ACTIVO').count()
-        turnos_hoy = Turno.objects.filter(sondajes__contrato=contract, fecha=hoy).distinct().count()
+        turnos_hoy = Turno.objects.filter(contrato=contract, fecha=hoy).count()
         
         metros_perforados_mes = TurnoAvance.objects.filter(
-            turno__sondajes__contrato=contract,
+            turno__contrato=contract,
             turno__fecha__month=hoy.month,
             turno__fecha__year=hoy.year
         ).aggregate(total=models.Sum('metros_perforados'))['total'] or 0
@@ -236,7 +249,7 @@ def dashboard(request):
         maquinas_operativas = Maquina.objects.filter(contrato=contract, estado='OPERATIVO').count()
         
         ultimos_turnos = Turno.objects.filter(
-            sondajes__contrato=contract
+            contrato=contract
         ).select_related('tipo_turno').prefetch_related('sondajes').order_by('-fecha').distinct()[:5]
         
         try:
@@ -446,7 +459,8 @@ def gestionar_actividades(request):
         messages.error(request, "No tiene permisos para gestionar actividades")
         return redirect('dashboard')
     
-    actividades = TipoActividad.objects.all().order_by('nombre')
+    # OPTIMIZADO: Solo cargar campos necesarios
+    actividades = TipoActividad.objects.only('id', 'nombre', 'es_cobrable').order_by('nombre')
     
     if request.method == 'POST':
         # Procesar cambios en es_cobrable
@@ -892,7 +906,8 @@ class ContratoActividadesUpdateView(SystemAdminRequiredMixin, TemplateView):
 
     def get(self, request, pk):
         contrato = get_object_or_404(Contrato, pk=pk)
-        actividades = TipoActividad.objects.all().order_by('nombre')
+        # OPTIMIZADO: Solo cargar campos necesarios
+        actividades = TipoActividad.objects.only('id', 'nombre', 'descripcion_corta').order_by('nombre')
         context = {
             'contrato': contrato,
             'actividades': actividades,
@@ -1760,30 +1775,39 @@ def convert_to_time(time_str):
         return None
 
 def get_context_data(request):
-    """Obtener datos de contexto para el formulario"""
+    """Obtener datos de contexto para el formulario - OPTIMIZADO"""
     contract = request.user.contrato
     
     if request.user.can_manage_all_contracts():
-        sondajes = Sondaje.objects.all()
-        maquinas = Maquina.objects.all()
-        trabajadores = Trabajador.objects.all()
+        # Admin: usar only() para cargar solo campos necesarios
+        sondajes = Sondaje.objects.only('id', 'nombre_sondaje', 'estado', 'contrato')
+        maquinas = Maquina.objects.only('id', 'nombre', 'estado', 'contrato')
+        trabajadores = Trabajador.objects.select_related('cargo').only(
+            'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
+        )
     else:
-        sondajes = Sondaje.objects.filter(contrato=contract)
-        maquinas = Maquina.objects.filter(contrato=contract)
-        trabajadores = Trabajador.objects.filter(contrato=contract)
+        sondajes = Sondaje.objects.filter(contrato=contract).only(
+            'id', 'nombre_sondaje', 'estado', 'contrato'
+        )
+        maquinas = Maquina.objects.filter(contrato=contract).only(
+            'id', 'nombre', 'estado', 'contrato'
+        )
+        trabajadores = Trabajador.objects.filter(contrato=contract).select_related('cargo').only(
+            'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
+        )
     
     # Actividades disponibles: utilizamos la relación contrato.actividades
     # (mapeada a la tabla legacy `contratos_actividades`) cuando el usuario
     # está limitado a un contrato. Los administradores de sistema ven todas
     # las actividades por defecto.
     if request.user.can_manage_all_contracts():
-        tipos_actividad_qs = TipoActividad.objects.all()
+        tipos_actividad_qs = TipoActividad.objects.only('id', 'nombre', 'descripcion_corta')
     else:
         # request.user.contrato puede ser None; manejar ese caso
         tipos_actividad_qs = TipoActividad.objects.none()
         if contract:
             try:
-                tipos_actividad_qs = contract.actividades.all()
+                tipos_actividad_qs = contract.actividades.only('id', 'nombre', 'descripcion_corta')
             except Exception:
                 # En caso de que la relación through no esté correctamente
                 # configurada en la BD, caer de forma segura a conjunto vacío
@@ -1793,16 +1817,16 @@ def get_context_data(request):
         'sondajes': sondajes.filter(estado='ACTIVO'),
         'maquinas': maquinas.filter(estado='OPERATIVO'),
         'trabajadores': trabajadores.filter(estado='ACTIVO'),
-        'tipos_turno': TipoTurno.objects.all(),
+        'tipos_turno': TipoTurno.objects.only('id', 'nombre'),
         'tipos_actividad': tipos_actividad_qs,
         'tipos_complemento': TipoComplemento.objects.filter(
             contrato=contract,
             estado='NUEVO'
-        ).select_related('contrato'),
+        ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato'),
         'tipos_aditivo': TipoAditivo.objects.filter(
             contrato=contract
-        ).select_related('contrato'),
-        'unidades_medida': UnidadMedida.objects.all(),
+        ).select_related('contrato').only('id', 'nombre', 'codigo', 'contrato'),
+        'unidades_medida': UnidadMedida.objects.only('id', 'nombre', 'simbolo'),
         'today': timezone.now().date(),
     }
 
@@ -1839,14 +1863,16 @@ def api_create_actividad(request):
 
 @login_required
 def listar_turnos(request):
-    # Filtrar turnos por permisos del usuario
+    # Filtrar turnos por permisos del usuario - OPTIMIZADO
     if request.user.can_manage_all_contracts():
-        base_turnos = Turno.objects.all()
-        sondajes_filtro = Sondaje.objects.all()
+        base_turnos = Turno.objects.select_related('contrato')
+        sondajes_filtro = Sondaje.objects.only('id', 'nombre_sondaje', 'contrato')
     else:
         # Use the M2M relation 'sondajes' instead of the old FK
-        base_turnos = Turno.objects.filter(sondajes__contrato=request.user.contrato)
-        sondajes_filtro = Sondaje.objects.filter(contrato=request.user.contrato)
+        base_turnos = Turno.objects.filter(contrato=request.user.contrato).select_related('contrato')
+        sondajes_filtro = Sondaje.objects.filter(contrato=request.user.contrato).only(
+            'id', 'nombre_sondaje', 'contrato'
+        )
     
     # Aplicar filtros de búsqueda
     filtros = {

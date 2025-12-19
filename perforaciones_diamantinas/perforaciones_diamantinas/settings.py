@@ -55,6 +55,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',  # Comprimir respuestas HTTP
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -95,8 +96,11 @@ DATABASES = {
         'PASSWORD': env('DB_PASSWORD', default='npg_Athe0VmqL6cI'),
         'HOST': env('DB_HOST', default='ep-winter-bread-achugblw-pooler.sa-east-1.aws.neon.tech'),
         'PORT': env('DB_PORT', default='5432'),
+        'CONN_MAX_AGE': 600,  # Mantener conexión abierta por 10 minutos
         'OPTIONS': {
             'sslmode': 'require',
+            'connect_timeout': 10,
+            # statement_timeout removido - no soportado por Neon pooler
         },
     }
 }
@@ -115,6 +119,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Cachear archivos estáticos con hash en producción
+if not DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -139,6 +147,25 @@ MESSAGE_TAGS = {
     messages.WARNING: 'warning',
     messages.ERROR: 'danger',
 }
+
+# ========================================
+# CONFIGURACIÓN DE CACHÉ
+# ========================================
+# Usar caché en memoria local (sin dependencias externas)
+# Para producción, considera usar Redis para mejor rendimiento
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'drill-control-cache',
+        'TIMEOUT': 300,  # 5 minutos por defecto
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        }
+    }
+}
+
+# Cachear sesiones en base de datos y memoria
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 SESSION_COOKIE_AGE = 8 * 60 * 60
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False

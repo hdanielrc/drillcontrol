@@ -1,6 +1,7 @@
 from django.utils import timezone
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.core.cache import cache
 
 class ContractSecurityMiddleware:
     """Middleware para seguridad por contrato"""
@@ -9,10 +10,17 @@ class ContractSecurityMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Actualizar última actividad del usuario
+        # Actualizar última actividad del usuario (solo cada 5 minutos para evitar writes constantes)
         if request.user.is_authenticated:
-            request.user.last_activity = timezone.now()
-            request.user.save(update_fields=['last_activity'])
+            cache_key = f'last_activity_{request.user.id}'
+            last_update = cache.get(cache_key)
+            now = timezone.now()
+            
+            # Solo actualizar en BD cada 5 minutos
+            if not last_update or (now - last_update).total_seconds() > 300:
+                request.user.last_activity = now
+                request.user.save(update_fields=['last_activity'])
+                cache.set(cache_key, now, 600)  # Cache por 10 minutos
         
         response = self.get_response(request)
         return response
