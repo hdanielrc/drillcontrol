@@ -1,21 +1,40 @@
-/* === VARIABLES CSS === */
+/* === VARIABLES CSS - PALETA DE COLORES DRILLCONTROL === */
 :root {
-    --primary-color: #0d6efd;
-    --secondary-color: #6c757d;
-    --success-color: #198754;
-    --warning-color: #ffc107;
-    --danger-color: #dc3545;
-    --info-color: #0dcaf0;
-    --light-color: #f8f9fa;
-    --dark-color: #212529;
+    /* Colores Primarios */
+    --primary-dark: #084163;      /* Azul Oscuro Principal */
+    --primary-medium: #0470AC;    /* Azul Medio Principal */
+    
+    /* Colores Secundarios */
+    --secondary-blue: #06AAFF;    /* Azul Claro Secundario */
+    --secondary-yellow: #FFC248;  /* Amarillo Secundario */
+    --secondary-green: #7AD57C;   /* Verde Secundario */
+    --secondary-gray: #E2E5F1;    /* Gris Claro Secundario */
+    
+    /* Alias para compatibilidad con Bootstrap */
+    --primary-color: #0470AC;     /* Azul Medio */
+    --secondary-color: #084163;   /* Azul Oscuro */
+    --success-color: #7AD57C;     /* Verde */
+    --warning-color: #FFC248;     /* Amarillo */
+    --danger-color: #dc3545;      /* Rojo (Bootstrap) */
+    --info-color: #06AAFF;        /* Azul Claro */
+    --light-color: #E2E5F1;       /* Gris Claro */
+    --dark-color: #084163;        /* Azul Oscuro */
+    
+    /* Variantes de colores primarios */
+    --primary-hover: #063452;     /* Azul Oscuro Hover */
+    --primary-light: #0589d4;     /* Azul Medio Claro */
+    --primary-lighter: #e6f4fb;   /* Azul Muy Claro */
+    
+    /* Otros estilos */
     --border-radius: 8px;
-    --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    --box-shadow: 0 2px 4px rgba(8, 65, 99, 0.15);
     --transition: all 0.3s ease;
 }
 
 /* === ESTILOS GLOBALES === */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 400;
     background-color: var(--light-color);
     line-height: 1.6;
 }
@@ -24,6 +43,83 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 15px;
+}
+
+/* === TIPOGRAFÍA === */
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 700;
+}
+
+.navbar-brand {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 700 !important;
+}
+
+.btn {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 600;
+}
+
+.nav-link {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 400;
+}
+
+.card-title {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 700;
+}
+
+.card-text, .card-body {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 400;
+}
+
+.table th {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 600;
+}
+
+.table td {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 400;
+}
+
+.badge {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 600;
+}
+
+.form-label {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 600;
+}
+
+.form-control, .form-select {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 400;
+}
+
+.alert {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 400;
+}
+
+small, .small, .text-muted {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 300;
+}
+
+.dropdown-item {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 400;
+}
+
+.lead {
+    font-family: 'Titillium Web', sans-serif;
+    font-weight: 300;
+    font-size: 1.25rem;
 }
 
 /* === NAVEGACIÓN === */
@@ -651,3 +747,20 @@ body {
         box-shadow: none;
     }
 }
+/* === SOBRESCRITURA DE COLORES BOOTSTRAP === */
+.bg-primary { background-color: var(--primary-medium) !important; color: #ffffff !important; }
+.bg-success { background-color: var(--success-color) !important; color: #ffffff !important; }
+.bg-warning { background-color: var(--warning-color) !important; color: #000000 !important; }
+.bg-info { background-color: var(--info-color) !important; color: #ffffff !important; }
+.text-primary { color: var(--primary-medium) !important; }
+.text-success { color: var(--success-color) !important; }
+.text-warning { color: var(--warning-color) !important; }
+.text-info { color: var(--info-color) !important; }
+.btn-primary { background-color: var(--primary-medium); border-color: var(--primary-medium); color: #ffffff; }
+.btn-primary:hover { background-color: var(--primary-dark); border-color: var(--primary-dark); color: #ffffff; }
+.btn-success { background-color: var(--success-color); border-color: var(--success-color); color: #ffffff; }
+.btn-warning { background-color: var(--warning-color); border-color: var(--warning-color); color: #000000; }
+.btn-info { background-color: var(--info-color); border-color: var(--info-color); color: #ffffff; }
+.alert-success { background-color: rgba(122, 213, 124, 0.15); border-color: var(--success-color); color: #155724; }
+.alert-warning { background-color: rgba(255, 194, 72, 0.15); border-color: var(--warning-color); color: #856404; }
+.alert-info { background-color: rgba(6, 170, 255, 0.15); border-color: var(--info-color); color: #084163; }

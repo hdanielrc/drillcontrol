@@ -1,8 +1,6 @@
 # Environment variables
 .env
 .env.local
-.env.production
-
 # Python
 __pycache__/
 *.py[cod]
@@ -13,7 +11,6 @@ venv/
 ENV/
 env/
 .venv
-
 # Django
 *.log
 local_settings.py
@@ -22,14 +19,12 @@ db.sqlite3-journal
 media/
 staticfiles/
 static_root/
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
 # OS
 .DS_Store
 Thumbs.db

@@ -7,9 +7,10 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.setti
 django.setup()
 
 from drilling.models import Cargo
+from django.db import models
 
 def cargar_cargos():
-    csv_file = 'carga_cargos.csv'
+    csv_file = 'plantilla_cargos.csv'
     
     print(f"Cargando cargos desde {csv_file}...")
     
@@ -18,33 +19,59 @@ def cargar_cargos():
     errores = 0
     
     try:
-        with open(csv_file, 'r', encoding='utf-8') as file:
-            # Usar punto y coma como delimitador
-            reader = csv.DictReader(file, delimiter=';')
-            
-            for row in reader:
+        # Intentar diferentes codificaciones
+        encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
+        file_content = None
+        used_encoding = None
+        
+        for encoding in encodings:
+            try:
+                with open(csv_file, 'r', encoding=encoding) as file:
+                    file_content = file.read()
+                used_encoding = encoding
+                print(f"✓ Archivo leído con codificación: {encoding}")
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if file_content is None:
+            print("✗ Error: No se pudo leer el archivo con ninguna codificación")
+            return
+        
+        # Procesar el contenido
+        from io import StringIO
+        reader = csv.DictReader(StringIO(file_content), delimiter=';')
+        
+        for row in reader:
                 try:
-                    id_cargo = int(row['id_Cargo'])
                     nombre = row['nombre'].strip()
-                    descripcion = row['descripcion'].strip()
-                    is_active = row['is_active'].strip().lower() in ['true', '1', 'yes', 'si']
+                    jerarquia = int(row['jerarquia'])
                     
-                    # Usar update_or_create para crear o actualizar
-                    cargo, created = Cargo.objects.update_or_create(
-                        id_cargo=id_cargo,
-                        defaults={
-                            'nombre': nombre,
-                            'descripcion': descripcion,
-                            'is_active': is_active
-                        }
-                    )
+                    # Buscar si ya existe el cargo por nombre
+                    cargo_existente = Cargo.objects.filter(nombre=nombre).first()
                     
-                    if created:
-                        creados += 1
-                        print(f"✓ Creado: {id_cargo} - {nombre}")
-                    else:
+                    if cargo_existente:
+                        # Actualizar cargo existente
+                        cargo_existente.nivel_jerarquico = jerarquia
+                        cargo_existente.is_active = True
+                        cargo_existente.save()
                         actualizados += 1
-                        print(f"↻ Actualizado: {id_cargo} - {nombre}")
+                        print(f"↻ Actualizado: {nombre} (ID: {cargo_existente.id_cargo}, Jerarquía: {jerarquia})")
+                    else:
+                        # Obtener el próximo ID disponible
+                        max_id = Cargo.objects.aggregate(models.Max('id_cargo'))['id_cargo__max']
+                        next_id = (max_id or 0) + 1
+                        
+                        # Crear nuevo cargo
+                        cargo = Cargo.objects.create(
+                            id_cargo=next_id,
+                            nombre=nombre,
+                            nivel_jerarquico=jerarquia,
+                            descripcion=nombre,
+                            is_active=True
+                        )
+                        creados += 1
+                        print(f"✓ Creado: {nombre} (ID: {next_id}, Jerarquía: {jerarquia})")
                         
                 except Exception as e:
                     errores += 1

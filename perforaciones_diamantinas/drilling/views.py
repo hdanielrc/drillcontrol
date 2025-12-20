@@ -75,8 +75,8 @@ def dashboard(request):
     hoy = timezone.now().date()
     
     # Determinar qué template usar según el rol
-    is_admin = user.role == 'ADMIN_SISTEMA' and user.is_system_admin
-    is_manager = user.role == 'MANAGER_CONTRATO'
+    is_admin = user.role in ['GERENCIA', 'CONTROL_PROYECTOS'] and user.is_system_admin
+    is_manager = user.role == 'ADMINISTRADOR'
     
     # DASHBOARD PARA ADMINISTRADOR DEL SISTEMA
     if is_admin:
@@ -1173,12 +1173,14 @@ def crear_turno_completo(request, pk=None):
                             complementos_parsed.append({
                                 'tipo_complemento_id': int(c['tipo_complemento_id']),
                                 'codigo_serie': c.get('codigo_serie', ''),
-                                'metros_inicio': float(c['metros_inicio']),
-                                'metros_fin': float(c['metros_fin']),
+                                'metros_inicio': Decimal(str(c['metros_inicio'])),
+                                'metros_fin': Decimal(str(c['metros_fin'])),
                                 'sondaje_id': int(c.get('sondaje_id')) if c.get('sondaje_id') else None,
                             })
-                        except (KeyError, ValueError):
-                            messages.warning(request, 'Complemento con datos inválidos será omitido')
+                        except (KeyError, ValueError, TypeError) as e:
+                            messages.warning(request, f'Complemento con datos inválidos será omitido: {e}')
+                        except Exception as e:
+                            messages.warning(request, f'Error inesperado en complemento: {e}')
                 except json.JSONDecodeError as e:
                     messages.error(request, f'JSON inválido en complementos: {e}')
                     return redirect('crear-turno-completo')
@@ -1275,7 +1277,7 @@ def crear_turno_completo(request, pk=None):
             horometro_inicio_val = None
             horometro_fin_val = None
             # Intentar parsear como Decimal (horómetro)
-            from decimal import Decimal, InvalidOperation
+            from decimal import InvalidOperation
             try:
                 if hora_inicio_maq is not None and hora_inicio_maq.strip() != '':
                     try:
@@ -1410,7 +1412,6 @@ def crear_turno_completo(request, pk=None):
                 # Guardar metrajes por sondaje si fueron enviados (usar metrajes_raw
                 # ya parseados arriba). Se espera una lista paralela 'sondajes_metraje'
                 # en el POST
-                from decimal import Decimal
                 try:
                     # Asegurar que los pares (sondaje_id, metraje) respeten el orden de selección
                     pairs = list(zip([int(s.id) for s in sondajes_list], metrajes_raw)) if metrajes_raw else []
@@ -1467,7 +1468,6 @@ def crear_turno_completo(request, pk=None):
                     try:
                         if tm.horas_trabajadas_calc and tm.horas_trabajadas_calc > 0:
                             # usar Decimal para mantener precisión
-                            from decimal import Decimal
                             incremento = Decimal(str(tm.horas_trabajadas_calc))
                             # Actualizar horómetro en un savepoint para evitar marcar la transacción si falla
                             try:
@@ -1486,63 +1486,120 @@ def crear_turno_completo(request, pk=None):
                         # Log del error para debugging
                         messages.warning(request, f'Error al calcular incremento de horómetro: {str(e)}')
 
-                # Crear trabajadores: resolver por `dni` (la plantilla envía el dni como valor)
-                for t in trabajadores_parsed:
-                    try:
-                        trabajador_obj = Trabajador.objects.get(dni=str(t['trabajador_id']))
-                    except Trabajador.DoesNotExist:
-                        # Omitir si el trabajador no existe (no bloquear la transacción)
-                        continue
-                    TurnoTrabajador.objects.create(
-                        turno=turno,
-                        trabajador=trabajador_obj,
-                        funcion=t['funcion'],
-                        observaciones=t['observaciones']
-                    )
+                # Crear trabajadores usando bulk_create para mejor rendimiento
+                if trabajadores_parsed:
+                    dnis = [str(t['trabajador_id']) for t in trabajadores_parsed]
+                    trabajadores_dict = Trabajador.objects.in_bulk(dnis, field_name='dni')
+                    turno_trabajadores = []
+                    for t in trabajadores_parsed:
+                        trabajador_obj = trabajadores_dict.get(str(t['trabajador_id']))
+                        if trabajador_obj:
+                            turno_trabajadores.append(TurnoTrabajador(
+                                turno=turno,
+                                trabajador=trabajador_obj,
+                                funcion=t['funcion'],
+                                observaciones=t['observaciones']
+                            ))
+                    if turno_trabajadores:
+                        TurnoTrabajador.objects.bulk_create(turno_trabajadores)
 
-                # Crear complementos
-                for c in complementos_parsed:
-                    TurnoComplemento.objects.create(
-                        turno=turno,
-                        tipo_complemento_id=c['tipo_complemento_id'],
-                        codigo_serie=c['codigo_serie'],
-                        metros_inicio=c['metros_inicio'],
-                        metros_fin=c['metros_fin'],
-                        sondaje_id=c.get('sondaje_id')
-                    )
+                # Crear complementos usando bulk_create (sin triggers de save)
+                complementos_objetos = []
+                if complementos_parsed:
+                    for c in complementos_parsed:
+                        obj = TurnoComplemento(
+                            turno=turno,
+                            tipo_complemento_id=c['tipo_complemento_id'],
+                            codigo_serie=c['codigo_serie'],
+                            metros_inicio=c['metros_inicio'],
+                            metros_fin=c['metros_fin'],
+                            metros_turno_calc=c['metros_fin'] - c['metros_inicio'],
+                            sondaje_id=c.get('sondaje_id')
+                        )
+                        complementos_objetos.append(obj)
+                    if complementos_objetos:
+                        TurnoComplemento.objects.bulk_create(complementos_objetos)
+                        # Actualizar HistorialBroca en batch después del bulk_create
+                        from django.db.models import F
+                        from collections import defaultdict
+                        series_metrajes = defaultdict(Decimal)
+                        for obj in complementos_objetos:
+                            series_metrajes[obj.codigo_serie] += obj.metros_turno_calc
+                        
+                        for serie, metraje_total in series_metrajes.items():
+                            historial, created = HistorialBroca.objects.get_or_create(
+                                serie=serie,
+                                defaults={
+                                    'tipo_complemento_id': complementos_objetos[0].tipo_complemento_id,
+                                    'contrato_actual': turno.contrato,
+                                    'fecha_primer_uso': turno.fecha,
+                                    'estado': 'NUEVA'
+                                }
+                            )
+                            # Contar cuántas veces se usó esta serie en este turno
+                            num_usos = sum(1 for obj in complementos_objetos if obj.codigo_serie == serie)
+                            historial.metraje_acumulado = F('metraje_acumulado') + metraje_total
+                            historial.numero_usos = F('numero_usos') + num_usos
+                            historial.fecha_ultimo_uso = turno.fecha
+                            if created or historial.estado == 'NUEVA':
+                                historial.estado = 'EN_USO'
+                            historial.save(update_fields=['metraje_acumulado', 'numero_usos', 'fecha_ultimo_uso', 'estado'])
 
-                # Crear aditivos
-                for a in aditivos_parsed:
-                    TurnoAditivo.objects.create(
-                        turno=turno,
-                        tipo_aditivo_id=a['tipo_aditivo_id'],
-                        cantidad_usada=a['cantidad_usada'],
-                        unidad_medida_id=a['unidad_medida_id'],
-                        sondaje_id=a.get('sondaje_id')
-                    )
+                # Crear aditivos usando bulk_create
+                if aditivos_parsed:
+                    aditivos_objetos = [
+                        TurnoAditivo(
+                            turno=turno,
+                            tipo_aditivo_id=a['tipo_aditivo_id'],
+                            cantidad_usada=a['cantidad_usada'],
+                            unidad_medida_id=a['unidad_medida_id'],
+                            sondaje_id=a.get('sondaje_id')
+                        ) for a in aditivos_parsed
+                    ]
+                    TurnoAditivo.objects.bulk_create(aditivos_objetos)
 
-                # Crear actividades
-                for act in actividades_parsed:
-                    TurnoActividad.objects.create(
-                        turno=turno,
-                        actividad_id=act['actividad_id'],
-                        hora_inicio=act['hora_inicio'],
-                        hora_fin=act['hora_fin'],
-                        observaciones=act['observaciones']
-                    )
+                # Crear actividades usando bulk_create
+                if actividades_parsed:
+                    from datetime import datetime, timedelta
+                    
+                    def calcular_tiempo_actividad(hora_inicio, hora_fin):
+                        """Calcula tiempo_calc en horas con 2 decimales"""
+                        if not hora_inicio or not hora_fin:
+                            return Decimal('0')
+                        inicio = datetime.combine(datetime.today(), hora_inicio)
+                        fin = datetime.combine(datetime.today(), hora_fin)
+                        if fin < inicio:
+                            fin += timedelta(days=1)
+                        diff = fin - inicio
+                        return Decimal(str(diff.total_seconds() / 3600))
+                    
+                    actividades_objetos = [
+                        TurnoActividad(
+                            turno=turno,
+                            actividad_id=act['actividad_id'],
+                            hora_inicio=act['hora_inicio'],
+                            hora_fin=act['hora_fin'],
+                            tiempo_calc=calcular_tiempo_actividad(act['hora_inicio'], act['hora_fin']),
+                            observaciones=act['observaciones']
+                        ) for act in actividades_parsed
+                    ]
+                    TurnoActividad.objects.bulk_create(actividades_objetos)
 
-                # Crear corridas
-                for cr in corridas_parsed:
-                    TurnoCorrida.objects.create(
-                        turno=turno,
-                        corrida_numero=cr['corrida_numero'],
-                        desde=cr['desde'],
-                        hasta=cr['hasta'],
-                        longitud_testigo=cr['longitud_testigo'],
-                        pct_recuperacion=cr['pct_recuperacion'],
-                        pct_retorno_agua=cr['pct_retorno_agua'],
-                        litologia=cr['litologia']
-                    )
+                # Crear corridas usando bulk_create
+                if corridas_parsed:
+                    corridas_objetos = [
+                        TurnoCorrida(
+                            turno=turno,
+                            corrida_numero=cr['corrida_numero'],
+                            desde=cr['desde'],
+                            hasta=cr['hasta'],
+                            longitud_testigo=cr['longitud_testigo'],
+                            pct_recuperacion=cr['pct_recuperacion'],
+                            pct_retorno_agua=cr['pct_retorno_agua'],
+                            litologia=cr['litologia']
+                        ) for cr in corridas_parsed
+                    ]
+                    TurnoCorrida.objects.bulk_create(corridas_objetos)
 
                 # Crear avance: preferimos sumar los metrajes guardados en TurnoSondaje
                 # (si la bulk_create funcionó). Como fallback, usamos el valor sumado
@@ -1635,18 +1692,19 @@ def crear_turno_completo(request, pk=None):
                 'observaciones': tt.observaciones,
             })
 
+        # Usar select_related para evitar N+1 queries
         complementos = []
-        for c in TurnoComplemento.objects.filter(turno=turno):
+        for c in TurnoComplemento.objects.filter(turno=turno).select_related('tipo_complemento', 'sondaje'):
             complementos.append({
                 'tipo_complemento_id': c.tipo_complemento_id,
                 'codigo_serie': c.codigo_serie,
-                'metros_inicio': float(c.metros_inicio),
-                'metros_fin': float(c.metros_fin),
+                'metros_inicio': str(c.metros_inicio),
+                'metros_fin': str(c.metros_fin),
                 'sondaje_id': c.sondaje_id,
             })
 
         aditivos = []
-        for a in TurnoAditivo.objects.filter(turno=turno):
+        for a in TurnoAditivo.objects.filter(turno=turno).select_related('tipo_aditivo', 'unidad_medida', 'sondaje'):
             aditivos.append({
                 'tipo_aditivo_id': a.tipo_aditivo_id,
                 'cantidad_usada': float(a.cantidad_usada),
@@ -1655,7 +1713,7 @@ def crear_turno_completo(request, pk=None):
             })
 
         actividades = []
-        for act in TurnoActividad.objects.filter(turno=turno):
+        for act in TurnoActividad.objects.filter(turno=turno).select_related('actividad'):
             actividades.append({
                 'actividad_id': act.actividad_id,
                 'hora_inicio': act.hora_inicio.isoformat() if act.hora_inicio else '',
@@ -1664,7 +1722,7 @@ def crear_turno_completo(request, pk=None):
             })
 
         corridas = []
-        for cr in TurnoCorrida.objects.filter(turno=turno):
+        for cr in TurnoCorrida.objects.filter(turno=turno).only('corrida_numero', 'desde', 'hasta', 'longitud_testigo', 'pct_recuperacion', 'pct_retorno_agua', 'litologia'):
             corridas.append({
                 'corrida_numero': cr.corrida_numero,
                 'desde': float(cr.desde),
@@ -1775,7 +1833,9 @@ def convert_to_time(time_str):
         return None
 
 def get_context_data(request):
-    """Obtener datos de contexto para el formulario - OPTIMIZADO"""
+    """Obtener datos de contexto para el formulario - OPTIMIZADO CON CACHE"""
+    from django.core.cache import cache
+    
     contract = request.user.contrato
     
     if request.user.can_manage_all_contracts():
@@ -1796,12 +1856,14 @@ def get_context_data(request):
             'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
         )
     
-    # Actividades disponibles: utilizamos la relación contrato.actividades
-    # (mapeada a la tabla legacy `contratos_actividades`) cuando el usuario
-    # está limitado a un contrato. Los administradores de sistema ven todas
-    # las actividades por defecto.
+    # Actividades: usar cache si es admin, o relación contrato si es usuario normal
     if request.user.can_manage_all_contracts():
-        tipos_actividad_qs = TipoActividad.objects.only('id', 'nombre', 'descripcion_corta')
+        # Intentar obtener de cache, si no existe hacer query
+        tipos_actividad_data = cache.get('tipos_actividad_all')
+        if tipos_actividad_data is None:
+            tipos_actividad_data = list(TipoActividad.objects.values('id', 'nombre', 'descripcion_corta'))
+            cache.set('tipos_actividad_all', tipos_actividad_data, timeout=3600)  # 1 hora
+        tipos_actividad_qs = tipos_actividad_data
     else:
         # request.user.contrato puede ser None; manejar ese caso
         tipos_actividad_qs = TipoActividad.objects.none()
@@ -1809,15 +1871,25 @@ def get_context_data(request):
             try:
                 tipos_actividad_qs = contract.actividades.only('id', 'nombre', 'descripcion_corta')
             except Exception:
-                # En caso de que la relación through no esté correctamente
-                # configurada en la BD, caer de forma segura a conjunto vacío
                 tipos_actividad_qs = TipoActividad.objects.none()
+    
+    # Tipos de turno: usar cache (datos estáticos, 2 registros)
+    tipos_turno_data = cache.get('tipos_turno_all')
+    if tipos_turno_data is None:
+        tipos_turno_data = list(TipoTurno.objects.values('id', 'nombre'))
+        cache.set('tipos_turno_all', tipos_turno_data, timeout=86400)  # 24 horas
+    
+    # Unidades de medida: usar cache (datos estáticos, 1 registro)
+    unidades_data = cache.get('unidades_medida_all')
+    if unidades_data is None:
+        unidades_data = list(UnidadMedida.objects.values('id', 'nombre', 'simbolo'))
+        cache.set('unidades_medida_all', unidades_data, timeout=86400)  # 24 horas
 
     return {
         'sondajes': sondajes.filter(estado='ACTIVO'),
         'maquinas': maquinas.filter(estado='OPERATIVO'),
         'trabajadores': trabajadores.filter(estado='ACTIVO'),
-        'tipos_turno': TipoTurno.objects.only('id', 'nombre'),
+        'tipos_turno': tipos_turno_data,
         'tipos_actividad': tipos_actividad_qs,
         'tipos_complemento': TipoComplemento.objects.filter(
             contrato=contract,
@@ -1826,7 +1898,7 @@ def get_context_data(request):
         'tipos_aditivo': TipoAditivo.objects.filter(
             contrato=contract
         ).select_related('contrato').only('id', 'nombre', 'codigo', 'contrato'),
-        'unidades_medida': UnidadMedida.objects.only('id', 'nombre', 'simbolo'),
+        'unidades_medida': unidades_data,
         'today': timezone.now().date(),
     }
 
@@ -1977,8 +2049,8 @@ class TurnoDeleteView(AdminOrContractFilterMixin, DeleteView):
 @login_required
 def aprobar_turno(request, pk):
     """Vista para que un admin o supervisor apruebe un turno (marca APROBADO)."""
-    # Solo admin del sistema o usuarios con rol SUPERVISOR pueden aprobar
-    if not (request.user.is_system_admin or request.user.role == 'SUPERVISOR'):
+    # Solo admin del sistema o usuarios con rol RESIDENTE pueden aprobar
+    if not (request.user.is_system_admin or request.user.role == 'RESIDENTE'):
         messages.error(request, 'No tiene permisos para aprobar turnos')
         return redirect('listar-turnos')
 

@@ -27,7 +27,7 @@ def parse_date(date_str):
 def cargar_trabajadores(csv_file=None):
     # Si no se proporciona archivo, usar el por defecto
     if csv_file is None:
-        csv_file = 'carga_trabajadores_sancristobal.csv'
+        csv_file = 'plantilla_trabajadores_actualizada.csv'
     
     print(f"Cargando trabajadores desde {csv_file}...")
     

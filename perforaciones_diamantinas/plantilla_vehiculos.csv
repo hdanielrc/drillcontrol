@@ -1,4 +1,4 @@
-contrato_nombre,placa,tipo,marca,modelo,a√±o,kilometraje_inicial,capacidad_pasajeros,estado
-Proyecto DDH Americana,ABC-123,CAMIONETA,Toyota,Hilux,2020,45000.50,5,OPERATIVO
-Proyecto DDH Americana,DEF-456,COMBI,Hyundai,H350,2019,78000.00,12,OPERATIVO
-Servicio Perforacion Condestable,GHI-789,PICKUP,Nissan,Frontier,2021,32000.25,5,OPERATIVO
+contrato_nombre;placa;tipo;marca;modelo;A—O;kilometraje_inicial;capacidad_pasajeros;estado
+MOROCOCHA;BZW778;CAMION;HINO ;DUTRO;2025;43.007,00;;ACTIVO
+MOROCOCHA;CBF865;CAMIONETA;TOYOTA ;HILUX ;2022;42.124,00;;ACTIVO
+COLQUISIRI;BVM-848;CAMIONETA;NISSAN;FRONTIER;2024;62.064,00;;ACTIVO

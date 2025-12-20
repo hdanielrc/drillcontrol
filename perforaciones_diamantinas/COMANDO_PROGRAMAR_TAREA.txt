@@ -1,0 +1,34 @@
+# COMANDO PARA PROGRAMAR LA SINCRONIZACION (EJECUTAR COMO ADMINISTRADOR)
+
+# Copie y pegue este comando completo en PowerShell ejecutado como Administrador:
+
+$taskName = "DrillControl_Sync_Stock_API"
+$pythonPath = "C:\Users\PERDLAP140.VILBRAGROUP\Documents\drillcontrol\drillcontrol\perforaciones_diamantinas\venv\Scripts\python.exe"
+$scriptPath = "C:\Users\PERDLAP140.VILBRAGROUP\Documents\drillcontrol\drillcontrol\perforaciones_diamantinas\sync_stock_diario.py"
+$workingDir = "C:\Users\PERDLAP140.VILBRAGROUP\Documents\drillcontrol\drillcontrol\perforaciones_diamantinas"
+
+# Eliminar tarea si existe
+$existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($existingTask) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    Write-Host "[OK] Tarea existente eliminada" -ForegroundColor Yellow
+}
+
+# Crear la tarea
+$action = New-ScheduledTaskAction -Execute $pythonPath -Argument "`"$scriptPath`"" -WorkingDirectory $workingDir
+$trigger = New-ScheduledTaskTrigger -Daily -At "02:00"
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Sincronizacion diaria de stock PDD y Aditivos desde API Vilbragroup" -Force | Out-Null
+
+Write-Host ""
+Write-Host "[EXITO] Tarea programada creada!" -ForegroundColor Green
+Write-Host "  - Nombre: $taskName" -ForegroundColor White
+Write-Host "  - Horario: Diario a las 2:00 AM" -ForegroundColor White
+Write-Host ""
+Write-Host "Para ejecutar ahora (prueba):" -ForegroundColor Cyan
+Write-Host "  Start-ScheduledTask -TaskName '$taskName'" -ForegroundColor White
+Write-Host ""
+Write-Host "Para ver el estado:" -ForegroundColor Cyan
+Write-Host "  Get-ScheduledTask -TaskName '$taskName' | Get-ScheduledTaskInfo" -ForegroundColor White

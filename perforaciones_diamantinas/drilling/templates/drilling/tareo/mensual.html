@@ -256,7 +256,7 @@
                                             {% else %}{{ asist.estado_display|truncatewords:1|slice:":3" }}
                                             {% endif %}
                                         </span>
-                                        {% if user.role == 'ADMIN_SISTEMA' and asist.tipo == 'PAGABLE' %}
+                                        {% if user.role in 'GERENCIA,CONTROL_PROYECTOS' and asist.tipo == 'PAGABLE' %}
                                         <small class="text-success" style="font-size: 0.6rem;">💰</small>
                                         {% endif %}
                                         {% else %}
@@ -351,7 +351,7 @@
                     </select>
                 </div>
                 
-                {% if user.role == 'ADMIN_SISTEMA' %}
+                {% if user.role in 'GERENCIA,CONTROL_PROYECTOS' %}
                 <div class="mb-3">
                     <label class="form-label">Tipo:</label>
                     <select class="form-select" id="modalTipo">

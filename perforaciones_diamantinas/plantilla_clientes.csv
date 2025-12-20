@@ -1,4 +1,10 @@
-nombre,es_activo
-Minera Americana,SI
-Condestable,SI
-San Cristóbal,SI
+nombre;es_activo
+ALPAYANA;SI
+COLQUISIRI;SI
+CARAVELI;SI
+CONDESTABLE;SI
+MINSUR;SI
+VOLCAN;SI
+CATALINA HUANCA;SI
+OCP;SI
+HOCHSCHILD;SI

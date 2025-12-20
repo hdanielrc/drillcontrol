@@ -1,0 +1,70 @@
+nombre;descripcion;descripcion_corta;tipo_actividad;es_cobrable
+PERFORACIÓN;Perforación operativa;Perforación;OPERATIVO;TRUE
+RIMADO;Rimado de perforación;Rimado;OPERATIVO;TRUE
+ASENTADO/RETIRO DE REVESTIMIENTO;Asentado o retiro de revestimiento (casing);Asentado/Retiro Casing;OPERATIVO;TRUE
+INSTALACIÓN PVC;Instalación de tubería PVC;Instalación PVC;OPERATIVO;TRUE
+REPERFORACIÓN;Reperforación de sondaje;Reperforación;OPERATIVO;TRUE
+MANTENIMIENTO PREVENTIVO;Mantenimiento preventivo programado;Mant. Preventivo;INOPERATIVO;FALSE
+MANTENIMIENTO CORRECTIVO;Mantenimiento correctivo no programado;Mant. Correctivo;INOPERATIVO;FALSE
+DESATE DE ROCAS;Desatado de rocas en área de trabajo;Desate de Rocas;INOPERATIVO;FALSE
+ORDEN Y LIMPIEZA;Orden y limpieza del área;Orden y Limpieza;INOPERATIVO;FALSE
+RECOJO DE LAMA;Recojo de lama del área;Recojo de Lama;INOPERATIVO;FALSE
+POZA DE SEDIMENTACIÓN;Construcción/mantenimiento poza sedimentación;Poza Sedimentación;INOPERATIVO;FALSE
+ESTANDARIZACIÓN;Estandarización de procesos;Estandarización;INOPERATIVO;FALSE
+INSTALACIÓN DE RED DE AGUA O DRENAJE;Instalación de red de agua o drenaje;Red Agua/Drenaje;INOPERATIVO;FALSE
+INSTALACIÓN/DESINST. DE EQUIPOS;Instalación o desinstalación de equipos;Inst/Desinst Equipos;INOPERATIVO;FALSE
+TRASLADO DE ACC/TUB;Traslado de accesorios y tuberías;Traslado ACC/TUB;INOPERATIVO;FALSE
+TRASLADO DE MÁQUINA;Traslado de máquina entre puntos;Traslado Máquina;INOPERATIVO;FALSE
+AUDITORÍA INTERNA;Auditoría interna de procesos;Auditoría Interna;INOPERATIVO;FALSE
+CAPACITACIÓN INTERNA;Capacitación del personal;Capacitación Interna;INOPERATIVO;FALSE
+CAMBIO DE PUNTO;Cambio de punto de perforación;Cambio de Punto;INOPERATIVO;FALSE
+ESPERA DE REPUESTO;Espera de repuesto o material;Espera Repuesto;INOPERATIVO;FALSE
+TRASLADO DE PERSONAL;Traslado de personal;Traslado Personal;INOPERATIVO;FALSE
+REFRIGERIO;Tiempo de refrigerio;Refrigerio;INOPERATIVO;FALSE
+CHARLA Y REPARTO DE GUARDIA;Charla de seguridad y reparto de guardia;Charla/Reparto;INOPERATIVO;FALSE
+APOYO A OTRA MÁQUINA;Apoyo a otra máquina del proyecto;Apoyo a Máquina;INOPERATIVO;FALSE
+APOYO A OTRO TURNO;Apoyo a otro turno;Apoyo a Turno;INOPERATIVO;FALSE
+FALTA DE PERSONAL;Inoperativo por falta de personal;Falta Personal;INOPERATIVO;FALSE
+FALTA DE CAMIONETA/CAMIÓN;Falta de camioneta o camión;Falta Vehículo;INOPERATIVO;FALSE
+PARALIZACIÓN POR FIESTAS;Paralización por festividades;Paralización Fiestas;INOPERATIVO;FALSE
+SELLADO DE SONDAJE;Sellado del sondaje;Sellado Sondaje;INOPERATIVO;FALSE
+CAMBIO DE GUARDIA;Cambio de guardia de trabajo;Cambio Guardia;INOPERATIVO;FALSE
+PARE;Pare de máquina;Pare;INOPERATIVO;FALSE
+FALTA/ESPERA DE MATERIALES;Falta o espera de materiales;Espera Materiales;INOPERATIVO;FALSE
+ESPERA DE EQUIPO DE MEDICIÓN;Espera de equipo de medición;Espera Equipo Med.;INOPERATIVO;FALSE
+VOLADURA;Espera por actividad de voladura;Voladura;STAND_BY_CLIENTE;TRUE
+FALTA DE AGUA;Falta de suministro de agua;Falta Agua;STAND_BY_CLIENTE;TRUE
+FALTA DE ENERGÍA;Falta de energía eléctrica;Falta Energía;STAND_BY_CLIENTE;TRUE
+FALTA DE VENTILACIÓN;Falta de ventilación adecuada;Falta Ventilación;STAND_BY_CLIENTE;TRUE
+FALTA DE SERVICIOS;Falta de servicios del cliente;Falta Servicios;STAND_BY_CLIENTE;TRUE
+ESPERA DE PROGRAMA;Espera de programa de perforación;Espera Programa;STAND_BY_CLIENTE;TRUE
+ESPERA DE CÁMARA;Espera de habilitación de cámara;Espera Cámara;STAND_BY_CLIENTE;TRUE
+ESPERA DE SOSTENIMIENTO;Espera de sostenimiento;Espera Sostenimiento;STAND_BY_CLIENTE;TRUE
+ESPERA DE SCOOP;Espera de scoop;Espera Scoop;STAND_BY_CLIENTE;TRUE
+ESPERA DE MARCADO DE PUNTO;Espera de marcado de punto;Espera Marcado;STAND_BY_CLIENTE;TRUE
+APOYO A GEOLOGÍA;Apoyo a labores de geología;Apoyo Geología;STAND_BY_CLIENTE;TRUE
+AUDITORÍA EXTERNA;Auditoría externa del cliente;Auditoría Externa;STAND_BY_CLIENTE;TRUE
+FALTA HABILITACIÓN CÁMARA/PLATAFORMA;Falta de habilitación de cámara o plataforma;Falta Habilitación;STAND_BY_CLIENTE;TRUE
+ESPERA DE ORDEN CLIENTE;Espera de orden del cliente;Espera Orden;STAND_BY_CLIENTE;TRUE
+PARE CIA;Pare por indicación del cliente;Pare CIA;STAND_BY_CLIENTE;FALSE
+ESPERA POR CONDICIONES CLIMÁTICAS;Espera por condiciones climáticas adversas;Espera Clima;STAND_BY_CLIENTE;TRUE
+ESPERA TOPÓGRAFO/EQUIPO MEDICIÓN;Espera de topógrafo o equipo de medición;Espera Topógrafo;STAND_BY_CLIENTE;TRUE
+LAVADO DE SONDAJE;Lavado del sondaje;Lavado Sondaje;STAND_BY_ROCKDRILL;FALSE
+MEZCLADO DE LODOS;Mezclado de lodos de perforación;Mezclado Lodos;STAND_BY_ROCKDRILL;FALSE
+MANIPULACIÓN DE TUBERÍAS;Manipulación de tuberías;Manip. Tuberías;STAND_BY_ROCKDRILL;FALSE
+MEDICIÓN DE DESVIACIÓN;Medición de desviación del sondaje;Med. Desviación;STAND_BY_ROCKDRILL;FALSE
+PRUEBAS DE SUELO;Pruebas de suelo;Pruebas Suelo;STAND_BY_ROCKDRILL;FALSE
+PERFORACIÓN PERNO DE ANCLAJE;Perforación de perno de anclaje;Perf. Perno;STAND_BY_ROCKDRILL;FALSE
+CEMENTACIÓN;Cementación del sondaje;Cementación;STAND_BY_ROCKDRILL;FALSE
+CAMBIO DE LÍNEA;Cambio de línea de perforación;Cambio Línea;STAND_BY_ROCKDRILL;TRUE
+RECUPERACIÓN DE SONDAJE;Recuperación de sondaje;Recup. Sondaje;STAND_BY_ROCKDRILL;TRUE
+MANIOBRAS PROBLEMAS GEOLÓGICOS;Maniobras por problemas geológicos;Maniobras Geológicas;STAND_BY_ROCKDRILL;TRUE
+ACONDICIONADO DE POZO;Acondicionado de pozo;Acond. Pozo;STAND_BY_ROCKDRILL;TRUE
+RECUPERACIÓN TUBERÍA ATRAPAMIENTO;Recuperación de tuberías por atrapamiento;Recup. Tubería;STAND_BY_ROCKDRILL;TRUE
+CEMENTACIÓN Y FRAGUADO;Cementación y tiempo de fraguado;Cement. y Fraguado;STAND_BY_ROCKDRILL;TRUE
+TRASLADO EQUIPO ENTRE CABINAS;Traslado de equipo entre cabinas;Traslado Equipos;STAND_BY_ROCKDRILL;TRUE
+TRICONEADO;Triconeado del sondaje;Triconeado;STAND_BY_ROCKDRILL;TRUE
+CAPACITACIÓN EXTERNA;Capacitación externa;Capacit. Externa;STAND_BY_ROCKDRILL;TRUE
+INSTALACIÓN DE OBTURADOR;Instalación de obturador;Inst. Obturador;STAND_BY_ROCKDRILL;TRUE
+INSTALACIÓN/RETIRO DE CHAVETA;Instalación o retiro de chaveta;Inst/Ret. Chaveta;STAND_BY_ROCKDRILL;TRUE
+ACONDICIONADO DE ACC;Acondicionado de accesorios;Acond. ACC;STAND_BY_ROCKDRILL;TRUE

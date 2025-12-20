@@ -72,10 +72,11 @@ class CustomUser(AbstractUser):
     
     # Definición de roles del sistema
     USER_ROLES = [
-        ('ADMIN_SISTEMA', 'Administrador del Sistema'),
-        ('MANAGER_CONTRATO', 'Manager de Contrato'),
-        ('SUPERVISOR', 'Supervisor de Operaciones'), 
-        ('OPERADOR', 'Operador Regular'),
+        ('ADMINISTRADOR', 'Administrador de Contrato'),
+        ('LOGISTICO', 'Logístico'),
+        ('RESIDENTE', 'Residente'),
+        ('CONTROL_PROYECTOS', 'Control de Proyectos'),
+        ('GERENCIA', 'Gerencia'),
     ]
     
     # Campos adicionales
@@ -89,9 +90,9 @@ class CustomUser(AbstractUser):
     )
     
     role = models.CharField(
-        max_length=20, 
+        max_length=30, 
         choices=USER_ROLES, 
-        default='OPERADOR',
+        default='ADMINISTRADOR',
         verbose_name='Rol del usuario',
         help_text='Define los permisos y accesos del usuario'
     )
@@ -151,36 +152,36 @@ class CustomUser(AbstractUser):
         return self.is_system_admin or self.contrato is None
     
     def can_manage_all_contracts(self):
-        """Solo admin del sistema puede gestionar todos los contratos"""
-        return self.role == 'ADMIN_SISTEMA' and self.is_system_admin
+        """Solo GERENCIA puede gestionar todos los contratos"""
+        return self.role == 'GERENCIA' and self.is_system_admin
     
     def can_manage_contract_users(self):
-        """Manager y Admin pueden gestionar usuarios del contrato"""
-        return self.role in ['ADMIN_SISTEMA', 'MANAGER_CONTRATO']
+        """GERENCIA, CONTROL_PROYECTOS y ADMINISTRADOR pueden gestionar usuarios"""
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'LOGISTICO']
     
     def can_supervise_operations(self):
-        """Supervisor y superiores pueden supervisar operaciones"""  
-        return self.role in ['ADMIN_SISTEMA', 'MANAGER_CONTRATO', 'SUPERVISOR']
+        """GERENCIA, CONTROL_PROYECTOS, RESIDENTE, ADMINISTRADOR y LOGISTICO pueden supervisar operaciones"""  
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'RESIDENTE', 'ADMINISTRADOR', 'LOGISTICO']
     
     def can_create_basic_data(self):
         """Crear datos básicos (trabajadores, máquinas, sondajes)"""
-        return self.role in ['ADMIN_SISTEMA', 'MANAGER_CONTRATO', 'SUPERVISOR']
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'RESIDENTE', 'LOGISTICO']
     
     def can_manage_inventory(self):
         """Gestionar inventario y abastecimiento"""
-        return self.role in ['ADMIN_SISTEMA', 'MANAGER_CONTRATO']
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'LOGISTICO']
     
     def can_import_data(self):
         """Importar datos desde Excel"""
-        return self.role in ['ADMIN_SISTEMA', 'MANAGER_CONTRATO']
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'LOGISTICO']
     
     def can_view_reports(self):
         """Ver reportes del sistema"""
-        return self.role in ['ADMIN_SISTEMA', 'MANAGER_CONTRATO', 'SUPERVISOR']
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'RESIDENTE', 'LOGISTICO']
     
     def can_manage_system_config(self):
         """Gestionar configuración del sistema (tipos, unidades, etc.)"""
-        return self.role in ['ADMIN_SISTEMA', 'MANAGER_CONTRATO']
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'LOGISTICO']
     
     def get_accessible_contracts(self):
         """
@@ -205,10 +206,16 @@ class CustomUser(AbstractUser):
     def get_role_badge_class(self):
         """Obtener la clase CSS para el badge del rol"""
         role_classes = {
+            'GERENCIA': 'bg-danger',
+            'CONTROL_PROYECTOS': 'bg-primary',
+            'ADMINISTRADOR': 'bg-warning text-dark',
+            'RESIDENTE': 'bg-info',
+            'LOGISTICO': 'bg-success',
+            'OPERADOR': 'bg-secondary',
+            # Legacy roles
             'ADMIN_SISTEMA': 'bg-danger',
             'MANAGER_CONTRATO': 'bg-warning text-dark',
             'SUPERVISOR': 'bg-info',
-            'OPERADOR': 'bg-secondary',
         }
         return role_classes.get(self.role, 'bg-secondary')
     
@@ -272,36 +279,35 @@ class CustomUser(AbstractUser):
         """Validaciones personalizadas del modelo"""
         from django.core.exceptions import ValidationError
         
-        # Admin del sistema debe tener is_system_admin=True
-        if self.role == 'ADMIN_SISTEMA' and not self.is_system_admin:
+        # Roles de contrato deben tener un contrato asignado
+        if self.role in ['ADMINISTRADOR', 'LOGISTICO', 'RESIDENTE'] and not self.contrato:
             raise ValidationError({
-                'is_system_admin': 'Los administradores del sistema deben tener marcado "Es administrador del sistema"'
+                'contrato': f'Los usuarios con rol {self.role} deben tener un contrato asignado'
             })
         
-        # Manager debe tener un contrato asignado
-        if self.role == 'MANAGER_CONTRATO' and not self.contrato:
+        # Solo GERENCIA y CONTROL_PROYECTOS pueden ser admin del sistema
+        if self.is_system_admin and self.role not in ['GERENCIA', 'CONTROL_PROYECTOS']:
             raise ValidationError({
-                'contrato': 'Los managers de contrato deben tener un contrato asignado'
-            })
-        
-        # Usuarios que no son admin del sistema no pueden gestionar todos los contratos
-        if self.is_system_admin and self.role != 'ADMIN_SISTEMA':
-            raise ValidationError({
-                'is_system_admin': 'Solo los usuarios con rol "Administrador del Sistema" pueden ser administradores del sistema'
+                'is_system_admin': 'Solo los usuarios con rol GERENCIA o CONTROL_PROYECTOS pueden ser administradores del sistema'
             })
     
     def save(self, *args, **kwargs):
         """Override save para aplicar validaciones"""
-        self.full_clean()
+        # Solo validar si es un usuario nuevo o si se modifican campos críticos
+        if not self.pk or 'update_fields' not in kwargs or kwargs.get('update_fields') and 'role' in kwargs.get('update_fields', []):
+            # Solo validar si no es una actualización parcial de last_activity
+            if 'update_fields' not in kwargs or 'role' in kwargs.get('update_fields', []) or 'contrato' in kwargs.get('update_fields', []):
+                self.full_clean()
         
-        # Asignar is_staff automáticamente para managers
-        if self.role == 'MANAGER_CONTRATO':
+        # Asignar is_staff automáticamente para administradores
+        if self.role in ['ADMINISTRADOR', 'GERENCIA', 'CONTROL_PROYECTOS']:
             self.is_staff = True
-        elif self.role == 'ADMIN_SISTEMA':
-            self.is_staff = True
+        
+        # GERENCIA tiene acceso de superusuario
+        if self.role == 'GERENCIA':
             self.is_superuser = True
         else:
-            # Operadores y supervisores no tienen acceso al admin por defecto
+            # Otros roles no tienen acceso de superusuario por defecto
             if not self.can_manage_all_contracts():
                 self.is_staff = False
                 self.is_superuser = False
@@ -1487,9 +1493,211 @@ class TurnoComplemento(models.Model):
                 )
 
     def save(self, *args, **kwargs):
-        self.full_clean()
-        self.metros_turno_calc = self.metros_fin - self.metros_inicio
+        # Verificar si ya se calculó metros_turno_calc (por bulk_create)
+        if not self.metros_turno_calc:
+            self.full_clean()
+            self.metros_turno_calc = self.metros_fin - self.metros_inicio
         super().save(*args, **kwargs)
+        
+        # Actualizar historial de la broca automáticamente
+        # Solo si no viene de bulk_create (indicado por skip_historial)
+        if not kwargs.get('skip_historial', False):
+            self.actualizar_historial_broca()
+    
+    def actualizar_historial_broca(self):
+        """
+        Actualiza el historial consolidado de la broca.
+        Se ejecuta automáticamente al guardar un registro de uso.
+        """
+        from django.db.models import F
+        
+        # Obtener o crear el registro de historial para esta serie
+        historial, created = HistorialBroca.objects.get_or_create(
+            serie=self.codigo_serie,
+            defaults={
+                'tipo_complemento': self.tipo_complemento,
+                'contrato_actual': self.turno.contrato,
+                'fecha_primer_uso': self.turno.fecha,
+                'estado': 'NUEVA'
+            }
+        )
+        
+        # Actualizar métricas acumuladas
+        historial.metraje_acumulado = F('metraje_acumulado') + self.metros_turno_calc
+        historial.numero_usos = F('numero_usos') + 1
+        historial.fecha_ultimo_uso = self.turno.fecha
+        
+        # Actualizar estado automáticamente si es nueva y ya se usó
+        if created or historial.estado == 'NUEVA':
+            historial.estado = 'EN_USO'
+        
+        historial.save(update_fields=['metraje_acumulado', 'numero_usos', 'fecha_ultimo_uso', 'estado'])
+        
+        # Refrescar para obtener valores reales (después de F() expressions)
+        historial.refresh_from_db()
+
+
+class HistorialBroca(models.Model):
+    """
+    Historial consolidado y seguimiento individual de cada broca diamantada por serie.
+    Acumula automáticamente el metraje de todos los usos registrados en TurnoComplemento.
+    
+    Este modelo permite:
+    - Consultar rápidamente el metraje total acumulado de una broca
+    - Hacer seguimiento del ciclo de vida (Nueva → En Uso → Desgastada → Quemada)
+    - Obtener estadísticas de uso sin queries agregadas pesadas
+    - Identificar brocas próximas a fin de vida útil
+    """
+    
+    ESTADO_CHOICES = [
+        ('NUEVA', 'Nueva'),
+        ('EN_USO', 'En Uso'),
+        ('DESGASTADA', 'Desgastada'),
+        ('QUEMADA', 'Quemada'),
+        ('FUERA_SERVICIO', 'Fuera de Servicio'),
+        ('PERDIDA', 'Perdida'),
+    ]
+    
+    # Identificación de la broca
+    serie = models.CharField(
+        max_length=100,
+        unique=True,
+        db_index=True,
+        verbose_name='Serie',
+        help_text='Código de serie único de la broca'
+    )
+    
+    tipo_complemento = models.ForeignKey(
+        TipoComplemento,
+        on_delete=models.PROTECT,
+        related_name='historiales',
+        verbose_name='Tipo de Producto'
+    )
+    
+    contrato_actual = models.ForeignKey(
+        Contrato,
+        on_delete=models.PROTECT,
+        related_name='brocas_historial',
+        verbose_name='Contrato Actual',
+        help_text='Último contrato donde se usó la broca'
+    )
+    
+    # Métricas de vida útil (se actualizan automáticamente)
+    metraje_acumulado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='Metraje Acumulado (m)',
+        help_text='Total de metros perforados con esta broca'
+    )
+    
+    numero_usos = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Número de Usos',
+        help_text='Cantidad de turnos donde se usó esta broca'
+    )
+    
+    # Estado y fechas
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='NUEVA',
+        db_index=True,
+        verbose_name='Estado'
+    )
+    
+    fecha_primer_uso = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha Primer Uso'
+    )
+    
+    fecha_ultimo_uso = models.DateField(
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name='Fecha Último Uso'
+    )
+    
+    fecha_baja = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de Baja',
+        help_text='Fecha en que se dio de baja la broca (quemada, perdida, etc.)'
+    )
+    
+    # Observaciones
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name='Observaciones',
+        help_text='Notas sobre el estado de la broca, desgaste observado, etc.'
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'historial_broca'
+        verbose_name = 'Historial de Broca'
+        verbose_name_plural = 'Historiales de Brocas'
+        ordering = ['-fecha_ultimo_uso', '-metraje_acumulado']
+        indexes = [
+            models.Index(fields=['serie']),
+            models.Index(fields=['estado']),
+            models.Index(fields=['contrato_actual', 'estado']),
+            models.Index(fields=['-metraje_acumulado']),
+            models.Index(fields=['-fecha_ultimo_uso']),
+        ]
+    
+    def __str__(self):
+        return f"{self.serie} - {self.tipo_complemento.nombre} [{self.get_estado_display()}] - {self.metraje_acumulado}m"
+    
+    def metraje_promedio_por_uso(self):
+        """Calcula el metraje promedio por uso"""
+        if self.numero_usos == 0:
+            return Decimal('0.00')
+        return self.metraje_acumulado / self.numero_usos
+    
+    def dias_desde_primer_uso(self):
+        """Calcula los días transcurridos desde el primer uso"""
+        from datetime import date
+        if not self.fecha_primer_uso:
+            return None
+        return (date.today() - self.fecha_primer_uso).days
+    
+    def dias_sin_uso(self):
+        """Calcula los días sin usar la broca"""
+        from datetime import date
+        if not self.fecha_ultimo_uso:
+            return None
+        return (date.today() - self.fecha_ultimo_uso).days
+    
+    def esta_activa(self):
+        """Verifica si la broca está activa (no quemada, perdida o fuera de servicio)"""
+        return self.estado in ['NUEVA', 'EN_USO', 'DESGASTADA']
+    
+    def marcar_como_quemada(self, observaciones=''):
+        """Marca la broca como quemada y registra la fecha"""
+        from datetime import date
+        self.estado = 'QUEMADA'
+        self.fecha_baja = date.today()
+        if observaciones:
+            self.observaciones = f"{self.observaciones}\n{observaciones}" if self.observaciones else observaciones
+        self.save(update_fields=['estado', 'fecha_baja', 'observaciones', 'updated_at'])
+    
+    def obtener_historial_detallado(self):
+        """Obtiene todos los usos detallados de esta broca desde TurnoComplemento"""
+        return TurnoComplemento.objects.filter(
+            codigo_serie=self.serie
+        ).select_related(
+            'turno',
+            'turno__maquina',
+            'turno__contrato',
+            'sondaje',
+            'tipo_complemento'
+        ).order_by('turno__fecha')
+
 
 class TurnoAditivo(models.Model):
     turno = models.ForeignKey(Turno, on_delete=models.CASCADE, related_name='aditivos')

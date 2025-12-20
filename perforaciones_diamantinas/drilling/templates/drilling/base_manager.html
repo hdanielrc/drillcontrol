@@ -9,17 +9,47 @@
     {% load static %}
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
     <style>
-        /* Estilo Manager: Colores vivos, enfoque operativo */
+        /* Estilo Manager: Paleta DrillControl */
         :root {
-            --manager-primary: #2563eb;
-            --manager-success: #10b981;
-            --manager-warning: #f59e0b;
+            --manager-primary: var(--primary-medium);
+            --manager-success: var(--secondary-green);
+            --manager-warning: var(--secondary-yellow);
             --manager-danger: #ef4444;
         }
         
         .navbar {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-medium) 100%) !important;
+            box-shadow: 0 2px 8px rgba(8, 65, 99, 0.2);
+        }
+        
+        .navbar-brand,
+        .navbar-nav .nav-link,
+        .navbar-dark .navbar-toggler-icon {
+            color: #ffffff !important;
+        }
+        
+        .navbar-nav .nav-link:hover {
+            color: #e0e0e0 !important;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+        }
+        
+        .dropdown-menu {
+            background: #ffffff;
+            color: #212529;
+        }
+        
+        .dropdown-item {
+            color: #212529;
+        }
+        
+        .dropdown-item:hover {
+            background-color: var(--secondary-gray);
+            color: var(--primary-dark);
+        }
+        
+        .dropdown-header {
+            color: #6c757d;
         }
         
         .dashboard-card {

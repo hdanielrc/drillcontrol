@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(BASE_DIR / '.env')
 
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-in-production')
-DEBUG = env('DEBUG', default=True)
+DEBUG = True  # FORZADO A TRUE PARA DESARROLLO
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
@@ -90,18 +90,18 @@ WSGI_APPLICATION = 'perforaciones_diamantinas.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', default='neondb'),
-        'USER': env('DB_USER', default='neondb_owner'),
-        'PASSWORD': env('DB_PASSWORD', default='npg_Athe0VmqL6cI'),
-        'HOST': env('DB_HOST', default='ep-winter-bread-achugblw-pooler.sa-east-1.aws.neon.tech'),
+        'ENGINE': 'dj_db_conn_pool.backends.postgresql',  # Connection pooling
+        'NAME': env('DB_NAME', default='drilldb'),
+        'USER': env('DB_USER', default='drilldb'),
+        'PASSWORD': env('DB_PASSWORD', default='09rock05drill99'),
+        'HOST': env('DB_HOST', default='138.197.203.247'),  # Servidor remoto desde laptop, localhost en producción
         'PORT': env('DB_PORT', default='5432'),
-        'CONN_MAX_AGE': 600,  # Mantener conexión abierta por 10 minutos
-        'OPTIONS': {
-            'sslmode': 'require',
-            'connect_timeout': 10,
-            # statement_timeout removido - no soportado por Neon pooler
-        },
+        'POOL_OPTIONS': {
+            'POOL_SIZE': 10,        # Conexiones en el pool
+            'MAX_OVERFLOW': 10,     # Conexiones extra en picos
+            'RECYCLE': 3600,        # Reciclar conexión cada hora
+            'POOL_PRE_PING': True,  # Verificar conexión antes de usar
+        }
     }
 }
 
