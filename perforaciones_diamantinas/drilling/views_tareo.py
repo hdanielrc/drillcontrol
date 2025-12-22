@@ -394,7 +394,6 @@ def guardar_asistencias_masivas(request):
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
 
 
-@login_required
 # MAPEO DE ESTADOS DEL SISTEMA A CÓDIGOS
 MAPEO_CODIGOS = {
     'TRABAJADO': 'T',
@@ -444,6 +443,7 @@ LEYENDA = {
 }
 
 
+@login_required
 def exportar_asistencias_excel(request):
     """
     Exportar asistencias a Excel en formato completo con 3 hojas:
