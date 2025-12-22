@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Gestión de Contrato{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     {% load static %}
@@ -11,45 +14,90 @@
     <style>
         /* Estilo Manager: Paleta DrillControl */
         :root {
-            --manager-primary: var(--primary-medium);
-            --manager-success: var(--secondary-green);
-            --manager-warning: var(--secondary-yellow);
+            --manager-primary: #0470AC;
+            --manager-success: #7AD57C;
+            --manager-warning: #FFC248;
             --manager-danger: #ef4444;
         }
         
-        .navbar {
-            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-medium) 100%) !important;
-            box-shadow: 0 2px 8px rgba(8, 65, 99, 0.2);
+        /* Importar Titillium Web si no está cargado */
+        @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Titillium Web', sans-serif;
         }
         
-        .navbar-brand,
-        .navbar-nav .nav-link,
-        .navbar-dark .navbar-toggler-icon {
+        .navbar {
+            background: linear-gradient(135deg, #084163 0%, #0470AC 100%) !important;
+            box-shadow: 0 2px 8px rgba(8, 65, 99, 0.2);
+            font-family: 'Titillium Web', sans-serif;
+        }
+        
+        .navbar-brand {
             color: #ffffff !important;
+            font-family: 'Titillium Web', sans-serif !important;
+            font-weight: 700 !important;
+            font-size: 1.25rem;
+        }
+        
+        .navbar-brand strong {
+            font-weight: 700;
+        }
+        
+        .navbar-nav .nav-link {
+            color: #ffffff !important;
+            font-family: 'Titillium Web', sans-serif !important;
+            font-weight: 400;
+            padding: 0.75rem 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .navbar-nav .nav-link strong {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .navbar-nav .nav-link:hover {
             color: #e0e0e0 !important;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.15);
             border-radius: 6px;
+        }
+        
+        .navbar-dark .navbar-toggler-icon {
+            filter: brightness(0) invert(1);
         }
         
         .dropdown-menu {
             background: #ffffff;
             color: #212529;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-family: 'Titillium Web', sans-serif;
         }
         
         .dropdown-item {
-            color: #212529;
+            color: #212529 !important;
+            font-family: 'Titillium Web', sans-serif;
+            font-weight: 400;
+            padding: 0.75rem 1.25rem;
         }
         
         .dropdown-item:hover {
-            background-color: var(--secondary-gray);
-            color: var(--primary-dark);
+            background-color: #E2E5F1;
+            color: #084163 !important;
         }
         
         .dropdown-header {
             color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .dropdown-divider {
+            border-top: 1px solid #E2E5F1;
         }
         
         .dashboard-card {
@@ -57,6 +105,7 @@
             transition: transform 0.2s, box-shadow 0.2s;
             border: none;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-family: 'Titillium Web', sans-serif;
         }
         
         .dashboard-card:hover {
@@ -69,31 +118,35 @@
             font-size: 1.1rem;
             border-radius: 12px;
             transition: all 0.2s;
+            font-family: 'Titillium Web', sans-serif;
+            font-weight: 600;
         }
         
         .quick-action-btn:hover {
             transform: scale(1.05);
         }
         
-        .nav-link {
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        
-        .nav-link:hover {
-            background: rgba(255,255,255,0.1);
-            border-radius: 6px;
-        }
-        
-        .dropdown-menu {
-            border-radius: 8px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-        }
-        
         .badge-role {
             font-size: 0.75rem;
             padding: 4px 8px;
             border-radius: 4px;
+            font-family: 'Titillium Web', sans-serif;
+            font-weight: 600;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Titillium Web', sans-serif;
+            font-weight: 700;
+        }
+        
+        .card-title {
+            font-family: 'Titillium Web', sans-serif;
+            font-weight: 700;
+        }
+        
+        .btn {
+            font-family: 'Titillium Web', sans-serif;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -119,7 +172,7 @@
                     <!-- TRABAJADORES - Destacado con acceso al hub -->
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'trabajadores-hub' %}">
-                            <i class="fas fa-users"></i> <strong>TRABAJADORES</strong>
+                            <i class="fas fa-users"></i> <strong>Trabajadores</strong>
                         </a>
                     </li>
                     

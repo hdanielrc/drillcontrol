@@ -1,6 +1,11 @@
 """
 Vistas para el tareo de asistencia de trabajadores
 Permite a los managers de contrato registrar la asistencia diaria
+
+Formato de Exportación:
+- Formato completo con 3 hojas (Tareo, Leyenda, Informe)
+- Incluye totalizadores y estadísticas detalladas
+- Agrupación por semanas y resúmenes por trabajador
 """
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -8,8 +13,12 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
+from django.db.models import Count
 from datetime import datetime, timedelta, date
 from calendar import monthrange
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 from .models import Contrato, Trabajador, AsistenciaTrabajador
 import json
 import locale
@@ -386,11 +395,67 @@ def guardar_asistencias_masivas(request):
 
 
 @login_required
+# MAPEO DE ESTADOS DEL SISTEMA A CÓDIGOS
+MAPEO_CODIGOS = {
+    'TRABAJADO': 'T',
+    'DIA_LIBRE': 'DL',
+    'DIA_APOYO': 'DA',
+    'PERMISO_PATERNIDAD': 'PT',
+    'DESCANSO_MEDICO': 'DM',
+    'STAND_BY': 'SB',
+    'SUBSIDIO': 'SUB',
+    'INDUCCION': 'I',
+    'INDUCCION_VIRTUAL': 'IV',
+    'RECORRIDO': 'R',
+    'FALTA': 'F',
+    'PERMISO': 'P',
+    'SUSPENSION': 'S',
+    'VACACIONES': 'V',
+    'LICENCIA_SIN_GOCE': 'LSG',
+    'CESADO': 'C',
+    'TRABAJO_CALIENTE': 'TC',
+    'LICENCIA_FALLECIMIENTO': 'LF',
+    'LICENCIA_CON_GOCE': 'LCG',
+}
+
+# LEYENDA DE CÓDIGOS
+LEYENDA = {
+    'T': 'TRABAJADO',
+    'T1': 'TRABAJADO + 1 H.E.',
+    'T2': 'TRABAJADO + 2 H.E.',
+    'DL': 'DIA LIBRE',
+    'DA': 'DIA APOYO',
+    'PT': 'PERMISO PATERNIDAD',
+    'DM': 'DESCANSO MEDICO',
+    'SB': 'STAND BY',
+    'SUB': 'SUBSIDIO',
+    'I': 'INDUCCION',
+    'IV': 'INDUCCION VIRTUAL',
+    'R': 'RECORRIDO',
+    'F': 'FALTA',
+    'P': 'PERMISO',
+    'S': 'SUSPENSION',
+    'V': 'VACACIONES',
+    'LSG': 'LICENCIA SIN GOCE',
+    'C': 'CESADO',
+    'TC': 'TRABAJO EN CALIENTE',
+    'LF': 'LICENCIA FALLECIMIENTO',
+    'LCG': 'LICENCIA CON GOCE',
+}
+
+
 def exportar_asistencias_excel(request):
-    """Exportar asistencias a Excel en formato de matriz día por día"""
+    """
+    Exportar asistencias a Excel en formato completo con 3 hojas:
+    - Tareo: Tabla principal con trabajadores y marcaciones diarias
+    - Leyenda: Códigos de asistencia
+    - Informe: Estadísticas y resúmenes
+    """
     from django.http import HttpResponse
+    from django.db.models import Count
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
     
     user = request.user
     
@@ -406,8 +471,7 @@ def exportar_asistencias_excel(request):
     # Validar contrato
     if user.has_access_to_all_contracts():
         if not contrato_id:
-            contratos = Contrato.objects.filter(estado='ACTIVO').first()
-            contrato = contratos if contratos else None
+            contrato = Contrato.objects.filter(estado='ACTIVO').first()
         else:
             contrato = Contrato.objects.filter(id=contrato_id, estado='ACTIVO').first()
     else:
@@ -453,11 +517,148 @@ def exportar_asistencias_excel(request):
             fecha_fin = fecha_inicio + timedelta(days=7)
         dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
     
-    # Obtener trabajadores
+    num_dias = dias_a_mostrar
+    
+    # Crear workbook
+    wb = Workbook()
+    wb.remove(wb.active)  # Remover hoja por defecto
+    
+    # 1. CREAR HOJA TAREO
+    ws_tareo = wb.create_sheet("Tareo", 0)
+    _crear_hoja_tareo(ws_tareo, contrato, fecha_inicio, fecha_fin, num_dias)
+    
+    # 2. CREAR HOJA LEYENDA
+    ws_leyenda = wb.create_sheet("LEYENDA", 1)
+    _crear_hoja_leyenda(ws_leyenda)
+    
+    # 3. CREAR HOJA INFORME
+    ws_informe = wb.create_sheet("Informe", 2)
+    _crear_hoja_informe(ws_informe, contrato, fecha_inicio, fecha_fin)
+    
+    # Preparar respuesta
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    mes_nombre = fecha_inicio.strftime('%B').capitalize()
+    filename = f"Tareo_{contrato.nombre_contrato.replace(' ', '_')}_{mes_nombre}_{fecha_inicio.year}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+
+def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
+    """Crea la hoja principal de tareo"""
+    # Estilos
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    subheader_fill = PatternFill(start_color="B7DEE8", end_color="B7DEE8", fill_type="solid")
+    border_thin = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # FILA 1: Encabezado principal
+    ws.merge_cells('A1:D1')
+    cell = ws['A1']
+    cell.value = f"TAREO MES DE : {fecha_inicio.strftime('%B %Y').upper()}"
+    cell.font = Font(bold=True, size=12)
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    ws.merge_cells('E1:H1')
+    cell = ws['E1']
+    cell.value = f"CONTRATO : {contrato.nombre_contrato.upper()}"
+    cell.font = Font(bold=True, size=12)
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # FILA 2: Etiquetas de semanas
+    col_actual = 9  # Columna I (después de las 8 columnas fijas)
+    fecha_actual = fecha_inicio
+    
+    while fecha_actual <= fecha_fin:
+        # Calcular semana
+        semana = fecha_actual.isocalendar()[1]
+        col_letter = get_column_letter(col_actual)
+        
+        # Buscar inicio de semana
+        if fecha_actual.weekday() == 0 or fecha_actual == fecha_inicio:  # Lunes o primer día
+            inicio_semana = col_actual
+            # Contar días de esta semana en el rango
+            dias_semana = 0
+            temp_fecha = fecha_actual
+            while temp_fecha <= fecha_fin and temp_fecha.weekday() < 7:
+                dias_semana += 1
+                temp_fecha += timedelta(days=1)
+                if temp_fecha.weekday() == 0:
+                    break
+            
+            # Merge cells para la semana
+            if dias_semana > 1:
+                fin_semana = inicio_semana + dias_semana - 1
+                ws.merge_cells(start_row=2, start_column=inicio_semana, end_row=2, end_column=fin_semana)
+            
+            cell = ws.cell(row=2, column=inicio_semana)
+            cell.value = f"Semana {semana}"
+            cell.font = Font(bold=True, size=10)
+            cell.fill = subheader_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        col_actual += 1
+        fecha_actual += timedelta(days=1)
+    
+    # FILA 3: Headers de columnas
+    headers = [
+        'ITEM', 'CODIGO', 'APELLIDOS Y NOMBRES', 'Cargo', 
+        'Fecha de Ingreso', 'Tipo de Trabajo', 'GRUPO', 'GUARDIA', 'Situacion'
+    ]
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col_num)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = border_thin
+    
+    # Headers de días
+    fecha_actual = fecha_inicio
+    col_num = 10  # Después de "Situacion"
+    while fecha_actual <= fecha_fin:
+        cell = ws.cell(row=3, column=col_num)
+        cell.value = fecha_actual
+        cell.number_format = 'DD/MM/YYYY'
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border_thin
+        col_num += 1
+        fecha_actual += timedelta(days=1)
+    
+    # Headers de resumen (después de los días)
+    headers_resumen = [
+        'DIAS TRABAJADOS', 'DIAS APOYO', 'Por Superar Metros', 'DIAS PATERNIDAD',
+        'CAPACITACION INDUCCION + RECORRIDO', 'DIAS VACACIONES', 'DIAS DM', 'SUB',
+        'DIAS PROYECCION', 'DIAS FERIADO', 'INDUCION ISEM', 
+        'DIAS PERMISO + DIAS SUSPENDIDOS + DIAS FALTO', 'TOTAL DIAS', 'Total H.',
+        'comentarios', 'RESUMEN', 'PARA BONOS', 'P', 'F', 'S', 'SB', 'V', 'DM', 'PT', 'TOTAL AUSENCIAS'
+    ]
+    
+    for header in headers_resumen:
+        cell = ws.cell(row=3, column=col_num)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = border_thin
+        col_num += 1
+    
+    # DATOS DE TRABAJADORES
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).select_related('cargo').order_by('apellidos', 'nombres')
+    ).select_related('cargo').order_by('grupo', 'apellidos', 'nombres')
     
     # Obtener asistencias
     asistencias = AsistenciaTrabajador.objects.filter(
@@ -466,176 +667,145 @@ def exportar_asistencias_excel(request):
         fecha__lte=fecha_fin
     ).select_related('trabajador')
     
-    # Crear diccionario de asistencias
-    asistencias_dict = {}
+    # Diccionario de asistencias
+    asist_dict = {}
     for asist in asistencias:
-        if asist.trabajador.id not in asistencias_dict:
-            asistencias_dict[asist.trabajador.id] = {}
-        asistencias_dict[asist.trabajador.id][asist.fecha] = {
-            'estado': asist.estado,
-            'tipo': asist.tipo
-        }
+        if asist.trabajador.id not in asist_dict:
+            asist_dict[asist.trabajador.id] = {}
+        asist_dict[asist.trabajador.id][asist.fecha] = asist
     
-    # Crear Excel
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Asistencias"
-    
-    # Estilos
-    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=10)
-    trabajado_fill = PatternFill(start_color="D4EDDA", end_color="D4EDDA", fill_type="solid")  # Verde claro
-    falta_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")  # Rojo claro
-    especial_fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")  # Amarillo claro
-    border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
-    center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    left_alignment = Alignment(horizontal='left', vertical='center')
-    
-    # Título
-    total_cols = 3 + dias_a_mostrar  # DNI + Nombre + Cargo + días
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_cols)
-    ws['A1'] = f"REPORTE DE ASISTENCIAS - {contrato.nombre_contrato}"
-    ws['A1'].font = Font(bold=True, size=14)
-    ws['A1'].alignment = center_alignment
-    
-    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=total_cols)
-    ws['A2'] = f"Período: {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
-    ws['A2'].font = Font(size=11)
-    ws['A2'].alignment = center_alignment
-    
-    # Encabezados principales (fila 4)
-    ws.cell(row=4, column=1, value='DNI')
-    ws.cell(row=4, column=2, value='NOMBRE COMPLETO')
-    ws.cell(row=4, column=3, value='CARGO')
-    
-    # Encabezados de fechas
-    col_num = 4
-    for dia in range(dias_a_mostrar):
-        fecha_actual = fecha_inicio + timedelta(days=dia)
-        cell = ws.cell(row=4, column=col_num)
+    row_num = 4
+    for idx, trabajador in enumerate(trabajadores, 1):
+        # Datos fijos
+        ws.cell(row=row_num, column=1).value = idx
+        ws.cell(row=row_num, column=2).value = trabajador.dni
+        ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
+        ws.cell(row=row_num, column=4).value = trabajador.cargo.nombre if trabajador.cargo else ""
+        ws.cell(row=row_num, column=5).value = trabajador.fecha_ingreso
+        ws.cell(row=row_num, column=5).number_format = 'DD/MM/YYYY'
+        ws.cell(row=row_num, column=6).value = "INT"  # Tipo de trabajo
+        ws.cell(row=row_num, column=7).value = trabajador.get_grupo_display() if trabajador.grupo else ""
+        ws.cell(row=row_num, column=8).value = trabajador.guardia if trabajador.guardia else ""
+        ws.cell(row=row_num, column=9).value = "ACTIVO"
         
-        # Día de la semana abreviado
-        dias_semana = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
-        dia_semana = dias_semana[fecha_actual.weekday()]
+        # Marcaciones diarias
+        fecha_actual = fecha_inicio
+        col_num = 10
+        contadores = {'T': 0, 'DL': 0, 'F': 0, 'P': 0, 'S': 0, 'SB': 0, 'V': 0, 'DM': 0, 'PT': 0, 'DA': 0}
         
-        cell.value = f"{dia_semana}\n{fecha_actual.strftime('%d/%m')}"
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.border = border
-        cell.alignment = center_alignment
-        ws.column_dimensions[cell.column_letter].width = 10
-        
-        col_num += 1
-    
-    # Aplicar estilo a encabezados fijos
-    for col in range(1, 4):
-        cell = ws.cell(row=4, column=col)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.border = border
-        cell.alignment = center_alignment
-    
-    # Ajustar anchos de columnas fijas
-    ws.column_dimensions['A'].width = 12
-    ws.column_dimensions['B'].width = 30
-    ws.column_dimensions['C'].width = 20
-    
-    # Datos de trabajadores
-    row_num = 5
-    estados_cortos = {
-        'TRABAJADO': 'T',
-        'FALTA': 'F',
-        'DESCANSO_MEDICO': 'DM',
-        'LICENCIA': 'L',
-        'PERMISO': 'P',
-        'VACACIONES': 'V',
-        'DIA_LIBRE': 'DL',
-        'INDUCCION': 'I',
-        'INDUCCION_VIRTUAL': 'IV',
-        'SUSPENDIDO': 'S'
-    }
-    
-    for trabajador in trabajadores:
-        # Columnas fijas
-        ws.cell(row=row_num, column=1, value=trabajador.dni or 'S/N').alignment = center_alignment
-        ws.cell(row=row_num, column=1).border = border
-        
-        ws.cell(row=row_num, column=2, value=f"{trabajador.apellidos} {trabajador.nombres}").alignment = left_alignment
-        ws.cell(row=row_num, column=2).border = border
-        
-        ws.cell(row=row_num, column=3, value=trabajador.cargo.nombre).alignment = left_alignment
-        ws.cell(row=row_num, column=3).border = border
-        
-        # Asistencias por día
-        asist_trabajador = asistencias_dict.get(trabajador.id, {})
-        
-        col_num = 4
-        for dia in range(dias_a_mostrar):
-            fecha_actual = fecha_inicio + timedelta(days=dia)
-            cell = ws.cell(row=row_num, column=col_num)
-            
-            asist_data = asist_trabajador.get(fecha_actual)
-            
-            if asist_data:
-                estado = asist_data['estado']
-                tipo = asist_data.get('tipo', 'PAGABLE')
-                
-                # Mostrar estado abreviado
-                estado_corto = estados_cortos.get(estado, estado[:2])
-                cell.value = estado_corto
-                
-                # Colorear según estado
-                if estado == 'TRABAJADO':
-                    cell.fill = trabajado_fill
-                    cell.font = Font(bold=True, color="155724")
-                elif estado == 'FALTA':
-                    cell.fill = falta_fill
-                    cell.font = Font(bold=True, color="721C24")
-                else:
-                    cell.fill = especial_fill
-                    cell.font = Font(color="856404")
-                
-                # Si el admin marcó como NO_PAGABLE, añadir indicador
-                if tipo == 'NO_PAGABLE':
-                    cell.value = f"{estado_corto}*"
+        while fecha_actual <= fecha_fin:
+            asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
+            if asist:
+                codigo = MAPEO_CODIGOS.get(asist.estado, asist.estado)
+                ws.cell(row=row_num, column=col_num).value = codigo
+                # Contar para resumen
+                if codigo in contadores:
+                    contadores[codigo] += 1
             else:
-                cell.value = "-"
-                cell.font = Font(color="999999")
+                ws.cell(row=row_num, column=col_num).value = ""
             
-            cell.border = border
-            cell.alignment = center_alignment
+            ws.cell(row=row_num, column=col_num).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=row_num, column=col_num).border = border_thin
             col_num += 1
+            fecha_actual += timedelta(days=1)
+        
+        # Totales
+        ws.cell(row=row_num, column=col_num).value = contadores['T']  # DIAS TRABAJADOS
+        ws.cell(row=row_num, column=col_num+1).value = contadores['DA']  # DIAS APOYO
+        ws.cell(row=row_num, column=col_num+3).value = contadores['PT']  # DIAS PATERNIDAD
+        ws.cell(row=row_num, column=col_num+5).value = contadores['V']  # DIAS VACACIONES
+        ws.cell(row=row_num, column=col_num+6).value = contadores['DM']  # DIAS DM
+        
+        total_dias = sum(contadores.values())
+        ws.cell(row=row_num, column=col_num+12).value = total_dias  # TOTAL DIAS
+        
+        # Para bonos
+        ws.cell(row=row_num, column=col_num+17).value = contadores['P']  # P
+        ws.cell(row=row_num, column=col_num+18).value = contadores['F']  # F
+        ws.cell(row=row_num, column=col_num+19).value = contadores['S']  # S
+        ws.cell(row=row_num, column=col_num+20).value = contadores['SB']  # SB
+        ws.cell(row=row_num, column=col_num+21).value = contadores['V']  # V
+        ws.cell(row=row_num, column=col_num+22).value = contadores['DM']  # DM
+        ws.cell(row=row_num, column=col_num+23).value = contadores['PT']  # PT
+        
+        total_ausencias = contadores['F'] + contadores['P'] + contadores['S']
+        ws.cell(row=row_num, column=col_num+24).value = total_ausencias  # TOTAL AUSENCIAS
         
         row_num += 1
     
-    # Leyenda
-    row_num += 2
-    ws.cell(row=row_num, column=1, value="LEYENDA:").font = Font(bold=True)
-    row_num += 1
+    # Ajustar anchos de columna
+    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 30
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['G'].width = 20
+    ws.column_dimensions['H'].width = 10
+    ws.column_dimensions['I'].width = 12
     
-    leyenda = [
-        "T = Trabajado", "F = Falta", "DM = Descanso Médico", "L = Licencia",
-        "P = Permiso", "V = Vacaciones", "DL = Día Libre", "I = Inducción",
-        "IV = Inducción Virtual", "S = Suspendido", "* = No Pagable"
-    ]
+    # Días (columnas de marcación)
+    for col in range(10, 10 + num_dias):
+        ws.column_dimensions[get_column_letter(col)].width = 5
+
+
+def _crear_hoja_leyenda(ws):
+    """Crea la hoja de leyenda con códigos"""
+    ws.merge_cells('A1:B1')
+    cell = ws['A1']
+    cell.value = "LEYENDA: CODIFICACION"
+    cell.font = Font(bold=True, size=14)
+    cell.alignment = Alignment(horizontal='center', vertical='center')
     
-    for i, texto in enumerate(leyenda):
-        col = (i % 3) + 1
-        row = row_num + (i // 3)
-        ws.cell(row=row, column=col, value=texto).font = Font(size=9)
+    row = 3
+    for codigo, descripcion in LEYENDA.items():
+        ws.cell(row=row, column=1).value = codigo
+        ws.cell(row=row, column=1).font = Font(bold=True)
+        ws.cell(row=row, column=2).value = descripcion
+        row += 1
     
-    # Preparar respuesta
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ws.column_dimensions['A'].width = 10
+    ws.column_dimensions['B'].width = 40
+
+
+def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
+    """Crea la hoja de informe con estadísticas"""
+    ws['A1'] = f"INFORME DE TAREO - {contrato.nombre_contrato.upper()}"
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A2'] = f"Período: {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
+    
+    # Estadísticas
+    trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO')
+    asistencias = AsistenciaTrabajador.objects.filter(
+        trabajador__contrato=contrato,
+        fecha__gte=fecha_inicio,
+        fecha__lte=fecha_fin
     )
-    filename = f"Asistencias_{contrato.nombre_contrato}_{fecha_inicio.strftime('%Y%m%d')}_{fecha_fin.strftime('%Y%m%d')}.xlsx"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
-    wb.save(response)
-    return response
+    row = 4
+    ws.cell(row=row, column=1).value = "Total Trabajadores"
+    ws.cell(row=row, column=2).value = trabajadores.count()
+    ws.cell(row=row, column=1).font = Font(bold=True)
+    
+    row += 1
+    ws.cell(row=row, column=1).value = "Total Registros de Asistencia"
+    ws.cell(row=row, column=2).value = asistencias.count()
+    ws.cell(row=row, column=1).font = Font(bold=True)
+    
+    row += 2
+    ws.cell(row=row, column=1).value = "Distribución por Estado:"
+    ws.cell(row=row, column=1).font = Font(bold=True, underline="single")
+    
+    row += 1
+    # Contar por estado
+    estados = asistencias.values('estado').annotate(total=Count('estado')).order_by('-total')
+    for estado in estados:
+        row += 1
+        codigo = MAPEO_CODIGOS.get(estado['estado'], estado['estado'])
+        descripcion = LEYENDA.get(codigo, estado['estado'])
+        ws.cell(row=row, column=1).value = f"{codigo} - {descripcion}"
+        ws.cell(row=row, column=2).value = estado['total']
+    
+    ws.column_dimensions['A'].width = 40
+    ws.column_dimensions['B'].width = 15
 
