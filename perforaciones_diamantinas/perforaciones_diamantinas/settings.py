@@ -12,7 +12,7 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-in-production')
 DEBUG = True  # FORZADO A TRUE PARA DESARROLLO
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'drillcontrol.rockdrill.site'])
 
 # Permitir subdominios de ngrok en desarrollo para exponer el servidor local
 # de forma temporal. Esto solo se activa cuando DEBUG=True.
@@ -21,7 +21,12 @@ if DEBUG:
         ALLOWED_HOSTS.append('.ngrok.io')
 
 # Orígenes confiables para CSRF. Se puede ampliar desde .env si se desea.
-CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=['http://localhost', 'http://127.0.0.1'])
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
+    'http://localhost', 
+    'http://127.0.0.1', 
+    'http://drillcontrol.rockdrill.site',
+    'https://drillcontrol.rockdrill.site'
+])
 if DEBUG:
     # Permitir orígenes https de ngrok (subdominios)
     if 'https://*.ngrok.io' not in CSRF_TRUSTED_ORIGINS:
@@ -42,6 +47,20 @@ if DEBUG:
     CSRF_COOKIE_SAMESITE = 'Lax'  # Menos restrictivo para desarrollo
     SESSION_COOKIE_SECURE = False  # No requiere HTTPS en desarrollo
     SESSION_COOKIE_SAMESITE = 'Lax'
+else:
+    # Configuraciones de seguridad para PRODUCCIÓN
+    CSRF_COOKIE_SECURE = True  # Solo transmitir cookie por HTTPS
+    CSRF_COOKIE_HTTPONLY = True  # No accesible desde JavaScript
+    CSRF_COOKIE_SAMESITE = 'Strict'  # Protección contra CSRF
+    SESSION_COOKIE_SECURE = True  # Solo transmitir sesión por HTTPS
+    SESSION_COOKIE_SAMESITE = 'Strict'
+    SECURE_SSL_REDIRECT = True  # Forzar HTTPS
+    SECURE_HSTS_SECONDS = 31536000  # HSTS por 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 
 INSTALLED_APPS = [
     'django.contrib.admin',

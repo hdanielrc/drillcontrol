@@ -147,13 +147,13 @@ class CustomUser(AbstractUser):
         """
         Usuario tiene acceso a todos los contratos si:
         - Es Admin del Sistema (is_system_admin=True)
-        - NO tiene contrato asignado (contrato=None) - Para Control de Proyecto
+        - Tiene rol GERENCIA o CONTROL_PROYECTOS (independiente del contrato asignado)
         """
-        return self.is_system_admin or self.contrato is None
+        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS']
     
     def can_manage_all_contracts(self):
-        """Solo GERENCIA puede gestionar todos los contratos"""
-        return self.role == 'GERENCIA' and self.is_system_admin
+        """GERENCIA y CONTROL_PROYECTOS pueden gestionar todos los contratos"""
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS']
     
     def can_manage_contract_users(self):
         """GERENCIA, CONTROL_PROYECTOS y ADMINISTRADOR pueden gestionar usuarios"""

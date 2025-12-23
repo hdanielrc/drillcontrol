@@ -145,6 +145,12 @@
                             <i class="fas fa-cogs"></i> Gestión
                         </a>
                         <ul class="dropdown-menu">
+                            {% if user.role in 'CONTROL_PROYECTOS,GERENCIA' %}
+                            <li><a class="dropdown-item" href="{% url 'gestion-proyectos-stock-turnos' %}">
+                                <i class="fas fa-project-diagram"></i> Control de Proyectos
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{% url 'trabajador-list' %}">
                                 <i class="fas fa-users"></i> Trabajadores
                             </a></li>

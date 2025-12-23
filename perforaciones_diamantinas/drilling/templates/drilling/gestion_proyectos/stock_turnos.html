@@ -1,0 +1,498 @@
+{% extends request.base_template|default:'drilling/base.html' %}
+
+{% block title %}Gestión de Proyectos - Stock y Turnos{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-project-diagram"></i> Gestión de Proyectos - Control de Operaciones</h2>
+            <p class="text-muted">
+                Vista integral de stock de productos y turnos de operación
+                {% if contrato_seleccionado %}
+                    <br><strong>Contrato:</strong> {{ contrato_seleccionado.nombre_contrato }}
+                    {% if contrato_seleccionado.codigo_centro_costo %}
+                        (Centro de Costo: {{ contrato_seleccionado.codigo_centro_costo }})
+                    {% endif %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Selector de Contrato (solo para usuarios con acceso multi-contrato) -->
+    {% if contratos_disponibles|length > 1 %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label"><strong>Seleccionar Contrato</strong></label>
+                    <select name="contrato" class="form-select" onchange="this.form.submit()">
+                        {% for contrato in contratos_disponibles %}
+                        <option value="{{ contrato.id }}" {% if contrato.id == contrato_seleccionado.id %}selected{% endif %}>
+                            {{ contrato.nombre_contrato }} ({{ contrato.cliente.nombre }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabs principales -->
+    <ul class="nav nav-tabs mb-4" id="gestionTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="stock-tab" data-bs-toggle="tab" data-bs-target="#stock-content" 
+                    type="button" role="tab" aria-controls="stock-content" aria-selected="true">
+                <i class="fas fa-warehouse"></i> Stock de Almacén
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="turnos-tab" data-bs-toggle="tab" data-bs-target="#turnos-content" 
+                    type="button" role="tab" aria-controls="turnos-content" aria-selected="false">
+                <i class="fas fa-clock"></i> Gestión de Turnos
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="gestionTabsContent">
+        <!-- ============================================ -->
+        <!-- TAB 1: STOCK DE ALMACÉN (PDD Y ADITIVOS) -->
+        <!-- ============================================ -->
+        <div class="tab-pane fade show active" id="stock-content" role="tabpanel" aria-labelledby="stock-tab">
+            <!-- Sub-tabs para PDD y Aditivos -->
+            <ul class="nav nav-pills mb-3" id="stockSubTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="pdd-subtab" data-bs-toggle="tab" data-bs-target="#pdd-content" 
+                            type="button" role="tab" aria-controls="pdd-content" aria-selected="true">
+                        <i class="fas fa-gem"></i> Productos Diamantados (PDD)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="aditivos-subtab" data-bs-toggle="tab" data-bs-target="#aditivos-content" 
+                            type="button" role="tab" aria-controls="aditivos-content" aria-selected="false">
+                        <i class="fas fa-flask"></i> Aditivos (ADIT)
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="stockSubTabsContent">
+                <!-- Productos Diamantados -->
+                <div class="tab-pane fade show active" id="pdd-content" role="tabpanel" aria-labelledby="pdd-subtab">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <i class="fas fa-gem"></i> Productos Diamantados (PDD)
+                            <button class="btn btn-sm btn-light float-end" onclick="cargarStock('pdd')">
+                                <i class="fas fa-sync-alt"></i> Recargar
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="pdd-loading" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Consultando inventario...</p>
+                            </div>
+                            <div id="pdd-error" class="alert alert-danger d-none"></div>
+                            <div id="pdd-table-container" class="d-none">
+                                <div class="mb-3">
+                                    <input type="text" id="pdd-search" class="form-control" placeholder="🔍 Buscar por código, serie o descripción...">
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover table-sm" id="pdd-table">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th width="15%">Serie</th>
+                                                <th width="15%">Código</th>
+                                                <th width="50%">Descripción</th>
+                                                <th width="20%" class="text-center">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                                <div id="pdd-summary" class="mt-3 alert alert-info"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aditivos -->
+                <div class="tab-pane fade" id="aditivos-content" role="tabpanel" aria-labelledby="aditivos-subtab">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <i class="fas fa-flask"></i> Aditivos (ADIT)
+                            <button class="btn btn-sm btn-light float-end" onclick="cargarStock('aditivos')">
+                                <i class="fas fa-sync-alt"></i> Recargar
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="aditivos-loading" class="text-center py-4">
+                                <div class="spinner-border text-success" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Consultando inventario...</p>
+                            </div>
+                            <div id="aditivos-error" class="alert alert-danger d-none"></div>
+                            <div id="aditivos-table-container" class="d-none">
+                                <div class="mb-3">
+                                    <input type="text" id="aditivos-search" class="form-control" placeholder="🔍 Buscar por código o descripción...">
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover table-sm" id="aditivos-table">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th width="20%">Código</th>
+                                                <th width="50%">Descripción</th>
+                                                <th width="15%" class="text-center">Stock</th>
+                                                <th width="15%" class="text-center">Unidad</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                                <div id="aditivos-summary" class="mt-3 alert alert-info"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 2: GESTIÓN DE TURNOS -->
+        <!-- ============================================ -->
+        <div class="tab-pane fade" id="turnos-content" role="tabpanel" aria-labelledby="turnos-tab">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4><i class="fas fa-clock"></i> Gestión de Turnos</h4>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'crear-turno-completo' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Nuevo Turno
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filtros de Turnos -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3" id="filtros-turnos-form">
+                        <input type="hidden" name="contrato" value="{{ contrato_seleccionado.id }}">
+                        <div class="col-md-3">
+                            <label class="form-label">Sondaje</label>
+                            <select name="sondaje" class="form-select">
+                                <option value="">Todos los sondajes</option>
+                                {% for sondaje in sondajes_filtro %}
+                                <option value="{{ sondaje.id }}" {% if filtros.sondaje == sondaje.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ sondaje.nombre_sondaje }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha Desde</label>
+                            <input type="date" name="fecha_desde" class="form-control" value="{{ filtros.fecha_desde }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha Hasta</label>
+                            <input type="date" name="fecha_hasta" class="form-control" value="{{ filtros.fecha_hasta }}">
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="fas fa-filter"></i> Filtrar
+                                </button>
+                                <a href="?contrato={{ contrato_seleccionado.id }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Limpiar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabla de Turnos -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list"></i> Listado de Turnos ({{ total_turnos }} registros)</h5>
+                </div>
+                <div class="card-body">
+                    {% if turnos %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Sondaje(s)</th>
+                                    <th>Máquina</th>
+                                    <th>Tipo Turno</th>
+                                    <th>Trabajadores</th>
+                                    <th>Avance (m)</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for turno in turnos %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">#{{ turno.id }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ turno.fecha|date:"d/m/Y" }}</strong>
+                                        <br><small class="text-muted">{{ turno.fecha|date:"l" }}</small>
+                                    </td>
+                                    <td>
+                                        {% with s_list=turno.sondajes.all %}
+                                            {% if s_list %}
+                                                {% for sondaje in s_list %}
+                                                    <strong>{{ sondaje.nombre_sondaje }}</strong>{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <small class="text-muted">Sin sondaje</small>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% if turno.maquina %}
+                                            {{ turno.maquina.nombre }}
+                                            <br><small class="text-muted">{{ turno.maquina.tipo }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Sin máquina</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if turno.tipo_turno %}
+                                            <span class="badge bg-info">{{ turno.tipo_turno.nombre }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% with trabajadores_count=turno.trabajadores_turno.count %}
+                                            {% if trabajadores_count > 0 %}
+                                                <span class="badge bg-success">{{ trabajadores_count }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">0</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if turno.avance_metros %}
+                                            <strong class="text-success">{{ turno.avance_metros|floatformat:2 }} m</strong>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'turno-detail' turno.id %}" class="btn btn-outline-info" title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'turno-update' turno.id %}" class="btn btn-outline-primary" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'turno-delete' turno.id %}" class="btn btn-outline-danger" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Estadísticas de Turnos -->
+                    <div class="row mt-4">
+                        <div class="col-md-4">
+                            <div class="alert alert-info">
+                                <strong><i class="fas fa-list-ol"></i> Total de Turnos:</strong> {{ total_turnos }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-success">
+                                <strong><i class="fas fa-ruler"></i> Metros Totales:</strong> {{ metros_total|floatformat:2 }} m
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                <strong><i class="fas fa-chart-line"></i> Promedio:</strong> 
+                                {% if total_turnos > 0 %}
+                                    {{ metros_total|floatformat:2|add:"0"|floatformat:2 }} m/turno
+                                {% else %}
+                                    - m/turno
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle"></i> No se encontraron turnos con los filtros seleccionados.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos personalizados para mejor visualización */
+    .nav-tabs .nav-link {
+        font-weight: 600;
+    }
+    
+    .nav-pills .nav-link {
+        font-weight: 500;
+    }
+    
+    .table th {
+        white-space: nowrap;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+    
+    #pdd-search, #aditivos-search {
+        border: 2px solid #dee2e6;
+        transition: border-color 0.15s ease-in-out;
+    }
+    
+    #pdd-search:focus, #aditivos-search:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar productos diamantados al iniciar
+    cargarStock('pdd');
+    
+    // Cargar aditivos cuando se cambia de tab
+    const aditivosSubTab = document.getElementById('aditivos-subtab');
+    if (aditivosSubTab) {
+        aditivosSubTab.addEventListener('shown.bs.tab', function() {
+            const table = document.querySelector('#aditivos-table tbody');
+            if (!table || table.rows.length === 0) {
+                cargarStock('aditivos');
+            }
+        });
+    }
+});
+
+function cargarStock(tipo) {
+    const apiUrl = tipo === 'pdd' 
+        ? "{% url 'api-stock-pdd' %}" 
+        : "{% url 'api-stock-aditivos' %}";
+    
+    const loadingDiv = document.getElementById(`${tipo}-loading`);
+    const errorDiv = document.getElementById(`${tipo}-error`);
+    const tableContainer = document.getElementById(`${tipo}-table-container`);
+    
+    // Mostrar loading
+    loadingDiv.classList.remove('d-none');
+    errorDiv.classList.add('d-none');
+    tableContainer.classList.add('d-none');
+    
+    fetch(apiUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            loadingDiv.classList.add('d-none');
+            
+            if (data.error) {
+                mostrarError(tipo, data.error);
+            } else if (data.data && data.data.length > 0) {
+                mostrarTabla(tipo, data.data);
+            } else {
+                mostrarError(tipo, 'No se encontraron artículos en el almacén');
+            }
+        })
+        .catch(error => {
+            loadingDiv.classList.add('d-none');
+            mostrarError(tipo, error.message);
+        });
+}
+
+function mostrarTabla(tipo, articulos) {
+    const tableContainer = document.getElementById(`${tipo}-table-container`);
+    const tbody = document.querySelector(`#${tipo}-table tbody`);
+    const summaryDiv = document.getElementById(`${tipo}-summary`);
+    
+    // Limpiar tabla anterior
+    tbody.innerHTML = '';
+    
+    if (tipo === 'pdd') {
+        // Productos Diamantados
+        articulos.forEach(articulo => {
+            const row = tbody.insertRow();
+            
+            row.insertCell(0).innerHTML = `<span class="font-monospace">${articulo.serie || '-'}</span>`;
+            row.insertCell(1).innerHTML = `<span class="font-monospace text-muted">${articulo.codigo || '-'}</span>`;
+            row.insertCell(2).textContent = articulo.descripcion || '-';
+            
+            const estadoCell = row.insertCell(3);
+            estadoCell.classList.add('text-center');
+            estadoCell.innerHTML = '<span class="badge bg-success">Disponible</span>';
+        });
+        
+        summaryDiv.innerHTML = `<strong><i class="fas fa-gem"></i> Total de productos:</strong> ${articulos.length} unidades disponibles`;
+    } else {
+        // Aditivos
+        let totalStock = 0;
+        articulos.forEach(articulo => {
+            const row = tbody.insertRow();
+            
+            row.insertCell(0).innerHTML = `<span class="font-monospace">${articulo.codigo || '-'}</span>`;
+            row.insertCell(1).textContent = articulo.descripcion || '-';
+            
+            const stock = parseFloat(articulo.stock) || 0;
+            totalStock += stock;
+            
+            const stockCell = row.insertCell(2);
+            stockCell.classList.add('text-center');
+            stockCell.innerHTML = `<strong>${stock.toFixed(2)}</strong>`;
+            
+            const unidadCell = row.insertCell(3);
+            unidadCell.classList.add('text-center');
+            unidadCell.textContent = articulo.unidad || '-';
+        });
+        
+        summaryDiv.innerHTML = `<strong><i class="fas fa-flask"></i> Total de productos:</strong> ${articulos.length} | <strong>Stock total:</strong> ${totalStock.toFixed(2)} unidades`;
+    }
+    
+    // Mostrar tabla
+    tableContainer.classList.remove('d-none');
+    
+    // Activar búsqueda
+    activarBusqueda(tipo);
+}
+
+function mostrarError(tipo, mensaje) {
+    const errorDiv = document.getElementById(`${tipo}-error`);
+    errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${mensaje}`;
+    errorDiv.classList.remove('d-none');
+}
+
+function activarBusqueda(tipo) {
+    const searchInput = document.getElementById(`${tipo}-search`);
+    const table = document.getElementById(`${tipo}-table`);
+    
+    searchInput.addEventListener('keyup', function() {
+        const filter = this.value.toLowerCase();
+        const rows = table.getElementsByTagName('tr');
+        
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-import json
+﻿import json
 from decimal import Decimal
 from datetime import datetime, date
 from django.shortcuts import render, redirect, get_object_or_404
@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
 from django.db import transaction, models
-from django.db.models import Sum, Count, Avg, Max, Min
+from django.db.models import Sum, Count, Avg, Max, Min, OuterRef, Subquery
 from django.urls import reverse_lazy
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
@@ -22,7 +22,7 @@ from datetime import datetime, time, timedelta
 import json
 
 def convert_to_time(value):
-    """Convierte 'HH:MM' o 'HH:MM:SS' a time, o devuelve None si está vacío o inválido."""
+    """Convierte 'HH:MM' o 'HH:MM:SS' a time, o devuelve None si estÃ¡ vacÃ­o o invÃ¡lido."""
     if not value:
         return None
     if isinstance(value, time):
@@ -62,7 +62,7 @@ def user_logout(request):
         logout(request)
         return redirect('login')
     # Si es GET, redirigir al dashboard con mensaje
-    messages.warning(request, 'Por favor use el botón de cerrar sesión correctamente.')
+    messages.warning(request, 'Por favor use el botÃ³n de cerrar sesiÃ³n correctamente.')
     return redirect('dashboard')
 
 # ===============================
@@ -74,13 +74,13 @@ def dashboard(request):
     contract = user.contrato
     hoy = timezone.now().date()
     
-    # Determinar qué template usar según el rol
+    # Determinar quÃ© template usar segÃºn el rol
     is_admin = user.role in ['GERENCIA', 'CONTROL_PROYECTOS'] and user.is_system_admin
     is_manager = user.role == 'ADMINISTRADOR'
     
     # DASHBOARD PARA ADMINISTRADOR DEL SISTEMA
     if is_admin:
-        # Métricas consolidadas de todos los contratos
+        # MÃ©tricas consolidadas de todos los contratos
         contratos_activos = Contrato.objects.filter(estado='ACTIVO').count()
         usuarios_activos = CustomUser.objects.filter(is_active=True, is_account_active=True).count()
         
@@ -93,8 +93,18 @@ def dashboard(request):
         # Turnos hoy (todos los contratos)
         turnos_hoy_total = Turno.objects.filter(fecha=hoy).count()
         
-        # Métricas por contrato - OPTIMIZADO con annotate para evitar N+1 queries
+        # MÃ©tricas por contrato - OPTIMIZADO con annotate para evitar N+1 queries
         from django.db.models import Q, Count, Sum, F
+        
+        # Calcular metros usando subconsulta para evitar duplicación por ManyToMany
+        # Subconsulta para metros perforados del mes actual
+        metros_subquery = TurnoAvance.objects.filter(
+            turno__contrato=OuterRef('pk'),
+            turno__fecha__month=hoy.month,
+            turno__fecha__year=hoy.year
+        ).values('turno__contrato').annotate(
+            total=Sum('metros_perforados')
+        ).values('total')
         
         metricas_por_contrato_qs = Contrato.objects.filter(
             estado='ACTIVO'
@@ -106,10 +116,7 @@ def dashboard(request):
                 filter=Q(turnos__fecha__month=hoy.month, turnos__fecha__year=hoy.year),
                 distinct=True
             ),
-            metros_mes_total=Sum(
-                'turnos__avance__metros_perforados',
-                filter=Q(turnos__fecha__month=hoy.month, turnos__fecha__year=hoy.year)
-            )
+            metros_mes_total=Subquery(metros_subquery)
         ).order_by('nombre_contrato')
         
         # Convertir a lista de diccionarios para el template
@@ -125,7 +132,7 @@ def dashboard(request):
                 'estado': contrato.estado,
             })
         
-        # Últimos turnos (todos los contratos)
+        # Ãšltimos turnos (todos los contratos)
         ultimos_turnos_raw = Turno.objects.select_related(
             'tipo_turno'
         ).prefetch_related('sondajes__contrato').order_by('-fecha')[:10]
@@ -138,16 +145,16 @@ def dashboard(request):
             turno.contrato_nombre = contrato_nombre
             ultimos_turnos.append(turno)
         
-        # Stock crítico (todos los contratos) - OPTIMIZADO con annotate
+        # Stock crÃ­tico (todos los contratos) - OPTIMIZADO con annotate
         try:
             from django.db.models import F, DecimalField, ExpressionWrapper
             
             stock_critico = Abastecimiento.objects.select_related(
                 'unidad_medida', 'contrato'
             ).annotate(
-                total_consumido=Sum('consumos__cantidad_consumida'),
+                total_consumido=Sum('consumostock__cantidad_consumida'),
                 disponible=ExpressionWrapper(
-                    F('cantidad') - Sum('consumos__cantidad_consumida'),
+                    F('cantidad') - Sum('consumostock__cantidad_consumida'),
                     output_field=DecimalField(max_digits=10, decimal_places=2)
                 )
             ).filter(
@@ -165,7 +172,7 @@ def dashboard(request):
                 })
             stock_critico = stock_critico_list
         except Exception as e:
-            print(f"Error en stock crítico: {e}")
+            print(f"Error en stock crÃ­tico: {e}")
             stock_critico = []
         
         context = {
@@ -187,7 +194,7 @@ def dashboard(request):
             messages.warning(request, 'No tienes un contrato asignado. Contacta al administrador.')
             return redirect('logout')
         
-        # Métricas del contrato del manager - OPTIMIZADO
+        # MÃ©tricas del contrato del manager - OPTIMIZADO
         trabajadores_activos = Trabajador.objects.filter(contrato=contract, estado='ACTIVO').count()
         
         # Trabajadores presentes hoy (basado en turnos del contrato)
@@ -201,7 +208,7 @@ def dashboard(request):
         
         maquinas_operativas = Maquina.objects.filter(contrato=contract, estado='OPERATIVO').count()
         
-        # Últimos turnos del contrato - OPTIMIZADO
+        # Ãšltimos turnos del contrato - OPTIMIZADO
         ultimos_turnos = Turno.objects.filter(
             contrato=contract
         ).select_related('tipo_turno', 'maquina').prefetch_related('sondajes').order_by('-fecha')[:5]
@@ -236,7 +243,7 @@ def dashboard(request):
             user.save()
             contract = contrato_obj
         
-        # Métricas básicas - OPTIMIZADO
+        # MÃ©tricas bÃ¡sicas - OPTIMIZADO
         sondajes_activos = Sondaje.objects.filter(contrato=contract, estado='ACTIVO').count()
         turnos_hoy = Turno.objects.filter(contrato=contract, fecha=hoy).count()
         
@@ -272,7 +279,7 @@ def dashboard(request):
             
             stock_critico = sorted(stock_critico, key=lambda x: x['disponible'])[:10]
         except Exception as e:
-            print(f"Error en stock crítico: {e}")
+            print(f"Error en stock crÃ­tico: {e}")
             stock_critico = []
         
         context = {
@@ -325,8 +332,8 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
 
 @login_required
 def trabajadores_hub(request):
-    """Hub centralizado de gestión de trabajadores"""
-    # Obtener trabajadores según permisos
+    """Hub centralizado de gestiÃ³n de trabajadores"""
+    # Obtener trabajadores segÃºn permisos
     if request.user.has_access_to_all_contracts():
         trabajadores = Trabajador.objects.filter(estado='ACTIVO')
     else:
@@ -425,7 +432,7 @@ class MaquinaCreateView(AdminOrContractFilterMixin, CreateView):
     def form_valid(self, form):
         if not self.request.user.can_manage_all_contracts():
             form.instance.contrato = self.request.user.contrato
-        messages.success(self.request, 'Máquina creada exitosamente')
+        messages.success(self.request, 'MÃ¡quina creada exitosamente')
         return super().form_valid(form)
 
 class MaquinaUpdateView(AdminOrContractFilterMixin, UpdateView):
@@ -435,7 +442,7 @@ class MaquinaUpdateView(AdminOrContractFilterMixin, UpdateView):
     success_url = reverse_lazy('maquina-list')
 
     def form_valid(self, form):
-        messages.success(self.request, 'Máquina actualizada exitosamente')
+        messages.success(self.request, 'MÃ¡quina actualizada exitosamente')
         return super().form_valid(form)
 
 class MaquinaDeleteView(AdminOrContractFilterMixin, DeleteView):
@@ -444,7 +451,7 @@ class MaquinaDeleteView(AdminOrContractFilterMixin, DeleteView):
     success_url = reverse_lazy('maquina-list')
 
     def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Máquina eliminada exitosamente')
+        messages.success(request, 'MÃ¡quina eliminada exitosamente')
         return super().delete(request, *args, **kwargs)
 
 @login_required
@@ -489,7 +496,7 @@ def reporte_horas_extras(request):
         messages.error(request, "No tiene permisos para ver este reporte")
         return redirect('dashboard')
     
-    # Obtener parámetros de filtro
+    # Obtener parÃ¡metros de filtro
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
     contrato_id = request.GET.get('contrato')
@@ -577,14 +584,14 @@ def gestionar_horas_extras(request):
         contrato_seleccionado = get_object_or_404(Contrato, id=contrato_id)
         maquinas_contrato = Maquina.objects.filter(contrato=contrato_seleccionado, estado='OPERATIVO')
         
-        # Procesar configuración general del contrato
+        # Procesar configuraciÃ³n general del contrato
         metros_general = request.POST.get('metros_general')
         horas_general = request.POST.get('horas_general', '1.0')
         activo_general = request.POST.get('activo_general') == 'on'
         
         if metros_general:
             with transaction.atomic():
-                # Actualizar o crear configuración general (sin máquina específica)
+                # Actualizar o crear configuraciÃ³n general (sin mÃ¡quina especÃ­fica)
                 config_general, created = ConfiguracionHoraExtra.objects.update_or_create(
                     contrato=contrato_seleccionado,
                     maquina=None,
@@ -595,7 +602,7 @@ def gestionar_horas_extras(request):
                     }
                 )
         
-        # Procesar configuraciones por máquina
+        # Procesar configuraciones por mÃ¡quina
         for maquina in maquinas_contrato:
             metros_key = f'metros_maquina_{maquina.id}'
             horas_key = f'horas_maquina_{maquina.id}'
@@ -603,13 +610,13 @@ def gestionar_horas_extras(request):
             eliminar_key = f'eliminar_maquina_{maquina.id}'
             
             if request.POST.get(eliminar_key) == 'on':
-                # Eliminar configuración específica de esta máquina
+                # Eliminar configuraciÃ³n especÃ­fica de esta mÃ¡quina
                 ConfiguracionHoraExtra.objects.filter(
                     contrato=contrato_seleccionado,
                     maquina=maquina
                 ).delete()
             elif request.POST.get(metros_key):
-                # Crear o actualizar configuración específica
+                # Crear o actualizar configuraciÃ³n especÃ­fica
                 with transaction.atomic():
                     ConfiguracionHoraExtra.objects.update_or_create(
                         contrato=contrato_seleccionado,
@@ -621,7 +628,7 @@ def gestionar_horas_extras(request):
                         }
                     )
         
-        messages.success(request, f'Configuración de horas extras actualizada para {contrato_seleccionado.nombre_contrato}')
+        messages.success(request, f'ConfiguraciÃ³n de horas extras actualizada para {contrato_seleccionado.nombre_contrato}')
         return redirect(f'{request.path}?contrato={contrato_id}')
     
     if contrato_id:
@@ -635,7 +642,7 @@ def gestionar_horas_extras(request):
                 estado='OPERATIVO'
             ).order_by('nombre')
             
-            # Crear diccionario de configuraciones por máquina para acceso fácil en template
+            # Crear diccionario de configuraciones por mÃ¡quina para acceso fÃ¡cil en template
             configuraciones_dict = {}
             for config in configuraciones:
                 if config.maquina:
@@ -695,7 +702,7 @@ def asignar_actividades_contrato(request):
                 # Actividades seleccionadas
                 actividades_nuevas = set(actividades_seleccionadas)
                 
-                # Eliminar las que ya no están seleccionadas
+                # Eliminar las que ya no estÃ¡n seleccionadas
                 a_eliminar = actividades_actuales - actividades_nuevas
                 if a_eliminar:
                     ContratoActividad.objects.filter(
@@ -741,10 +748,10 @@ def asignar_actividades_contrato(request):
 
 def transferir_maquina(request):
     """
-    Vista para transferir una máquina a otro contrato
+    Vista para transferir una mÃ¡quina a otro contrato
     """
     if not request.user.can_supervise_operations():
-        messages.error(request, "No tiene permisos para transferir máquinas")
+        messages.error(request, "No tiene permisos para transferir mÃ¡quinas")
         return redirect('maquina-list')
     
     try:
@@ -759,23 +766,23 @@ def transferir_maquina(request):
         maquina = get_object_or_404(Maquina, id=maquina_id)
         nuevo_contrato = get_object_or_404(Contrato, id=nuevo_contrato_id)
         
-        # Verificar permisos: usuarios no admin solo pueden transferir máquinas de su contrato
+        # Verificar permisos: usuarios no admin solo pueden transferir mÃ¡quinas de su contrato
         if not request.user.can_manage_all_contracts():
             if maquina.contrato != request.user.contrato:
-                messages.error(request, "No tiene permisos para transferir esta máquina")
+                messages.error(request, "No tiene permisos para transferir esta mÃ¡quina")
                 return redirect('maquina-list')
         
-        # Verificar que no se está transfiriendo al mismo contrato
+        # Verificar que no se estÃ¡ transfiriendo al mismo contrato
         if maquina.contrato == nuevo_contrato:
-            messages.warning(request, f"La máquina '{maquina.nombre}' ya pertenece al contrato {nuevo_contrato.nombre_contrato}")
+            messages.warning(request, f"La mÃ¡quina '{maquina.nombre}' ya pertenece al contrato {nuevo_contrato.nombre_contrato}")
             return redirect('maquina-list')
         
-        # Guardar información para el mensaje y el historial
+        # Guardar informaciÃ³n para el mensaje y el historial
         contrato_anterior = maquina.contrato
         
         # Realizar la transferencia
         with transaction.atomic():
-            # Cambiar el contrato de la máquina
+            # Cambiar el contrato de la mÃ¡quina
             maquina.contrato = nuevo_contrato
             maquina.save(update_fields=['contrato'])
             
@@ -790,14 +797,14 @@ def transferir_maquina(request):
         
         messages.success(
             request, 
-            f'Máquina "{maquina.nombre}" transferida exitosamente de {contrato_anterior.nombre_contrato} a {nuevo_contrato.nombre_contrato}'
+            f'MÃ¡quina "{maquina.nombre}" transferida exitosamente de {contrato_anterior.nombre_contrato} a {nuevo_contrato.nombre_contrato}'
         )
         
         if observaciones:
             messages.info(request, f'Observaciones: {observaciones}')
         
     except Exception as e:
-        messages.error(request, f'Error al transferir máquina: {str(e)}')
+        messages.error(request, f'Error al transferir mÃ¡quina: {str(e)}')
     
     return redirect('maquina-list')
 
@@ -899,8 +906,8 @@ class TipoActividadDeleteView(AdminOrContractFilterMixin, DeleteView):
 
 class ContratoActividadesUpdateView(SystemAdminRequiredMixin, TemplateView):
     """Vista para asignar/desasignar actividades (maestro) a un contrato.
-    Solo los admins del sistema pueden gestionar esto; contract managers deberán
-    usar su propia sección para ver las actividades asignadas.
+    Solo los admins del sistema pueden gestionar esto; contract managers deberÃ¡n
+    usar su propia secciÃ³n para ver las actividades asignadas.
     """
     template_name = 'drilling/contratos/actividades_form.html'
 
@@ -1096,8 +1103,8 @@ def crear_turno_completo(request, pk=None):
     
     if request.method == 'POST':
         try:
-            # Obtener datos básicos del turno
-            # soporte para múltiples sondajes: 'sondajes' (multiselect) o 'sondaje' (compatibilidad)
+            # Obtener datos bÃ¡sicos del turno
+            # soporte para mÃºltiples sondajes: 'sondajes' (multiselect) o 'sondaje' (compatibilidad)
             sondaje_ids = request.POST.getlist('sondajes') or []
             if not sondaje_ids:
                 single = request.POST.get('sondaje')
@@ -1109,7 +1116,7 @@ def crear_turno_completo(request, pk=None):
             
             # Validar campos requeridos
             if not sondaje_ids or not all([maquina_id, tipo_turno_id, fecha]):
-                messages.error(request, "Faltan campos requeridos: sondaje(s), máquina, tipo de turno y fecha.")
+                messages.error(request, "Faltan campos requeridos: sondaje(s), mÃ¡quina, tipo de turno y fecha.")
                 return redirect('crear-turno-completo')
 
             # Obtener objetos relacionados EN EL MISMO ORDEN en que fueron seleccionados
@@ -1118,10 +1125,10 @@ def crear_turno_completo(request, pk=None):
                 for sid in sondaje_ids:
                     sondajes_list.append(Sondaje.objects.get(id=int(sid)))
             except (ValueError, Sondaje.DoesNotExist):
-                messages.error(request, 'Sondaje(s) seleccionado(s) inválido(s)')
+                messages.error(request, 'Sondaje(s) seleccionado(s) invÃ¡lido(s)')
                 return redirect('crear-turno-completo')
-            # Para compatibilidad con el código existente que usa una única variable 'sondaje',
-            # tomamos el primero para lecturas puntuales (duración, contrato) y mantenemos la lista
+            # Para compatibilidad con el cÃ³digo existente que usa una Ãºnica variable 'sondaje',
+            # tomamos el primero para lecturas puntuales (duraciÃ³n, contrato) y mantenemos la lista
             sondaje = sondajes_list[0]
             maquina = Maquina.objects.get(id=maquina_id)
             tipo_turno = TipoTurno.objects.get(id=tipo_turno_id)
@@ -1136,8 +1143,8 @@ def crear_turno_completo(request, pk=None):
                 messages.error(request, "No tiene permisos para crear turnos en este contrato.")
                 return redirect('dashboard')
             
-            # Parsear y validar datos complejos ANTES de abrir la transacción
-            # Esto evita abrir la transacción si los datos están corruptos
+            # Parsear y validar datos complejos ANTES de abrir la transacciÃ³n
+            # Esto evita abrir la transacciÃ³n si los datos estÃ¡n corruptos
             trabajadores_parsed = []
             complementos_parsed = []
             aditivos_parsed = []
@@ -1152,7 +1159,7 @@ def crear_turno_completo(request, pk=None):
                     trabajadores_raw = json.loads(trabajadores_data)
                     for t in trabajadores_raw:
                         if 'trabajador_id' not in t or 'funcion' not in t:
-                            messages.warning(request, 'Trabajador con datos incompletos será omitido')
+                            messages.warning(request, 'Trabajador con datos incompletos serÃ¡ omitido')
                             continue
                         trabajadores_parsed.append({
                             'trabajador_id': t['trabajador_id'],
@@ -1160,7 +1167,7 @@ def crear_turno_completo(request, pk=None):
                             'observaciones': t.get('observaciones', '')
                         })
                 except json.JSONDecodeError as e:
-                    messages.error(request, f'JSON inválido en trabajadores: {e}')
+                    messages.error(request, f'JSON invÃ¡lido en trabajadores: {e}')
                     return redirect('crear-turno-completo')
 
             # Complementos
@@ -1178,11 +1185,11 @@ def crear_turno_completo(request, pk=None):
                                 'sondaje_id': int(c.get('sondaje_id')) if c.get('sondaje_id') else None,
                             })
                         except (KeyError, ValueError, TypeError) as e:
-                            messages.warning(request, f'Complemento con datos inválidos será omitido: {e}')
+                            messages.warning(request, f'Complemento con datos invÃ¡lidos serÃ¡ omitido: {e}')
                         except Exception as e:
                             messages.warning(request, f'Error inesperado en complemento: {e}')
                 except json.JSONDecodeError as e:
-                    messages.error(request, f'JSON inválido en complementos: {e}')
+                    messages.error(request, f'JSON invÃ¡lido en complementos: {e}')
                     return redirect('crear-turno-completo')
 
             # Aditivos
@@ -1199,9 +1206,9 @@ def crear_turno_completo(request, pk=None):
                                 'sondaje_id': int(a.get('sondaje_id')) if a.get('sondaje_id') else None,
                             })
                         except (KeyError, ValueError):
-                            messages.warning(request, 'Aditivo con datos inválidos será omitido')
+                            messages.warning(request, 'Aditivo con datos invÃ¡lidos serÃ¡ omitido')
                 except json.JSONDecodeError as e:
-                    messages.error(request, f'JSON inválido en aditivos: {e}')
+                    messages.error(request, f'JSON invÃ¡lido en aditivos: {e}')
                     return redirect('crear-turno-completo')
 
             # Actividades
@@ -1218,9 +1225,9 @@ def crear_turno_completo(request, pk=None):
                                 'observaciones': act.get('observaciones', '')
                             })
                         except (KeyError, ValueError):
-                            messages.warning(request, 'Actividad con datos inválidos será omitida')
+                            messages.warning(request, 'Actividad con datos invÃ¡lidos serÃ¡ omitida')
                 except json.JSONDecodeError as e:
-                    messages.error(request, f'JSON inválido en actividades: {e}')
+                    messages.error(request, f'JSON invÃ¡lido en actividades: {e}')
                     return redirect('crear-turno-completo')
 
             # Corridas
@@ -1240,9 +1247,9 @@ def crear_turno_completo(request, pk=None):
                                 'litologia': cr.get('litologia', '')
                             })
                         except (KeyError, ValueError):
-                            messages.warning(request, 'Corrida con datos inválidos será omitida')
+                            messages.warning(request, 'Corrida con datos invÃ¡lidos serÃ¡ omitida')
                 except json.JSONDecodeError as e:
-                    messages.error(request, f'JSON inválido en corridas: {e}')
+                    messages.error(request, f'JSON invÃ¡lido en corridas: {e}')
                     return redirect('crear-turno-completo')
 
             # Metrajes por sondaje: preferimos la lista de metrajes por sondaje
@@ -1264,19 +1271,19 @@ def crear_turno_completo(request, pk=None):
                         total_m += float(mv)
                     metros_perforados_val = total_m
                 except ValueError:
-                    # Si algún valor no es numérico, ignoramos el avance calculado
-                    messages.warning(request, 'Algunos metrajes por sondaje no son numéricos; avance será 0 o calculado desde TurnoSondaje')
+                    # Si algÃºn valor no es numÃ©rico, ignoramos el avance calculado
+                    messages.warning(request, 'Algunos metrajes por sondaje no son numÃ©ricos; avance serÃ¡ 0 o calculado desde TurnoSondaje')
 
-            # Procesar datos de máquina: aceptamos lecturas de horómetro (numéricas)
-            # o tiempos en formato HH:MM. Si el valor es numérico será tratado como
-            # lectura de horómetro (horometro_inicio/horometro_fin).
+            # Procesar datos de mÃ¡quina: aceptamos lecturas de horÃ³metro (numÃ©ricas)
+            # o tiempos en formato HH:MM. Si el valor es numÃ©rico serÃ¡ tratado como
+            # lectura de horÃ³metro (horometro_inicio/horometro_fin).
             hora_inicio_maq = request.POST.get('hora_inicio_maq')
             hora_fin_maq = request.POST.get('hora_fin_maq')
             hora_inicio_maq_parsed = None
             hora_fin_maq_parsed = None
             horometro_inicio_val = None
             horometro_fin_val = None
-            # Intentar parsear como Decimal (horómetro)
+            # Intentar parsear como Decimal (horÃ³metro)
             from decimal import InvalidOperation
             try:
                 if hora_inicio_maq is not None and hora_inicio_maq.strip() != '':
@@ -1295,7 +1302,7 @@ def crear_turno_completo(request, pk=None):
                 hora_fin_maq_parsed = convert_to_time(hora_fin_maq) if hora_fin_maq else None
 
             # ----------------------------------
-            # VALIDACIÓN: sumar horas de actividades
+            # VALIDACIÃ“N: sumar horas de actividades
             # ----------------------------------
             try:
                 total_horas_post = 0.0
@@ -1316,7 +1323,7 @@ def crear_turno_completo(request, pk=None):
                     duracion_esperada = float(getattr(request.user.contrato, 'duracion_turno', 0) or 0)
                 if duracion_esperada > 0 and total_horas_post < duracion_esperada:
                     faltan = duracion_esperada - total_horas_post
-                    # También incluir el valor de duración en el contrato del usuario por si hay discrepancias
+                    # TambiÃ©n incluir el valor de duraciÃ³n en el contrato del usuario por si hay discrepancias
                     try:
                         usuario_duracion = float(request.user.contrato.duracion_turno or 0)
                     except Exception:
@@ -1324,7 +1331,7 @@ def crear_turno_completo(request, pk=None):
                     msg = (f'Faltan horas al turno: se han registrado {total_horas_post:.2f}h, '
                            f'se requieren {duracion_esperada:.2f}h (faltan {faltan:.2f}h).')
                     if usuario_duracion is not None:
-                        msg += f' [duración contrato sondaje={duracion_esperada:.2f}h, duración contrato usuario={usuario_duracion:.2f}h]'
+                        msg += f' [duraciÃ³n contrato sondaje={duracion_esperada:.2f}h, duraciÃ³n contrato usuario={usuario_duracion:.2f}h]'
                     messages.error(request, msg)
                     # Volver a renderizar el formulario con los datos pre-llenados
                     context = get_context_data(request)
@@ -1359,10 +1366,10 @@ def crear_turno_completo(request, pk=None):
                     })
                     return render(request, 'drilling/turno/crear_completo.html', context)
             except Exception:
-                # Si falla la validación por cualquier razón, seguimos con el flujo
+                # Si falla la validaciÃ³n por cualquier razÃ³n, seguimos con el flujo
                 pass
 
-            # Ahora que todo está parseado/validado, crear o actualizar registros en una transacción
+            # Ahora que todo estÃ¡ parseado/validado, crear o actualizar registros en una transacciÃ³n
             with transaction.atomic():
                 if pk:
                     # Editar turno existente
@@ -1374,17 +1381,17 @@ def crear_turno_completo(request, pk=None):
                     turno.save()
                     # actualizar asociaciones many-to-many de sondajes
                     try:
-                        # Usar un savepoint (atomic anidado) para que si falla la asignación
-                        # M2M no deje la transacción completa en estado roto.
+                        # Usar un savepoint (atomic anidado) para que si falla la asignaciÃ³n
+                        # M2M no deje la transacciÃ³n completa en estado roto.
                         with transaction.atomic():
                             turno.sondajes.set([s.id for s in sondajes_list])
                     except Exception:
-                        # No bloquear el flujo por fallos en la asociación M2M; el savepoint
-                        # asegura que la transacción externa no quede marcada como rollback.
+                        # No bloquear el flujo por fallos en la asociaciÃ³n M2M; el savepoint
+                        # asegura que la transacciÃ³n externa no quede marcada como rollback.
                         pass
 
                     # Eliminar relaciones existentes y recrear desde los datos enviados
-                    # También eliminar asociaciones TurnoSondaje para rehacer con metrajes
+                    # TambiÃ©n eliminar asociaciones TurnoSondaje para rehacer con metrajes
                     TurnoSondaje.objects.filter(turno=turno).delete()
                     TurnoMaquina.objects.filter(turno=turno).delete()
                     TurnoTrabajador.objects.filter(turno=turno).delete()
@@ -1394,7 +1401,7 @@ def crear_turno_completo(request, pk=None):
                     TurnoCorrida.objects.filter(turno=turno).delete()
                     TurnoAvance.objects.filter(turno=turno).delete()
                 else:
-                    # Crear el turno principal CON relación directa a contrato
+                    # Crear el turno principal CON relaciÃ³n directa a contrato
                     turno = Turno.objects.create(
                         fecha=fecha,
                         contrato=contrato_sondajes,
@@ -1403,7 +1410,7 @@ def crear_turno_completo(request, pk=None):
                     )
                     # asignar sondajes seleccionados
                     try:
-                        # Mismo tratamiento en la rama de creación: usar savepoint para M2M
+                        # Mismo tratamiento en la rama de creaciÃ³n: usar savepoint para M2M
                         with transaction.atomic():
                             turno.sondajes.set([s.id for s in sondajes_list])
                     except Exception:
@@ -1413,7 +1420,7 @@ def crear_turno_completo(request, pk=None):
                 # ya parseados arriba). Se espera una lista paralela 'sondajes_metraje'
                 # en el POST
                 try:
-                    # Asegurar que los pares (sondaje_id, metraje) respeten el orden de selección
+                    # Asegurar que los pares (sondaje_id, metraje) respeten el orden de selecciÃ³n
                     pairs = list(zip([int(s.id) for s in sondajes_list], metrajes_raw)) if metrajes_raw else []
                     objs = []
                     if pairs:
@@ -1429,19 +1436,19 @@ def crear_turno_completo(request, pk=None):
                                 with transaction.atomic():
                                     TurnoSondaje.objects.bulk_create(objs)
                             except Exception:
-                                # No bloquear el flujo si falla la bulk_create; ya hay asociación M2M
+                                # No bloquear el flujo si falla la bulk_create; ya hay asociaciÃ³n M2M
                                 pass
                     else:
                         # Si no se enviaron metrajes, asegurarse de que existan filas TurnoSondaje
-                        # (la asignación M2M previa puede haber creado entradas con valores por defecto)
+                        # (la asignaciÃ³n M2M previa puede haber creado entradas con valores por defecto)
                         pass
                 except Exception:
-                    # No bloquear el flujo si algo falla al preparar metrajes; la transacción global seguirá intacta
+                    # No bloquear el flujo si algo falla al preparar metrajes; la transacciÃ³n global seguirÃ¡ intacta
                     pass
 
                 # Crear TurnoMaquina si corresponde
                 if hora_inicio_maq_parsed or hora_fin_maq_parsed or horometro_inicio_val is not None or horometro_fin_val is not None or request.POST.get('estado_bomba'):
-                    # Si estamos editando (pk) y existía un TurnoMaquina previo, restar sus horas del horometro
+                    # Si estamos editando (pk) y existÃ­a un TurnoMaquina previo, restar sus horas del horometro
                     if pk:
                         prev_tm = TurnoMaquina.objects.filter(turno=turno).first()
                         if prev_tm and prev_tm.horas_trabajadas_calc:
@@ -1463,13 +1470,13 @@ def crear_turno_completo(request, pk=None):
                         estado_rotacion=request.POST.get('estado_rotacion', 'OPERATIVO')
                     )
 
-                    # Después de crear TurnoMaquina, su save() habrá calculado horas_trabajadas_calc.
-                    # Sumar ese valor al horómetro de la máquina asociada.
+                    # DespuÃ©s de crear TurnoMaquina, su save() habrÃ¡ calculado horas_trabajadas_calc.
+                    # Sumar ese valor al horÃ³metro de la mÃ¡quina asociada.
                     try:
                         if tm.horas_trabajadas_calc and tm.horas_trabajadas_calc > 0:
-                            # usar Decimal para mantener precisión
+                            # usar Decimal para mantener precisiÃ³n
                             incremento = Decimal(str(tm.horas_trabajadas_calc))
-                            # Actualizar horómetro en un savepoint para evitar marcar la transacción si falla
+                            # Actualizar horÃ³metro en un savepoint para evitar marcar la transacciÃ³n si falla
                             try:
                                 with transaction.atomic():
                                     horometro_anterior = maquina.horometro or Decimal('0')
@@ -1477,14 +1484,14 @@ def crear_turno_completo(request, pk=None):
                                     maquina.save(update_fields=['horometro'])
                                     messages.info(
                                         request,
-                                        f'Horómetro de la máquina actualizado: {horometro_anterior} + {incremento} = {maquina.horometro} horas'
+                                        f'HorÃ³metro de la mÃ¡quina actualizado: {horometro_anterior} + {incremento} = {maquina.horometro} horas'
                                     )
                             except Exception as e:
                                 # Log del error para debugging
-                                messages.warning(request, f'Error al actualizar horómetro: {str(e)}')
+                                messages.warning(request, f'Error al actualizar horÃ³metro: {str(e)}')
                     except Exception as e:
                         # Log del error para debugging
-                        messages.warning(request, f'Error al calcular incremento de horómetro: {str(e)}')
+                        messages.warning(request, f'Error al calcular incremento de horÃ³metro: {str(e)}')
 
                 # Crear trabajadores usando bulk_create para mejor rendimiento
                 if trabajadores_parsed:
@@ -1519,7 +1526,7 @@ def crear_turno_completo(request, pk=None):
                         complementos_objetos.append(obj)
                     if complementos_objetos:
                         TurnoComplemento.objects.bulk_create(complementos_objetos)
-                        # Actualizar HistorialBroca en batch después del bulk_create
+                        # Actualizar HistorialBroca en batch despuÃ©s del bulk_create
                         from django.db.models import F
                         from collections import defaultdict
                         series_metrajes = defaultdict(Decimal)
@@ -1536,7 +1543,7 @@ def crear_turno_completo(request, pk=None):
                                     'estado': 'NUEVA'
                                 }
                             )
-                            # Contar cuántas veces se usó esta serie en este turno
+                            # Contar cuÃ¡ntas veces se usÃ³ esta serie en este turno
                             num_usos = sum(1 for obj in complementos_objetos if obj.codigo_serie == serie)
                             historial.metraje_acumulado = F('metraje_acumulado') + metraje_total
                             historial.numero_usos = F('numero_usos') + num_usos
@@ -1602,7 +1609,7 @@ def crear_turno_completo(request, pk=None):
                     TurnoCorrida.objects.bulk_create(corridas_objetos)
 
                 # Crear avance: preferimos sumar los metrajes guardados en TurnoSondaje
-                # (si la bulk_create funcionó). Como fallback, usamos el valor sumado
+                # (si la bulk_create funcionÃ³). Como fallback, usamos el valor sumado
                 # recibido en POST (metros_perforados_val) si existe.
                 try:
                     from django.db.models import Sum
@@ -1619,7 +1626,7 @@ def crear_turno_completo(request, pk=None):
                             metros_perforados=final_total_metros
                         )
                 except Exception:
-                    # No bloquear el flujo si falla la creación del avance
+                    # No bloquear el flujo si falla la creaciÃ³n del avance
                     pass
                 
                 # Procesar cambios de estado de sondajes
@@ -1632,7 +1639,7 @@ def crear_turno_completo(request, pk=None):
                                 sondaje_id = int(cambio['sondaje_id'])
                                 nuevo_estado = cambio['nuevo_estado']
                                 
-                                # Validar que el estado es válido
+                                # Validar que el estado es vÃ¡lido
                                 estados_validos = ['ACTIVO', 'PAUSADO', 'FINALIZADO', 'CANCELADO']
                                 if nuevo_estado not in estados_validos:
                                     continue
@@ -1653,14 +1660,14 @@ def crear_turno_completo(request, pk=None):
                 messages.success(request, f'Turno #{turno.id} actualizado exitosamente para {sondaje.nombre_sondaje}')
             else:
                 messages.success(request, f'Turno #{turno.id} creado exitosamente para {sondaje.nombre_sondaje}')
-            # Después de crear/actualizar, verificar si las actividades suman la duración del turno
+            # DespuÃ©s de crear/actualizar, verificar si las actividades suman la duraciÃ³n del turno
             try:
                 # Sumar horas de actividades guardadas
                 total_horas = 0
                 for act_obj in TurnoActividad.objects.filter(turno=turno):
                     if act_obj.tiempo_calc:
                         total_horas += float(act_obj.tiempo_calc)
-                # Obtener duración esperada desde el contrato del sondaje
+                # Obtener duraciÃ³n esperada desde el contrato del sondaje
                 # Same logic as above: for non-admin users prefer their contrato.duracion_turno
                 if request.user.can_manage_all_contracts():
                     duracion_esperada = float(sondaje.contrato.duracion_turno or 0)
@@ -1670,7 +1677,7 @@ def crear_turno_completo(request, pk=None):
                     turno.estado = 'COMPLETADO'
                     turno.save(update_fields=['estado'])
             except Exception:
-                # No bloquear el flujo si falla esta comprobación
+                # No bloquear el flujo si falla esta comprobaciÃ³n
                 pass
             return redirect('listar-turnos')
             
@@ -1678,7 +1685,7 @@ def crear_turno_completo(request, pk=None):
             messages.error(request, f'Error al crear turno: {str(e)}')
             return redirect('crear-turno-completo')
     
-    # GET request - si es modo edición pre-popular datos
+    # GET request - si es modo ediciÃ³n pre-popular datos
     context = get_context_data(request)
     if pk:
         turno = get_object_or_404(Turno, pk=pk)
@@ -1743,12 +1750,12 @@ def crear_turno_completo(request, pk=None):
             avance = TurnoAvance.objects.filter(turno=turno).first()
             metros = float(avance.metros_perforados) if avance else 0
 
-        # añadir datos al contexto serializados
+        # aÃ±adir datos al contexto serializados
         import json as _json
         # Asegurar que el conjunto de tipos de actividad presente en la plantilla
         # incluya las actividades ya asociadas al turno (si las hubiera). Esto
-        # evita que, al editar un turno, el <select> quede vacío si la actividad
-        # no está asignada al contrato actual.
+        # evita que, al editar un turno, el <select> quede vacÃ­o si la actividad
+        # no estÃ¡ asignada al contrato actual.
         try:
             actividad_ids = [int(a['actividad_id']) for a in actividades if a.get('actividad_id')]
             if actividad_ids:
@@ -1761,7 +1768,7 @@ def crear_turno_completo(request, pk=None):
         except Exception:
             pass
 
-        # Cuando exista lectura de horómetro, exponerla; si no, usar hora ISO para prefill
+        # Cuando exista lectura de horÃ³metro, exponerla; si no, usar hora ISO para prefill
         _maquina_estado = getattr(turno, 'maquina_estado', None)
         edit_h_ini = ''
         edit_h_fin = ''
@@ -1814,7 +1821,7 @@ def convert_to_time(time_str):
         return None
     
     try:
-        # Si ya es un objeto time, devolverlo tal como está
+        # Si ya es un objeto time, devolverlo tal como estÃ¡
         if isinstance(time_str, time):
             return time_str
             
@@ -1856,7 +1863,7 @@ def get_context_data(request):
             'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
         )
     
-    # Actividades: usar cache si es admin, o relación contrato si es usuario normal
+    # Actividades: usar cache si es admin, o relaciÃ³n contrato si es usuario normal
     if request.user.can_manage_all_contracts():
         # Intentar obtener de cache, si no existe hacer query
         tipos_actividad_data = cache.get('tipos_actividad_all')
@@ -1873,13 +1880,13 @@ def get_context_data(request):
             except Exception:
                 tipos_actividad_qs = TipoActividad.objects.none()
     
-    # Tipos de turno: usar cache (datos estáticos, 2 registros)
+    # Tipos de turno: usar cache (datos estÃ¡ticos, 2 registros)
     tipos_turno_data = cache.get('tipos_turno_all')
     if tipos_turno_data is None:
         tipos_turno_data = list(TipoTurno.objects.values('id', 'nombre'))
         cache.set('tipos_turno_all', tipos_turno_data, timeout=86400)  # 24 horas
     
-    # Unidades de medida: usar cache (datos estáticos, 1 registro)
+    # Unidades de medida: usar cache (datos estÃ¡ticos, 1 registro)
     unidades_data = cache.get('unidades_medida_all')
     if unidades_data is None:
         unidades_data = list(UnidadMedida.objects.values('id', 'nombre', 'simbolo'))
@@ -1905,13 +1912,13 @@ def get_context_data(request):
 
 @login_required
 def api_create_actividad(request):
-    """API pequeña para crear un TipoActividad desde un modal (POST: {'nombre': '...'}).
+    """API pequeÃ±a para crear un TipoActividad desde un modal (POST: {'nombre': '...'}).
     Retorna JSON {'ok': True, 'id': x, 'nombre': '...'} o {'ok': False, 'error': '...'}
     """
     if request.method != 'POST':
-        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+        return JsonResponse({'ok': False, 'error': 'MÃ©todo no permitido'}, status=405)
 
-    # Permisos: solo usuarios con contrato pueden crear (ajustar según reglas reales)
+    # Permisos: solo usuarios con contrato pueden crear (ajustar segÃºn reglas reales)
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'No autenticado'}, status=403)
 
@@ -1927,7 +1934,7 @@ def api_create_actividad(request):
             if not request.user.can_manage_all_contracts() and getattr(request.user, 'contrato', None):
                 request.user.contrato.actividades.add(actividad)
         except Exception:
-            # No bloquear la creación por problemas secundarios en la asignación M2M
+            # No bloquear la creaciÃ³n por problemas secundarios en la asignaciÃ³n M2M
             pass
         return JsonResponse({'ok': True, 'id': actividad.id, 'nombre': actividad.nombre})
     except Exception as e:
@@ -1946,7 +1953,7 @@ def listar_turnos(request):
             'id', 'nombre_sondaje', 'contrato'
         )
     
-    # Aplicar filtros de búsqueda
+    # Aplicar filtros de bÃºsqueda
     filtros = {
         'sondaje': request.GET.get('sondaje', ''),
         'fecha_desde': request.GET.get('fecha_desde', ''),
@@ -1974,11 +1981,11 @@ def listar_turnos(request):
         'trabajadores_turno__trabajador',
     ).order_by('-fecha', '-id')
     
-    # Agregar otros prefetch según los nombres reales de tus modelos
+    # Agregar otros prefetch segÃºn los nombres reales de tus modelos
     try:
         # TurnoAvance declara related_name='avance' en el modelo, es OneToOne -> usar select_related
         turnos = turnos.select_related('avance')
-        # Anotar avance_metros desde TurnoAvance para evitar errores cuando no exista la relación
+        # Anotar avance_metros desde TurnoAvance para evitar errores cuando no exista la relaciÃ³n
         from django.db.models import OuterRef, Subquery, DecimalField
         avance_sq = TurnoAvance.objects.filter(turno=OuterRef('pk')).values('metros_perforados')[:1]
         turnos = turnos.annotate(avance_metros=Subquery(avance_sq, output_field=DecimalField()))
@@ -1986,13 +1993,13 @@ def listar_turnos(request):
         # Si el nombre difiere en tu modelo, ignorar y continuar
         pass
     
-    # Estadísticas
+    # EstadÃ­sticas
     total_turnos = turnos.count()
     
     # Metros con nombre correcto del modelo
     metros_total = 0
     try:
-        # Ajustar según el nombre real de tu modelo de avance
+        # Ajustar segÃºn el nombre real de tu modelo de avance
         from django.db.models import Sum
         metros_result = TurnoAvance.objects.filter(
             turno__in=turnos
@@ -2009,7 +2016,7 @@ def listar_turnos(request):
     # Promedio
     promedio_avance = metros_total / total_turnos if total_turnos > 0 else 0
     
-    # Paginación
+    # PaginaciÃ³n
     from django.core.paginator import Paginator
     paginator = Paginator(turnos, 20)
     page_number = request.GET.get('page')
@@ -2107,7 +2114,7 @@ class AbastecimientoListView(AdminOrContractFilterMixin, ListView):
         context['familias'] = Abastecimiento.FAMILIA_CHOICES
         context['filtros'] = self.request.GET
         
-        # Estadísticas rápidas
+        # EstadÃ­sticas rÃ¡pidas
         queryset = self.get_queryset()
         context['total_registros'] = queryset.count()
         context['valor_total'] = queryset.aggregate(
@@ -2212,7 +2219,7 @@ def importar_abastecimiento_excel(request):
         excel_file = request.FILES['excel_file']
         delete_existing = request.POST.get('delete_existing', 'on') == 'on'
         
-        # Validar extensión
+        # Validar extensiÃ³n
         if not excel_file.name.endswith(('.xlsx', '.xls')):
             messages.error(request, 'El archivo debe ser formato Excel (.xlsx o .xls)')
             return redirect('importar-abastecimiento')
@@ -2222,7 +2229,7 @@ def importar_abastecimiento_excel(request):
         result = importer.process_excel(excel_file, delete_existing)
         
         if result['success']:
-            mensaje_principal = f"Importación completada: {result['success_count']} registros creados"
+            mensaje_principal = f"ImportaciÃ³n completada: {result['success_count']} registros creados"
             
             if result['deleted_count'] > 0:
                 mensaje_principal += f", {result['deleted_count']} registros anteriores eliminados"
@@ -2232,7 +2239,7 @@ def importar_abastecimiento_excel(request):
             
             messages.success(request, mensaje_principal)
             
-            # Mostrar información adicional
+            # Mostrar informaciÃ³n adicional
             if result['meses_procesados']:
                 messages.info(
                     request,
@@ -2247,20 +2254,20 @@ def importar_abastecimiento_excel(request):
             
             # Mostrar errores si los hay
             if result['errors']:
-                for error in result['errors'][:10]:  # Mostrar máximo 10 errores
+                for error in result['errors'][:10]:  # Mostrar mÃ¡ximo 10 errores
                     messages.warning(request, error)
                     
                 if len(result['errors']) > 10:
                     messages.warning(
                         request,
-                        f"... y {len(result['errors']) - 10} errores más"
+                        f"... y {len(result['errors']) - 10} errores mÃ¡s"
                     )
         else:
-            messages.error(request, f"Error en importación: {result['error']}")
+            messages.error(request, f"Error en importaciÃ³n: {result['error']}")
             
         return redirect('abastecimiento-list')
     
-    # GET - Mostrar formulario de importación
+    # GET - Mostrar formulario de importaciÃ³n
     context = {
         'is_system_admin': request.user.can_manage_all_contracts(),
         'accessible_contracts': request.user.get_accessible_contracts()
@@ -2531,7 +2538,7 @@ def reporte_metraje_complementos(request):
         messages.error(request, "No tiene permisos para ver este reporte")
         return redirect('dashboard')
     
-    # Obtener parámetros de filtro
+    # Obtener parÃ¡metros de filtro
     contrato_id = request.GET.get('contrato')
     tipo_complemento_id = request.GET.get('tipo_complemento')
     codigo_serie = request.GET.get('codigo_serie')
@@ -2576,7 +2583,7 @@ def reporte_metraje_complementos(request):
         metros_promedio=models.Avg('metros_turno_calc')
     ).order_by('-total_metros')
     
-    # Estadísticas generales
+    # EstadÃ­sticas generales
     totales = complementos_query.aggregate(
         total_metros_general=Sum('metros_turno_calc'),
         total_registros=Count('id'),
@@ -2610,12 +2617,12 @@ def reporte_metraje_complementos(request):
 
 
 # ===============================
-# METAS DE MÁQUINAS
+# METAS DE MÃQUINAS
 # ===============================
 
 @login_required
 def metas_maquina_list(request):
-    """Lista de metas de máquinas con cumplimiento en tiempo real"""
+    """Lista de metas de mÃ¡quinas con cumplimiento en tiempo real"""
     
     # Filtros
     contrato_id = request.GET.get('contrato')
@@ -2633,7 +2640,7 @@ def metas_maquina_list(request):
     if not request.user.can_manage_all_contracts():
         metas = metas.filter(contrato=request.user.contrato)
     
-    # Aplicar filtros de búsqueda
+    # Aplicar filtros de bÃºsqueda
     if contrato_id:
         metas = metas.filter(contrato_id=contrato_id)
     
@@ -2651,14 +2658,14 @@ def metas_maquina_list(request):
     
     metas = metas.order_by('-año', '-mes', 'contrato__nombre_contrato', 'maquina__nombre')
     
-    # Calcular métricas de cumplimiento para cada meta
+    # Calcular mÃ©tricas de cumplimiento para cada meta
     metas_con_cumplimiento = []
     for meta in metas:
         fecha_inicio = meta.get_fecha_inicio_periodo()
         fecha_fin = meta.get_fecha_fin_periodo()
         
-        # Calcular metros reales perforados en el período
-        # Nota: el campo 'estado' está en el modelo Turno, no en TurnoAvance
+        # Calcular metros reales perforados en el perÃ­odo
+        # Nota: el campo 'estado' estÃ¡ en el modelo Turno, no en TurnoAvance
         turnos_en_periodo = TurnoAvance.objects.filter(
             turno__maquina=meta.maquina,
             turno__contrato=meta.contrato,
@@ -2692,10 +2699,10 @@ def metas_maquina_list(request):
             estado_cumplimiento = 'BAJO'
             badge_class = 'warning'
         else:
-            estado_cumplimiento = 'CRÍTICO'
+            estado_cumplimiento = 'CRÃTICO'
             badge_class = 'danger'
         
-        # Determinar si el período está activo
+        # Determinar si el perÃ­odo estÃ¡ activo
         hoy = date.today()
         if hoy < fecha_inicio:
             estado_periodo = 'FUTURO'
@@ -2730,7 +2737,7 @@ def metas_maquina_list(request):
     if not request.user.can_manage_all_contracts():
         maquinas = maquinas.filter(contrato=request.user.contrato)
     
-    # Años disponibles (desde 2024 hasta año actual + 1)
+    # años disponibles (desde 2024 hasta año actual + 1)
     año_actual = date.today().year
     años_disponibles = range(2024, año_actual + 2)
     
@@ -2761,7 +2768,7 @@ def metas_maquina_list(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def metas_maquina_create(request):
-    """Crear nueva meta de máquina"""
+    """Crear nueva meta de mÃ¡quina"""
     
     if request.method == 'POST':
         contrato_id = request.POST.get('contrato')
@@ -2831,7 +2838,7 @@ def metas_maquina_create(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def metas_maquina_edit(request, pk):
-    """Editar meta de máquina existente"""
+    """Editar meta de mÃ¡quina existente"""
     
     meta = get_object_or_404(MetaMaquina, pk=pk)
     
@@ -2912,7 +2919,7 @@ def metas_maquina_edit(request, pk):
 @login_required
 @require_http_methods(["POST"])
 def metas_maquina_delete(request, pk):
-    """Eliminar meta de máquina"""
+    """Eliminar meta de mÃ¡quina"""
     
     meta = get_object_or_404(MetaMaquina, pk=pk)
     
@@ -2935,7 +2942,7 @@ def metas_maquina_delete(request, pk):
 @login_required
 @require_http_methods(["GET", "POST"])
 def metas_maquina_gestionar(request):
-    """Gestionar metas de todas las máquinas de un contrato en una sola vista"""
+    """Gestionar metas de todas las mÃ¡quinas de un contrato en una sola vista"""
     
     # Obtener contrato seleccionado
     contrato_id = request.GET.get('contrato') or request.POST.get('contrato')
@@ -2948,7 +2955,7 @@ def metas_maquina_gestionar(request):
     if not mes:
         mes = str(date.today().month)
     
-    # Filtrar contratos según permisos
+    # Filtrar contratos segÃºn permisos
     contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
     if not request.user.can_manage_all_contracts():
         contratos = contratos.filter(id=request.user.contrato_id)
@@ -2975,7 +2982,7 @@ def metas_maquina_gestionar(request):
         if request.method == 'POST':
             try:
                 maquinas = Maquina.objects.filter(contrato=contrato, estado='OPERATIVO')
-                # Obtener servicio común (si se especifica)
+                # Obtener servicio comÃºn (si se especifica)
                 servicio_id = request.POST.get('servicio')
                 servicio = None
                 if servicio_id:
@@ -2995,7 +3002,7 @@ def metas_maquina_gestionar(request):
                     
                     # Solo procesar si hay un valor de meta
                     if meta_metros and float(meta_metros) > 0:
-                        # Verificar si existe una meta para esta máquina, año y mes
+                        # Verificar si existe una meta para esta mÃ¡quina, año y mes
                         if meta_id:
                             # Actualizar meta existente
                             meta = MetaMaquina.objects.get(pk=meta_id)
@@ -3006,7 +3013,7 @@ def metas_maquina_gestionar(request):
                             meta.save()
                             metas_actualizadas += 1
                         else:
-                            # Verificar si ya existe una meta para este período
+                            # Verificar si ya existe una meta para este perÃ­odo
                             meta_existente = MetaMaquina.objects.filter(
                                 contrato=contrato,
                                 maquina=maquina,
@@ -3049,20 +3056,20 @@ def metas_maquina_gestionar(request):
                 else:
                     messages.info(request, 'No se realizaron cambios')
                 
-                # Redirigir para evitar reenvío de formulario
+                # Redirigir para evitar reenvÃ­o de formulario
                 return redirect(f"{request.path}?contrato={contrato_id}&año={año}&mes={mes}")
                 
             except Exception as e:
                 messages.error(request, f'Error al guardar metas: {str(e)}')
         
         # GET - Mostrar formulario
-        # Obtener todas las máquinas del contrato
+        # Obtener todas las mÃ¡quinas del contrato
         maquinas = Maquina.objects.filter(
             contrato=contrato,
             estado='OPERATIVO'
         ).order_by('nombre')
         
-        # Calcular período
+        # Calcular perÃ­odo
         from datetime import datetime
         from dateutil.relativedelta import relativedelta
         
@@ -3074,7 +3081,7 @@ def metas_maquina_gestionar(request):
         fecha_inicio = datetime(mes_anterior.year, mes_anterior.month, 26).date()
         fecha_fin = datetime(año_int, mes_int, 25).date()
         
-        # Para cada máquina, obtener su meta y metraje real
+        # Para cada mÃ¡quina, obtener su meta y metraje real
         for maquina in maquinas:
             # Buscar meta existente
             meta = MetaMaquina.objects.filter(
@@ -3106,7 +3113,7 @@ def metas_maquina_gestionar(request):
             if meta and meta.meta_metros > 0:
                 porcentaje_cumplimiento = (metros_reales / meta.meta_metros) * Decimal('100')
             
-            # Calcular valorización si hay meta con servicio
+            # Calcular valorizaciÃ³n si hay meta con servicio
             valorizacion = None
             if meta and meta.servicio:
                 valorizacion = meta.calcular_valorizacion_completa(metros_reales, fecha_fin)
@@ -3123,7 +3130,7 @@ def metas_maquina_gestionar(request):
                 'valorizacion': valorizacion,
             })
     
-    # Años disponibles
+    # años disponibles
     año_actual = date.today().year
     años_disponibles = range(2024, año_actual + 2)
     
@@ -3134,7 +3141,7 @@ def metas_maquina_gestionar(request):
         (9, 'Septiembre'), (10, 'Octubre'), (11, 'Noviembre'), (12, 'Diciembre')
     ]
     
-    # Calcular período para mostrar
+    # Calcular perÃ­odo para mostrar
     periodo_texto = ''
     if año and mes:
         from datetime import datetime
@@ -3185,7 +3192,7 @@ def metas_maquina_gestionar(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def metas_maquina_dividir(request, pk):
-    """Dividir meta existente en dos períodos con diferentes valores"""
+    """Dividir meta existente en dos perÃ­odos con diferentes valores"""
     
     meta_original = get_object_or_404(MetaMaquina, pk=pk)
     
@@ -3195,7 +3202,7 @@ def metas_maquina_dividir(request, pk):
             messages.error(request, 'No tienes permisos para modificar esta meta')
             return redirect('metas-maquina-list')
     
-    # Calcular período original
+    # Calcular perÃ­odo original
     fecha_inicio_original = meta_original.get_fecha_inicio_periodo()
     fecha_fin_original = meta_original.get_fecha_fin_periodo()
     
@@ -3205,19 +3212,19 @@ def metas_maquina_dividir(request, pk):
             nueva_meta_metros = request.POST.get('nueva_meta_metros')
             
             if not fecha_division or not nueva_meta_metros:
-                messages.error(request, 'Debe ingresar fecha de división y nueva meta')
+                messages.error(request, 'Debe ingresar fecha de divisiÃ³n y nueva meta')
                 return redirect('metas-maquina-dividir', pk=pk)
             
             from datetime import datetime, timedelta
             fecha_division = datetime.strptime(fecha_division, '%Y-%m-%d').date()
             nueva_meta_metros = Decimal(nueva_meta_metros)
             
-            # Validar que la fecha esté dentro del período
+            # Validar que la fecha estÃ© dentro del perÃ­odo
             if fecha_division <= fecha_inicio_original or fecha_division > fecha_fin_original:
-                messages.error(request, f'La fecha de división debe estar entre {fecha_inicio_original} y {fecha_fin_original}')
+                messages.error(request, f'La fecha de divisiÃ³n debe estar entre {fecha_inicio_original} y {fecha_fin_original}')
                 return redirect('metas-maquina-dividir', pk=pk)
             
-            # Calcular metros ya perforados hasta la fecha de división
+            # Calcular metros ya perforados hasta la fecha de divisiÃ³n
             turnos_periodo1 = TurnoAvance.objects.filter(
                 turno__maquina=meta_original.maquina,
                 turno__contrato=meta_original.contrato,
@@ -3227,13 +3234,13 @@ def metas_maquina_dividir(request, pk):
             )
             metros_periodo1 = turnos_periodo1.aggregate(total=Sum('metros_perforados'))['total'] or Decimal('0')
             
-            # 1. Desactivar meta original y ajustar su período
+            # 1. Desactivar meta original y ajustar su perÃ­odo
             meta_original.fecha_fin = fecha_division - timedelta(days=1)
             meta_original.activo = False
             meta_original.observaciones = (meta_original.observaciones or '') + f' [Dividida el {date.today()}. Real: {metros_periodo1}m]'
             meta_original.save()
             
-            # 2. Crear nueva meta para el período restante
+            # 2. Crear nueva meta para el perÃ­odo restante
             nueva_meta = MetaMaquina.objects.create(
                 contrato=meta_original.contrato,
                 maquina=meta_original.maquina,
@@ -3250,8 +3257,8 @@ def metas_maquina_dividir(request, pk):
             messages.success(
                 request, 
                 f'Meta dividida exitosamente. '
-                f'Período 1: {meta_original.get_fecha_inicio_periodo()} a {meta_original.fecha_fin} ({meta_original.meta_metros}m, Real: {metros_periodo1}m). '
-                f'Período 2: {fecha_division} a {nueva_meta.fecha_fin} ({nueva_meta_metros}m)'
+                f'PerÃ­odo 1: {meta_original.get_fecha_inicio_periodo()} a {meta_original.fecha_fin} ({meta_original.meta_metros}m, Real: {metros_periodo1}m). '
+                f'PerÃ­odo 2: {fecha_division} a {nueva_meta.fecha_fin} ({nueva_meta_metros}m)'
             )
             return redirect('metas-maquina-list')
             
@@ -3261,7 +3268,7 @@ def metas_maquina_dividir(request, pk):
             messages.error(request, f'Error al dividir meta: {str(e)}')
     
     # GET - Mostrar formulario
-    # Calcular metros reales del período completo
+    # Calcular metros reales del perÃ­odo completo
     turnos_periodo = TurnoAvance.objects.filter(
         turno__maquina=meta_original.maquina,
         turno__contrato=meta_original.contrato,
@@ -3280,7 +3287,7 @@ def metas_maquina_dividir(request, pk):
     else:
         promedio_diario = Decimal('0')
     
-    # Proyección
+    # ProyecciÃ³n
     dias_totales = (fecha_fin_original - fecha_inicio_original).days + 1
     proyeccion = promedio_diario * dias_totales if promedio_diario > 0 else Decimal('0')
     
@@ -3328,7 +3335,7 @@ def asignaciones_equipos_list(request):
     if estado_asignacion:
         asignaciones = asignaciones.filter(estado=estado_asignacion)
     
-    # Ordenar por fecha de asignación (más recientes primero)
+    # Ordenar por fecha de asignaciÃ³n (mÃ¡s recientes primero)
     asignaciones = asignaciones.select_related(
         'trabajador', 'equipo', 'organigrama_semanal'
     ).order_by('-fecha_asignacion', 'trabajador__apellidos')
@@ -3362,7 +3369,7 @@ def asignaciones_equipos_list(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def asignacion_equipo_create(request):
-    """Crear nueva asignación de equipo"""
+    """Crear nueva asignaciÃ³n de equipo"""
     
     # Verificar contrato
     if not request.user.can_manage_all_contracts() and not request.user.contrato:
@@ -3389,13 +3396,13 @@ def asignacion_equipo_create(request):
                 return redirect('asignaciones-equipos-list')
             
             except Exception as e:
-                messages.error(request, f'Error al crear asignación: {str(e)}')
+                messages.error(request, f'Error al crear asignaciÃ³n: {str(e)}')
     else:
         form = AsignacionEquipoForm(user=request.user)
     
     context = {
         'form': form,
-        'title': 'Nueva Asignación de Equipo',
+        'title': 'Nueva AsignaciÃ³n de Equipo',
     }
     
     return render(request, 'drilling/asignaciones_equipos/form.html', context)
@@ -3404,14 +3411,14 @@ def asignacion_equipo_create(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def asignacion_equipo_update(request, pk):
-    """Actualizar asignación de equipo existente"""
+    """Actualizar asignaciÃ³n de equipo existente"""
     
     asignacion = get_object_or_404(AsignacionEquipo, pk=pk)
     
     # Verificar permisos
     if not request.user.can_manage_all_contracts():
         if asignacion.equipo.contrato != request.user.contrato:
-            messages.error(request, 'No tienes permisos para modificar esta asignación.')
+            messages.error(request, 'No tienes permisos para modificar esta asignaciÃ³n.')
             return redirect('asignaciones-equipos-list')
     
     estado_anterior = asignacion.estado
@@ -3422,30 +3429,30 @@ def asignacion_equipo_update(request, pk):
             try:
                 asignacion = form.save()
                 
-                # Si cambió el estado a DEVUELTO, actualizar equipo
+                # Si cambiÃ³ el estado a DEVUELTO, actualizar equipo
                 if estado_anterior != 'DEVUELTO' and asignacion.estado == 'DEVUELTO':
                     asignacion.equipo.estado = 'DISPONIBLE'
                     asignacion.equipo.save()
                     messages.info(request, f'Equipo {asignacion.equipo.codigo_interno} marcado como DISPONIBLE')
                 
-                # Si cambió de DEVUELTO a ACTIVO, marcar equipo como ASIGNADO
+                # Si cambiÃ³ de DEVUELTO a ACTIVO, marcar equipo como ASIGNADO
                 elif estado_anterior == 'DEVUELTO' and asignacion.estado == 'ACTIVO':
                     asignacion.equipo.estado = 'ASIGNADO'
                     asignacion.equipo.save()
                     messages.info(request, f'Equipo {asignacion.equipo.codigo_interno} marcado como ASIGNADO')
                 
-                messages.success(request, 'Asignación actualizada exitosamente')
+                messages.success(request, 'AsignaciÃ³n actualizada exitosamente')
                 return redirect('asignaciones-equipos-list')
             
             except Exception as e:
-                messages.error(request, f'Error al actualizar asignación: {str(e)}')
+                messages.error(request, f'Error al actualizar asignaciÃ³n: {str(e)}')
     else:
         form = AsignacionEquipoForm(instance=asignacion, user=request.user)
     
     context = {
         'form': form,
         'asignacion': asignacion,
-        'title': 'Editar Asignación de Equipo',
+        'title': 'Editar AsignaciÃ³n de Equipo',
     }
     
     return render(request, 'drilling/asignaciones_equipos/form.html', context)
@@ -3454,14 +3461,14 @@ def asignacion_equipo_update(request, pk):
 @login_required
 @require_http_methods(["POST"])
 def asignacion_equipo_delete(request, pk):
-    """Eliminar asignación de equipo"""
+    """Eliminar asignaciÃ³n de equipo"""
     
     asignacion = get_object_or_404(AsignacionEquipo, pk=pk)
     
     # Verificar permisos
     if not request.user.can_manage_all_contracts():
         if asignacion.equipo.contrato != request.user.contrato:
-            messages.error(request, 'No tienes permisos para eliminar esta asignación.')
+            messages.error(request, 'No tienes permisos para eliminar esta asignaciÃ³n.')
             return redirect('asignaciones-equipos-list')
     
     try:
@@ -3477,22 +3484,22 @@ def asignacion_equipo_delete(request, pk):
         
         messages.success(
             request, 
-            f'Asignación eliminada: {equipo_codigo} de {trabajador_nombre}'
+            f'AsignaciÃ³n eliminada: {equipo_codigo} de {trabajador_nombre}'
         )
     except Exception as e:
-        messages.error(request, f'Error al eliminar asignación: {str(e)}')
+        messages.error(request, f'Error al eliminar asignaciÃ³n: {str(e)}')
     
     return redirect('asignaciones-equipos-list')
 
 
 # ===============================
-# GESTIÓN DE EQUIPOS
+# GESTIÃ“N DE EQUIPOS
 # ===============================
 
 @login_required
 @require_http_methods(["GET"])
 def equipos_dashboard(request):
-    """Dashboard de equipos con estadísticas y acciones rápidas"""
+    """Dashboard de equipos con estadÃ­sticas y acciones rÃ¡pidas"""
     
     # Obtener contrato del usuario
     if request.user.can_manage_all_contracts():
@@ -3504,7 +3511,7 @@ def equipos_dashboard(request):
             return redirect('home')
         equipos = Equipo.objects.filter(contrato=contrato)
     
-    # Estadísticas generales
+    # EstadÃ­sticas generales
     stats = {
         'total': equipos.count(),
         'disponibles': equipos.filter(estado='DISPONIBLE').count(),
@@ -3597,11 +3604,11 @@ def equipo_create(request):
                 observaciones=request.POST.get('observaciones', '')
             )
             
-            messages.success(request, f'✅ Equipo {equipo.codigo_interno} creado exitosamente')
+            messages.success(request, f'âœ… Equipo {equipo.codigo_interno} creado exitosamente')
             return redirect('equipos-list')
             
         except Exception as e:
-            messages.error(request, f'❌ Error al crear equipo: {str(e)}')
+            messages.error(request, f'âŒ Error al crear equipo: {str(e)}')
     
     # GET
     if request.user.has_access_to_all_contracts():
@@ -3646,11 +3653,11 @@ def equipo_update(request, pk):
             
             equipo.save()
             
-            messages.success(request, f'✅ Equipo {equipo.codigo_interno} actualizado exitosamente')
+            messages.success(request, f'âœ… Equipo {equipo.codigo_interno} actualizado exitosamente')
             return redirect('equipos-list')
             
         except Exception as e:
-            messages.error(request, f'❌ Error al actualizar equipo: {str(e)}')
+            messages.error(request, f'âŒ Error al actualizar equipo: {str(e)}')
     
     context = {
         'equipo': equipo,
@@ -3677,9 +3684,9 @@ def equipo_delete(request, pk):
         try:
             codigo = equipo.codigo_interno
             equipo.delete()
-            messages.success(request, f'✅ Equipo {codigo} eliminado exitosamente')
+            messages.success(request, f'âœ… Equipo {codigo} eliminado exitosamente')
         except Exception as e:
-            messages.error(request, f'❌ Error al eliminar equipo: {str(e)}')
+            messages.error(request, f'âŒ Error al eliminar equipo: {str(e)}')
     
     return redirect('equipos-list')
 
@@ -3732,7 +3739,7 @@ def precios_unitarios_list(request):
     
     servicios = TipoActividad.objects.filter(es_cobrable=True).order_by('nombre')
     
-    # Añadir estado de vigencia a cada precio
+    # AÃ±adir estado de vigencia a cada precio
     hoy = date.today()
     precios_data = []
     for precio in precios:
@@ -3899,14 +3906,14 @@ def precios_unitarios_delete(request, pk):
 
 @login_required
 def metas_valorizacion_reporte(request):
-    """Reporte consolidado de valorización de metas"""
+    """Reporte consolidado de valorizaciÃ³n de metas"""
     
     # Filtros
     contrato_id = request.GET.get('contrato')
     año = request.GET.get('año') or str(date.today().year)
     mes = request.GET.get('mes') or str(date.today().month)
     
-    # Filtrar contratos según permisos
+    # Filtrar contratos segÃºn permisos
     contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
     if not request.user.can_manage_all_contracts():
         contratos = contratos.filter(id=request.user.contrato_id)
@@ -3935,7 +3942,7 @@ def metas_valorizacion_reporte(request):
                 messages.error(request, 'No tienes permisos para ver este contrato')
                 return redirect('metas-valorizacion-reporte')
         
-        # Obtener metas del período
+        # Obtener metas del perÃ­odo
         from datetime import datetime
         from dateutil.relativedelta import relativedelta
         
@@ -3968,7 +3975,7 @@ def metas_valorizacion_reporte(request):
                 total=Sum('metros_perforados')
             )['total'] or Decimal('0')
             
-            # Calcular valorización
+            # Calcular valorizaciÃ³n
             valorizacion = meta.calcular_valorizacion_completa(metros_reales, fecha_fin)
             
             if valorizacion['tiene_precio']:
@@ -4003,7 +4010,7 @@ def metas_valorizacion_reporte(request):
         
         resumen['diferencia_monto'] = resumen['total_real_monto'] - resumen['total_meta_monto']
     
-    # Años y meses
+    # años y meses
     año_actual = date.today().year
     años_disponibles = range(2024, año_actual + 2)
     meses = [
@@ -4030,7 +4037,7 @@ def metas_valorizacion_reporte(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def metas_maquina_dividir(request, pk):
-    """Dividir meta existente en dos períodos con diferentes valores"""
+    """Dividir meta existente en dos perÃ­odos con diferentes valores"""
     
     meta_original = get_object_or_404(MetaMaquina, pk=pk)
     
@@ -4040,7 +4047,7 @@ def metas_maquina_dividir(request, pk):
             messages.error(request, 'No tienes permisos para modificar esta meta')
             return redirect('metas-maquina-list')
     
-    # Calcular período original
+    # Calcular perÃ­odo original
     fecha_inicio_original = meta_original.get_fecha_inicio_periodo()
     fecha_fin_original = meta_original.get_fecha_fin_periodo()
     
@@ -4050,18 +4057,18 @@ def metas_maquina_dividir(request, pk):
             nueva_meta_metros = request.POST.get('nueva_meta_metros')
             
             if not fecha_division or not nueva_meta_metros:
-                messages.error(request, 'Debe ingresar fecha de división y nueva meta')
+                messages.error(request, 'Debe ingresar fecha de divisiÃ³n y nueva meta')
                 return redirect('metas-maquina-dividir', pk=pk)
             
             fecha_division = datetime.strptime(fecha_division, '%Y-%m-%d').date()
             nueva_meta_metros = Decimal(nueva_meta_metros)
             
-            # Validar que la fecha esté dentro del período
+            # Validar que la fecha estÃ© dentro del perÃ­odo
             if fecha_division <= fecha_inicio_original or fecha_division > fecha_fin_original:
-                messages.error(request, f'La fecha de división debe estar entre {fecha_inicio_original} y {fecha_fin_original}')
+                messages.error(request, f'La fecha de divisiÃ³n debe estar entre {fecha_inicio_original} y {fecha_fin_original}')
                 return redirect('metas-maquina-dividir', pk=pk)
             
-            # Calcular metros ya perforados hasta la fecha de división
+            # Calcular metros ya perforados hasta la fecha de divisiÃ³n
             turnos_periodo1 = TurnoAvance.objects.filter(
                 turno__maquina=meta_original.maquina,
                 turno__contrato=meta_original.contrato,
@@ -4071,13 +4078,13 @@ def metas_maquina_dividir(request, pk):
             )
             metros_periodo1 = turnos_periodo1.aggregate(total=Sum('metros_perforados'))['total'] or Decimal('0')
             
-            # 1. Desactivar meta original y ajustar su período
+            # 1. Desactivar meta original y ajustar su perÃ­odo
             meta_original.fecha_fin = fecha_division - timedelta(days=1)
             meta_original.activo = False
             meta_original.observaciones = (meta_original.observaciones or '') + f' [Dividida el {date.today()}. Real: {metros_periodo1}m]'
             meta_original.save()
             
-            # 2. Crear nueva meta para el período restante
+            # 2. Crear nueva meta para el perÃ­odo restante
             nueva_meta = MetaMaquina.objects.create(
                 contrato=meta_original.contrato,
                 maquina=meta_original.maquina,
@@ -4094,8 +4101,8 @@ def metas_maquina_dividir(request, pk):
             messages.success(
                 request, 
                 f'Meta dividida exitosamente. '
-                f'Período 1: {meta_original.get_fecha_inicio_periodo()} a {meta_original.fecha_fin} ({meta_original.meta_metros}m, Real: {metros_periodo1}m). '
-                f'Período 2: {fecha_division} a {nueva_meta.fecha_fin} ({nueva_meta_metros}m)'
+                f'PerÃ­odo 1: {meta_original.get_fecha_inicio_periodo()} a {meta_original.fecha_fin} ({meta_original.meta_metros}m, Real: {metros_periodo1}m). '
+                f'PerÃ­odo 2: {fecha_division} a {nueva_meta.fecha_fin} ({nueva_meta_metros}m)'
             )
             return redirect('metas-maquina-list')
             
@@ -4105,7 +4112,7 @@ def metas_maquina_dividir(request, pk):
             messages.error(request, f'Error al dividir meta: {str(e)}')
     
     # GET - Mostrar formulario
-    # Calcular metros reales del período completo
+    # Calcular metros reales del perÃ­odo completo
     turnos_periodo = TurnoAvance.objects.filter(
         turno__maquina=meta_original.maquina,
         turno__contrato=meta_original.contrato,
@@ -4124,7 +4131,7 @@ def metas_maquina_dividir(request, pk):
     else:
         promedio_diario = Decimal('0')
     
-    # Proyección
+    # ProyecciÃ³n
     dias_totales = (fecha_fin_original - fecha_inicio_original).days + 1
     proyeccion = promedio_diario * dias_totales if promedio_diario > 0 else Decimal('0')
     

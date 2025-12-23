@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import api_views
 from . import auth_views
+from . import views_gestion_proyectos
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
     guardar_asignaciones_masivas, marcar_stand_by, 
@@ -163,6 +164,9 @@ urlpatterns = [
     path('precios-unitarios/nuevo/', views.precios_unitarios_create, name='precios-unitarios-create'),
     path('precios-unitarios/<int:pk>/editar/', views.precios_unitarios_edit, name='precios-unitarios-edit'),
     path('precios-unitarios/<int:pk>/eliminar/', views.precios_unitarios_delete, name='precios-unitarios-delete'),
+    
+    # Gestión de Proyectos - Stock y Turnos
+    path('gestion-proyectos/stock-turnos/', views_gestion_proyectos.gestion_proyectos_stock_turnos, name='gestion-proyectos-stock-turnos'),
     
     # APIs
     path('api/abastecimiento/<int:pk>/', views.api_abastecimiento_detalle, name='api-abastecimiento-detalle'),
