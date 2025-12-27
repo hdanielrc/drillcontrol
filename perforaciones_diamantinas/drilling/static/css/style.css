@@ -858,9 +858,11 @@ small, .small, .text-muted {
     padding: 1.5rem 2rem;
     border-radius: var(--border-radius);
     margin-bottom: 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: wrap;
+    gap: 1rem;
     box-shadow: 0 4px 15px rgba(8, 65, 99, 0.3);
 }
 
@@ -905,96 +907,102 @@ small, .small, .text-muted {
 
 /* === PAGE HEADER CON ICONO (NUEVO SISTEMA) === */
 .page-header-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    color: white;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+    height: 60px !important;
+    border-radius: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.5rem !important;
+    color: white !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
 }
 
 .page-header-content {
-    flex: 1;
-    margin-left: 1.25rem;
+    flex: 1 !important;
+    margin-left: 1.25rem !important;
 }
 
 .page-header-content h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
+    margin: 0 !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
 }
 
 .page-header-content p {
-    margin: 0.25rem 0 0 0;
-    opacity: 0.85;
-    font-size: 0.9rem;
+    margin: 0.25rem 0 0 0 !important;
+    opacity: 0.85 !important;
+    font-size: 0.9rem !important;
 }
 
 .page-header-actions {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
+    display: flex !important;
+    gap: 0.75rem !important;
+    align-items: center !important;
 }
 
 /* === STATS GRID (NUEVO SISTEMA) === */
 .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.25rem;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+    gap: 1.25rem !important;
 }
 
 /* Stat Card - tanto dentro como fuera de stats-grid */
 .stat-card,
 .stats-grid .stat-card {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.25rem;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    border-left: 4px solid var(--primary-medium);
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    padding: 1.25rem !important;
+    background: white !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
+    border-left: 4px solid var(--primary-medium) !important;
     transition: all 0.3s ease;
 }
 
 .stat-card:hover,
 .stats-grid .stat-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12) !important;
 }
 
 .stat-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.25rem;
-    color: white;
-    flex-shrink: 0;
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    height: 50px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.25rem !important;
+    color: white !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
 }
 
 .stat-content {
-    flex: 1;
-    min-width: 0;
+    flex: 1 !important;
+    min-width: 0 !important;
 }
 
 .stat-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--primary-dark);
-    line-height: 1.2;
+    font-size: 1.75rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-dark) !important;
+    line-height: 1.2 !important;
 }
 
 .stat-label {
-    font-size: 0.85rem;
-    color: #6c757d;
-    font-weight: 500;
+    font-size: 0.85rem !important;
+    color: #6c757d !important;
+    font-weight: 500 !important;
 }
 
 /* === LIST SECTION (NUEVO SISTEMA) === */
