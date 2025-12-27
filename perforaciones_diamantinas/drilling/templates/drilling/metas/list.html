@@ -4,150 +4,211 @@
 {% block title %}Metas de Máquinas{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-bullseye"></i> Metas de Máquinas</h2>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-bullseye"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Metas de Máquinas</h2>
+        <p>Control de metas de perforación y cumplimiento por período</p>
+    </div>
+    <div class="page-header-actions">
         <a href="{% url 'metas-maquina-create' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Nueva Meta
+            <i class="fas fa-plus me-1"></i> Nueva Meta
         </a>
     </div>
+</div>
 
-    <!-- Filtros -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros</h5>
+<!-- Stats Cards -->
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-bullseye"></i>
         </div>
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-3">
-                    <label for="contrato" class="form-label">Contrato</label>
-                    <select name="contrato" id="contrato" class="form-select">
-                        <option value="">Todos</option>
-                        {% for contrato in contratos %}
-                            <option value="{{ contrato.id }}" {% if filtros.contrato_id|stringformat:"s" == contrato.id|stringformat:"s" %}selected{% endif %}>
-                                {{ contrato.nombre_contrato }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="maquina" class="form-label">Máquina</label>
-                    <select name="maquina" id="maquina" class="form-select">
-                        <option value="">Todas</option>
-                        {% for maquina in maquinas %}
-                            <option value="{{ maquina.id }}" {% if filtros.maquina_id|stringformat:"s" == maquina.id|stringformat:"s" %}selected{% endif %}>
-                                {{ maquina.nombre }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-2">
-                    <label for="año" class="form-label">Año</label>
-                    <select name="año" id="año" class="form-select">
-                        <option value="">Todos</option>
-                        {% for año_item in años_disponibles %}
-                            <option value="{{ año_item }}" {% if filtros.año|stringformat:"s" == año_item|stringformat:"s" %}selected{% endif %}>
-                                {{ año_item }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-2">
-                    <label for="mes" class="form-label">Mes</label>
-                    <select name="mes" id="mes" class="form-select">
-                        <option value="">Todos</option>
-                        {% for mes_num, mes_nombre in meses %}
-                            <option value="{{ mes_num }}" {% if filtros.mes|stringformat:"s" == mes_num|stringformat:"s" %}selected{% endif %}>
-                                {{ mes_nombre }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-search"></i> Filtrar
-                    </button>
-                </div>
-            </form>
-            
-            <div class="form-check mt-3">
-                <input class="form-check-input" type="checkbox" name="activas" id="activas" value="1" 
-                       {% if filtros.solo_activas %}checked{% endif %} onchange="this.form.submit()">
-                <label class="form-check-label" for="activas">
-                    Solo mostrar metas activas
-                </label>
-            </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ metas_con_cumplimiento|length }}</div>
+            <div class="stat-label">Total Metas</div>
         </div>
     </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.cumplidas|default:0 }}</div>
+            <div class="stat-label">Cumplidas</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #FFC248, #e0a800);">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.en_progreso|default:0 }}</div>
+            <div class="stat-label">En Progreso</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.rezagadas|default:0 }}</div>
+            <div class="stat-label">Rezagadas</div>
+        </div>
+    </div>
+</div>
 
-    <!-- Tabla de Metas -->
-    <div class="card">
-        <div class="card-body">
-            {% if metas_con_cumplimiento %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+<!-- Filtros -->
+<div class="filter-section mb-4">
+    <div class="filter-header">
+        <i class="fas fa-filter"></i> Filtros de Búsqueda
+    </div>
+    <div class="filter-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="contrato" class="form-label fw-medium">Contrato</label>
+                <select name="contrato" id="contrato" class="form-select">
+                    <option value="">Todos</option>
+                    {% for contrato in contratos %}
+                        <option value="{{ contrato.id }}" {% if filtros.contrato_id|stringformat:"s" == contrato.id|stringformat:"s" %}selected{% endif %}>
+                            {{ contrato.nombre_contrato }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label for="maquina" class="form-label fw-medium">Máquina</label>
+                <select name="maquina" id="maquina" class="form-select">
+                    <option value="">Todas</option>
+                    {% for maquina in maquinas %}
+                        <option value="{{ maquina.id }}" {% if filtros.maquina_id|stringformat:"s" == maquina.id|stringformat:"s" %}selected{% endif %}>
+                            {{ maquina.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="año" class="form-label fw-medium">Año</label>
+                <select name="año" id="año" class="form-select">
+                    <option value="">Todos</option>
+                    {% for año_item in años_disponibles %}
+                        <option value="{{ año_item }}" {% if filtros.año|stringformat:"s" == año_item|stringformat:"s" %}selected{% endif %}>
+                            {{ año_item }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="mes" class="form-label fw-medium">Mes</label>
+                <select name="mes" id="mes" class="form-select">
+                    <option value="">Todos</option>
+                    {% for mes_num, mes_nombre in meses %}
+                        <option value="{{ mes_num }}" {% if filtros.mes|stringformat:"s" == mes_num|stringformat:"s" %}selected{% endif %}>
+                            {{ mes_nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-1"></i> Filtrar
+                </button>
+            </div>
+        </form>
+        
+        <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" name="activas" id="activas" value="1" 
+                   {% if filtros.solo_activas %}checked{% endif %} onchange="this.form.submit()">
+            <label class="form-check-label" for="activas">
+                Solo mostrar metas activas
+            </label>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Metas -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-list"></i> Listado de Metas
+        <span class="badge bg-secondary ms-2">{{ metas_con_cumplimiento|length }}</span>
+    </div>
+    <div class="list-body">
+        {% if metas_con_cumplimiento %}
+            <div class="table-responsive">
+                <table class="table table-enhanced">
+                    <thead>
+                        <tr>
+                            <th>Período</th>
+                            <th>Contrato</th>
+                            <th>Máquina</th>
+                            <th class="text-end">Meta (m)</th>
+                            <th class="text-end">Real (m)</th>
+                            <th>Cumplimiento</th>
+                            <th class="text-end">Brecha (m)</th>
+                            <th>Estado</th>
+                            <th class="text-center" style="width: 100px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in metas_con_cumplimiento %}
                             <tr>
-                                <th>Período</th>
-                                <th>Contrato</th>
-                                <th>Máquina</th>
-                                <th>Meta (m)</th>
-                                <th>Real (m)</th>
-                                <th>Cumplimiento</th>
-                                <th>Brecha (m)</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in metas_con_cumplimiento %}
-                                <tr>
-                                    <td>
-                                        <span class="badge bg-{{ item.periodo_badge }}">{{ item.estado_periodo }}</span><br>
-                                        <small class="text-muted">
-                                            {{ item.fecha_inicio|date:"d/m/Y" }} - {{ item.fecha_fin|date:"d/m/Y" }}
-                                        </small>
-                                        {% if item.meta.fecha_inicio %}
-                                            <br><small class="text-info">📅 Personalizado</small>
-                                        {% else %}
-                                            <br><small class="text-muted">📆 Mes Operativo</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ item.meta.contrato.nombre_contrato }}</td>
-                                    <td>
-                                        <strong>{{ item.meta.maquina.nombre }}</strong><br>
-                                        <small class="text-muted">{{ item.meta.maquina.tipo }}</small>
-                                    </td>
-                                    <td class="text-end">
-                                        <strong>{{ item.meta.meta_metros|floatformat:2 }}</strong>
-                                    </td>
-                                    <td class="text-end">
-                                        {{ item.metros_reales|floatformat:2 }}
-                                        <br><small class="text-muted">({{ item.total_turnos }} turnos)</small>
-                                    </td>
-                                    <td>
-                                        <div class="progress" style="height: 25px;">
-                                            <div class="progress-bar bg-{{ item.badge_class }}" 
-                                                 role="progressbar" 
-                                                 style="width: {{ item.porcentaje_cumplimiento|floatformat:0 }}%"
-                                                 aria-valuenow="{{ item.porcentaje_cumplimiento }}" 
-                                                 aria-valuemin="0" 
-                                                 aria-valuemax="100">
-                                                {{ item.porcentaje_cumplimiento|floatformat:1 }}%
-                                            </div>
+                                <td>
+                                    <span class="badge-status badge-status-{% if item.periodo_badge == 'success' %}active{% elif item.periodo_badge == 'warning' %}warning{% else %}info{% endif %}">
+                                        {{ item.estado_periodo }}
+                                    </span><br>
+                                    <small class="text-muted">
+                                        {{ item.fecha_inicio|date:"d/m/Y" }} - {{ item.fecha_fin|date:"d/m/Y" }}
+                                    </small>
+                                    {% if item.meta.fecha_inicio %}
+                                        <br><small class="text-info"><i class="fas fa-calendar-day me-1"></i>Personalizado</small>
+                                    {% else %}
+                                        <br><small class="text-muted"><i class="fas fa-calendar me-1"></i>Mes Operativo</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.meta.contrato.nombre_contrato }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="item-avatar item-avatar-sm me-2" style="background: linear-gradient(135deg, #0470AC, #084163);">
+                                            <i class="fas fa-cog"></i>
                                         </div>
-                                    </td>
-                                    <td class="text-end">
-                                        <span class="{% if item.brecha > 0 %}text-danger{% else %}text-success{% endif %}">
-                                            {{ item.brecha|floatformat:2 }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-{{ item.badge_class }}">
+                                        <div>
+                                            <strong>{{ item.meta.maquina.nombre }}</strong><br>
+                                            <small class="text-muted">{{ item.meta.maquina.tipo }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <strong>{{ item.meta.meta_metros|floatformat:2 }}</strong>
+                                </td>
+                                <td class="text-end">
+                                    {{ item.metros_reales|floatformat:2 }}
+                                    <br><small class="text-muted">({{ item.total_turnos }} turnos)</small>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 25px; border-radius: 12px;">
+                                        <div class="progress-bar bg-{{ item.badge_class }}" 
+                                             role="progressbar" 
+                                             style="width: {{ item.porcentaje_cumplimiento|floatformat:0 }}%"
+                                             aria-valuenow="{{ item.porcentaje_cumplimiento }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{ item.porcentaje_cumplimiento|floatformat:1 }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <span class="{% if item.brecha > 0 %}text-danger{% else %}text-success{% endif %} fw-bold">
+                                        {{ item.brecha|floatformat:2 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge-status badge-status-{% if item.badge_class == 'success' %}active{% elif item.badge_class == 'warning' %}warning{% else %}danger{% endif %}">
                                             {{ item.estado_cumplimiento }}
                                         </span>
                                         {% if not item.meta.activo %}

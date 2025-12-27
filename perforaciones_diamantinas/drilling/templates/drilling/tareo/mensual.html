@@ -4,150 +4,156 @@
 {% block title %}Tareo de Asistencia - {{ nombre_periodo }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <h2><i class="fas fa-calendar-check"></i> Tareo de Asistencia</h2>
-                
-                {% if contratos_disponibles %}
-                <div class="d-flex gap-2">
-                    <select class="form-select" id="selectContrato" onchange="cambiarContrato()">
-                        {% for c in contratos_disponibles %}
-                        <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
-                            {{ c.nombre_contrato }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-calendar-check"></i>
     </div>
+    <div class="page-header-content">
+        <h2>Tareo de Asistencia</h2>
+        <p>Control de asistencia y marcado de trabajadores</p>
+    </div>
+    {% if contratos_disponibles %}
+    <div class="page-header-actions">
+        <select class="form-select" id="selectContrato" onchange="cambiarContrato()" style="min-width: 200px;">
+            {% for c in contratos_disponibles %}
+            <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                {{ c.nombre_contrato }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+</div>
 
-    <!-- Navegación y controles -->
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <!-- Selector de modo de visualización -->
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label class="form-label fw-bold">Modo de Visualización:</label>
-                            <div class="btn-group" role="group">
-                                <input type="radio" class="btn-check" name="modo" id="modoSemana" value="semana" 
-                                       {% if modo == 'semana' %}checked{% endif %} onchange="cambiarModo('semana')">
-                                <label class="btn btn-outline-primary" for="modoSemana">
-                                    <i class="fas fa-calendar-week"></i> Semana
-                                </label>
-                                
-                                <input type="radio" class="btn-check" name="modo" id="modoQuincena" value="quincena" 
-                                       {% if modo == 'quincena' %}checked{% endif %} onchange="cambiarModo('quincena')">
-                                <label class="btn btn-outline-primary" for="modoQuincena">
-                                    <i class="fas fa-calendar-alt"></i> Quincena
-                                </label>
-                                
-                                <input type="radio" class="btn-check" name="modo" id="modoMes" value="mes" 
-                                       {% if modo == 'mes' %}checked{% endif %} onchange="cambiarModo('mes')">
-                                <label class="btn btn-outline-primary" for="modoMes">
-                                    <i class="fas fa-calendar"></i> Mes Completo
-                                </label>
-                                
-                                <input type="radio" class="btn-check" name="modo" id="modoPersonalizado" value="personalizado" 
-                                       {% if modo == 'personalizado' %}checked{% endif %} onchange="mostrarRangoPersonalizado()">
-                                <label class="btn btn-outline-primary" for="modoPersonalizado">
-                                    <i class="fas fa-calendar-day"></i> Personalizado
-                                </label>
-                            </div>
-                        </div>
-                    </div>
+<!-- Controles de Navegación -->
+<div class="filter-section mb-4">
+    <div class="filter-header">
+        <i class="fas fa-sliders-h"></i> Configuración de Período
+    </div>
+    <div class="filter-body">
+        <!-- Selector de modo de visualización -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <label class="form-label fw-medium">Modo de Visualización:</label>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="modo" id="modoSemana" value="semana" 
+                           {% if modo == 'semana' %}checked{% endif %} onchange="cambiarModo('semana')">
+                    <label class="btn btn-outline-primary" for="modoSemana">
+                        <i class="fas fa-calendar-week me-1"></i> Semana
+                    </label>
                     
-                    <!-- Rango personalizado (oculto por defecto) -->
-                    <div class="row mb-3" id="rangoPersonalizado" style="display: {% if modo == 'personalizado' %}flex{% else %}none{% endif %};">
-                        <div class="col-md-4">
-                            <label class="form-label">Fecha Inicio:</label>
-                            <input type="date" class="form-control" id="fechaInicio" value="{{ fecha_inicio|date:'Y-m-d' }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Fecha Fin:</label>
-                            <input type="date" class="form-control" id="fechaFin" value="{{ fecha_fin|date:'Y-m-d' }}">
-                        </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <button class="btn btn-primary" onclick="aplicarRangoPersonalizado()">
-                                <i class="fas fa-search"></i> Aplicar
-                            </button>
-                        </div>
-                    </div>
+                    <input type="radio" class="btn-check" name="modo" id="modoQuincena" value="quincena" 
+                           {% if modo == 'quincena' %}checked{% endif %} onchange="cambiarModo('quincena')">
+                    <label class="btn btn-outline-primary" for="modoQuincena">
+                        <i class="fas fa-calendar-alt me-1"></i> Quincena
+                    </label>
                     
-                    <!-- Navegación del período -->
-                    <div class="d-flex justify-content-between align-items-center">
-                        <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_anterior|date:'Y-m-d' }}" 
-                           class="btn btn-outline-primary">
-                            <i class="fas fa-chevron-left"></i> Período Anterior
-                        </a>
-                        
-                        <div class="text-center">
-                            <h5 class="mb-0">{{ nombre_periodo }}</h5>
-                            <small class="text-muted">{{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</small>
-                        </div>
-                        
-                        <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_siguiente|date:'Y-m-d' }}" 
-                           class="btn btn-outline-primary">
-                            Período Siguiente <i class="fas fa-chevron-right"></i>
-                        </a>
-                    </div>
+                    <input type="radio" class="btn-check" name="modo" id="modoMes" value="mes" 
+                           {% if modo == 'mes' %}checked{% endif %} onchange="cambiarModo('mes')">
+                    <label class="btn btn-outline-primary" for="modoMes">
+                        <i class="fas fa-calendar me-1"></i> Mes Completo
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="modo" id="modoPersonalizado" value="personalizado" 
+                           {% if modo == 'personalizado' %}checked{% endif %} onchange="mostrarRangoPersonalizado()">
+                    <label class="btn btn-outline-primary" for="modoPersonalizado">
+                        <i class="fas fa-calendar-day me-1"></i> Personalizado
+                    </label>
                 </div>
             </div>
         </div>
+        
+        <!-- Rango personalizado (oculto por defecto) -->
+        <div class="row mb-3" id="rangoPersonalizado" style="display: {% if modo == 'personalizado' %}flex{% else %}none{% endif %};">
+            <div class="col-md-4">
+                <label class="form-label fw-medium">Fecha Inicio:</label>
+                <input type="date" class="form-control" id="fechaInicio" value="{{ fecha_inicio|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-medium">Fecha Fin:</label>
+                <input type="date" class="form-control" id="fechaFin" value="{{ fecha_fin|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-primary" onclick="aplicarRangoPersonalizado()">
+                    <i class="fas fa-search me-1"></i> Aplicar
+                </button>
+            </div>
+        </div>
+        
+        <!-- Navegación del período -->
+        <div class="d-flex justify-content-between align-items-center p-3 rounded" style="background: linear-gradient(135deg, rgba(4, 112, 172, 0.1), rgba(8, 65, 99, 0.05));">
+            <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_anterior|date:'Y-m-d' }}" 
+               class="btn btn-outline-primary">
+                <i class="fas fa-chevron-left me-1"></i> Anterior
+            </a>
+            
+            <div class="text-center">
+                <h5 class="mb-0 text-primary">{{ nombre_periodo }}</h5>
+                <small class="text-muted">{{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</small>
+            </div>
+            
+            <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_siguiente|date:'Y-m-d' }}" 
+               class="btn btn-outline-primary">
+                Siguiente <i class="fas fa-chevron-right ms-1"></i>
+            </a>
+        </div>
     </div>
+</div>
 
-    <!-- Barra de herramientas -->
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card bg-light">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+<!-- Barra de herramientas -->
+<div class="list-section mb-4">
+    <div class="list-header" style="background: linear-gradient(135deg, #6c757d, #495057); color: white;">
+        <i class="fas fa-tools me-2"></i> Herramientas
+    </div>
+    <div class="list-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-card" style="min-width: auto; padding: 0.75rem 1.25rem;">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fas fa-users text-primary"></i>
                         <div>
-                            <strong>Total Trabajadores:</strong> {{ total_trabajadores }}
-                        </div>
-                        
-                        <div class="d-flex gap-2 align-items-center">
-                            <label class="mb-0">Selección Múltiple:</label>
-                            <button class="btn btn-sm btn-info" onclick="iniciarSeleccionMultiple()">
-                                <i class="fas fa-check-square"></i> Activar
-                            </button>
-                            <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()" id="btnCancelar" style="display: none;">
-                                <i class="fas fa-times"></i> Cancelar
-                            </button>
-                        </div>
-                        
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-success" onclick="guardarCambios()">
-                                <i class="fas fa-save"></i> Guardar Cambios
-                            </button>
-                            <button class="btn btn-primary" onclick="exportarExcel()">
-                                <i class="fas fa-file-excel"></i> Exportar Excel
-                            </button>
+                            <div class="stat-value" style="font-size: 1.2rem;">{{ total_trabajadores }}</div>
+                            <div class="stat-label" style="font-size: 0.7rem;">Trabajadores</div>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <div class="d-flex gap-2 align-items-center">
+                <label class="mb-0 text-muted">Selección Múltiple:</label>
+                <button class="btn btn-sm btn-info" onclick="iniciarSeleccionMultiple()">
+                    <i class="fas fa-check-square me-1"></i> Activar
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()" id="btnCancelar" style="display: none;">
+                    <i class="fas fa-times me-1"></i> Cancelar
+                </button>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button class="btn btn-success" onclick="guardarCambios()">
+                    <i class="fas fa-save me-1"></i> Guardar
+                </button>
+                <button class="btn btn-primary" onclick="exportarExcel()">
+                    <i class="fas fa-file-excel me-1"></i> Exportar
+                </button>
+            </div>
         </div>
     </div>
+</div>
 
-    <!-- Panel de selección múltiple (oculto por defecto) -->
-    <div class="row mb-3" id="panelSeleccionMultiple" style="display: none;">
-        <div class="col-12">
-            <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <strong><i class="fas fa-magic"></i> Modo Selección Múltiple Activo</strong>
-                </div>
-                <div class="card-body">
-                    <p class="mb-2">Selecciona las celdas que desees modificar (clic en las celdas), luego elige el estado:</p>
-                    <div class="d-flex gap-2 flex-wrap">
-                        {% for codigo, nombre in estados_asistencia %}
-                        <button class="btn btn-sm btn-outline-primary" 
-                                onclick="aplicarEstadoMultiple('{{ codigo }}', '{{ nombre }}')">
+<!-- Panel de selección múltiple (oculto por defecto) -->
+<div class="mb-4" id="panelSeleccionMultiple" style="display: none;">
+    <div class="alert alert-warning border-0" style="background: linear-gradient(135deg, rgba(255, 194, 72, 0.2), rgba(255, 194, 72, 0.1)); border-left: 4px solid var(--warning-color) !important;">
+        <div class="d-flex align-items-center mb-2">
+            <i class="fas fa-magic fa-lg me-2 text-warning"></i>
+            <strong>Modo Selección Múltiple Activo</strong>
+        </div>
+        <p class="mb-2">Selecciona las celdas que desees modificar (clic en las celdas), luego elige el estado:</p>
+        <div class="d-flex gap-2 flex-wrap">
+            {% for codigo, nombre in estados_asistencia %}
+            <button class="btn btn-sm btn-outline-primary" 
+                    onclick="aplicarEstadoMultiple('{{ codigo }}', '{{ nombre }}')">
                             {{ nombre }}
                         </button>
                         {% endfor %}

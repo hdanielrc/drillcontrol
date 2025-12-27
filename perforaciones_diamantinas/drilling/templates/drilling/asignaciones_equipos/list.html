@@ -3,223 +3,253 @@
 
 {% block title %}Asignaciones de Equipos{% endblock %}
 
-{% block extra_css %}
-<style>
-    .filters-card {
-        background: #f8f9fa;
-        border-left: 4px solid #0d6efd;
-    }
-    
-    .badge-estado-activo {
-        background-color: #28a745;
-    }
-    
-    .badge-estado-devuelto {
-        background-color: #6c757d;
-    }
-    
-    .badge-estado-perdido {
-        background-color: #dc3545;
-    }
-    
-    .badge-estado-danado {
-        background-color: #ffc107;
-        color: #000;
-    }
-    
-    .hover-row:hover {
-        background-color: #f8f9fa;
-        cursor: pointer;
-    }
-    
-    .equipo-icon {
-        font-size: 1.2rem;
-        margin-right: 8px;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid mt-4">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h2>
-                <i class="fas fa-exchange-alt text-primary"></i>
-                Asignaciones de Equipos
-            </h2>
-            <p class="text-muted">Gestiona las asignaciones de equipos a trabajadores</p>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-exchange-alt"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Asignaciones de Equipos</h2>
+        <p>Gestiona las asignaciones de equipos a trabajadores</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'asignacion-equipo-create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Nueva Asignación
+        </a>
+        <a href="{% url 'equipos-list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-laptop me-1"></i> Ver Equipos
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-exchange-alt"></i>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="{% url 'asignacion-equipo-create' %}" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Nueva Asignación
-            </a>
-            <a href="{% url 'equipos-list' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-laptop"></i> Ver Equipos
-            </a>
+        <div class="stat-content">
+            <div class="stat-value">{{ asignaciones|length }}</div>
+            <div class="stat-label">Total Asignaciones</div>
         </div>
     </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.activos|default:0 }}</div>
+            <div class="stat-label">Activas</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #6c757d, #495057);">
+            <i class="fas fa-undo"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.devueltos|default:0 }}</div>
+            <div class="stat-label">Devueltas</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.perdidos|default:0 }}</div>
+            <div class="stat-label">Perdidos/Dañados</div>
+        </div>
+    </div>
+</div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Filtros -->
+<div class="filter-section mb-4">
+    <div class="filter-header">
+        <i class="fas fa-filter"></i> Filtros de Búsqueda
+    </div>
+    <div class="filter-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-medium">Trabajador</label>
+                <select name="trabajador" class="form-select">
+                    <option value="">Todos los trabajadores</option>
+                    {% for trabajador in trabajadores %}
+                        <option value="{{ trabajador.id }}" {% if trabajador_selected == trabajador.id|stringformat:"s" %}selected{% endif %}>
+                            {{ trabajador.apellidos }}, {{ trabajador.nombres }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
-        {% endfor %}
-    {% endif %}
-
-    <!-- Filtros -->
-    <div class="card filters-card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">Trabajador</label>
-                    <select name="trabajador" class="form-select">
-                        <option value="">Todos los trabajadores</option>
-                        {% for trabajador in trabajadores %}
-                            <option value="{{ trabajador.id }}" {% if trabajador_selected == trabajador.id|stringformat:"s" %}selected{% endif %}>
-                                {{ trabajador.apellidos }}, {{ trabajador.nombres }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
-                    <label class="form-label">Tipo de Equipo</label>
-                    <select name="tipo" class="form-select">
-                        <option value="">Todos los tipos</option>
-                        {% for tipo in tipos_equipo %}
-                            <option value="{{ tipo }}" {% if tipo_selected == tipo %}selected{% endif %}>
-                                {{ tipo }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
-                    <label class="form-label">Estado</label>
-                    <select name="estado" class="form-select">
-                        <option value="">Todos los estados</option>
-                        {% for value, label in estados_asignacion %}
-                            <option value="{{ value }}" {% if estado_selected == value %}selected{% endif %}>
-                                {{ label }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary me-2">
-                        <i class="fas fa-filter"></i> Filtrar
+            
+            <div class="col-md-3">
+                <label class="form-label fw-medium">Tipo de Equipo</label>
+                <select name="tipo" class="form-select">
+                    <option value="">Todos los tipos</option>
+                    {% for tipo in tipos_equipo %}
+                        <option value="{{ tipo }}" {% if tipo_selected == tipo %}selected{% endif %}>
+                            {{ tipo }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label fw-medium">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    {% for value, label in estados_asignacion %}
+                        <option value="{{ value }}" {% if estado_selected == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i> Buscar
                     </button>
                     <a href="{% url 'asignaciones-equipos-list' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-times"></i> Limpiar
+                        <i class="fas fa-times me-1"></i> Limpiar
                     </a>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
+</div>
 
-    <!-- Tabla de asignaciones -->
-    <div class="card shadow-sm">
-        <div class="card-body">
-            {% if asignaciones %}
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
+<!-- Tabla de asignaciones -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-list"></i> Listado de Asignaciones
+        <span class="badge bg-secondary ms-2">{{ asignaciones|length }}</span>
+    </div>
+    <div class="list-body">
+        {% if asignaciones %}
+            <div class="table-responsive">
+                <table class="table table-enhanced">
+                    <thead>
+                        <tr>
+                            <th>Trabajador</th>
+                            <th>Equipo</th>
+                            <th>Tipo</th>
+                            <th>Fecha Asignación</th>
+                            <th>Fecha Devolución</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acta</th>
+                            <th class="text-center" style="width: 100px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asignacion in asignaciones %}
                             <tr>
-                                <th>Trabajador</th>
-                                <th>Equipo</th>
-                                <th>Tipo</th>
-                                <th>Fecha Asignación</th>
-                                <th>Fecha Devolución</th>
-                                <th>Estado</th>
-                                <th>Acta</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for asignacion in asignaciones %}
-                                <tr class="hover-row">
-                                    <td>
-                                        <strong>{{ asignacion.trabajador.apellidos }}, {{ asignacion.trabajador.nombres }}</strong>
-                                        <br>
-                                        <small class="text-muted">{{ asignacion.trabajador.cargo.nombre }}</small>
-                                    </td>
-                                    <td>
-                                        <i class="fas fa-laptop equipo-icon text-primary"></i>
-                                        <strong>{{ asignacion.equipo.codigo_interno }}</strong>
-                                        <br>
-                                        <small class="text-muted">
-                                            {% if asignacion.equipo.marca %}{{ asignacion.equipo.marca }}{% endif %}
-                                            {% if asignacion.equipo.modelo %}{{ asignacion.equipo.modelo }}{% endif %}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-info">{{ asignacion.equipo.get_tipo_display }}</span>
-                                    </td>
-                                    <td>
-                                        {{ asignacion.fecha_asignacion|date:"d/m/Y" }}
-                                        <br>
-                                        <small class="text-muted">{{ asignacion.fecha_asignacion|timesince }} atrás</small>
-                                    </td>
-                                    <td>
-                                        {% if asignacion.fecha_devolucion %}
-                                            {{ asignacion.fecha_devolucion|date:"d/m/Y" }}
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if asignacion.estado == 'ACTIVO' %}
-                                            <span class="badge badge-estado-activo">{{ asignacion.get_estado_display }}</span>
-                                        {% elif asignacion.estado == 'DEVUELTO' %}
-                                            <span class="badge badge-estado-devuelto">{{ asignacion.get_estado_display }}</span>
-                                        {% elif asignacion.estado == 'PERDIDO' %}
-                                            <span class="badge badge-estado-perdido">{{ asignacion.get_estado_display }}</span>
-                                        {% elif asignacion.estado == 'DAÑADO' %}
-                                            <span class="badge badge-estado-danado">{{ asignacion.get_estado_display }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if asignacion.acta_entrega %}
-                                            <i class="fas fa-check-circle text-success" title="Acta firmada"></i>
-                                        {% else %}
-                                            <i class="fas fa-times-circle text-danger" title="Sin acta"></i>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <a href="{% url 'asignacion-equipo-update' asignacion.pk %}" 
-                                               class="btn btn-outline-primary" 
-                                               title="Editar">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <button type="button" 
-                                                    class="btn btn-outline-danger" 
-                                                    onclick="confirmarEliminacion({{ asignacion.pk }}, '{{ asignacion.trabajador.apellidos }}')" 
-                                                    title="Eliminar">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="item-avatar me-2" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+                                            <i class="fas fa-user"></i>
                                         </div>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="text-center py-5">
-                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
-                    <h5 class="text-muted">No hay asignaciones registradas</h5>
-                    <p class="text-muted">Comienza asignando equipos a los trabajadores</p>
-                    <a href="{% url 'asignacion-equipo-create' %}" class="btn btn-primary mt-3">
-                        <i class="fas fa-plus"></i> Crear Primera Asignación
-                    </a>
-                </div>
-            {% endif %}
-        </div>
+                                        <div>
+                                            <strong>{{ asignacion.trabajador.apellidos }}, {{ asignacion.trabajador.nombres }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ asignacion.trabajador.cargo.nombre }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-laptop text-primary me-2"></i>
+                                        <div>
+                                            <strong>{{ asignacion.equipo.codigo_interno }}</strong>
+                                            <br>
+                                            <small class="text-muted">
+                                                {% if asignacion.equipo.marca %}{{ asignacion.equipo.marca }}{% endif %}
+                                                {% if asignacion.equipo.modelo %}{{ asignacion.equipo.modelo }}{% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge-status badge-status-info">{{ asignacion.equipo.get_tipo_display }}</span>
+                                </td>
+                                <td>
+                                    <i class="fas fa-calendar text-muted me-1"></i>{{ asignacion.fecha_asignacion|date:"d/m/Y" }}
+                                    <br>
+                                    <small class="text-muted">{{ asignacion.fecha_asignacion|timesince }} atrás</small>
+                                </td>
+                                <td>
+                                    {% if asignacion.fecha_devolucion %}
+                                        <i class="fas fa-calendar-check text-success me-1"></i>{{ asignacion.fecha_devolucion|date:"d/m/Y" }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if asignacion.estado == 'ACTIVO' %}
+                                        <span class="badge-status badge-status-active">
+                                            <i class="fas fa-check me-1"></i>{{ asignacion.get_estado_display }}
+                                        </span>
+                                    {% elif asignacion.estado == 'DEVUELTO' %}
+                                        <span class="badge-status badge-status-completed">
+                                            <i class="fas fa-undo me-1"></i>{{ asignacion.get_estado_display }}
+                                        </span>
+                                    {% elif asignacion.estado == 'PERDIDO' %}
+                                        <span class="badge-status badge-status-danger">
+                                            <i class="fas fa-times me-1"></i>{{ asignacion.get_estado_display }}
+                                        </span>
+                                    {% elif asignacion.estado == 'DAÑADO' %}
+                                        <span class="badge-status badge-status-warning">
+                                            <i class="fas fa-exclamation me-1"></i>{{ asignacion.get_estado_display }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if asignacion.acta_entrega %}
+                                        <i class="fas fa-check-circle text-success fa-lg" title="Acta firmada"></i>
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger fa-lg" title="Sin acta"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'asignacion-equipo-update' asignacion.pk %}" 
+                                           class="btn btn-outline-primary" 
+                                           title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-outline-danger" 
+                                                onclick="confirmarEliminacion({{ asignacion.pk }}, '{{ asignacion.trabajador.apellidos }}')" 
+                                                title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-exchange-alt"></i>
+                <h5>No hay asignaciones registradas</h5>
+                <p>Comienza asignando equipos a los trabajadores</p>
+                <a href="{% url 'asignacion-equipo-create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Crear Primera Asignación
+                </a>
+            </div>
+        {% endif %}
     </div>
 </div>
 

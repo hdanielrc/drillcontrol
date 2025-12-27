@@ -1,29 +1,95 @@
 {% extends 'drilling/base.html' %}
-{% block title %}Lista de Unidades{% endblock %}
+{% block title %}Unidades de Medida{% endblock %}
 {% block content %}
-<h2>Unidades de Medida</h2>
-<a href="{% url 'unidad-create' %}" class="btn btn-primary mb-3">Nueva Unidad</a>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Nombre</th>
-      <th>Símbolo</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for unidad in unidades %}
-    <tr>
-      <td>{{ unidad.nombre }}</td>
-      <td>{{ unidad.simbolo }}</td>
-      <td>
-        <a href="{% url 'unidad-update' unidad.pk %}" class="btn btn-sm btn-warning">Editar</a>
-        <a href="{% url 'unidad-delete' unidad.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="3" class="text-center">No hay unidades registradas.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-ruler"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Unidades de Medida</h2>
+        <p>Catálogo de unidades para medición de aditivos y materiales</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'unidad-create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Nueva Unidad
+        </a>
+    </div>
+</div>
+
+<!-- Stats Card -->
+<div class="stats-grid mb-4" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-ruler"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ unidades|length }}</div>
+            <div class="stat-label">Total Unidades</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-list"></i> Listado de Unidades
+        <span class="badge bg-secondary ms-2">{{ unidades|length }}</span>
+    </div>
+    <div class="list-body">
+        <div class="table-responsive">
+            <table class="table table-enhanced">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Símbolo</th>
+                        <th class="text-center" style="width: 120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for unidad in unidades %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="item-avatar me-2" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+                                    <i class="fas fa-ruler-combined"></i>
+                                </div>
+                                <strong>{{ unidad.nombre }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge-status badge-status-info">{{ unidad.simbolo }}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'unidad-update' unidad.pk %}" 
+                                   class="btn btn-outline-primary" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'unidad-delete' unidad.pk %}" 
+                                   class="btn btn-outline-danger" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">
+                            <div class="empty-state">
+                                <i class="fas fa-ruler"></i>
+                                <h5>No hay unidades registradas</h5>
+                                <p>Agregue unidades de medida para aditivos y materiales</p>
+                                <a href="{% url 'unidad-create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i> Agregar Primera Unidad
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}
