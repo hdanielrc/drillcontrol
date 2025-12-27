@@ -1003,3 +1003,147 @@ class AsignacionEquipoAdmin(admin.ModelAdmin):
             'organigrama_semanal',
             'organigrama_semanal__contrato'
         )
+
+
+# ======================================
+# ADMIN PARA STOCK SNAPSHOTS Y ALERTAS
+# ======================================
+
+@admin.register(StockSnapshot)
+class StockSnapshotAdmin(admin.ModelAdmin):
+    """Admin para visualizar snapshots de stock"""
+    list_display = [
+        'contrato', 'codigo_articulo', 'descripcion', 'familia',
+        'stock_cantidad', 'unidad_medida', 'fecha_sync'
+    ]
+    list_filter = ['contrato', 'familia', 'fecha_sync']
+    search_fields = ['codigo_articulo', 'descripcion']
+    date_hierarchy = 'fecha_sync'
+    readonly_fields = ['fecha_sync', 'valor_total']
+    ordering = ['-fecha_sync', 'contrato', 'familia']
+    
+    def has_add_permission(self, request):
+        # Los snapshots se crean automáticamente por sincronización
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        # Los snapshots son inmutables
+        return False
+
+
+@admin.register(AlertaStock)
+class AlertaStockAdmin(admin.ModelAdmin):
+    """Admin para gestionar alertas de stock"""
+    list_display = [
+        'prioridad_badge', 'tipo_alerta', 'contrato', 'descripcion_articulo',
+        'stock_actual', 'dias_stock_restante', 'estado_alerta', 'fecha_creacion'
+    ]
+    list_filter = ['prioridad', 'tipo_alerta', 'contrato', 'resuelta', 'leida']
+    search_fields = ['codigo_articulo', 'descripcion_articulo', 'mensaje']
+    date_hierarchy = 'fecha_creacion'
+    readonly_fields = [
+        'fecha_creacion', 'hash_alerta', 'fecha_lectura', 'leida_por',
+        'fecha_resolucion', 'resuelta_por'
+    ]
+    ordering = ['prioridad', '-fecha_creacion']
+    actions = ['marcar_como_leidas', 'marcar_como_resueltas']
+    
+    fieldsets = (
+        ('Información de la Alerta', {
+            'fields': ('contrato', 'tipo_alerta', 'prioridad', 'mensaje')
+        }),
+        ('Artículo Afectado', {
+            'fields': ('codigo_articulo', 'descripcion_articulo', 'familia')
+        }),
+        ('Datos de Stock', {
+            'fields': (
+                'stock_actual', 'consumo_diario_promedio',
+                'dias_stock_restante', 'umbral_configurado'
+            )
+        }),
+        ('Estado', {
+            'fields': (
+                'leida', 'fecha_lectura', 'leida_por',
+                'resuelta', 'fecha_resolucion', 'resuelta_por', 'nota_resolucion'
+            )
+        }),
+        ('Sistema', {
+            'fields': ('hash_alerta', 'fecha_creacion'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def prioridad_badge(self, obj):
+        colores = {1: 'red', 2: 'orange', 3: 'blue', 4: 'gray'}
+        color = colores.get(obj.prioridad, 'gray')
+        return f'<span style="color: {color}; font-weight: bold;">●</span> {obj.get_prioridad_display()}'
+    prioridad_badge.short_description = 'Prioridad'
+    prioridad_badge.allow_tags = True
+    
+    def estado_alerta(self, obj):
+        if obj.resuelta:
+            return '✅ Resuelta'
+        elif obj.leida:
+            return '👁️ Leída'
+        else:
+            return '🔴 Nueva'
+    estado_alerta.short_description = 'Estado'
+    
+    @admin.action(description='Marcar como leídas')
+    def marcar_como_leidas(self, request, queryset):
+        from django.utils import timezone
+        updated = queryset.filter(leida=False).update(
+            leida=True,
+            fecha_lectura=timezone.now(),
+            leida_por=request.user
+        )
+        messages.success(request, f'{updated} alertas marcadas como leídas.')
+    
+    @admin.action(description='Marcar como resueltas')
+    def marcar_como_resueltas(self, request, queryset):
+        from django.utils import timezone
+        updated = queryset.filter(resuelta=False).update(
+            resuelta=True,
+            fecha_resolucion=timezone.now(),
+            resuelta_por=request.user,
+            leida=True,
+            fecha_lectura=timezone.now(),
+            leida_por=request.user
+        )
+        messages.success(request, f'{updated} alertas marcadas como resueltas.')
+
+
+@admin.register(ConfiguracionAlertaStock)
+class ConfiguracionAlertaStockAdmin(admin.ModelAdmin):
+    """Admin para configurar umbrales de alertas por contrato"""
+    list_display = [
+        'contrato', 'dias_stock_critico', 'dias_stock_bajo',
+        'dias_sin_rotacion', 'enviar_email'
+    ]
+    list_filter = ['enviar_email', 'alertar_stock_bajo', 'alertar_agotado']
+    search_fields = ['contrato__nombre_contrato']
+    
+    fieldsets = (
+        ('Contrato', {
+            'fields': ('contrato',)
+        }),
+        ('Umbrales de Días de Stock', {
+            'fields': (
+                'dias_stock_critico', 'dias_stock_bajo', 'dias_stock_alerta'
+            ),
+            'description': 'Configurar cuándo se generan alertas según días de stock restante'
+        }),
+        ('Otros Umbrales', {
+            'fields': ('dias_sin_rotacion', 'pct_consumo_anormal')
+        }),
+        ('Notificaciones', {
+            'fields': ('enviar_email', 'emails_notificacion')
+        }),
+        ('Tipos de Alerta Activos', {
+            'fields': (
+                'alertar_stock_bajo', 'alertar_agotado',
+                'alertar_sin_rotacion', 'alertar_consumo_anormal'
+            )
+        }),
+    )
+

@@ -1,0 +1,343 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}{{ articulo.descripcion }} - Detalle de Stock{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        text-align: center;
+        height: 100%;
+    }
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #084163;
+    }
+    .metric-value.critico { color: #dc3545; }
+    .metric-value.bajo { color: #fd7e14; }
+    .metric-value.ok { color: #28a745; }
+    .metric-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    
+    .info-table th {
+        background: #f8f9fa;
+        width: 35%;
+    }
+    
+    .alerta-mini {
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        border-left: 4px solid;
+    }
+    .alerta-mini.prioridad-1 { border-color: #dc3545; background: #fff5f5; }
+    .alerta-mini.prioridad-2 { border-color: #fd7e14; background: #fff8f0; }
+    .alerta-mini.prioridad-3 { border-color: #0470AC; background: #f0f8ff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header mb-4">
+    <div class="page-header-icon" style="background: linear-gradient(135deg, {% if articulo.familia == 'PDD' %}#0470AC, #084163{% else %}#7AD57C, #5cb85c{% endif %});">
+        <i class="fas {% if articulo.familia == 'PDD' %}fa-ring{% else %}fa-flask{% endif %}"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>{{ articulo.codigo_articulo }}</h2>
+        <p>{{ articulo.descripcion }}</p>
+    </div>
+    <div class="page-header-actions">
+        <span class="badge bg-{% if articulo.familia == 'PDD' %}primary{% else %}success{% endif %}">
+            {{ articulo.get_familia_display }}
+        </span>
+        <a href="{% url 'dashboard-stock' %}?contrato={{ contrato.id }}" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-arrow-left me-1"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Métricas principales -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="metric-card">
+            <div class="metric-value">{{ articulo.stock_cantidad|floatformat:0 }}</div>
+            <div class="metric-label">
+                <i class="fas fa-boxes me-1"></i> Stock Actual ({{ articulo.unidad_medida }})
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card">
+            <div class="metric-value">{{ consumo_diario|floatformat:2 }}</div>
+            <div class="metric-label">
+                <i class="fas fa-chart-line me-1"></i> Consumo Diario Promedio
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card">
+            {% if dias_restantes != None %}
+            <div class="metric-value {% if dias_restantes <= 5 %}critico{% elif dias_restantes <= 15 %}bajo{% else %}ok{% endif %}">
+                {{ dias_restantes|floatformat:0 }}
+            </div>
+            <div class="metric-label">
+                <i class="fas fa-hourglass-half me-1"></i> Días de Stock Restante
+            </div>
+            {% else %}
+            <div class="metric-value ok">∞</div>
+            <div class="metric-label">
+                <i class="fas fa-hourglass-half me-1"></i> Sin consumo histórico
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card">
+            {% if articulo.valor_total %}
+            <div class="metric-value" style="font-size: 1.8rem;">S/ {{ articulo.valor_total|floatformat:0 }}</div>
+            {% else %}
+            <div class="metric-value text-muted" style="font-size: 1.5rem;">N/D</div>
+            {% endif %}
+            <div class="metric-label">
+                <i class="fas fa-dollar-sign me-1"></i> Valor en Inventario
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Gráfica de Tendencia -->
+    <div class="col-lg-8">
+        <div class="chart-container mb-4">
+            <h5 class="mb-3">
+                <i class="fas fa-chart-area me-2 text-primary"></i>
+                Tendencia de Stock (Últimos 30 días)
+            </h5>
+            <canvas id="tendenciaChart" height="120"></canvas>
+        </div>
+        
+        <!-- Información del Artículo -->
+        <div class="list-section">
+            <div class="list-header">
+                <i class="fas fa-info-circle me-2"></i> Información del Artículo
+            </div>
+            <div class="list-body p-0">
+                <table class="table info-table mb-0">
+                    <tbody>
+                        <tr>
+                            <th>Código</th>
+                            <td>{{ articulo.codigo_articulo }}</td>
+                        </tr>
+                        <tr>
+                            <th>Descripción</th>
+                            <td>{{ articulo.descripcion }}</td>
+                        </tr>
+                        <tr>
+                            <th>Familia</th>
+                            <td>
+                                <span class="badge bg-{% if articulo.familia == 'PDD' %}primary{% else %}success{% endif %}">
+                                    {{ articulo.get_familia_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Contrato</th>
+                            <td>{{ contrato.nombre_contrato }}</td>
+                        </tr>
+                        <tr>
+                            <th>Unidad de Medida</th>
+                            <td>{{ articulo.unidad_medida }}</td>
+                        </tr>
+                        {% if articulo.lote %}
+                        <tr>
+                            <th>Lote</th>
+                            <td>{{ articulo.lote }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if articulo.ubicacion %}
+                        <tr>
+                            <th>Ubicación</th>
+                            <td>{{ articulo.ubicacion }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if articulo.precio_unitario %}
+                        <tr>
+                            <th>Precio Unitario</th>
+                            <td>S/ {{ articulo.precio_unitario|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th>Última Sincronización</th>
+                            <td>{{ articulo.fecha_sync|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel lateral -->
+    <div class="col-lg-4">
+        <!-- Proyección -->
+        <div class="list-section mb-4">
+            <div class="list-header">
+                <i class="fas fa-calculator me-2"></i> Proyección
+            </div>
+            <div class="list-body">
+                {% if dias_restantes != None %}
+                    {% if dias_restantes <= 5 %}
+                    <div class="alert alert-danger mb-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>¡Stock Crítico!</strong><br>
+                        Se agotará en aproximadamente <strong>{{ dias_restantes|floatformat:0 }} días</strong>.
+                    </div>
+                    {% elif dias_restantes <= 15 %}
+                    <div class="alert alert-warning mb-3">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Stock Bajo</strong><br>
+                        Quedan aproximadamente <strong>{{ dias_restantes|floatformat:0 }} días</strong> de stock.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success mb-3">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Stock OK</strong><br>
+                        Hay stock para <strong>{{ dias_restantes|floatformat:0 }} días</strong>.
+                    </div>
+                    {% endif %}
+                    
+                    <p class="small text-muted mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Basado en consumo promedio de los últimos 30 días.
+                    </p>
+                {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay datos de consumo histórico para calcular proyección.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Alertas del artículo -->
+        <div class="list-section">
+            <div class="list-header">
+                <i class="fas fa-bell me-2"></i> Alertas Activas
+                {% if alertas %}
+                <span class="badge bg-danger ms-2">{{ alertas.count }}</span>
+                {% endif %}
+            </div>
+            <div class="list-body">
+                {% for alerta in alertas %}
+                <div class="alerta-mini prioridad-{{ alerta.prioridad }}">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="badge 
+                            {% if alerta.prioridad == 1 %}bg-danger
+                            {% elif alerta.prioridad == 2 %}bg-warning text-dark
+                            {% else %}bg-info{% endif %} small">
+                            {{ alerta.get_tipo_alerta_display }}
+                        </span>
+                        <small class="text-muted">{{ alerta.fecha_creacion|timesince }}</small>
+                    </div>
+                    <p class="mb-0 small">{{ alerta.mensaje|truncatechars:100 }}</p>
+                </div>
+                {% empty %}
+                <div class="text-center py-3">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <p class="text-muted mb-0 small">Sin alertas activas</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tendenciaData = {{ tendencia_json|safe }};
+    
+    if (tendenciaData && tendenciaData.length > 0) {
+        const ctx = document.getElementById('tendenciaChart').getContext('2d');
+        
+        const labels = tendenciaData.map(d => {
+            const fecha = new Date(d.fecha);
+            return fecha.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
+        });
+        const stocks = tendenciaData.map(d => d.stock);
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Stock',
+                    data: stocks,
+                    borderColor: '#0470AC',
+                    backgroundColor: 'rgba(4, 112, 172, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#0470AC'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Stock: ${context.parsed.y} {{ articulo.unidad_medida }}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Cantidad ({{ articulo.unidad_medida }})'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Fecha'
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('tendenciaChart').parentElement.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No hay datos históricos suficientes para mostrar la tendencia.</p>
+                <p class="small text-muted">Los datos se irán acumulando con cada sincronización.</p>
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %}

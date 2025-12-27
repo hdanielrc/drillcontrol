@@ -2690,3 +2690,466 @@ class AsignacionEquipo(models.Model):
     
     def __str__(self):
         return f"{self.equipo} → {self.trabajador.nombres} {self.trabajador.apellidos} ({self.get_estado_display()})"
+
+
+# =============================================================================
+# SECCIÓN 10: STOCK - Snapshots de Stock y Sistema de Alertas
+# =============================================================================
+
+class StockSnapshot(models.Model):
+    """
+    Foto del estado del stock en un momento dado.
+    Se crea automáticamente cada vez que se sincroniza con la API de Vilbragroup.
+    Permite análisis histórico, tendencias y proyecciones de agotamiento.
+    """
+    FAMILIA_CHOICES = [
+        ('PDD', 'Productos Diamantados'),
+        ('ADIT', 'Aditivos'),
+    ]
+    
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.CASCADE,
+        related_name='stock_snapshots',
+        verbose_name='Contrato'
+    )
+    fecha_sync = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de Sincronización',
+        help_text='Momento exacto en que se tomó la foto del stock'
+    )
+    familia = models.CharField(
+        max_length=10,
+        choices=FAMILIA_CHOICES,
+        verbose_name='Familia de Producto'
+    )
+    codigo_articulo = models.CharField(
+        max_length=50,
+        verbose_name='Código Artículo',
+        help_text='Código del artículo en el sistema Vilbragroup'
+    )
+    descripcion = models.CharField(
+        max_length=255,
+        verbose_name='Descripción'
+    )
+    stock_cantidad = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name='Cantidad en Stock'
+    )
+    unidad_medida = models.CharField(
+        max_length=20,
+        verbose_name='Unidad de Medida'
+    )
+    # Campos adicionales de la API (opcionales)
+    lote = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='Lote'
+    )
+    ubicacion = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Ubicación en Almacén'
+    )
+    precio_unitario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='Precio Unitario'
+    )
+    valor_total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='Valor Total',
+        editable=False
+    )
+    
+    class Meta:
+        db_table = 'stock_snapshot'
+        verbose_name = 'Snapshot de Stock'
+        verbose_name_plural = 'Snapshots de Stock'
+        ordering = ['-fecha_sync', 'familia', 'codigo_articulo']
+        indexes = [
+            models.Index(fields=['contrato', 'fecha_sync']),
+            models.Index(fields=['contrato', 'familia']),
+            models.Index(fields=['codigo_articulo']),
+            models.Index(fields=['contrato', 'codigo_articulo', '-fecha_sync']),
+            models.Index(fields=['-fecha_sync']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        # Calcular valor total si hay precio unitario
+        if self.precio_unitario and self.stock_cantidad:
+            self.valor_total = self.stock_cantidad * self.precio_unitario
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.contrato.nombre_contrato} | {self.codigo_articulo} | {self.stock_cantidad} {self.unidad_medida} ({self.fecha_sync.strftime('%Y-%m-%d %H:%M')})"
+    
+    @classmethod
+    def get_ultimo_snapshot(cls, contrato, codigo_articulo=None):
+        """
+        Obtiene el último snapshot para un contrato y opcionalmente un artículo específico.
+        """
+        queryset = cls.objects.filter(contrato=contrato)
+        if codigo_articulo:
+            queryset = queryset.filter(codigo_articulo=codigo_articulo)
+        return queryset.order_by('-fecha_sync').first()
+    
+    @classmethod
+    def get_stock_actual(cls, contrato, familia=None):
+        """
+        Obtiene el stock actual (último snapshot) de todos los artículos de un contrato.
+        Usa una subquery para obtener solo el registro más reciente de cada artículo.
+        """
+        from django.db.models import Subquery, OuterRef
+        
+        # Subquery para obtener la fecha más reciente por artículo
+        latest_sync = cls.objects.filter(
+            contrato=contrato,
+            codigo_articulo=OuterRef('codigo_articulo')
+        ).order_by('-fecha_sync').values('fecha_sync')[:1]
+        
+        queryset = cls.objects.filter(
+            contrato=contrato,
+            fecha_sync=Subquery(latest_sync)
+        )
+        
+        if familia:
+            queryset = queryset.filter(familia=familia)
+        
+        return queryset.order_by('familia', 'descripcion')
+    
+    @classmethod
+    def get_historial_articulo(cls, contrato, codigo_articulo, dias=30):
+        """
+        Obtiene el historial de un artículo específico en los últimos N días.
+        Útil para gráficas de tendencia.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        fecha_inicio = timezone.now() - timedelta(days=dias)
+        
+        return cls.objects.filter(
+            contrato=contrato,
+            codigo_articulo=codigo_articulo,
+            fecha_sync__gte=fecha_inicio
+        ).order_by('fecha_sync')
+
+
+class AlertaStock(models.Model):
+    """
+    Sistema de alertas automáticas para gestión proactiva del stock.
+    Se generan automáticamente durante la sincronización basándose en reglas definidas.
+    """
+    TIPO_CHOICES = [
+        ('STOCK_BAJO', 'Stock Bajo'),
+        ('STOCK_CRITICO', 'Stock Crítico'),
+        ('AGOTADO', 'Agotado'),
+        ('SIN_ROTACION', 'Sin Rotación'),
+        ('CONSUMO_ANORMAL', 'Consumo Anormal'),
+        ('REPOSICION_URGENTE', 'Reposición Urgente'),
+    ]
+    
+    PRIORIDAD_CHOICES = [
+        (1, 'Crítica'),
+        (2, 'Alta'),
+        (3, 'Media'),
+        (4, 'Baja'),
+    ]
+    
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.CASCADE,
+        related_name='alertas_stock',
+        verbose_name='Contrato'
+    )
+    codigo_articulo = models.CharField(
+        max_length=50,
+        verbose_name='Código Artículo'
+    )
+    descripcion_articulo = models.CharField(
+        max_length=255,
+        verbose_name='Descripción Artículo'
+    )
+    familia = models.CharField(
+        max_length=10,
+        choices=StockSnapshot.FAMILIA_CHOICES,
+        verbose_name='Familia'
+    )
+    tipo_alerta = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        verbose_name='Tipo de Alerta'
+    )
+    prioridad = models.PositiveSmallIntegerField(
+        choices=PRIORIDAD_CHOICES,
+        default=3,
+        verbose_name='Prioridad'
+    )
+    mensaje = models.TextField(
+        verbose_name='Mensaje de Alerta'
+    )
+    
+    # Datos contextuales
+    stock_actual = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name='Stock Actual'
+    )
+    consumo_diario_promedio = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='Consumo Diario Promedio'
+    )
+    dias_stock_restante = models.DecimalField(
+        max_digits=8,
+        decimal_places=1,
+        blank=True,
+        null=True,
+        verbose_name='Días de Stock Restante'
+    )
+    umbral_configurado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='Umbral Configurado',
+        help_text='Valor del umbral que disparó la alerta'
+    )
+    
+    # Estado de la alerta
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de Creación'
+    )
+    leida = models.BooleanField(
+        default=False,
+        verbose_name='Leída'
+    )
+    fecha_lectura = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name='Fecha de Lectura'
+    )
+    leida_por = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='alertas_stock_leidas',
+        verbose_name='Leída por'
+    )
+    resuelta = models.BooleanField(
+        default=False,
+        verbose_name='Resuelta'
+    )
+    fecha_resolucion = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name='Fecha de Resolución'
+    )
+    resuelta_por = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='alertas_stock_resueltas',
+        verbose_name='Resuelta por'
+    )
+    nota_resolucion = models.TextField(
+        blank=True,
+        verbose_name='Nota de Resolución'
+    )
+    
+    # Para evitar alertas duplicadas
+    hash_alerta = models.CharField(
+        max_length=64,
+        unique=True,
+        verbose_name='Hash Único',
+        help_text='Para evitar alertas duplicadas del mismo evento'
+    )
+    
+    class Meta:
+        db_table = 'alerta_stock'
+        verbose_name = 'Alerta de Stock'
+        verbose_name_plural = 'Alertas de Stock'
+        ordering = ['prioridad', '-fecha_creacion']
+        indexes = [
+            models.Index(fields=['contrato', 'resuelta']),
+            models.Index(fields=['contrato', 'tipo_alerta']),
+            models.Index(fields=['prioridad', '-fecha_creacion']),
+            models.Index(fields=['codigo_articulo']),
+            models.Index(fields=['hash_alerta']),
+        ]
+    
+    def __str__(self):
+        return f"[{self.get_prioridad_display()}] {self.get_tipo_alerta_display()}: {self.descripcion_articulo}"
+    
+    def marcar_leida(self, usuario):
+        """Marca la alerta como leída"""
+        from django.utils import timezone
+        self.leida = True
+        self.fecha_lectura = timezone.now()
+        self.leida_por = usuario
+        self.save(update_fields=['leida', 'fecha_lectura', 'leida_por'])
+    
+    def resolver(self, usuario, nota=''):
+        """Marca la alerta como resuelta"""
+        from django.utils import timezone
+        self.resuelta = True
+        self.fecha_resolucion = timezone.now()
+        self.resuelta_por = usuario
+        self.nota_resolucion = nota
+        if not self.leida:
+            self.leida = True
+            self.fecha_lectura = timezone.now()
+            self.leida_por = usuario
+        self.save()
+    
+    @classmethod
+    def generar_hash(cls, contrato_id, codigo_articulo, tipo_alerta, fecha):
+        """
+        Genera un hash único para evitar alertas duplicadas del mismo día.
+        """
+        import hashlib
+        cadena = f"{contrato_id}|{codigo_articulo}|{tipo_alerta}|{fecha.strftime('%Y-%m-%d')}"
+        return hashlib.sha256(cadena.encode()).hexdigest()
+    
+    @classmethod
+    def crear_alerta(cls, contrato, codigo_articulo, descripcion, familia, tipo_alerta,
+                     mensaje, stock_actual, prioridad=3, consumo_diario=None, 
+                     dias_restante=None, umbral=None):
+        """
+        Crea una alerta si no existe una igual del mismo día.
+        Retorna la alerta creada o None si ya existía.
+        """
+        from django.utils import timezone
+        
+        hash_alerta = cls.generar_hash(
+            contrato.id, codigo_articulo, tipo_alerta, timezone.now()
+        )
+        
+        # Verificar si ya existe
+        if cls.objects.filter(hash_alerta=hash_alerta).exists():
+            return None
+        
+        return cls.objects.create(
+            contrato=contrato,
+            codigo_articulo=codigo_articulo,
+            descripcion_articulo=descripcion,
+            familia=familia,
+            tipo_alerta=tipo_alerta,
+            prioridad=prioridad,
+            mensaje=mensaje,
+            stock_actual=stock_actual,
+            consumo_diario_promedio=consumo_diario,
+            dias_stock_restante=dias_restante,
+            umbral_configurado=umbral,
+            hash_alerta=hash_alerta
+        )
+    
+    @classmethod
+    def get_alertas_activas(cls, contrato=None, usuario=None):
+        """
+        Obtiene alertas activas (no resueltas).
+        Filtra por contrato o por contratos accesibles al usuario.
+        """
+        queryset = cls.objects.filter(resuelta=False)
+        
+        if contrato:
+            queryset = queryset.filter(contrato=contrato)
+        elif usuario and not usuario.is_superuser:
+            if hasattr(usuario, 'contrato') and usuario.contrato:
+                queryset = queryset.filter(contrato=usuario.contrato)
+        
+        return queryset.order_by('prioridad', '-fecha_creacion')
+
+
+class ConfiguracionAlertaStock(models.Model):
+    """
+    Configuración de umbrales para alertas de stock por contrato.
+    Permite personalizar cuándo se disparan las alertas.
+    """
+    contrato = models.OneToOneField(
+        Contrato,
+        on_delete=models.CASCADE,
+        related_name='config_alertas_stock',
+        verbose_name='Contrato'
+    )
+    
+    # Umbrales para días de stock restante
+    dias_stock_critico = models.PositiveIntegerField(
+        default=5,
+        verbose_name='Días para Stock Crítico',
+        help_text='Se genera alerta crítica si quedan menos de estos días'
+    )
+    dias_stock_bajo = models.PositiveIntegerField(
+        default=15,
+        verbose_name='Días para Stock Bajo',
+        help_text='Se genera alerta de stock bajo si quedan menos de estos días'
+    )
+    dias_stock_alerta = models.PositiveIntegerField(
+        default=30,
+        verbose_name='Días para Pre-alerta',
+        help_text='Se genera pre-alerta si quedan menos de estos días'
+    )
+    
+    # Umbral de sin rotación
+    dias_sin_rotacion = models.PositiveIntegerField(
+        default=30,
+        verbose_name='Días sin Rotación',
+        help_text='Alertar si un artículo no ha tenido movimiento en estos días'
+    )
+    
+    # Umbral de consumo anormal (porcentaje sobre promedio)
+    pct_consumo_anormal = models.PositiveIntegerField(
+        default=150,
+        verbose_name='% Consumo Anormal',
+        help_text='Alertar si el consumo supera este % del promedio'
+    )
+    
+    # Configuración de notificaciones
+    enviar_email = models.BooleanField(
+        default=True,
+        verbose_name='Enviar Email',
+        help_text='Enviar notificación por email cuando se genere una alerta crítica'
+    )
+    emails_notificacion = models.TextField(
+        blank=True,
+        verbose_name='Emails de Notificación',
+        help_text='Lista de emails separados por coma para notificaciones'
+    )
+    
+    # Activar/desactivar tipos de alerta
+    alertar_stock_bajo = models.BooleanField(default=True, verbose_name='Alertar Stock Bajo')
+    alertar_agotado = models.BooleanField(default=True, verbose_name='Alertar Agotado')
+    alertar_sin_rotacion = models.BooleanField(default=True, verbose_name='Alertar Sin Rotación')
+    alertar_consumo_anormal = models.BooleanField(default=True, verbose_name='Alertar Consumo Anormal')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'configuracion_alerta_stock'
+        verbose_name = 'Configuración de Alertas de Stock'
+        verbose_name_plural = 'Configuraciones de Alertas de Stock'
+    
+    def __str__(self):
+        return f"Config. Alertas: {self.contrato.nombre_contrato}"
+    
+    @classmethod
+    def get_o_crear(cls, contrato):
+        """Obtiene o crea la configuración para un contrato"""
+        config, created = cls.objects.get_or_create(contrato=contrato)
+        return config
+

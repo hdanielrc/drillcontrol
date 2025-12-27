@@ -1,0 +1,245 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}Alertas de Stock{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alerta-row.prioridad-1 { border-left: 4px solid #dc3545; }
+    .alerta-row.prioridad-2 { border-left: 4px solid #fd7e14; }
+    .alerta-row.prioridad-3 { border-left: 4px solid #0470AC; }
+    .alerta-row.prioridad-4 { border-left: 4px solid #6c757d; }
+    
+    .alerta-row.leida { opacity: 0.7; }
+    .alerta-row.resuelta { opacity: 0.5; background: #f8f9fa; }
+    
+    .prioridad-badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+    .prioridad-1 .prioridad-badge { background: #dc3545; }
+    .prioridad-2 .prioridad-badge { background: #fd7e14; }
+    .prioridad-3 .prioridad-badge { background: #0470AC; }
+    .prioridad-4 .prioridad-badge { background: #6c757d; }
+    
+    .filter-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header mb-4">
+    <div class="page-header-icon" style="background: linear-gradient(135deg, #fd7e14, #e0a800);">
+        <i class="fas fa-bell"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Alertas de Stock</h2>
+        <p>Gestión de alertas automáticas de inventario</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'dashboard-stock' %}" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-arrow-left me-1"></i> Dashboard
+        </a>
+        <span class="badge bg-danger">{{ total_criticas }} críticas</span>
+        <span class="badge bg-light text-dark">{{ total_activas }} activas</span>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="filter-card">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small">Contrato</label>
+            <select name="contrato" class="form-select form-select-sm">
+                <option value="">Todos los contratos</option>
+                {% for contrato in contratos %}
+                <option value="{{ contrato.id }}" {% if filtros.contrato == contrato.id|stringformat:"s" %}selected{% endif %}>
+                    {{ contrato.nombre_contrato }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Tipo</label>
+            <select name="tipo" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for value, label in tipos_alerta %}
+                <option value="{{ value }}" {% if filtros.tipo == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Prioridad</label>
+            <select name="prioridad" class="form-select form-select-sm">
+                <option value="">Todas</option>
+                {% for value, label in prioridades %}
+                <option value="{{ value }}" {% if filtros.prioridad == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Estado</label>
+            <select name="estado" class="form-select form-select-sm">
+                <option value="activas" {% if filtros.estado == 'activas' %}selected{% endif %}>Activas</option>
+                <option value="no_leidas" {% if filtros.estado == 'no_leidas' %}selected{% endif %}>No leídas</option>
+                <option value="resueltas" {% if filtros.estado == 'resueltas' %}selected{% endif %}>Resueltas</option>
+                <option value="" {% if not filtros.estado %}selected{% endif %}>Todas</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-filter me-1"></i> Filtrar
+            </button>
+            <a href="{% url 'alertas-stock-list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-times me-1"></i> Limpiar
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Lista de Alertas -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-list me-2"></i> Alertas
+        <span class="badge bg-secondary ms-2">{{ page_obj.paginator.count }} total</span>
+    </div>
+    <div class="list-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"></th>
+                        <th>Contrato</th>
+                        <th>Artículo</th>
+                        <th>Tipo</th>
+                        <th class="text-center">Stock</th>
+                        <th class="text-center">Días Rest.</th>
+                        <th>Fecha</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alerta in alertas %}
+                    <tr class="alerta-row prioridad-{{ alerta.prioridad }} {% if alerta.leida %}leida{% endif %} {% if alerta.resuelta %}resuelta{% endif %}">
+                        <td class="text-center">
+                            <span class="prioridad-badge" title="{{ alerta.get_prioridad_display }}">
+                                {{ alerta.prioridad }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>{{ alerta.contrato.nombre_contrato }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ alerta.codigo_articulo }}</strong><br>
+                            <small class="text-muted">{{ alerta.descripcion_articulo|truncatechars:30 }}</small>
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if alerta.tipo_alerta == 'AGOTADO' %}bg-danger
+                                {% elif alerta.tipo_alerta == 'STOCK_CRITICO' %}bg-danger
+                                {% elif alerta.tipo_alerta == 'STOCK_BAJO' %}bg-warning text-dark
+                                {% elif alerta.tipo_alerta == 'SIN_ROTACION' %}bg-secondary
+                                {% else %}bg-info{% endif %}">
+                                {{ alerta.get_tipo_alerta_display }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <strong>{{ alerta.stock_actual|floatformat:0 }}</strong>
+                        </td>
+                        <td class="text-center">
+                            {% if alerta.dias_stock_restante %}
+                            <span class="{% if alerta.dias_stock_restante <= 5 %}text-danger{% elif alerta.dias_stock_restante <= 15 %}text-warning{% endif %} fw-bold">
+                                {{ alerta.dias_stock_restante|floatformat:0 }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>{{ alerta.fecha_creacion|date:"d/m H:i" }}</small>
+                        </td>
+                        <td class="text-center">
+                            {% if alerta.resuelta %}
+                            <span class="badge bg-success"><i class="fas fa-check"></i> Resuelta</span>
+                            {% elif alerta.leida %}
+                            <span class="badge bg-secondary"><i class="fas fa-eye"></i> Leída</span>
+                            {% else %}
+                            <span class="badge bg-primary"><i class="fas fa-circle"></i> Nueva</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if not alerta.resuelta %}
+                            <form method="post" action="{% url 'alerta-stock-resolver' alerta.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Resolver">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                            <a href="{% url 'detalle-articulo-stock' alerta.contrato.id alerta.codigo_articulo %}" 
+                               class="btn btn-sm btn-outline-primary" title="Ver artículo">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <p class="text-muted mb-0">No hay alertas que mostrar</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Paginación -->
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+            </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

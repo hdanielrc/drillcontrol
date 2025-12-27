@@ -1,0 +1,489 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard de Stock - {{ contrato_seleccionado.nombre_contrato }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stock-estado-badge {
+        padding: 0.35rem 0.65rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .estado-OK { background: #d4edda; color: #155724; }
+    .estado-ALERTA { background: #fff3cd; color: #856404; }
+    .estado-BAJO { background: #ffe5d0; color: #c45500; }
+    .estado-CRITICO { background: #f8d7da; color: #721c24; }
+    .estado-AGOTADO { background: #dc3545; color: white; }
+    
+    .prioridad-1 { border-left: 4px solid #dc3545 !important; }
+    .prioridad-2 { border-left: 4px solid #fd7e14 !important; }
+    .prioridad-3 { border-left: 4px solid #0470AC !important; }
+    .prioridad-4 { border-left: 4px solid #6c757d !important; }
+    
+    .alerta-card {
+        padding: 1rem;
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.2s;
+    }
+    .alerta-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .sync-btn {
+        position: relative;
+    }
+    .sync-btn.syncing i {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .stock-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .stock-table td {
+        vertical-align: middle;
+    }
+    
+    .dias-restantes {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    .dias-restantes.critico { color: #dc3545; }
+    .dias-restantes.bajo { color: #fd7e14; }
+    .dias-restantes.ok { color: #28a745; }
+    
+    .consumo-badge {
+        background: #e9ecef;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header mb-4">
+    <div class="page-header-icon" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+        <i class="fas fa-warehouse"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Dashboard de Stock</h2>
+        <p>Stock histórico, proyecciones y alertas automáticas</p>
+    </div>
+    <div class="page-header-actions">
+        <!-- Selector de Contrato -->
+        <select class="form-select form-select-sm" id="contratoSelector" style="min-width: 200px;">
+            {% for contrato in contratos %}
+            <option value="{{ contrato.id }}" {% if contrato.id == contrato_seleccionado.id %}selected{% endif %}>
+                {{ contrato.nombre_contrato }}
+            </option>
+            {% endfor %}
+        </select>
+        
+        <button type="button" class="btn btn-outline-light btn-sm sync-btn" id="btnSincronizar" title="Sincronizar ahora">
+            <i class="fas fa-sync-alt"></i> Sincronizar
+        </button>
+    </div>
+</div>
+
+<!-- KPIs Resumen -->
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-boxes"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ resumen.total_articulos }}</div>
+            <div class="stat-label">Total Artículos</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ resumen.articulos_criticos|add:resumen.articulos_agotados }}</div>
+            <div class="stat-label">Críticos/Agotados</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #fd7e14, #e0a800);">
+            <i class="fas fa-bell"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ resumen.alertas_activas }}</div>
+            <div class="stat-label">Alertas Activas</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ resumen.articulos_ok }}</div>
+            <div class="stat-label">Stock OK</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Panel Principal: Stock y Proyecciones -->
+    <div class="col-lg-8">
+        <!-- Artículos Críticos (si hay) -->
+        {% if articulos_criticos %}
+        <div class="list-section mb-4">
+            <div class="list-header" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+                <i class="fas fa-exclamation-circle me-2"></i> Artículos Críticos - Requieren Atención
+                <span class="badge bg-light text-danger ms-2">{{ articulos_criticos|length }}</span>
+            </div>
+            <div class="list-body p-0">
+                <div class="table-responsive">
+                    <table class="table stock-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Artículo</th>
+                                <th class="text-center">Stock</th>
+                                <th class="text-center">Consumo/día</th>
+                                <th class="text-center">Días Restantes</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in articulos_criticos %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'detalle-articulo-stock' contrato_seleccionado.id item.codigo %}" class="text-decoration-none">
+                                        <strong>{{ item.codigo }}</strong><br>
+                                        <small class="text-muted">{{ item.descripcion|truncatechars:40 }}</small>
+                                    </a>
+                                </td>
+                                <td class="text-center">
+                                    <strong>{{ item.stock_actual }}</strong> {{ item.unidad }}
+                                </td>
+                                <td class="text-center">
+                                    <span class="consumo-badge">{{ item.consumo_diario|floatformat:2 }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if item.dias_restantes != None %}
+                                    <span class="dias-restantes {% if item.dias_restantes <= 5 %}critico{% elif item.dias_restantes <= 15 %}bajo{% else %}ok{% endif %}">
+                                        {{ item.dias_restantes|floatformat:0 }} días
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="stock-estado-badge estado-{{ item.estado }}">{{ item.estado }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Tabs PDD / ADITIVOS -->
+        <div class="list-section">
+            <div class="list-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-clipboard-list me-2"></i> Inventario Completo
+                </div>
+                <ul class="nav nav-pills nav-pills-sm" id="stockTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active py-1 px-3" id="pdd-tab" data-bs-toggle="tab" href="#pddContent">
+                            PDD ({{ pdd_proyecciones|length }})
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link py-1 px-3" id="adit-tab" data-bs-toggle="tab" href="#aditContent">
+                            Aditivos ({{ adit_proyecciones|length }})
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="list-body p-0">
+                <div class="tab-content" id="stockTabsContent">
+                    <!-- Tab PDD -->
+                    <div class="tab-pane fade show active" id="pddContent">
+                        <div class="table-responsive">
+                            <table class="table stock-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Descripción</th>
+                                        <th class="text-center">Stock</th>
+                                        <th class="text-center">Consumo/día</th>
+                                        <th class="text-center">Días Rest.</th>
+                                        <th class="text-center">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in pdd_proyecciones %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'detalle-articulo-stock' contrato_seleccionado.id item.codigo %}" class="fw-bold text-decoration-none">
+                                                {{ item.codigo }}
+                                            </a>
+                                        </td>
+                                        <td>{{ item.descripcion|truncatechars:35 }}</td>
+                                        <td class="text-center">{{ item.stock_actual|floatformat:0 }} {{ item.unidad }}</td>
+                                        <td class="text-center">
+                                            <span class="consumo-badge">{{ item.consumo_diario|floatformat:2 }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            {% if item.dias_restantes != None %}
+                                            <span class="dias-restantes {% if item.dias_restantes <= 5 %}critico{% elif item.dias_restantes <= 15 %}bajo{% else %}ok{% endif %}">
+                                                {{ item.dias_restantes|floatformat:0 }}
+                                            </span>
+                                            {% else %}
+                                            <span class="text-muted">∞</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="stock-estado-badge estado-{{ item.estado }}">{{ item.estado }}</span>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">
+                                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                            No hay productos diamantados registrados
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Aditivos -->
+                    <div class="tab-pane fade" id="aditContent">
+                        <div class="table-responsive">
+                            <table class="table stock-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Descripción</th>
+                                        <th class="text-center">Stock</th>
+                                        <th class="text-center">Consumo/día</th>
+                                        <th class="text-center">Días Rest.</th>
+                                        <th class="text-center">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in adit_proyecciones %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'detalle-articulo-stock' contrato_seleccionado.id item.codigo %}" class="fw-bold text-decoration-none">
+                                                {{ item.codigo }}
+                                            </a>
+                                        </td>
+                                        <td>{{ item.descripcion|truncatechars:35 }}</td>
+                                        <td class="text-center">{{ item.stock_actual|floatformat:0 }} {{ item.unidad }}</td>
+                                        <td class="text-center">
+                                            <span class="consumo-badge">{{ item.consumo_diario|floatformat:2 }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            {% if item.dias_restantes != None %}
+                                            <span class="dias-restantes {% if item.dias_restantes <= 5 %}critico{% elif item.dias_restantes <= 15 %}bajo{% else %}ok{% endif %}">
+                                                {{ item.dias_restantes|floatformat:0 }}
+                                            </span>
+                                            {% else %}
+                                            <span class="text-muted">∞</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="stock-estado-badge estado-{{ item.estado }}">{{ item.estado }}</span>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">
+                                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                            No hay aditivos registrados
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel Lateral: Alertas -->
+    <div class="col-lg-4">
+        <div class="list-section">
+            <div class="list-header">
+                <i class="fas fa-bell me-2"></i> Alertas Activas
+                {% if alertas %}
+                <span class="badge bg-danger ms-2">{{ alertas|length }}</span>
+                {% endif %}
+                <a href="{% url 'alertas-stock-list' %}" class="btn btn-sm btn-light float-end">
+                    Ver todas
+                </a>
+            </div>
+            <div class="list-body">
+                {% for alerta in alertas %}
+                <div class="alerta-card prioridad-{{ alerta.prioridad }}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge {% if alerta.prioridad == 1 %}bg-danger{% elif alerta.prioridad == 2 %}bg-warning text-dark{% else %}bg-info{% endif %}">
+                            {{ alerta.get_tipo_alerta_display }}
+                        </span>
+                        <small class="text-muted">{{ alerta.fecha_creacion|timesince }}</small>
+                    </div>
+                    <p class="mb-1 fw-bold">{{ alerta.descripcion_articulo|truncatechars:30 }}</p>
+                    <p class="mb-2 small text-muted">{{ alerta.mensaje|truncatechars:80 }}</p>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-leer-alerta" data-alerta-id="{{ alerta.id }}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success btn-resolver-alerta" data-alerta-id="{{ alerta.id }}">
+                            <i class="fas fa-check"></i> Resolver
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4">
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <p class="text-muted mb-0">Sin alertas activas</p>
+                    <small class="text-muted">Todo está bajo control</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Info de Última Sincronización -->
+        <div class="list-section mt-4">
+            <div class="list-header">
+                <i class="fas fa-clock me-2"></i> Última Sincronización
+            </div>
+            <div class="list-body text-center py-3">
+                {% if resumen.fecha_ultimo_sync %}
+                <p class="mb-1">
+                    <strong>{{ resumen.fecha_ultimo_sync|date:"d/m/Y H:i" }}</strong>
+                </p>
+                <small class="text-muted">Hace {{ resumen.fecha_ultimo_sync|timesince }}</small>
+                {% else %}
+                <p class="text-muted mb-0">No hay sincronizaciones</p>
+                <button type="button" class="btn btn-primary btn-sm mt-2" id="btnPrimerSync">
+                    <i class="fas fa-sync"></i> Sincronizar ahora
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Selector de contrato
+    document.getElementById('contratoSelector').addEventListener('change', function() {
+        window.location.href = '?contrato=' + this.value;
+    });
+    
+    // Botón sincronizar
+    const btnSync = document.getElementById('btnSincronizar');
+    const btnPrimerSync = document.getElementById('btnPrimerSync');
+    
+    function sincronizar() {
+        const contratoId = {{ contrato_seleccionado.id }};
+        btnSync.classList.add('syncing');
+        btnSync.disabled = true;
+        
+        fetch(`/api/stock/v2/sincronizar/${contratoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                location.reload();
+            } else {
+                alert('❌ Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('❌ Error de conexión');
+            console.error(error);
+        })
+        .finally(() => {
+            btnSync.classList.remove('syncing');
+            btnSync.disabled = false;
+        });
+    }
+    
+    btnSync.addEventListener('click', sincronizar);
+    if (btnPrimerSync) {
+        btnPrimerSync.addEventListener('click', sincronizar);
+    }
+    
+    // Marcar alerta como leída
+    document.querySelectorAll('.btn-leer-alerta').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const alertaId = this.dataset.alertaId;
+            fetch(`/stock/alertas/${alertaId}/leer/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.closest('.alerta-card').style.opacity = '0.6';
+                }
+            });
+        });
+    });
+    
+    // Resolver alerta
+    document.querySelectorAll('.btn-resolver-alerta').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const alertaId = this.dataset.alertaId;
+            if (confirm('¿Marcar esta alerta como resuelta?')) {
+                fetch(`/stock/alertas/${alertaId}/resolver/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.closest('.alerta-card').remove();
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

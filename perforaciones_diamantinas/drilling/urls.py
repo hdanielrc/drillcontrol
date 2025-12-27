@@ -3,6 +3,7 @@ from . import views
 from . import api_views
 from . import auth_views
 from . import views_gestion_proyectos
+from . import views_stock
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
     guardar_asignaciones_masivas, marcar_stand_by, 
@@ -167,6 +168,27 @@ urlpatterns = [
     
     # Gestión de Proyectos - Stock y Turnos
     path('gestion-proyectos/stock-turnos/', views_gestion_proyectos.gestion_proyectos_stock_turnos, name='gestion-proyectos-stock-turnos'),
+    
+    # =========================================================================
+    # STOCK v2.0 - Dashboard con Histórico y Alertas
+    # =========================================================================
+    
+    # Dashboard de Stock
+    path('stock/dashboard/', views_stock.dashboard_stock, name='dashboard-stock'),
+    path('stock/articulo/<int:contrato_id>/<str:codigo_articulo>/', views_stock.detalle_articulo_stock, name='detalle-articulo-stock'),
+    
+    # Alertas de Stock
+    path('stock/alertas/', views_stock.AlertaStockListView.as_view(), name='alertas-stock-list'),
+    path('stock/alertas/<int:alerta_id>/leer/', views_stock.marcar_alerta_leida, name='alerta-stock-leer'),
+    path('stock/alertas/<int:alerta_id>/resolver/', views_stock.resolver_alerta, name='alerta-stock-resolver'),
+    
+    # API endpoints para Stock v2.0
+    path('api/stock/v2/resumen/<int:contrato_id>/', views_stock.api_resumen_stock, name='api-stock-resumen'),
+    path('api/stock/v2/proyecciones/<int:contrato_id>/', views_stock.api_proyecciones_stock, name='api-stock-proyecciones'),
+    path('api/stock/v2/actual/<int:contrato_id>/', views_stock.api_stock_actual, name='api-stock-actual'),
+    path('api/stock/v2/tendencia/<int:contrato_id>/<str:codigo_articulo>/', views_stock.api_tendencia_articulo, name='api-stock-tendencia'),
+    path('api/stock/v2/alertas/', views_stock.api_alertas_activas, name='api-alertas-activas'),
+    path('api/stock/v2/sincronizar/<int:contrato_id>/', views_stock.sincronizar_stock_contrato, name='api-sincronizar-stock'),
     
     # APIs
     path('api/abastecimiento/<int:pk>/', views.api_abastecimiento_detalle, name='api-abastecimiento-detalle'),
