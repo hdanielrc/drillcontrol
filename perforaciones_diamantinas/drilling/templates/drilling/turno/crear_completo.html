@@ -1,18 +1,430 @@
 {% extends 'drilling/base.html' %}
 
-{% block title %}Crear Turno Completo{% endblock %}
+{% block title %}{% if edit_mode %}Editar{% else %}Crear{% endif %} Turno{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ============================================
+   FORMULARIO CREAR TURNO - DRILLCONTROL
+   ============================================ */
+
+/* === LAYOUT PRINCIPAL === */
+.turno-layout {
+    display: flex;
+    gap: 20px;
+    min-height: calc(100vh - 120px);
+}
+
+.turno-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 80px;
+    height: fit-content;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+.turno-main {
+    flex: 1;
+    min-width: 0;
+}
+
+/* === SIDEBAR DE NAVEGACIÓN === */
+.nav-sidebar {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(8, 65, 99, 0.1);
+    padding: 15px;
+}
+
+.nav-sidebar-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6c757d;
+    padding: 0 10px 10px;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 10px;
+}
+
+.nav-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: #495057;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+}
+
+.nav-sidebar-item:hover {
+    background: #f8f9fa;
+    color: #0470AC;
+    text-decoration: none;
+}
+
+.nav-sidebar-item.active {
+    background: linear-gradient(135deg, #0470AC 0%, #084163 100%);
+    color: white;
+}
+
+.nav-sidebar-item i {
+    width: 20px;
+    text-align: center;
+}
+
+.nav-sidebar-badge {
+    margin-left: auto;
+    background: #e9ecef;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.nav-sidebar-item.active .nav-sidebar-badge {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+/* === HEADER STICKY === */
+.turno-header {
+    background: linear-gradient(135deg, #084163 0%, #0470AC 100%);
+    color: white;
+    padding: 20px 25px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(8, 65, 99, 0.25);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.turno-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.turno-header-info {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.turno-header-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.15);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+}
+
+.turno-header-item i {
+    opacity: 0.8;
+}
+
+/* === CARDS DE SECCIONES === */
+.section-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(8, 65, 99, 0.08);
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    scroll-margin-top: 100px;
+}
+
+.section-card-header {
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.section-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.section-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.section-card-body {
+    padding: 20px;
+}
+
+/* Colores por sección */
+.section-basicos .section-card-icon { background: #e3f2fd; color: #1565c0; }
+.section-basicos .section-card-header { background: #f8fbff; }
+
+.section-trabajadores .section-card-icon { background: #e8f5e9; color: #2e7d32; }
+.section-trabajadores .section-card-header { background: #f6fdf7; }
+
+.section-maquina .section-card-icon { background: #fff3e0; color: #ef6c00; }
+.section-maquina .section-card-header { background: #fffcf8; }
+
+.section-diamantados .section-card-icon { background: #fce4ec; color: #c2185b; }
+.section-diamantados .section-card-header { background: #fefafc; }
+
+.section-aditivos .section-card-icon { background: #f3e5f5; color: #7b1fa2; }
+.section-aditivos .section-card-header { background: #fdfaff; }
+
+.section-actividades .section-card-icon { background: #e0f7fa; color: #00838f; }
+.section-actividades .section-card-header { background: #f6fdff; }
+
+.section-corridas .section-card-icon { background: #efebe9; color: #5d4037; }
+.section-corridas .section-card-header { background: #fdfcfb; }
+
+.section-estado .section-card-icon { background: #e8eaf6; color: #3949ab; }
+.section-estado .section-card-header { background: #f9faff; }
+
+/* === FILAS DINÁMICAS === */
+.dynamic-row {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 12px;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.dynamic-row:hover {
+    border-color: #0470AC;
+    box-shadow: 0 2px 8px rgba(4, 112, 172, 0.1);
+}
+
+.btn-remove-row {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* === BOTONES === */
+.btn-add-item {
+    background: linear-gradient(135deg, #0470AC 0%, #084163 100%);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.btn-add-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(4, 112, 172, 0.3);
+    color: white;
+}
+
+.btn-submit-turno {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    border: none;
+    color: white;
+    padding: 15px 40px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    transition: all 0.3s;
+}
+
+.btn-submit-turno:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    color: white;
+}
+
+/* === ESTADOS Y ALERTAS === */
+.section-empty-state {
+    text-align: center;
+    padding: 30px;
+    color: #6c757d;
+}
+
+.section-empty-state i {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+.progress-ring {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.2);
+    padding: 6px 14px;
+    border-radius: 20px;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 992px) {
+    .turno-layout {
+        flex-direction: column;
+    }
+    
+    .turno-sidebar {
+        width: 100%;
+        position: relative;
+        top: 0;
+        max-height: none;
+    }
+    
+    .nav-sidebar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .nav-sidebar-title {
+        width: 100%;
+        border-bottom: none;
+    }
+    
+    .nav-sidebar-item {
+        flex: 1;
+        min-width: 120px;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .turno-header {
+        padding: 15px;
+    }
+    
+    .turno-header-info {
+        gap: 10px;
+    }
+    
+    .section-card-body {
+        padding: 15px;
+    }
+}
+
+/* === ANIMACIONES === */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dynamic-row {
+    animation: slideIn 0.3s ease;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="fas fa-plus-circle"></i> Crear Turno Completo</h2>
-            <a href="{% url 'listar-turnos' %}" class="btn btn-secondary">
-                <i class="fas fa-list"></i> Ver Turnos
+<!-- LAYOUT PRINCIPAL CON SIDEBAR -->
+<div class="turno-layout">
+    <!-- SIDEBAR DE NAVEGACIÓN -->
+    <aside class="turno-sidebar">
+        <nav class="nav-sidebar">
+            <div class="nav-sidebar-title">
+                <i class="fas fa-list-ul"></i> Secciones
+            </div>
+            <a href="#seccion-basicos" class="nav-sidebar-item active" data-section="basicos">
+                <i class="fas fa-info-circle"></i>
+                <span>Información</span>
             </a>
+            <a href="#seccion-trabajadores" class="nav-sidebar-item" data-section="trabajadores">
+                <i class="fas fa-users"></i>
+                <span>Trabajadores</span>
+                <span class="nav-sidebar-badge" id="badge-trabajadores">0</span>
+            </a>
+            <a href="#seccion-maquina" class="nav-sidebar-item" data-section="maquina">
+                <i class="fas fa-cogs"></i>
+                <span>Máquina</span>
+            </a>
+            <a href="#seccion-diamantados" class="nav-sidebar-item" data-section="diamantados">
+                <i class="fas fa-gem"></i>
+                <span>Diamantados</span>
+                <span class="nav-sidebar-badge" id="badge-diamantados">0</span>
+            </a>
+            <a href="#seccion-aditivos" class="nav-sidebar-item" data-section="aditivos">
+                <i class="fas fa-flask"></i>
+                <span>Aditivos</span>
+                <span class="nav-sidebar-badge" id="badge-aditivos">0</span>
+            </a>
+            <a href="#seccion-actividades" class="nav-sidebar-item" data-section="actividades">
+                <i class="fas fa-tasks"></i>
+                <span>Actividades</span>
+                <span class="nav-sidebar-badge" id="badge-actividades">0</span>
+            </a>
+            <a href="#seccion-corridas" class="nav-sidebar-item" data-section="corridas">
+                <i class="fas fa-ruler-vertical"></i>
+                <span>Corridas</span>
+                <span class="nav-sidebar-badge" id="badge-corridas">0</span>
+            </a>
+            <a href="#seccion-estado" class="nav-sidebar-item" data-section="estado">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Estado</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="turno-main">
+        <!-- HEADER STICKY -->
+        <div class="turno-header">
+            <h2>
+                <i class="fas fa-{% if edit_mode %}edit{% else %}plus-circle{% endif %}"></i>
+                {% if edit_mode %}Editar Turno #{{ edit_turno_id }}{% else %}Nuevo Turno de Perforación{% endif %}
+            </h2>
+            <div class="turno-header-info">
+                <div class="turno-header-item" id="header-fecha">
+                    <i class="fas fa-calendar"></i>
+                    <span>Seleccione fecha</span>
+                </div>
+                <div class="turno-header-item" id="header-turno">
+                    <i class="fas fa-sun"></i>
+                    <span>Tipo de turno</span>
+                </div>
+                <div class="turno-header-item" id="header-maquina">
+                    <i class="fas fa-cog"></i>
+                    <span>Máquina</span>
+                </div>
+                <div class="progress-ring">
+                    <i class="fas fa-chart-pie"></i>
+                    <span id="header-progreso">0 items</span>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
 <form method="post" id="form-turno">
     {% csrf_token %}
@@ -45,49 +457,54 @@
         </script>
     {% endif %}
     
-    <!-- Datos básicos del turno -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5><i class="fas fa-info-circle"></i> Información Básica del Turno</h5>
+    <!-- SECCIÓN 1: Datos básicos del turno -->
+    <div id="seccion-basicos" class="section-card section-basicos">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-info-circle"></i></span>
+                Información Básica del Turno
+            </h5>
         </div>
-        <div class="card-body">
+        <div class="section-card-body">
             <div class="row">
-                <div class="col-md-6">
-                    <div class="mb-3 d-flex justify-content-between align-items-center">
-                        <label class="form-label">Sondajes *</label>
-                        <button type="button" class="btn btn-primary btn-sm" id="agregar-sondaje-btn">
-                            <i class="fas fa-plus"></i> Agregar Sondaje
-                        </button>
-                    </div>
-                    <div id="sondajes-seccion">
-                        <!-- Filas de sondajes dinámicas (cada select debe llamarse 'sondajes' para permitirse múltiples valores) -->
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold">Sondajes *</label>
+                            <button type="button" class="btn btn-add-item btn-sm" id="agregar-sondaje-btn">
+                                <i class="fas fa-plus"></i> Agregar Sondaje
+                            </button>
+                        </div>
+                        <div id="sondajes-seccion">
+                            <!-- Filas de sondajes dinámicas -->
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4">
                     <div class="mb-3">
-                        <label for="maquina" class="form-label">Máquina *</label>
+                        <label for="maquina" class="form-label fw-bold">Máquina *</label>
                         <select id="maquina" name="maquina" class="form-select" required>
-                            <option value="">Seleccionar máquina</option>
+                            <option value="">Seleccionar</option>
                             {% for maquina in maquinas %}
                             <option value="{{ maquina.id }}">{{ maquina.nombre }}</option>
                             {% endfor %}
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4">
                     <div class="mb-3">
-                        <label for="tipo_turno" class="form-label">Tipo de Turno *</label>
+                        <label for="tipo_turno" class="form-label fw-bold">Tipo Turno *</label>
                         <select id="tipo_turno" name="tipo_turno" class="form-select" required>
-                            <option value="">Selecciona tipo de turno</option>
+                            <option value="">Seleccionar</option>
                             {% for tipo in tipos_turno %}
                             <option value="{{ tipo.id }}">{{ tipo.nombre }}</option>
                             {% endfor %}
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4">
                     <div class="mb-3">
-                        <label for="fecha" class="form-label">Fecha *</label>
+                        <label for="fecha" class="form-label fw-bold">Fecha *</label>
                         <input type="date" id="fecha" name="fecha" class="form-control" required value="{{ today|date:'Y-m-d' }}">
                     </div>
                 </div>
@@ -95,46 +512,53 @@
         </div>
     </div>
 
-    <!-- Trabajadores del turno -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5><i class="fas fa-users"></i> Trabajadores del Turno</h5>
-            <button type="button" class="btn btn-primary btn-sm" id="agregar-trabajador-btn">
+    <!-- SECCIÓN 2: Trabajadores del turno -->
+    <div id="seccion-trabajadores" class="section-card section-trabajadores">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-users"></i></span>
+                Trabajadores del Turno
+            </h5>
+            <button type="button" class="btn btn-add-item btn-sm" id="agregar-trabajador-btn">
                 <i class="fas fa-plus"></i> Agregar Trabajador
             </button>
         </div>
-        <div class="card-body">
+        <div class="section-card-body">
             <div id="trabajadores-seccion">
                 <!-- Trabajadores se agregan aquí dinámicamente -->
+                <div class="section-empty-state" id="empty-trabajadores">
+                    <i class="fas fa-user-plus"></i>
+                    <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" para comenzar.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Detalles de la máquina -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5><i class="fas fa-industry"></i> Detalles de la Máquina</h5>
+    <!-- SECCIÓN 3: Detalles de la máquina -->
+    <div id="seccion-maquina" class="section-card section-maquina">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-cogs"></i></span>
+                Detalles de la Máquina
+            </h5>
         </div>
-        <div class="card-body">
+        <div class="section-card-body">
             <div class="row">
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label for="hora_inicio_maq" class="form-label">Horómetro Inicio</label>
+                        <label for="hora_inicio_maq" class="form-label fw-bold">Horómetro Inicio</label>
                         <input type="number" id="hora_inicio_maq" name="hora_inicio_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1200">
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label for="hora_fin_maq" class="form-label">Horómetro Fin</label>
+                        <label for="hora_fin_maq" class="form-label fw-bold">Horómetro Fin</label>
                         <input type="number" id="hora_fin_maq" name="hora_fin_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1206">
                     </div>
                 </div>
-                <div class="col-12">
-                    <small class="text-muted">Ingrese lecturas de horómetro como número decimal (ej. 100.5 = 100 horas y 30 minutos). La diferencia se sumará al campo <code>horometro</code> de la máquina al guardar.</small>
-                </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label for="estado_bomba" class="form-label">Estado Bomba</label>
+                        <label for="estado_bomba" class="form-label fw-bold">Estado Bomba</label>
                         <select id="estado_bomba" name="estado_bomba" class="form-select">
                             <option value="OPERATIVO">Operativo</option>
                             <option value="DEFICIENTE">Deficiente</option>
@@ -144,7 +568,7 @@
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
-                        <label for="estado_unidad" class="form-label">Estado Unidad</label>
+                        <label for="estado_unidad" class="form-label fw-bold">Estado Unidad</label>
                         <select id="estado_unidad" name="estado_unidad" class="form-select">
                             <option value="OPERATIVO">Operativo</option>
                             <option value="DEFICIENTE">Deficiente</option>
@@ -154,7 +578,7 @@
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
-                        <label for="estado_rotacion" class="form-label">Estado Rotación</label>
+                        <label for="estado_rotacion" class="form-label fw-bold">Estado Rotación</label>
                         <select id="estado_rotacion" name="estado_rotacion" class="form-select">
                             <option value="OPERATIVO">Operativo</option>
                             <option value="DEFICIENTE">Deficiente</option>
@@ -163,8 +587,12 @@
                     </div>
                 </div>
             </div>
-            <!-- Indicador visual de horas trabajadas -->
-            <div class="row mt-2">
+            <div class="row">
+                <div class="col-12">
+                    <small class="text-muted"><i class="fas fa-info-circle"></i> Ingrese lecturas de horómetro como número decimal (ej. 100.5 = 100 horas y 30 minutos)</small>
+                </div>
+            </div>
+            <div class="row mt-3">
                 <div class="col-12">
                     <div id="horas-trabajadas-info" class="alert alert-info d-none">
                         <i class="fas fa-clock"></i> <span id="horas-trabajadas-text"></span>
@@ -174,83 +602,110 @@
         </div>
     </div>
 
-    <!-- Productos Diamantados -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5><i class="fas fa-puzzle-piece"></i> Productos Diamantados</h5>
-            <div>
-                <small class="text-muted">Los productos diamantados se asignan por sondaje. Añada sondajes arriba para mostrar subsecciones.</small>
-            </div>
+    <!-- SECCIÓN 4: Productos Diamantados -->
+    <div id="seccion-diamantados" class="section-card section-diamantados">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-gem"></i></span>
+                Productos Diamantados
+            </h5>
+            <small class="text-muted">Se asignan por sondaje</small>
         </div>
-        <div class="card-body">
+        <div class="section-card-body">
             <div id="complementos-seccion">
-                <!-- Se crearán subsecciones por sondaje: .complemento-subsection (data-sondaje-id) -->
+                <div class="section-empty-state" id="empty-diamantados">
+                    <i class="fas fa-gem"></i>
+                    <p>Agregue sondajes en la sección de información básica<br>para asignar productos diamantados.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Aditivos -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5><i class="fas fa-flask"></i> Aditivos</h5>
-            <div>
-                <small class="text-muted">Los aditivos se asignan por sondaje. Añada sondajes arriba para mostrar subsecciones.</small>
-            </div>
+    <!-- SECCIÓN 5: Aditivos -->
+    <div id="seccion-aditivos" class="section-card section-aditivos">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-flask"></i></span>
+                Aditivos
+            </h5>
+            <small class="text-muted">Se asignan por sondaje</small>
         </div>
-        <div class="card-body">
+        <div class="section-card-body">
             <div id="aditivos-seccion">
-                <!-- Se crearán subsecciones por sondaje: .aditivo-subsection (data-sondaje-id) -->
+                <div class="section-empty-state" id="empty-aditivos">
+                    <i class="fas fa-flask"></i>
+                    <p>Agregue sondajes en la sección de información básica<br>para asignar aditivos.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Actividades -->
-    <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-            <h5><i class="fas fa-tasks"></i> Actividades</h5>
-            <div>
-                <button type="button" class="btn btn-outline-secondary btn-sm me-2" id="nueva-actividad-btn" data-bs-toggle="modal" data-bs-target="#modalNuevaActividad">
+    <!-- SECCIÓN 6: Actividades -->
+    <div id="seccion-actividades" class="section-card section-actividades">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-tasks"></i></span>
+                Actividades del Turno
+            </h5>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="nueva-actividad-btn" data-bs-toggle="modal" data-bs-target="#modalNuevaActividad">
                     <i class="fas fa-plus-circle"></i> Nueva Actividad
                 </button>
-                <button type="button" class="btn btn-primary btn-sm" id="agregar-actividad-btn">
-                    <i class="fas fa-plus"></i> Agregar Actividad
+                <button type="button" class="btn btn-add-item btn-sm" id="agregar-actividad-btn">
+                    <i class="fas fa-plus"></i> Agregar
                 </button>
             </div>
         </div>
-        <div class="card-body">
+        <div class="section-card-body">
             <div id="actividades-seccion">
-                <!-- Actividades se agregan aquí dinámicamente -->
+                <div class="section-empty-state" id="empty-actividades">
+                    <i class="fas fa-tasks"></i>
+                    <p>No hay actividades registradas.<br>Haz clic en "Agregar" para añadir actividades.</p>
+                </div>
+            </div>
+            <!-- Resumen de horas -->
+            <div id="resumen-horas" class="alert alert-warning d-none mt-3">
+                <i class="fas fa-clock"></i> 
+                <strong>Total de horas:</strong> <span id="total-horas-actividades">0</span> / 
+                <span id="horas-requeridas">12</span> horas requeridas
             </div>
         </div>
     </div>
 
-    <!-- Corridas -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5><i class="fas fa-route"></i> Corridas</h5>
-            <button type="button" class="btn btn-primary btn-sm" id="agregar-corrida-btn">
+    <!-- SECCIÓN 7: Corridas -->
+    <div id="seccion-corridas" class="section-card section-corridas">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-ruler-vertical"></i></span>
+                Corridas de Perforación
+            </h5>
+            <button type="button" class="btn btn-add-item btn-sm" id="agregar-corrida-btn">
                 <i class="fas fa-plus"></i> Agregar Corrida
             </button>
         </div>
-        <div class="card-body">
+        <div class="section-card-body">
             <div id="corridas-seccion">
-                <!-- Corridas se agregan aquí dinámicamente -->
+                <div class="section-empty-state" id="empty-corridas">
+                    <i class="fas fa-ruler-vertical"></i>
+                    <p>No hay corridas registradas.<br>Haz clic en "Agregar Corrida" para comenzar.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Avance del turno: ahora calculado desde los metrajes por sondaje (TurnoSondaje) -->
-
-    <!-- Cambio de Estado del Sondaje -->
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h5><i class="fas fa-exchange-alt"></i> Cambio de Estado del Sondaje (Opcional)</h5>
+    <!-- SECCIÓN 8: Cambio de Estado del Sondaje -->
+    <div id="seccion-estado" class="section-card section-estado">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-exchange-alt"></i></span>
+                Cambio de Estado del Sondaje
+            </h5>
+            <span class="badge bg-secondary">Opcional</span>
         </div>
-        <div class="card-body">
-            <div class="alert alert-info">
+        <div class="section-card-body">
+            <div class="alert alert-info mb-3">
                 <i class="fas fa-info-circle"></i> 
-                <strong>Nota:</strong> Si deseas cambiar el estado de algún sondaje después de registrar este turno, selecciona el sondaje y el nuevo estado. 
-                El cambio de estado es independiente de la fecha de fin del sondaje.
+                Si deseas cambiar el estado de algún sondaje después de registrar este turno, selecciona el nuevo estado.
             </div>
             <div id="cambios-estado-seccion">
                 <!-- Se generarán selectores por cada sondaje agregado -->
@@ -258,20 +713,25 @@
         </div>
     </div>
 
-    <!-- Botones de acción -->
-    <div class="card">
-        <div class="card-body">
-            <div class="d-flex justify-content-between">
-                <a href="{% url 'listar-turnos' %}" class="btn btn-secondary">
+    <!-- BOTONES DE ACCIÓN -->
+    <div class="section-card" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+        <div class="section-card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{% url 'listar-turnos' %}" class="btn btn-outline-secondary btn-lg">
                     <i class="fas fa-arrow-left"></i> Cancelar
                 </a>
-                <button type="submit" class="btn btn-success btn-lg">
-                    <i class="fas fa-save"></i> Guardar Turno Completo
+                <button type="submit" class="btn btn-submit-turno">
+                    <i class="fas fa-save"></i> 
+                    {% if edit_mode %}Guardar Cambios{% else %}Crear Turno{% endif %}
                 </button>
             </div>
         </div>
     </div>
 </form>
+
+    </main>
+</div>
+<!-- FIN LAYOUT -->
 {% endblock %}
 
 {% block extra_js %}
