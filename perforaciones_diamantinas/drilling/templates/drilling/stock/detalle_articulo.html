@@ -54,8 +54,13 @@
 {% block content %}
 <!-- Page Header -->
 <div class="page-header mb-4">
-    <div class="page-header-icon" style="background: linear-gradient(135deg, {% if articulo.familia == 'PDD' %}#0470AC, #084163{% else %}#7AD57C, #5cb85c{% endif %});">
-        <i class="fas {% if articulo.familia == 'PDD' %}fa-ring{% else %}fa-flask{% endif %}"></i>
+    {% if articulo.familia == 'PDD' %}
+    <div class="page-header-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+        <i class="fas fa-ring"></i>
+    {% else %}
+    <div class="page-header-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+        <i class="fas fa-flask"></i>
+    {% endif %}
     </div>
     <div class="page-header-content">
         <h2>{{ articulo.codigo_articulo }}</h2>
@@ -271,7 +276,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const tendenciaData = {{ tendencia_json|safe }};
+    const tendenciaData = JSON.parse('{{ tendencia_json|escapejs }}');
     
     if (tendenciaData && tendenciaData.length > 0) {
         const ctx = document.getElementById('tendenciaChart').getContext('2d');

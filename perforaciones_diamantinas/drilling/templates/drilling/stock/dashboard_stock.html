@@ -402,16 +402,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('contratoSelector').addEventListener('change', function() {
         window.location.href = '?contrato=' + this.value;
     });
-    
+
     // Botón sincronizar
     const btnSync = document.getElementById('btnSincronizar');
     const btnPrimerSync = document.getElementById('btnPrimerSync');
-    
+    const contratoId = parseInt(document.getElementById('contratoSelector').value);
+
     function sincronizar() {
-        const contratoId = {{ contrato_seleccionado.id }};
         btnSync.classList.add('syncing');
         btnSync.disabled = true;
-        
+
         fetch(`/api/stock/v2/sincronizar/${contratoId}/`, {
             method: 'POST',
             headers: {
@@ -437,12 +437,12 @@ document.addEventListener('DOMContentLoaded', function() {
             btnSync.disabled = false;
         });
     }
-    
+
     btnSync.addEventListener('click', sincronizar);
     if (btnPrimerSync) {
         btnPrimerSync.addEventListener('click', sincronizar);
     }
-    
+
     // Marcar alerta como leída
     document.querySelectorAll('.btn-leer-alerta').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
-    
+
     // Resolver alerta
     document.querySelectorAll('.btn-resolver-alerta').forEach(btn => {
         btn.addEventListener('click', function() {
