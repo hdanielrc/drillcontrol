@@ -5,108 +5,352 @@
 
 {% block extra_css %}
 <style>
-    .organigrama-container {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
-        min-height: 600px;
+    /* === CONTENEDOR PRINCIPAL === */
+    .organigrama-wrapper {
+        background: linear-gradient(180deg, #f8fafc 0%, #e2e5f1 100%);
+        min-height: calc(100vh - 200px);
         padding: 2rem;
-        border-radius: 10px;
+        border-radius: 12px;
+        box-shadow: inset 0 2px 10px rgba(8, 65, 99, 0.05);
     }
     
-    .nivel-section {
-        margin-bottom: 2rem;
-        position: relative;
-    }
-    
-    .nivel-header {
-        display: inline-block;
-        padding: 0.5rem 1.5rem;
-        border-radius: 25px;
+    .organigrama-header {
+        background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-medium) 100%);
         color: white;
-        font-weight: bold;
-        margin-bottom: 1rem;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(8, 65, 99, 0.3);
     }
     
-    .nivel-1 .nivel-header { background: linear-gradient(135deg, #f39c12, #e74c3c); }
-    .nivel-2 .nivel-header { background: linear-gradient(135deg, #3498db, #2980b9); }
-    .nivel-3 .nivel-header { background: linear-gradient(135deg, #27ae60, #229954); }
-    .nivel-4 .nivel-header { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+    .organigrama-header h3 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1.5rem;
+    }
     
+    .organigrama-header p {
+        margin: 0.5rem 0 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+    
+    /* === SECCIONES DE NIVEL === */
+    .nivel-section {
+        margin-bottom: 1.5rem;
+        position: relative;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(8, 65, 99, 0.08);
+        border-left: 5px solid transparent;
+    }
+    
+    .nivel-section.nivel-1 { border-left-color: var(--secondary-yellow); }
+    .nivel-section.nivel-2 { border-left-color: var(--primary-medium); }
+    .nivel-section.nivel-3 { border-left-color: var(--secondary-green); }
+    .nivel-section.nivel-4 { border-left-color: var(--secondary-blue); }
+    
+    /* === ENCABEZADOS DE NIVEL === */
+    .nivel-header {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 1.5rem;
+        border-radius: 30px;
+        color: white;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1.25rem;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    }
+    
+    .nivel-header i {
+        font-size: 1rem;
+    }
+    
+    .nivel-1 .nivel-header { 
+        background: linear-gradient(135deg, #FFC248 0%, #f5a623 100%); 
+        color: #084163;
+    }
+    .nivel-2 .nivel-header { 
+        background: linear-gradient(135deg, var(--primary-medium) 0%, var(--primary-dark) 100%); 
+    }
+    .nivel-3 .nivel-header { 
+        background: linear-gradient(135deg, #7AD57C 0%, #4caf50 100%); 
+        color: #1a472a;
+    }
+    .nivel-4 .nivel-header { 
+        background: linear-gradient(135deg, var(--secondary-blue) 0%, #0288d1 100%); 
+    }
+    
+    /* === GRID DE TRABAJADORES === */
     .trabajadores-grid {
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
+        justify-content: flex-start;
+    }
+    
+    .nivel-1 .trabajadores-grid {
         justify-content: center;
     }
     
+    /* === TARJETAS DE TRABAJADOR === */
     .trabajador-card {
-        width: 180px;
-        transition: transform 0.2s, box-shadow 0.2s;
+        width: 170px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     .trabajador-card:hover {
-        transform: translateY(-5px);
+        transform: translateY(-8px);
     }
     
     .trabajador-card .card {
-        border-radius: 10px;
+        border: none;
+        border-radius: 12px;
         overflow: hidden;
+        box-shadow: 0 2px 8px rgba(8, 65, 99, 0.1);
+        transition: box-shadow 0.3s ease;
+        height: 100%;
     }
     
-    .nivel-1 .trabajador-card .card { border-top: 4px solid #f39c12; }
-    .nivel-2 .trabajador-card .card { border-top: 4px solid #3498db; }
-    .nivel-3 .trabajador-card .card { border-top: 4px solid #27ae60; }
-    .nivel-4 .trabajador-card .card { border-top: 4px solid #9b59b6; }
+    .trabajador-card:hover .card {
+        box-shadow: 0 8px 25px rgba(8, 65, 99, 0.2);
+    }
     
+    /* Bordes superiores por nivel */
+    .nivel-1 .trabajador-card .card { border-top: 4px solid var(--secondary-yellow); }
+    .nivel-2 .trabajador-card .card { border-top: 4px solid var(--primary-medium); }
+    .nivel-3 .trabajador-card .card { border-top: 4px solid var(--secondary-green); }
+    .nivel-4 .trabajador-card .card { border-top: 4px solid var(--secondary-blue); }
+    
+    .trabajador-card .card-body {
+        padding: 1rem 0.75rem;
+    }
+    
+    /* === AVATAR === */
     .avatar-circle {
-        width: 60px;
-        height: 60px;
+        width: 56px;
+        height: 56px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto;
+        margin: 0 auto 0.75rem;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.15);
     }
     
-    .nivel-1 .avatar-circle { background: linear-gradient(135deg, #f39c12, #e74c3c); }
-    .nivel-2 .avatar-circle { background: linear-gradient(135deg, #3498db, #2980b9); }
-    .nivel-3 .avatar-circle { background: linear-gradient(135deg, #27ae60, #229954); }
-    .nivel-4 .avatar-circle { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+    .avatar-circle i {
+        font-size: 1.25rem;
+    }
+    
+    .nivel-1 .avatar-circle { 
+        background: linear-gradient(135deg, #FFC248 0%, #f5a623 100%); 
+    }
+    .nivel-1 .avatar-circle i { color: #084163; }
+    
+    .nivel-2 .avatar-circle { 
+        background: linear-gradient(135deg, var(--primary-medium) 0%, var(--primary-dark) 100%); 
+    }
+    .nivel-2 .avatar-circle i { color: white; }
+    
+    .nivel-3 .avatar-circle { 
+        background: linear-gradient(135deg, #7AD57C 0%, #4caf50 100%); 
+    }
+    .nivel-3 .avatar-circle i { color: #1a472a; }
+    
+    .nivel-4 .avatar-circle { 
+        background: linear-gradient(135deg, var(--secondary-blue) 0%, #0288d1 100%); 
+    }
+    .nivel-4 .avatar-circle i { color: white; }
+    
+    /* === INFORMACIÓN DEL TRABAJADOR === */
+    .trabajador-nombre {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--primary-dark);
+        margin-bottom: 0.25rem;
+        line-height: 1.3;
+    }
+    
+    .trabajador-apellido {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+        font-weight: 400;
+    }
+    
+    .cargo-badge {
+        font-size: 0.7rem;
+        padding: 0.35rem 0.6rem;
+        border-radius: 20px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    
+    .nivel-1 .cargo-badge { 
+        background-color: rgba(255, 194, 72, 0.2); 
+        color: #b17c00; 
+    }
+    .nivel-2 .cargo-badge { 
+        background-color: rgba(4, 112, 172, 0.15); 
+        color: var(--primary-dark); 
+    }
+    .nivel-3 .cargo-badge { 
+        background-color: rgba(122, 213, 124, 0.2); 
+        color: #2e7d32; 
+    }
+    .nivel-4 .cargo-badge { 
+        background-color: rgba(6, 170, 255, 0.15); 
+        color: #0277bd; 
+    }
+    
+    /* === CONECTORES ENTRE NIVELES === */
+    .nivel-connector {
+        display: flex;
+        justify-content: center;
+        padding: 0.5rem 0;
+    }
     
     .connector-line {
-        width: 2px;
-        height: 30px;
-        background: #bdc3c7;
-        margin: 0 auto;
+        width: 3px;
+        height: 25px;
+        background: linear-gradient(180deg, var(--primary-medium), var(--secondary-blue));
+        border-radius: 3px;
     }
     
+    /* === ESTADO VACÍO === */
     .empty-nivel {
-        color: #7f8c8d;
+        color: #6c757d;
         font-style: italic;
-        padding: 1rem;
-        background: rgba(255,255,255,0.5);
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
         border-radius: 10px;
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: 1px dashed #dee2e6;
+    }
+    
+    .empty-nivel i {
+        color: #adb5bd;
+    }
+    
+    /* === ESTADO SIN DATOS === */
+    .no-data-container {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(8, 65, 99, 0.08);
+    }
+    
+    .no-data-container i {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+    
+    .no-data-container h4 {
+        color: var(--primary-dark);
+        margin-bottom: 0.5rem;
+    }
+    
+    .no-data-container p {
+        color: #6c757d;
+        margin: 0;
+    }
+    
+    /* === CONTADOR DE TRABAJADORES === */
+    .trabajadores-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255,255,255,0.2);
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin-left: 1rem;
+    }
+    
+    /* === SELECTOR DE CONTRATO === */
+    .contrato-selector {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(8, 65, 99, 0.1);
+    }
+    
+    .contrato-selector .form-select {
+        border: 2px solid var(--primary-medium);
+        border-radius: 8px;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        min-width: 250px;
+    }
+    
+    .contrato-selector .form-select:focus {
+        box-shadow: 0 0 0 3px rgba(4, 112, 172, 0.2);
+    }
+    
+    /* === RESPONSIVE === */
+    @media (max-width: 768px) {
+        .trabajador-card {
+            width: 140px;
+        }
+        
+        .organigrama-header {
+            padding: 1rem 1.5rem;
+        }
+        
+        .nivel-section {
+            padding: 1rem;
+        }
+        
+        .nivel-header {
+            font-size: 0.8rem;
+            padding: 0.5rem 1rem;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .trabajadores-grid {
+            justify-content: center;
+        }
+        
+        .trabajador-card {
+            width: 130px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Header -->
+<div class="container-fluid py-3">
+    <!-- Header con selector de contrato -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div>
-                    <h2><i class="fas fa-sitemap text-primary"></i> Organigrama</h2>
+                    <h2 class="mb-1">
+                        <i class="fas fa-sitemap" style="color: var(--primary-medium);"></i> 
+                        Organigrama
+                    </h2>
                     <p class="text-muted mb-0">
-                        {{ contrato.nombre_contrato }} 
-                        <span class="badge bg-info">{{ total_trabajadores }} trabajadores activos</span>
+                        Estructura organizacional del contrato
                     </p>
                 </div>
-                <div>
-                    {% if contratos_disponibles %}
-                    <form method="GET" class="d-inline">
-                        <select name="contrato" class="form-select" style="width: auto;" onchange="this.form.submit()">
+                {% if contratos_disponibles %}
+                <div class="contrato-selector">
+                    <form method="GET" class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0 text-muted">
+                            <i class="fas fa-file-contract"></i> Contrato:
+                        </label>
+                        <select name="contrato" class="form-select" onchange="this.form.submit()">
                             {% for c in contratos_disponibles %}
                             <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
                                 {{ c.nombre_contrato }}
@@ -114,135 +358,168 @@
                             {% endfor %}
                         </select>
                     </form>
-                    {% endif %}
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
     <!-- Organigrama -->
-    <div class="row">
-        <div class="col-12">
-            <div class="organigrama-container">
-                <!-- Header del organigrama -->
-                <div class="text-center mb-4">
-                    <h3 class="fw-bold text-primary">{{ contrato.nombre_contrato }}</h3>
-                    <p class="text-muted">Estructura Organizacional por Cargo</p>
-                </div>
-
-                {% if niveles %}
-                    <!-- NIVEL 1: RESIDENTE -->
-                    <div class="nivel-section nivel-1 text-center">
-                        <div class="nivel-header">
-                            <i class="fas fa-crown"></i> NIVEL 1 - RESIDENTE
-                        </div>
-                        <div class="trabajadores-grid">
-                            {% for trabajador in niveles.1 %}
-                            <div class="trabajador-card">
-                                <div class="card shadow-sm h-100">
-                                    <div class="card-body text-center py-3">
-                                        <div class="avatar-circle mb-2">
-                                            <i class="fas fa-user-tie fa-lg text-white"></i>
-                                        </div>
-                                        <h6 class="mb-1 fw-bold small">{{ trabajador.nombres }}</h6>
-                                        <p class="mb-1 text-muted small">{{ trabajador.apellidos }}</p>
-                                        <span class="badge bg-warning text-dark">{{ trabajador.cargo.nombre }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            {% empty %}
-                            <span class="empty-nivel"><i class="fas fa-info-circle"></i> Sin personal en este nivel</span>
-                            {% endfor %}
-                        </div>
-                        <div class="connector-line"></div>
-                    </div>
-
-                    <!-- NIVEL 2: GERENCIAS -->
-                    <div class="nivel-section nivel-2 text-center">
-                        <div class="nivel-header">
-                            <i class="fas fa-user-cog"></i> NIVEL 2 - GERENCIAS
-                        </div>
-                        <div class="trabajadores-grid">
-                            {% for trabajador in niveles.2 %}
-                            <div class="trabajador-card">
-                                <div class="card shadow-sm h-100">
-                                    <div class="card-body text-center py-3">
-                                        <div class="avatar-circle mb-2">
-                                            <i class="fas fa-user-cog fa-lg text-white"></i>
-                                        </div>
-                                        <h6 class="mb-1 fw-bold small">{{ trabajador.nombres }}</h6>
-                                        <p class="mb-1 text-muted small">{{ trabajador.apellidos }}</p>
-                                        <span class="badge bg-info">{{ trabajador.cargo.nombre }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            {% empty %}
-                            <span class="empty-nivel"><i class="fas fa-info-circle"></i> Sin personal en este nivel</span>
-                            {% endfor %}
-                        </div>
-                        <div class="connector-line"></div>
-                    </div>
-
-                    <!-- NIVEL 3: SUPERVISIÓN -->
-                    <div class="nivel-section nivel-3 text-center">
-                        <div class="nivel-header">
-                            <i class="fas fa-clipboard-list"></i> NIVEL 3 - SUPERVISIÓN
-                        </div>
-                        <div class="trabajadores-grid">
-                            {% for trabajador in niveles.3 %}
-                            <div class="trabajador-card">
-                                <div class="card shadow-sm h-100">
-                                    <div class="card-body text-center py-3">
-                                        <div class="avatar-circle mb-2">
-                                            <i class="fas fa-user-check fa-lg text-white"></i>
-                                        </div>
-                                        <h6 class="mb-1 fw-bold small">{{ trabajador.nombres }}</h6>
-                                        <p class="mb-1 text-muted small">{{ trabajador.apellidos }}</p>
-                                        <span class="badge bg-success">{{ trabajador.cargo.nombre }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            {% empty %}
-                            <span class="empty-nivel"><i class="fas fa-info-circle"></i> Sin personal en este nivel</span>
-                            {% endfor %}
-                        </div>
-                        <div class="connector-line"></div>
-                    </div>
-
-                    <!-- NIVEL 4: OPERACIONES -->
-                    <div class="nivel-section nivel-4 text-center">
-                        <div class="nivel-header">
-                            <i class="fas fa-hard-hat"></i> NIVEL 4 - OPERACIONES
-                        </div>
-                        <div class="trabajadores-grid">
-                            {% for trabajador in niveles.4 %}
-                            <div class="trabajador-card">
-                                <div class="card shadow-sm h-100">
-                                    <div class="card-body text-center py-3">
-                                        <div class="avatar-circle mb-2">
-                                            <i class="fas fa-hard-hat fa-lg text-white"></i>
-                                        </div>
-                                        <h6 class="mb-1 fw-bold small">{{ trabajador.nombres }}</h6>
-                                        <p class="mb-1 text-muted small">{{ trabajador.apellidos }}</p>
-                                        <span class="badge bg-secondary">{{ trabajador.cargo.nombre }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            {% empty %}
-                            <span class="empty-nivel"><i class="fas fa-info-circle"></i> Sin personal en este nivel</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-users fa-4x text-muted mb-3"></i>
-                        <h4 class="text-muted">No hay trabajadores activos en este contrato</h4>
-                        <p class="text-muted">Asigne trabajadores al contrato para visualizar el organigrama.</p>
-                    </div>
-                {% endif %}
-            </div>
+    <div class="organigrama-wrapper">
+        <!-- Header del organigrama -->
+        <div class="organigrama-header text-center">
+            <h3>
+                <i class="fas fa-building me-2"></i>
+                {{ contrato.nombre_contrato }}
+            </h3>
+            <p>
+                <i class="fas fa-users me-1"></i>
+                Estructura Organizacional
+                <span class="trabajadores-count">
+                    <i class="fas fa-user-check"></i>
+                    {{ total_trabajadores }} trabajadores activos
+                </span>
+            </p>
         </div>
+
+        {% if niveles %}
+            <!-- NIVEL 1: RESIDENTE -->
+            <div class="nivel-section nivel-1">
+                <div class="text-center">
+                    <div class="nivel-header">
+                        <i class="fas fa-crown"></i> 
+                        <span>Nivel 1 - Residente</span>
+                    </div>
+                </div>
+                <div class="trabajadores-grid">
+                    {% for trabajador in niveles.1 %}
+                    <div class="trabajador-card">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="avatar-circle">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                                <div class="trabajador-nombre">{{ trabajador.nombres }}</div>
+                                <div class="trabajador-apellido">{{ trabajador.apellidos }}</div>
+                                <span class="cargo-badge">{{ trabajador.cargo.nombre }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <span class="empty-nivel">
+                        <i class="fas fa-info-circle"></i> 
+                        Sin personal asignado
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="nivel-connector"><div class="connector-line"></div></div>
+
+            <!-- NIVEL 2: GERENCIAS -->
+            <div class="nivel-section nivel-2">
+                <div class="text-center">
+                    <div class="nivel-header">
+                        <i class="fas fa-user-cog"></i> 
+                        <span>Nivel 2 - Gerencias</span>
+                    </div>
+                </div>
+                <div class="trabajadores-grid">
+                    {% for trabajador in niveles.2 %}
+                    <div class="trabajador-card">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="avatar-circle">
+                                    <i class="fas fa-user-cog"></i>
+                                </div>
+                                <div class="trabajador-nombre">{{ trabajador.nombres }}</div>
+                                <div class="trabajador-apellido">{{ trabajador.apellidos }}</div>
+                                <span class="cargo-badge">{{ trabajador.cargo.nombre }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <span class="empty-nivel">
+                        <i class="fas fa-info-circle"></i> 
+                        Sin personal asignado
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="nivel-connector"><div class="connector-line"></div></div>
+
+            <!-- NIVEL 3: SUPERVISIÓN -->
+            <div class="nivel-section nivel-3">
+                <div class="text-center">
+                    <div class="nivel-header">
+                        <i class="fas fa-clipboard-list"></i> 
+                        <span>Nivel 3 - Supervisión</span>
+                    </div>
+                </div>
+                <div class="trabajadores-grid">
+                    {% for trabajador in niveles.3 %}
+                    <div class="trabajador-card">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="avatar-circle">
+                                    <i class="fas fa-user-check"></i>
+                                </div>
+                                <div class="trabajador-nombre">{{ trabajador.nombres }}</div>
+                                <div class="trabajador-apellido">{{ trabajador.apellidos }}</div>
+                                <span class="cargo-badge">{{ trabajador.cargo.nombre }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <span class="empty-nivel">
+                        <i class="fas fa-info-circle"></i> 
+                        Sin personal asignado
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="nivel-connector"><div class="connector-line"></div></div>
+
+            <!-- NIVEL 4: OPERACIONES -->
+            <div class="nivel-section nivel-4">
+                <div class="text-center">
+                    <div class="nivel-header">
+                        <i class="fas fa-hard-hat"></i> 
+                        <span>Nivel 4 - Operaciones</span>
+                    </div>
+                </div>
+                <div class="trabajadores-grid">
+                    {% for trabajador in niveles.4 %}
+                    <div class="trabajador-card">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="avatar-circle">
+                                    <i class="fas fa-hard-hat"></i>
+                                </div>
+                                <div class="trabajador-nombre">{{ trabajador.nombres }}</div>
+                                <div class="trabajador-apellido">{{ trabajador.apellidos }}</div>
+                                <span class="cargo-badge">{{ trabajador.cargo.nombre }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <span class="empty-nivel">
+                        <i class="fas fa-info-circle"></i> 
+                        Sin personal asignado
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+
+        {% else %}
+            <div class="no-data-container">
+                <i class="fas fa-users"></i>
+                <h4>No hay trabajadores activos</h4>
+                <p>Asigne trabajadores al contrato para visualizar el organigrama.</p>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
