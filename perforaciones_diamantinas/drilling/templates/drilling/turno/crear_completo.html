@@ -277,6 +277,22 @@
     opacity: 0.5;
 }
 
+/* === METRAJE AUTO-CALCULADO === */
+.sondaje-metraje-auto {
+    background-color: #f8fff8 !important;
+    font-weight: 600;
+    color: #198754;
+}
+
+.sondaje-metraje-auto:focus {
+    background-color: #f8fff8 !important;
+}
+
+.bg-success-subtle {
+    background-color: #d1e7dd !important;
+    transition: background-color 0.3s ease;
+}
+
 .progress-ring {
     display: inline-flex;
     align-items: center;
@@ -1017,8 +1033,54 @@ document.addEventListener('DOMContentLoaded', function() {
             const fin = parseFloat(row.querySelector('input[name*="metros_fin"]').value) || 0;
             const turno = fin - inicio;
             row.querySelector('input[name*="metros_turno"]').value = turno >= 0 ? turno.toFixed(2) : '';
+            
+            // Recalcular metraje total del sondaje
+            const subsection = row.closest('.complemento-subsection');
+            if (subsection) {
+                recalcularMetrajeSondaje(subsection.dataset.sondajeId);
+            }
         }
     });
+    
+    // =============================================
+    // FUNCIÓN PARA RECALCULAR METRAJE DEL SONDAJE
+    // =============================================
+    
+    function recalcularMetrajeSondaje(sondajeId) {
+        // Buscar todas las filas de complemento para este sondaje
+        const subsection = document.querySelector(`.complemento-subsection[data-sondaje-id="${sondajeId}"]`);
+        if (!subsection) return;
+        
+        let totalMetraje = 0;
+        subsection.querySelectorAll('.complemento-row').forEach(function(row) {
+            const metrosTurno = parseFloat(row.querySelector('input[name*="metros_turno"]')?.value) || 0;
+            if (metrosTurno > 0) {
+                totalMetraje += metrosTurno;
+            }
+        });
+        
+        // Buscar la fila del sondaje y actualizar su campo de metraje
+        const sondajeRows = document.querySelectorAll('.sondaje-row');
+        sondajeRows.forEach(function(sondajeRow) {
+            const select = sondajeRow.querySelector('select[name="sondajes"]');
+            if (select && select.value === sondajeId) {
+                const metrajeInput = sondajeRow.querySelector('input[name="sondajes_metraje"]');
+                if (metrajeInput) {
+                    metrajeInput.value = totalMetraje > 0 ? totalMetraje.toFixed(2) : '';
+                    // Efecto visual para indicar actualización
+                    metrajeInput.classList.add('bg-success-subtle');
+                    setTimeout(() => metrajeInput.classList.remove('bg-success-subtle'), 500);
+                }
+            }
+        });
+    }
+    
+    // Recalcular metraje de todos los sondajes
+    function recalcularTodosLosMetrajes() {
+        document.querySelectorAll('.complemento-subsection').forEach(function(subsection) {
+            recalcularMetrajeSondaje(subsection.dataset.sondajeId);
+        });
+    }
     
     // =============================================
     // FUNCIONES PARA ADITIVOS
@@ -1092,8 +1154,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     {% endfor %}
                 </select>
             </div>
-                <div class="ms-2" style="width:140px;">
-                <input type="number" step="0.01" name="sondajes_metraje" class="form-control form-control-sm" placeholder="Metraje (m)" min="0">
+            <div class="ms-2" style="width:160px;">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-success text-white" title="Suma automática de avances de brocas">
+                        <i class="fas fa-calculator"></i>
+                    </span>
+                    <input type="number" step="0.01" name="sondajes_metraje" class="form-control form-control-sm text-center fw-bold sondaje-metraje-auto" placeholder="0.00" min="0" readonly>
+                    <span class="input-group-text">m</span>
+                </div>
             </div>
             <div class="ms-2">
                 <button type="button" class="btn btn-danger btn-sm btn-remove-sondaje"><i class="fas fa-trash"></i></button>
@@ -1279,12 +1347,18 @@ document.addEventListener('DOMContentLoaded', function() {
             container.insertAdjacentHTML('beforeend', crearComplementoRowForSondaje(sid));
         }
         if (event.target.closest('.btn-remove-complemento')){
+            const subsection = event.target.closest('.complemento-subsection');
+            const sondajeId = subsection?.dataset?.sondajeId;
             const container = event.target.closest('.complementos-list');
             event.target.closest('.complemento-row').remove();
             // Mostrar empty state si no quedan items
             if (container && container.querySelectorAll('.complemento-row').length === 0) {
                 const emptyState = container.querySelector('.subsection-empty');
                 if (emptyState) emptyState.style.display = 'block';
+            }
+            // Recalcular metraje del sondaje después de eliminar
+            if (sondajeId) {
+                recalcularMetrajeSondaje(sondajeId);
             }
         }
     });
