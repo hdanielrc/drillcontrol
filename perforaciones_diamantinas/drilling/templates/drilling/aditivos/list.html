@@ -1,31 +1,130 @@
 {% extends 'drilling/base.html' %}
-{% block title %}Lista de Aditivos{% endblock %}
+{% block title %}Aditivos{% endblock %}
 {% block content %}
-<h2>Aditivos</h2>
-<a href="{% url 'aditivo-create' %}" class="btn btn-primary mb-3">Nuevo Aditivo</a>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Nombre</th>
-      <th>Categoría</th>
-      <th>Unidad por defecto</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for aditivo in aditivos %}
-    <tr>
-      <td>{{ aditivo.nombre }}</td>
-      <td>{{ aditivo.get_categoria_display }}</td>
-      <td>{{ aditivo.unidad_medida_default.simbolo }}</td>
-      <td>
-        <a href="{% url 'aditivo-update' aditivo.pk %}" class="btn btn-sm btn-warning">Editar</a>
-        <a href="{% url 'aditivo-delete' aditivo.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="4" class="text-center">No hay aditivos registrados.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-flask"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Gestión de Aditivos</h2>
+        <p>Control de aditivos, lubricantes y materiales de perforación</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'aditivo-create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Nuevo Aditivo
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-flask"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ aditivos|length }}</div>
+            <div class="stat-label">Total Aditivos</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+            <i class="fas fa-oil-can"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.lubricantes|default:0 }}</div>
+            <div class="stat-label">Lubricantes</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #FFC248, #e0a800);">
+            <i class="fas fa-fill-drip"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.polimeros|default:0 }}</div>
+            <div class="stat-label">Polímeros</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #06AAFF, #0085d1);">
+            <i class="fas fa-boxes"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.otros|default:0 }}</div>
+            <div class="stat-label">Otros</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-list"></i> Listado de Aditivos
+        <span class="badge bg-secondary ms-2">{{ aditivos|length }}</span>
+    </div>
+    <div class="list-body">
+        <div class="table-responsive">
+            <table class="table table-enhanced">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Unidad por defecto</th>
+                        <th class="text-center" style="width: 120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aditivo in aditivos %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="item-avatar me-2" style="background: linear-gradient(135deg, #00b894, #55efc4);">
+                                    <i class="fas fa-flask"></i>
+                                </div>
+                                <strong>{{ aditivo.nombre }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge-status badge-status-info">
+                                {{ aditivo.get_categoria_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="text-muted">
+                                <i class="fas fa-ruler me-1"></i>{{ aditivo.unidad_medida_default.simbolo }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'aditivo-update' aditivo.pk %}" 
+                                   class="btn btn-outline-primary" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'aditivo-delete' aditivo.pk %}" 
+                                   class="btn btn-outline-danger" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-flask"></i>
+                                <h5>No hay aditivos registrados</h5>
+                                <p>Agregue lubricantes, polímeros y otros aditivos para gestionar el inventario</p>
+                                <a href="{% url 'aditivo-create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i> Agregar Primer Aditivo
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}

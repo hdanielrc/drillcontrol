@@ -1,29 +1,104 @@
 {% extends 'drilling/base.html' %}
-{% block title %}Lista de Actividades{% endblock %}
+{% block title %}Actividades{% endblock %}
 {% block content %}
-<h2>Actividades</h2>
-<a href="{% url 'actividades-create' %}" class="btn btn-primary mb-3">Nueva Actividad</a>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Nombre</th>
-      <th>Descripción</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for actividad in actividades %}
-    <tr>
-      <td>{{ actividad.nombre }}</td>
-      <td>{{ actividad.descripcion }}</td>
-      <td>
-        <a href="{% url 'actividades-update' actividad.pk %}" class="btn btn-sm btn-warning">Editar</a>
-        <a href="{% url 'actividades-delete' actividad.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="3" class="text-center">No hay actividades registradas.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-tasks"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Gestión de Actividades</h2>
+        <p>Catálogo de actividades de perforación y operaciones</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'actividades-create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Nueva Actividad
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-tasks"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ actividades|length }}</div>
+            <div class="stat-label">Total Actividades</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.activas|default:actividades|length }}</div>
+            <div class="stat-label">Activas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-list"></i> Listado de Actividades
+        <span class="badge bg-secondary ms-2">{{ actividades|length }}</span>
+    </div>
+    <div class="list-body">
+        <div class="table-responsive">
+            <table class="table table-enhanced">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th class="text-center" style="width: 120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for actividad in actividades %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="item-avatar me-2" style="background: linear-gradient(135deg, #fd79a8, #e84393);">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                                <strong>{{ actividad.nombre }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{ actividad.descripcion|truncatewords:15 }}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'actividades-update' actividad.pk %}" 
+                                   class="btn btn-outline-primary" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'actividades-delete' actividad.pk %}" 
+                                   class="btn btn-outline-danger" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">
+                            <div class="empty-state">
+                                <i class="fas fa-tasks"></i>
+                                <h5>No hay actividades registradas</h5>
+                                <p>Agregue actividades para definir el catálogo de operaciones</p>
+                                <a href="{% url 'actividades-create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i> Agregar Primera Actividad
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}

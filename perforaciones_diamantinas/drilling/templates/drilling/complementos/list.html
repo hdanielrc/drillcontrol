@@ -1,31 +1,128 @@
 {% extends 'drilling/base.html' %}
-{% block title %}Lista de Productos Diamantados{% endblock %}
+{% block title %}Productos Diamantados{% endblock %}
 {% block content %}
-<h2>Productos Diamantados</h2>
-<a href="{% url 'complemento-create' %}" class="btn btn-primary mb-3">Nuevo Producto Diamantado</a>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Nombre</th>
-      <th>Categoría</th>
-      <th>Descripción</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for complemento in complementos %}
-    <tr>
-      <td>{{ complemento.nombre }}</td>
-      <td>{{ complemento.get_categoria_display }}</td>
-      <td>{{ complemento.descripcion }}</td>
-      <td>
-        <a href="{% url 'complemento-update' complemento.pk %}" class="btn btn-sm btn-warning">Editar</a>
-        <a href="{% url 'complemento-delete' complemento.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="4" class="text-center">No hay productos diamantados registrados.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-gem"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Productos Diamantados</h2>
+        <p>Gestión de brocas, escariadores y herramientas diamantadas</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'complemento-create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Nuevo Producto
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-gem"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ complementos|length }}</div>
+            <div class="stat-label">Total Productos</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+            <i class="fas fa-circle-notch"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.brocas|default:0 }}</div>
+            <div class="stat-label">Brocas</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #FFC248, #e0a800);">
+            <i class="fas fa-tools"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.escariadores|default:0 }}</div>
+            <div class="stat-label">Escariadores</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #06AAFF, #0085d1);">
+            <i class="fas fa-cog"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.otros|default:0 }}</div>
+            <div class="stat-label">Otros</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-list"></i> Listado de Productos Diamantados
+        <span class="badge bg-secondary ms-2">{{ complementos|length }}</span>
+    </div>
+    <div class="list-body">
+        <div class="table-responsive">
+            <table class="table table-enhanced">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th class="text-center" style="width: 120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for complemento in complementos %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="item-avatar me-2" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+                                    <i class="fas fa-gem"></i>
+                                </div>
+                                <strong>{{ complemento.nombre }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge-status badge-status-info">
+                                {{ complemento.get_categoria_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{ complemento.descripcion|truncatewords:10 }}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'complemento-update' complemento.pk %}" 
+                                   class="btn btn-outline-primary" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'complemento-delete' complemento.pk %}" 
+                                   class="btn btn-outline-danger" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-gem"></i>
+                                <h5>No hay productos diamantados registrados</h5>
+                                <p>Agregue brocas, escariadores y otros productos para comenzar</p>
+                                <a href="{% url 'complemento-create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i> Agregar Primer Producto
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}

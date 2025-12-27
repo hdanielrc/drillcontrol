@@ -3,7 +3,8 @@
 {% block title %}Sondajes - {{ user.contrato.nombre_contrato }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- Page Header -->
+<div class="page-header animate-fade-in">
     <h2><i class="fas fa-map-marked-alt"></i> Gestión de Sondajes</h2>
     <a href="{% url 'sondaje-create' %}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Nuevo Sondaje
@@ -11,11 +12,11 @@
 </div>
 
 <!-- Filtros -->
-<div class="card mb-4 filters-card">
+<div class="card filters-card mb-4 animate-fade-in">
     <div class="card-body">
-        <form method="GET" class="row g-3 filters-row">
+        <form method="GET" class="row g-3 align-items-end">
             <div class="col-md-4">
-                <label class="form-label">Estado</label>
+                <label class="form-label"><i class="fas fa-flag text-muted"></i> Estado</label>
                 <select name="estado" class="form-select">
                     <option value="">Todos los estados</option>
                     {% for value, label in estados %}
@@ -26,8 +27,8 @@
                 </select>
             </div>
             <div class="col-md-4">
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-outline-primary">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
                         <i class="fas fa-filter"></i> Filtrar
                     </button>
                     <a href="{% url 'sondaje-list' %}" class="btn btn-outline-secondary">
@@ -39,22 +40,22 @@
     </div>
 </div>
 
-<!-- Tabla -->
-<div class="card">
+<!-- Tabla de Sondajes -->
+<div class="card card-modern animate-fade-in">
     <div class="card-header">
         <h5><i class="fas fa-list"></i> Listado de Sondajes</h5>
     </div>
-    <div class="card-body">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead class="table-dark">
+            <table class="table table-modern mb-0">
+                <thead>
                     <tr>
                         <th>Nombre</th>
                         <th>Profundidad</th>
                         <th>Inclinación</th>
                         <th>Fecha Inicio</th>
                         <th>Estado</th>
-                        <th>Acciones</th>
+                        <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -74,27 +75,21 @@
                         <td>{{ sondaje.fecha_inicio|date:"d/m/Y" }}</td>
                         <td>
                             {% if sondaje.estado == 'ACTIVO' %}
-                                <span class="status-indicator status-active"></span>
-                                <span class="badge bg-success">{{ sondaje.get_estado_display }}</span>
+                                <span class="badge-status badge-status-active">{{ sondaje.get_estado_display }}</span>
                             {% elif sondaje.estado == 'PAUSADO' %}
-                                <span class="status-indicator status-warning"></span>
-                                <span class="badge bg-warning text-dark">{{ sondaje.get_estado_display }}</span>
+                                <span class="badge-status badge-status-paused">{{ sondaje.get_estado_display }}</span>
                             {% elif sondaje.estado == 'FINALIZADO' %}
-                                <span class="status-indicator status-inactive"></span>
-                                <span class="badge bg-secondary">{{ sondaje.get_estado_display }}</span>
+                                <span class="badge-status badge-status-completed">{{ sondaje.get_estado_display }}</span>
                             {% else %}
-                                <span class="status-indicator status-danger"></span>
-                                <span class="badge bg-danger">{{ sondaje.get_estado_display }}</span>
+                                <span class="badge-status badge-status-cancelled">{{ sondaje.get_estado_display }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <a href="{% url 'sondaje-update' sondaje.pk %}" 
-                                   class="btn btn-outline-primary" title="Editar">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <a href="{% url 'sondaje-update' sondaje.pk %}" class="btn btn-action btn-action-edit" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="{% url 'sondaje-delete' sondaje.pk %}" 
-                                   class="btn btn-outline-danger" title="Eliminar">
+                                <a href="{% url 'sondaje-delete' sondaje.pk %}" class="btn btn-action btn-action-delete" title="Eliminar">
                                     <i class="fas fa-trash"></i>
                                 </a>
                             </div>
@@ -102,9 +97,15 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">
-                            <i class="fas fa-map-marked-alt fa-2x mb-2"></i><br>
-                            No hay sondajes registrados
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="fas fa-map-marked-alt"></i>
+                                <h5>No hay sondajes registrados</h5>
+                                <p>Comienza creando un nuevo sondaje para este contrato.</p>
+                                <a href="{% url 'sondaje-create' %}" class="btn btn-primary mt-2">
+                                    <i class="fas fa-plus"></i> Crear Primer Sondaje
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -114,8 +115,8 @@
         
         <!-- Paginación -->
         {% if is_paginated %}
-        <nav aria-label="Paginación">
-            <ul class="pagination justify-content-center mt-3">
+        <nav aria-label="Paginación" class="p-3">
+            <ul class="pagination justify-content-center mb-0">
                 {% if page_obj.has_previous %}
                     <li class="page-item">
                         <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
