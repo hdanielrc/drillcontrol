@@ -346,6 +346,131 @@
 .dynamic-row {
     animation: slideIn 0.3s ease;
 }
+
+/* === SUBSECCIONES POR SONDAJE === */
+.sondaje-subsection {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 2px solid #dee2e6;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    animation: slideIn 0.3s ease;
+}
+
+.sondaje-subsection-header {
+    background: linear-gradient(135deg, var(--dc-azul) 0%, #1a5276 100%);
+    color: white;
+    padding: 12px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sondaje-subsection-header .sondaje-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sondaje-subsection-header .sondaje-name i {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.sondaje-subsection-header .sondaje-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.sondaje-subsection-body {
+    padding: 15px;
+}
+
+.sondaje-subsection-body .items-list {
+    min-height: 60px;
+}
+
+.sondaje-subsection .btn-add-item-sub {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    font-size: 0.8rem;
+    padding: 5px 12px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.sondaje-subsection .btn-add-item-sub:hover {
+    background: rgba(255,255,255,0.25);
+    transform: translateY(-1px);
+}
+
+/* Diferentes colores para distinguir subsecciones de diferentes sondajes */
+.sondaje-subsection[data-sondaje-index="0"] .sondaje-subsection-header {
+    background: linear-gradient(135deg, #2980b9 0%, #1a5276 100%);
+}
+.sondaje-subsection[data-sondaje-index="1"] .sondaje-subsection-header {
+    background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+}
+.sondaje-subsection[data-sondaje-index="2"] .sondaje-subsection-header {
+    background: linear-gradient(135deg, #8e44ad 0%, #6c3483 100%);
+}
+.sondaje-subsection[data-sondaje-index="3"] .sondaje-subsection-header {
+    background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
+}
+.sondaje-subsection[data-sondaje-index="4"] .sondaje-subsection-header {
+    background: linear-gradient(135deg, #16a085 0%, #0e6655 100%);
+}
+
+/* Item rows dentro de subsecciones */
+.item-row-sub {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+}
+
+.item-row-sub:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border-color: #c0c0c0;
+}
+
+.item-row-sub .btn-remove {
+    background: #fee;
+    border: 1px solid #fcc;
+    color: #c0392b;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.item-row-sub .btn-remove:hover {
+    background: #c0392b;
+    color: white;
+}
+
+/* Empty state para subsecciones */
+.subsection-empty {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    font-size: 0.9rem;
+}
+
+.subsection-empty i {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    display: block;
+    opacity: 0.5;
+}
 </style>
 {% endblock %}
 
@@ -1005,30 +1130,72 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Build list of current sondaje ids in order
         const current = [];
-        sondajeRows.forEach(function(row){
+        sondajeRows.forEach(function(row, index){
             const sel = row.querySelector('select[name="sondajes"]');
-            if (sel && sel.value) current.push({id: sel.value, text: sel.options[sel.selectedIndex].text});
+            if (sel && sel.value) current.push({id: sel.value, text: sel.options[sel.selectedIndex].text, index: index});
         });
 
         // Remove subsections for sondajes no present
         Object.keys(existingComp).forEach(function(k){ if (!current.find(s=>s.id==k)) existingComp[k].remove(); });
         Object.keys(existingAdit).forEach(function(k){ if (!current.find(s=>s.id==k)) existingAdit[k].remove(); });
         Object.keys(existingEstado).forEach(function(k){ if (!current.find(s=>s.id==k)) existingEstado[k].remove(); });
+        
+        // Ocultar empty states si hay subsecciones
+        const emptyDiamantados = document.getElementById('empty-diamantados');
+        const emptyAditivos = document.getElementById('empty-aditivos');
+        if (emptyDiamantados) emptyDiamantados.style.display = current.length ? 'none' : 'block';
+        if (emptyAditivos) emptyAditivos.style.display = current.length ? 'none' : 'block';
 
-        // Create subsections for new sondajes
+        // Create subsections for new sondajes with improved visual design
         current.forEach(function(s){
-                if (!existingComp[s.id]){
+            if (!existingComp[s.id]){
                 const div = document.createElement('div');
-                div.className = 'complemento-subsection mb-3 border rounded p-2';
+                div.className = 'sondaje-subsection complemento-subsection';
                 div.dataset.sondajeId = s.id;
-                div.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-2"><strong>Productos Diamantados para: ${s.text}</strong><button type="button" class="btn btn-sm btn-primary btn-add-complemento" data-sondaje-id="${s.id}"><i class="fas fa-plus"></i> Agregar Producto Diamantado</button></div><div class="complementos-list"></div>`;
+                div.dataset.sondajeIndex = s.index % 5; // Para colores alternados
+                div.innerHTML = `
+                    <div class="sondaje-subsection-header">
+                        <div class="sondaje-name">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>Productos Diamantados para: <strong>${s.text}</strong></span>
+                        </div>
+                        <button type="button" class="btn btn-add-item-sub btn-add-complemento" data-sondaje-id="${s.id}">
+                            <i class="fas fa-plus"></i> Agregar Broca
+                        </button>
+                    </div>
+                    <div class="sondaje-subsection-body">
+                        <div class="complementos-list items-list">
+                            <div class="subsection-empty">
+                                <i class="fas fa-gem"></i>
+                                Haz clic en "Agregar Broca" para registrar productos diamantados usados en este sondaje
+                            </div>
+                        </div>
+                    </div>`;
                 complementosCont.appendChild(div);
             }
             if (!existingAdit[s.id]){
                 const div2 = document.createElement('div');
-                div2.className = 'aditivo-subsection mb-3 border rounded p-2';
+                div2.className = 'sondaje-subsection aditivo-subsection';
                 div2.dataset.sondajeId = s.id;
-                div2.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-2"><strong>Aditivos para: ${s.text}</strong><button type="button" class="btn btn-sm btn-primary btn-add-aditivo" data-sondaje-id="${s.id}"><i class="fas fa-plus"></i> Agregar Aditivo</button></div><div class="aditivos-list"></div>`;
+                div2.dataset.sondajeIndex = s.index % 5;
+                div2.innerHTML = `
+                    <div class="sondaje-subsection-header">
+                        <div class="sondaje-name">
+                            <i class="fas fa-flask"></i>
+                            <span>Aditivos para: <strong>${s.text}</strong></span>
+                        </div>
+                        <button type="button" class="btn btn-add-item-sub btn-add-aditivo" data-sondaje-id="${s.id}">
+                            <i class="fas fa-plus"></i> Agregar Aditivo
+                        </button>
+                    </div>
+                    <div class="sondaje-subsection-body">
+                        <div class="aditivos-list items-list">
+                            <div class="subsection-empty">
+                                <i class="fas fa-flask"></i>
+                                Haz clic en "Agregar Aditivo" para registrar aditivos usados en este sondaje
+                            </div>
+                        </div>
+                    </div>`;
                 aditivosCont.appendChild(div2);
             }
             if (!existingEstado[s.id]){
@@ -1106,10 +1273,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const btn = event.target.closest('.btn-add-complemento');
             const sid = btn.dataset.sondajeId;
             const container = btn.closest('.complemento-subsection').querySelector('.complementos-list');
+            // Ocultar el empty state
+            const emptyState = container.querySelector('.subsection-empty');
+            if (emptyState) emptyState.style.display = 'none';
             container.insertAdjacentHTML('beforeend', crearComplementoRowForSondaje(sid));
         }
         if (event.target.closest('.btn-remove-complemento')){
+            const container = event.target.closest('.complementos-list');
             event.target.closest('.complemento-row').remove();
+            // Mostrar empty state si no quedan items
+            if (container && container.querySelectorAll('.complemento-row').length === 0) {
+                const emptyState = container.querySelector('.subsection-empty');
+                if (emptyState) emptyState.style.display = 'block';
+            }
         }
     });
     
@@ -1132,42 +1308,53 @@ document.addEventListener('DOMContentLoaded', function() {
             const btn = event.target.closest('.btn-add-aditivo');
             const sid = btn.dataset.sondajeId;
             const container = btn.closest('.aditivo-subsection').querySelector('.aditivos-list');
+            // Ocultar el empty state
+            const emptyState = container.querySelector('.subsection-empty');
+            if (emptyState) emptyState.style.display = 'none';
             container.insertAdjacentHTML('beforeend', crearAditivoRowForSondaje(sid));
         }
         if (event.target.closest('.btn-remove-aditivo')){
+            const container = event.target.closest('.aditivos-list');
             event.target.closest('.aditivo-row').remove();
+            // Mostrar empty state si no quedan items
+            if (container && container.querySelectorAll('.aditivo-row').length === 0) {
+                const emptyState = container.querySelector('.subsection-empty');
+                if (emptyState) emptyState.style.display = 'block';
+            }
         }
     });
 
     function crearComplementoRowForSondaje(sondajeId){
         const idx = document.querySelectorAll('.complemento-row').length;
         return `
-        <div class="complemento-row border rounded p-2 mb-2 bg-white">
+        <div class="complemento-row item-row-sub">
             <input type="hidden" name="comp_sondaje_id_${idx}" value="${sondajeId}" class="comp-sondaje-id">
-            <div class="row">
+            <div class="row align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label">Serie</label>
-                    <input type="text" name="serie_${idx}" class="form-control input-serie" placeholder="Ingrese serie" required>
+                    <label class="form-label fw-semibold"><i class="fas fa-barcode text-muted"></i> Serie</label>
+                    <input type="text" name="serie_${idx}" class="form-control input-serie" placeholder="Ingrese serie de la broca" required>
                     <input type="hidden" name="tipo_complemento_${idx}" class="complemento-id">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Descripción</label>
-                    <input type="text" name="descripcion_${idx}" class="form-control descripcion-complemento" placeholder="Descripción" readonly>
+                    <label class="form-label fw-semibold"><i class="fas fa-tag text-muted"></i> Descripción</label>
+                    <input type="text" name="descripcion_${idx}" class="form-control descripcion-complemento" placeholder="Auto-detectado" readonly>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Metros Inicio</label>
-                    <input type="number" step="0.01" name="metros_inicio_${idx}" class="form-control" min="0">
+                    <label class="form-label fw-semibold">Metros Inicio</label>
+                    <input type="number" step="0.01" name="metros_inicio_${idx}" class="form-control" min="0" placeholder="0.00">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Metros Fin</label>
-                    <input type="number" step="0.01" name="metros_fin_${idx}" class="form-control" min="0">
+                    <label class="form-label fw-semibold">Metros Fin</label>
+                    <input type="number" step="0.01" name="metros_fin_${idx}" class="form-control" min="0" placeholder="0.00">
                 </div>
                 <div class="col-md-1">
-                    <label class="form-label">Metros</label>
-                    <input type="number" step="0.01" name="metros_turno_${idx}" class="form-control metros-turno" readonly>
+                    <label class="form-label fw-semibold">Avance</label>
+                    <input type="number" step="0.01" name="metros_turno_${idx}" class="form-control metros-turno text-center fw-bold" readonly>
                 </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-complemento"><i class="fas fa-trash"></i></button>
+                <div class="col-md-1 d-flex align-items-end justify-content-center">
+                    <button type="button" class="btn btn-remove btn-remove-complemento" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             </div>
         </div>`;
@@ -1176,11 +1363,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function crearAditivoRowForSondaje(sondajeId){
         const idx = document.querySelectorAll('.aditivo-row').length;
         return `
-        <div class="aditivo-row border rounded p-2 mb-2 bg-white">
+        <div class="aditivo-row item-row-sub">
             <input type="hidden" name="ad_sondaje_id_${idx}" value="${sondajeId}" class="ad-sondaje-id">
-            <div class="row">
+            <div class="row align-items-end">
                 <div class="col-md-5">
-                    <label class="form-label">Tipo de Aditivo</label>
+                    <label class="form-label fw-semibold"><i class="fas fa-flask text-muted"></i> Tipo de Aditivo</label>
                     <select name="tipo_aditivo_${idx}" class="form-select">
                         <option value="">Seleccionar aditivo</option>
                         {% for aditivo in tipos_aditivo %}
@@ -1190,21 +1377,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Cantidad Usada</label>
-                    <input type="number" step="0.01" name="cantidad_usada_${idx}" class="form-control" min="0">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Cantidad Usada</label>
+                    <input type="number" step="0.01" name="cantidad_usada_${idx}" class="form-control" min="0" placeholder="0.00">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">Unidad</label>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Unidad</label>
                     <select name="unidad_medida_${idx}" class="form-select">
-                        <option value="">Unidad</option>
+                        <option value="">Seleccionar unidad</option>
                         {% for unidad in unidades_medida %}
-                        <option value="{{ unidad.id }}">{{ unidad.simbolo }}</option>
+                        <option value="{{ unidad.id }}">{{ unidad.nombre }} ({{ unidad.simbolo }})</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-aditivo"><i class="fas fa-trash"></i></button>
+                <div class="col-md-1 d-flex align-items-end justify-content-center">
+                    <button type="button" class="btn btn-remove btn-remove-aditivo" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             </div>
         </div>`;
