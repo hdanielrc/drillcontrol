@@ -5,111 +5,97 @@
 {% block content %}
 <!-- Page Header -->
 <div class="page-header animate-fade-in">
-    <div>
-        <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
-        <small style="opacity: 0.8;">{{ contract.nombre_contrato }}</small>
+    <div class="page-header-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+        <i class="fas fa-tachometer-alt"></i>
     </div>
-    <div class="text-end">
+    <div class="page-header-content">
+        <h2>Dashboard Operativo</h2>
+        <p>{{ contract.nombre_contrato }}</p>
+    </div>
+    <div class="page-header-actions">
         {% if is_system_admin %}
         <span class="badge" style="background: var(--secondary-yellow); color: var(--primary-dark);">
-            <i class="fas fa-shield-alt"></i> Administrador
+            <i class="fas fa-shield-alt me-1"></i> Administrador
         </span>
         {% endif %}
-        <br>
-        <small style="opacity: 0.7;">
-            <i class="fas fa-calendar"></i> {{ "now"|date:"d/m/Y H:i" }}
-        </small>
+        <span class="badge bg-light text-dark" style="font-size: 0.85rem;">
+            <i class="fas fa-calendar me-1"></i> {{ "now"|date:"d/m/Y H:i" }}
+        </span>
     </div>
 </div>
 
 <!-- Métricas principales -->
-<div class="row mb-4">
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card animate-fade-in">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-card-icon">
-                    <i class="fas fa-map-marked-alt"></i>
-                </div>
-                <div>
-                    <div class="stat-card-value">{{ sondajes_activos }}</div>
-                    <div class="stat-card-label">Sondajes Activos</div>
-                </div>
-            </div>
+<div class="stats-grid mb-4 animate-fade-in">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
+            <i class="fas fa-map-marked-alt"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ sondajes_activos }}</div>
+            <div class="stat-label">Sondajes Activos</div>
         </div>
     </div>
     
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card stat-card-success animate-fade-in">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-card-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div>
-                    <div class="stat-card-value">{{ turnos_hoy }}</div>
-                    <div class="stat-card-label">Turnos Hoy</div>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ turnos_hoy }}</div>
+            <div class="stat-label">Turnos Hoy</div>
         </div>
     </div>
     
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card stat-card-info animate-fade-in">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-card-icon">
-                    <i class="fas fa-ruler-vertical"></i>
-                </div>
-                <div>
-                    <div class="stat-card-value">{{ metros_perforados_mes|floatformat:1 }}m</div>
-                    <div class="stat-card-label">Metros este Mes</div>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #06AAFF, #0470AC);">
+            <i class="fas fa-ruler-vertical"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ metros_perforados_mes|floatformat:1 }}m</div>
+            <div class="stat-label">Metros este Mes</div>
         </div>
     </div>
     
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card stat-card-warning animate-fade-in">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-card-icon">
-                    <i class="fas fa-cogs"></i>
-                </div>
-                <div>
-                    <div class="stat-card-value">{{ maquinas_operativas }}</div>
-                    <div class="stat-card-label">Máquinas Operativas</div>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #FFC248, #e0a800);">
+            <i class="fas fa-cogs"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ maquinas_operativas }}</div>
+            <div class="stat-label">Máquinas Operativas</div>
         </div>
     </div>
 </div>
 
 <!-- Accesos rápidos -->
-<div class="card card-modern mb-4 animate-fade-in">
-    <div class="card-header">
-        <h5><i class="fas fa-rocket"></i> Accesos Rápidos</h5>
+<div class="list-section mb-4 animate-fade-in">
+    <div class="list-header">
+        <i class="fas fa-rocket me-2"></i> Accesos Rápidos
     </div>
-    <div class="card-body">
+    <div class="list-body">
         <div class="row g-3">
             <div class="col-md-3 col-6">
-                <a href="{% url 'sondaje-list' %}" class="btn btn-outline-dark w-100 py-3">
+                <a href="{% url 'sondaje-list' %}" class="btn btn-outline-primary w-100 py-3">
                     <i class="fas fa-map-marked-alt fa-2x mb-2"></i><br>
-                    <small>Sondajes</small>
+                    <strong>Sondajes</strong>
                 </a>
             </div>
             <div class="col-md-3 col-6">
                 <a href="{% url 'crear-turno-completo' %}" class="btn btn-primary w-100 py-3">
                     <i class="fas fa-plus-circle fa-2x mb-2"></i><br>
-                    <small>Nuevo Turno</small>
+                    <strong>Nuevo Turno</strong>
                 </a>
             </div>
             <div class="col-md-3 col-6">
                 <a href="{% url 'trabajador-list' %}" class="btn btn-outline-secondary w-100 py-3">
                     <i class="fas fa-users fa-2x mb-2"></i><br>
-                    <small>Trabajadores</small>
+                    <strong>Trabajadores</strong>
                 </a>
             </div>
             <div class="col-md-3 col-6">
                 <a href="{% url 'maquina-list' %}" class="btn btn-outline-info w-100 py-3">
                     <i class="fas fa-industry fa-2x mb-2"></i><br>
-                    <small>Máquinas</small>
+                    <strong>Máquinas</strong>
                 </a>
             </div>
         </div>
@@ -119,14 +105,14 @@
 <!-- Últimos turnos y stock crítico -->
 <div class="row">
     <div class="col-md-6 mb-4">
-        <div class="card card-modern animate-fade-in">
-            <div class="card-header">
-                <h5><i class="fas fa-clock"></i> Últimos Turnos</h5>
+        <div class="list-section animate-fade-in">
+            <div class="list-header">
+                <i class="fas fa-clock me-2"></i> Últimos Turnos
             </div>
-            <div class="card-body p-0">
+            <div class="list-body p-0">
                 {% if ultimos_turnos %}
                 <div class="table-responsive">
-                    <table class="table table-modern mb-0">
+                    <table class="table table-enhanced mb-0">
                         <thead>
                             <tr>
                                 <th>Fecha</th>
@@ -150,16 +136,16 @@
                                         {% endif %}
                                     {% endwith %}
                                 </td>
-                                <td><span class="badge bg-info">{{ turno.tipo_turno.nombre }}</span></td>
+                                <td><span class="badge-status badge-status-info">{{ turno.tipo_turno.nombre }}</span></td>
                                 <td>
                                     {% if turno.estado == 'COMPLETADO' %}
                                         <span class="badge-status badge-status-active">{{ turno.estado }}</span>
                                     {% elif turno.estado == 'BORRADOR' %}
                                         <span class="badge-status badge-status-paused">{{ turno.estado }}</span>
                                     {% elif turno.estado == 'APROBADO' %}
-                                        <span class="badge-status" style="background: linear-gradient(135deg, #0470AC, #06AAFF); color: white;">{{ turno.estado }}</span>
+                                        <span class="badge-status" style="background: linear-gradient(135deg, rgba(4, 112, 172, 0.15), rgba(6, 170, 255, 0.15)); color: #0470AC;">{{ turno.estado }}</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">{{ turno.estado }}</span>
+                                        <span class="badge-status badge-status-inactive">{{ turno.estado }}</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -169,7 +155,7 @@
                 </div>
                 {% else %}
                 <div class="empty-state py-4">
-                    <i class="fas fa-clock" style="font-size: 2rem;"></i>
+                    <i class="fas fa-clock"></i>
                     <p class="mb-0">No hay turnos registrados</p>
                 </div>
                 {% endif %}
@@ -178,19 +164,19 @@
     </div>
     
     <div class="col-md-6 mb-4">
-        <div class="card card-modern animate-fade-in">
-            <div class="card-header" style="background: linear-gradient(135deg, #c99620 0%, #FFC248 100%);">
-                <h5><i class="fas fa-exclamation-triangle"></i> Stock Crítico</h5>
+        <div class="list-section animate-fade-in">
+            <div class="list-header" style="background: linear-gradient(135deg, #FFC248, #e0a800);">
+                <i class="fas fa-exclamation-triangle me-2"></i> Stock Crítico
             </div>
-            <div class="card-body p-0">
+            <div class="list-body p-0">
                 {% if stock_critico %}
                 <div class="table-responsive">
-                    <table class="table table-modern mb-0">
-                        <thead style="background: linear-gradient(135deg, #856404 0%, #c99620 100%);">
+                    <table class="table table-enhanced mb-0">
+                        <thead>
                             <tr>
                                 <th>Producto</th>
-                                <th>Stock</th>
-                                <th>Unidad</th>
+                                <th class="text-center">Stock</th>
+                                <th class="text-center">Unidad</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -199,12 +185,12 @@
                                 <td>
                                     <small>{{ stock.descripcion|truncatechars:35 }}</small>
                                 </td>
-                                <td>
-                                    <span class="badge {% if stock.disponible <= 2 %}bg-danger{% elif stock.disponible <= 5 %}bg-warning{% else %}bg-success{% endif %}">
+                                <td class="text-center">
+                                    <span class="badge-status {% if stock.disponible <= 2 %}badge-status-danger{% elif stock.disponible <= 5 %}badge-status-warning{% else %}badge-status-active{% endif %}">
                                         {{ stock.disponible|floatformat:1 }}
                                     </span>
                                 </td>
-                                <td><small class="text-muted">{{ stock.unidad_medida.simbolo }}</small></td>
+                                <td class="text-center"><small class="text-muted">{{ stock.unidad_medida.simbolo }}</small></td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -212,7 +198,7 @@
                 </div>
                 {% else %}
                 <div class="empty-state py-4">
-                    <i class="fas fa-check-circle text-success" style="font-size: 2rem;"></i>
+                    <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
                     <p class="mb-0 text-success">Sin productos en stock crítico</p>
                 </div>
                 {% endif %}
