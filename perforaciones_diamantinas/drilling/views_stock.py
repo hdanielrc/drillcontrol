@@ -29,7 +29,6 @@ from .models import (
     Contrato, StockSnapshot, AlertaStock, ConfiguracionAlertaStock
 )
 from .utils.stock_service import StockService
-from .mixins import ContratoAccessMixin
 
 
 @login_required
