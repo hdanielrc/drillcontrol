@@ -1,8 +1,35 @@
+"""
+=============================================================================
+DRILLING MODELS - Sistema de Perforaciones Diamantinas
+=============================================================================
+
+Este archivo contiene todos los modelos del sistema organizados en secciones:
+
+ÍNDICE DE SECCIONES:
+--------------------
+1. CORE (línea ~30)         - Cliente, Contrato, CustomUser
+2. PERSONAL (línea ~250)    - Cargo, Trabajador, Asistencia, Horas Extras
+3. MAQUINARIA (línea ~550)  - Maquina, Vehiculo, Equipo
+4. SONDAJES (línea ~850)    - Sondaje, TipoActividad, TipoTurno
+5. INVENTARIO (línea ~1100) - Unidades, Complementos, Aditivos, Brocas
+6. TURNOS (línea ~1400)     - Turno y modelos relacionados
+7. METAS (línea ~1850)      - MetaMaquina, PrecioUnitarioServicio
+8. ORGANIGRAMA (línea ~2300)- OrganigramaSemanal, Asignaciones
+
+Para navegar: Ctrl+G (ir a línea) o Ctrl+F (buscar "# ===")
+=============================================================================
+"""
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from decimal import Decimal
+
+
+# =============================================================================
+# SECCIÓN 1: CORE - Clientes, Contratos y Usuarios
+# =============================================================================
 
 class Cliente(models.Model):
     nombre = models.CharField(max_length=200)
@@ -399,6 +426,11 @@ class ContratoActividad(models.Model):
         except Exception:
             return f"ContratoActividad {self.pk}"
 
+
+# =============================================================================
+# SECCIÓN 5: INVENTARIO - Unidades, Complementos, Aditivos, Brocas, Stock
+# =============================================================================
+
 class UnidadMedida(models.Model):
     nombre = models.CharField(max_length=50)
     simbolo = models.CharField(max_length=10)
@@ -483,6 +515,11 @@ class TipoAditivo(models.Model):
             return f"{self.nombre} ({self.codigo})"
         return self.nombre
 
+
+# =============================================================================
+# SECCIÓN 4: SONDAJES - Sondajes, Tipos de Actividad, Estados
+# =============================================================================
+
 class Sondaje(models.Model):
     ESTADO_CHOICES = [
         ('ACTIVO', 'Activo'),
@@ -518,6 +555,11 @@ class Sondaje(models.Model):
 
     def __str__(self):
         return f"{self.nombre_sondaje} - {self.contrato.nombre_contrato}"
+
+
+# =============================================================================
+# SECCIÓN 3: MAQUINARIA - Máquinas, Vehículos, Equipos
+# =============================================================================
 
 class Maquina(models.Model):
     ESTADO_CHOICES = [
@@ -965,6 +1007,10 @@ class TurnoHoraExtra(models.Model):
         return f"{self.trabajador} - {self.turno.fecha} - {self.horas_extra}h extra"
 
 
+# =============================================================================
+# SECCIÓN 2: PERSONAL - Cargos, Trabajadores, Asistencia, Horas Extras
+# =============================================================================
+
 class Cargo(models.Model):
     id_cargo = models.IntegerField(primary_key=True, verbose_name='ID Cargo')
     nombre = models.CharField(max_length=100, unique=True, verbose_name='Nombre del cargo')
@@ -1181,6 +1227,11 @@ class Trabajador(models.Model):
                 self.grupo = grupo_calculado
         
         super().save(*args, **kwargs)
+
+
+# =============================================================================
+# SECCIÓN 6: TURNOS - Turno y modelos relacionados
+# =============================================================================
 
 class Turno(models.Model):
     ESTADO_CHOICES = [
@@ -1965,6 +2016,10 @@ class PrecioUnitarioServicio(models.Model):
                 })
 
 
+# =============================================================================
+# SECCIÓN 7: METAS - Metas de Máquinas y Precios Unitarios
+# =============================================================================
+
 class MetaMaquina(models.Model):
     """
     Metas de perforación para máquinas por período.
@@ -2305,9 +2360,9 @@ class MetaMaquina(models.Model):
         return f"{estado} {self.maquina.nombre}{servicio_str} - {periodo} - Meta: {self.meta_metros}m"
 
 
-# ============================================================================
-# MODELOS PARA GESTIÓN SEMANAL DEL ORGANIGRAMA
-# ============================================================================
+# =============================================================================
+# SECCIÓN 8: ORGANIGRAMA - Organigrama Semanal y Asignaciones
+# =============================================================================
 
 class OrganigramaSemanal(models.Model):
     """

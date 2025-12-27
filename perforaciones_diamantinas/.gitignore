@@ -28,3 +28,24 @@ static_root/
 # OS
 .DS_Store
 Thumbs.db
+
+# Archivos temporales
+*.backup
+*.bak
+*.tmp
+*.temp
+test_*.py
+debug_*.py
+buscar_*.py
+verificar_*.py
+ver_*.py
+
+# Archivos de datos temporales
+*.xlsx
+*.xls
+!plantillas/*.csv
+
+# Descargas
+*.zip
+*.exe
+%DOWNLOAD%

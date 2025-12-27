@@ -1,14 +1,14 @@
 # ====================================================
-#   DRILL CONTROL - GUIA DE INSTALACION RAPIDA
+#   DRILL CONTROL - GUÍA DE INSTALACIÓN RÁPIDA
 # ====================================================
 
-## 🚀 INSTALACION EN 3 PASOS
+## 🚀 INSTALACIÓN EN 3 PASOS
 
 ### Opción 1: Instalación Automática (Recomendado)
 
 1. **Ejecuta el instalador:**
    ```cmd
-   cd c:\Users\PERDLAP140.VILBRAGROUP\Documents\drillcontrol\drillcontrol
+   cd ruta\a\drillcontrol
    INSTALAR.bat
    ```
 
@@ -34,7 +34,7 @@
 
 #### Paso 1: Crear entorno virtual
 ```cmd
-cd c:\Users\PERDLAP140.VILBRAGROUP\Documents\drillcontrol\drillcontrol\perforaciones_diamantinas
+cd ruta\a\drillcontrol\perforaciones_diamantinas
 python -m venv venv
 ```
 
