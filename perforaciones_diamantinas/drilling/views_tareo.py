@@ -344,50 +344,72 @@ def guardar_asistencias_masivas(request):
             return JsonResponse({'success': False, 'message': 'No hay datos para guardar'}, status=400)
         
         guardadas = 0
+        turnos_actualizados = 0
         errores = []
-        
+
         with transaction.atomic():
             for item in asistencias_data:
+                trabajador_id = item.get('trabajador_id')
+                fecha_str = item.get('fecha')
+                estado = item.get('estado')
+                turno = item.get('turno')
+                observaciones = item.get('observaciones', '')
+                tipo = item.get('tipo', None)
+
+                # Validar existencia
                 try:
-                    trabajador_id = item.get('trabajador_id')
-                    fecha_str = item.get('fecha')
-                    estado = item.get('estado')
-                    observaciones = item.get('observaciones', '')
-                    
-                    if not all([trabajador_id, fecha_str, estado]):
-                        continue
-                    
                     trabajador = Trabajador.objects.get(id=trabajador_id)
-                    fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-                    
-                    # Verificar permisos
-                    if not user.has_contract_permission(trabajador.contrato):
-                        continue
-                    
-                    AsistenciaTrabajador.objects.update_or_create(
-                        trabajador=trabajador,
-                        fecha=fecha,
-                        defaults={
+                except Trabajador.DoesNotExist:
+                    errores.append(f"Trabajador {trabajador_id} no existe")
+                    continue
+
+                # Verificar permisos al contrato
+                if not user.has_contract_permission(trabajador.contrato):
+                    errores.append(f"Sin permiso en trabajador {trabajador_id}")
+                    continue
+
+                try:
+                    # Si se envía turno, actualizar la guardia asignada del trabajador
+                    if turno:
+                        trabajador.guardia_asignada = turno
+                        trabajador.save(update_fields=['guardia_asignada'])
+                        turnos_actualizados += 1
+
+                    # Si se envía estado, crear/actualizar asistencia
+                    if estado:
+                        if not fecha_str:
+                            errores.append(f"Falta fecha para trabajador {trabajador_id}")
+                            continue
+                        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                        defaults = {
                             'estado': estado,
                             'observaciones': observaciones,
                             'registrado_por': user
                         }
-                    )
-                    guardadas += 1
-                    
+                        if tipo:
+                            defaults['tipo'] = tipo
+
+                        AsistenciaTrabajador.objects.update_or_create(
+                            trabajador=trabajador,
+                            fecha=fecha,
+                            defaults=defaults
+                        )
+                        guardadas += 1
+
                 except Exception as e:
                     errores.append(f"Error en trabajador {trabajador_id}: {str(e)}")
-        
+
+        mensaje = f'{guardadas} asistencias guardadas, {turnos_actualizados} turnos actualizados'
         if errores:
             return JsonResponse({
                 'success': True,
-                'message': f'Guardadas {guardadas} asistencias con {len(errores)} errores',
+                'message': mensaje + f' con {len(errores)} errores',
                 'errores': errores
             })
-        
+
         return JsonResponse({
             'success': True,
-            'message': f'{guardadas} asistencias guardadas correctamente'
+            'message': mensaje
         })
         
     except Exception as e:
