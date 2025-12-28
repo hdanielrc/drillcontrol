@@ -28,7 +28,8 @@ class VilbragroupAPIClient:
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'DrillControl/1.0',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Referer': 'https://tic.vilbragroup.net/'
         })
     
     def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
