@@ -43,9 +43,14 @@ class VilbragroupAPIClient:
             Respuesta JSON o None si hay error
         """
         url = f"{self.BASE_URL}/{endpoint}"
-        
+        # Log detallado para depuración
+        print("[API DEBUG] URL:", url)
+        print("[API DEBUG] Headers:", self.session.headers)
+        print("[API DEBUG] Params:", params)
         try:
             response = self.session.get(url, params=params, timeout=30)
+            print("[API DEBUG] Status Code:", response.status_code)
+            print("[API DEBUG] Response Text:", response.text[:500])  # Solo los primeros 500 caracteres
             response.raise_for_status()
             return response.json()
         except requests.exceptions.Timeout:
