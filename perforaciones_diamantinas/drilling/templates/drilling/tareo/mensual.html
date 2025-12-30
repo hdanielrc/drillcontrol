@@ -182,9 +182,19 @@
                                     <th class="text-center" style="min-width: 70px;">Guardia</th>
                                     {% for dia in dias_rango %}
                                     <th class="text-center {% if dia.es_domingo %}table-danger{% elif dia.es_sabado %}table-warning{% endif %}" 
-                                        style="min-width: 60px; font-size: 0.75rem;">
+                                        style="min-width: 60px; font-size: 0.75rem; position:relative;">
                                         {{ dia.nombre_dia }}<br>
                                         <small>{{ dia.dia }}</small>
+                                        <div class="dropdown mt-1">
+                                            <button class="btn btn-xs btn-light border dropdown-toggle py-0 px-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.7rem;">
+                                                <i class="fas fa-magic"></i>
+                                            </button>
+                                            <ul class="dropdown-menu p-1" style="min-width:120px;">
+                                                {% for codigo, nombre in estados_asistencia %}
+                                                <li><a class="dropdown-item py-1 px-2" href="#" onclick="aplicarEstadoColumna({{ forloop.parentloop.counter0|add:6 }}, '{{ codigo }}');return false;">{{ nombre }}</a></li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
                                     </th>
                                     {% endfor %}
                                     <th class="text-center" style="min-width: 80px;">Total Días</th>
@@ -426,19 +436,50 @@
         background-color: #f8f9fa;
         z-index: 1000;
         box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        outline: 2px solid #0d6efd22;
     }
-    
     .sticky-column-2 {
         position: sticky;
-        left: 50px; /* Después de la columna # */
+        left: 50px;
         background-color: #f8f9fa;
         z-index: 1000;
         box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        outline: 2px solid #0d6efd22;
     }
-    
     .table thead th.sticky-column,
     .table thead th.sticky-column-2 {
         z-index: 1001 !important;
+        background: #0d6efd !important;
+        color: #fff !important;
+    }
+    .table thead th {
+        background: #212529 !important;
+        color: #fff !important;
+    }
+    .celda-asistencia:focus {
+        outline: 2px solid #ffc107;
+        background: #fffbe6 !important;
+    }
+    .celda-asistencia.focus-celda {
+        outline: 2px solid #ffc107;
+        background: #fffbe6 !important;
+    }
+    .celda-asistencia {
+        min-width: 55px;
+        font-size: 0.8rem;
+    }
+    .table-responsive {
+        scrollbar-width: thin;
+        scrollbar-color: #0d6efd #e9ecef;
+    }
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+        width: 8px;
+        background: #e9ecef;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #0d6efd;
+        border-radius: 4px;
     }
     
     .celda-asistencia {
@@ -529,15 +570,346 @@
 </style>
 
 <script>
+    // --- NUEVAS FUNCIONALIDADES UX/UI ---
     let cambiosPendientes = [];
     let modoSeleccionMultiple = false;
     let celdasSeleccionadas = [];
-    
-    function cambiarContrato() {
-        const contratoId = document.getElementById('selectContrato').value;
-        const modo = '{{ modo }}';
-        const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
-        window.location.href = `?contrato=${contratoId}&modo=${modo}&fecha_inicio=${fechaInicio}`;
+    let historialCambios = [];
+    let historialCursor = -1;
+    let clipboardCeldas = [];
+    let filtroTexto = '';
+
+    // Edición rápida tipo Excel y navegación con teclado
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabla = document.getElementById('tablaAsistencia');
+        if (tabla) {
+            tabla.addEventListener('keydown', handleTableKeydown);
+            tabla.addEventListener('paste', handlePaste);
+            tabla.querySelectorAll('.celda-asistencia').forEach(celda => {
+                celda.setAttribute('tabindex', '0');
+                celda.addEventListener('focus', () => celda.classList.add('focus-celda'));
+                celda.addEventListener('blur', () => celda.classList.remove('focus-celda'));
+                celda.addEventListener('dblclick', () => editarCeldaDirecta(celda));
+            });
+            // Botones copiar/pegar fila/columna
+            const btns = document.createElement('div');
+            btns.className = 'mb-2 d-flex gap-2';
+            btns.innerHTML = `
+                <button class="btn btn-outline-secondary btn-sm" onclick="copiarFilaSeleccionada()"><i class='fas fa-copy'></i> Copiar Fila</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="pegarFilaSeleccionada()"><i class='fas fa-paste'></i> Pegar Fila</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="copiarColumnaSeleccionada()"><i class='fas fa-copy'></i> Copiar Columna</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="pegarColumnaSeleccionada()"><i class='fas fa-paste'></i> Pegar Columna</button>
+            `;
+            tabla.parentElement.insertBefore(btns, tabla);
+        }
+        // Filtros avanzados
+        const filtrosDiv = document.createElement('div');
+        filtrosDiv.className = 'd-flex gap-2 mb-2 flex-wrap';
+        // Filtro texto
+        const filtro = document.createElement('input');
+        filtro.type = 'text';
+        filtro.placeholder = 'Buscar trabajador, cargo, grupo...';
+        filtro.className = 'form-control';
+        filtro.style.maxWidth = '250px';
+        filtro.oninput = function() { filtroTexto = this.value.toLowerCase(); filtrarFilas(); };
+        filtrosDiv.appendChild(filtro);
+        // Filtro cargo
+        const filtroCargo = document.createElement('select');
+        filtroCargo.className = 'form-select';
+        filtroCargo.style.maxWidth = '180px';
+        filtroCargo.innerHTML = '<option value="">Todos los cargos</option>' + Array.from(document.querySelectorAll('.trabajador-row')).map(tr=>tr.children[2].textContent.trim()).filter((v,i,a)=>v&&a.indexOf(v)===i).map(c=>`<option value="${c}">${c}</option>`).join('');
+        filtroCargo.onchange = filtrarFilas;
+        filtrosDiv.appendChild(filtroCargo);
+        // Filtro grupo
+        const filtroGrupo = document.createElement('select');
+        filtroGrupo.className = 'form-select';
+        filtroGrupo.style.maxWidth = '180px';
+        filtroGrupo.innerHTML = '<option value="">Todos los grupos</option>' + Array.from(document.querySelectorAll('.trabajador-row')).map(tr=>tr.children[3].textContent.trim()).filter((v,i,a)=>v&&a.indexOf(v)===i).map(g=>`<option value="${g}">${g}</option>`).join('');
+        filtroGrupo.onchange = filtrarFilas;
+        filtrosDiv.appendChild(filtroGrupo);
+        // Filtro guardia
+        const filtroGuardia = document.createElement('select');
+        filtroGuardia.className = 'form-select';
+        filtroGuardia.style.maxWidth = '180px';
+        filtroGuardia.innerHTML = '<option value="">Todas las guardias</option>' + Array.from(document.querySelectorAll('.trabajador-row')).map(tr=>tr.children[4].textContent.trim()).filter((v,i,a)=>v&&a.indexOf(v)===i).map(g=>`<option value="${g}">${g}</option>`).join('');
+        filtroGuardia.onchange = filtrarFilas;
+        filtrosDiv.appendChild(filtroGuardia);
+        tabla.parentElement.insertBefore(filtrosDiv, tabla);
+        // Resumen visual
+        mostrarResumenVisual();
+    });
+
+    // Copiar y pegar filas completas
+    window.copiarFilaSeleccionada = function() {
+        const celda = document.activeElement;
+        if (!celda || !celda.classList.contains('celda-asistencia')) return;
+        const tr = celda.parentElement;
+        clipboardCeldas = Array.from(tr.querySelectorAll('.celda-asistencia')).map(c=>c.dataset.estado);
+        mostrarToast('Fila copiada','info');
+    }
+    window.pegarFilaSeleccionada = function() {
+        const celda = document.activeElement;
+        if (!celda || !celda.classList.contains('celda-asistencia')) return;
+        const tr = celda.parentElement;
+        const celdas = Array.from(tr.querySelectorAll('.celda-asistencia'));
+        celdas.forEach((celda,i)=>{
+            guardarEdicionCelda(celda, clipboardCeldas[i%clipboardCeldas.length]);
+        });
+        mostrarToast('Fila pegada','success');
+    }
+    // Copiar y pegar columnas completas
+    window.copiarColumnaSeleccionada = function() {
+        const celda = document.activeElement;
+        if (!celda || !celda.classList.contains('celda-asistencia')) return;
+        const idx = Array.from(celda.parentElement.children).indexOf(celda);
+        clipboardCeldas = Array.from(document.querySelectorAll(`#tablaAsistencia tbody tr`)).map(tr=>{
+            const c = tr.children[idx];
+            return c && c.classList.contains('celda-asistencia') ? c.dataset.estado : '';
+        });
+        mostrarToast('Columna copiada','info');
+    }
+    window.pegarColumnaSeleccionada = function() {
+        const celda = document.activeElement;
+        if (!celda || !celda.classList.contains('celda-asistencia')) return;
+        const idx = Array.from(celda.parentElement.children).indexOf(celda);
+        const trs = Array.from(document.querySelectorAll(`#tablaAsistencia tbody tr`));
+        trs.forEach((tr,i)=>{
+            const c = tr.children[idx];
+            if (c && c.classList.contains('celda-asistencia')) guardarEdicionCelda(c, clipboardCeldas[i%clipboardCeldas.length]);
+        });
+        mostrarToast('Columna pegada','success');
+    }
+
+    function handleTableKeydown(e) {
+        const celda = document.activeElement;
+        if (!celda.classList.contains('celda-asistencia')) return;
+        let next;
+        switch (e.key) {
+            case 'ArrowRight':
+                next = celda.nextElementSibling;
+                while (next && !next.classList.contains('celda-asistencia')) next = next.nextElementSibling;
+                if (next) next.focus();
+                e.preventDefault();
+                break;
+            case 'ArrowLeft':
+                next = celda.previousElementSibling;
+                while (next && !next.classList.contains('celda-asistencia')) next = next.previousElementSibling;
+                if (next) next.focus();
+                e.preventDefault();
+                break;
+            case 'ArrowDown':
+            case 'Enter':
+                next = buscarCeldaVertical(celda, 1);
+                if (next) next.focus();
+                e.preventDefault();
+                break;
+            case 'ArrowUp':
+                next = buscarCeldaVertical(celda, -1);
+                if (next) next.focus();
+                e.preventDefault();
+                break;
+            case 'c':
+                if (e.ctrlKey) copiarCeldas();
+                break;
+            case 'v':
+                if (e.ctrlKey) pegarCeldas();
+                break;
+            case 'z':
+                if (e.ctrlKey) deshacerCambio();
+                break;
+            case 'y':
+                if (e.ctrlKey) rehacerCambio();
+                break;
+            case 'Delete':
+                editarCeldaDirecta(celda, true);
+                break;
+        }
+    }
+
+    function buscarCeldaVertical(celda, dir) {
+        const td = celda;
+        const tr = td.parentElement;
+        const idx = Array.from(tr.children).indexOf(td);
+        let nextTr = tr;
+        do {
+            nextTr = dir > 0 ? nextTr.nextElementSibling : nextTr.previousElementSibling;
+        } while (nextTr && nextTr.classList.contains('table-primary'));
+        if (tabla) {
+            tabla.addEventListener('keydown', handleTableKeydown);
+            tabla.addEventListener('paste', handlePaste);
+            tabla.querySelectorAll('.celda-asistencia').forEach(celda => {
+                celda.setAttribute('tabindex', '0');
+                celda.addEventListener('focus', () => celda.classList.add('focus-celda'));
+                celda.addEventListener('blur', () => celda.classList.remove('focus-celda'));
+                celda.addEventListener('dblclick', () => editarCeldaDirecta(celda));
+            });
+            // Botones copiar/pegar fila/columna, deshacer/rehacer y carga masiva
+            const btns = document.createElement('div');
+            btns.className = 'mb-2 d-flex gap-2 flex-wrap';
+            btns.innerHTML = `
+                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"copiarFilaSeleccionada()\"><i class='fas fa-copy'></i> Copiar Fila</button>
+                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"pegarFilaSeleccionada()\"><i class='fas fa-paste'></i> Pegar Fila</button>
+                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"copiarColumnaSeleccionada()\"><i class='fas fa-copy'></i> Copiar Columna</button>
+                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"pegarColumnaSeleccionada()\"><i class='fas fa-paste'></i> Pegar Columna</button>
+                <button class=\"btn btn-outline-warning btn-sm\" onclick=\"deshacerCambio()\"><i class='fas fa-undo'></i> Deshacer</button>
+                <button class=\"btn btn-outline-warning btn-sm\" onclick=\"rehacerCambio()\"><i class='fas fa-redo'></i> Rehacer</button>
+                <label class=\"btn btn-outline-success btn-sm mb-0\" style=\"cursor:pointer;\"><i class='fas fa-upload'></i> Carga Masiva <input type='file' accept='.csv,.txt' style='display:none' onchange='cargarArchivoAsistencias(this)'></label>
+            `;
+            tabla.parentElement.insertBefore(btns, tabla);
+    }
+
+    function guardarEdicionCelda(celda, nuevoEstado) {
+        const prevEstado = celda.dataset.estado;
+        if (nuevoEstado !== prevEstado) {
+            registrarCambio({celda, prevEstado, nuevoEstado});
+            celda.dataset.estado = nuevoEstado;
+            celda.innerHTML = `<span class=\"badge-estado\" data-estado=\"${nuevoEstado}\">${nuevoEstado}</span>`;
+            // Feedback visual
+            celda.classList.add('bg-success', 'text-white');
+            mostrarToast('Cambio aplicado','success');
+            setTimeout(()=>celda.classList.remove('bg-success','text-white'), 800);
+        } else {
+            celda.innerHTML = `<span class=\"badge-estado\" data-estado=\"${prevEstado}\">${prevEstado}</span>`;
+        }
+    }
+
+    // Copiar y pegar celdas (tipo Excel)
+    function copiarCeldas() {
+        clipboardCeldas = celdasSeleccionadas.map(c=>c.dataset.estado);
+    }
+    function pegarCeldas() {
+        if (!clipboardCeldas.length) return;
+        celdasSeleccionadas.forEach((celda,i)=>{
+            guardarEdicionCelda(celda, clipboardCeldas[i%clipboardCeldas.length]);
+        });
+    }
+    function handlePaste(e) {
+        const celda = document.activeElement;
+        if (!celda.classList.contains('celda-asistencia')) return;
+        const text = e.clipboardData.getData('text');
+        const rows = text.split('\n');
+        let startCelda = celda;
+        rows.forEach((row, i) => {
+            const estados = row.split('\t');
+            let currentCelda = startCelda;
+            estados.forEach((estado, j) => {
+                guardarEdicionCelda(currentCelda, estado.trim());
+                currentCelda = currentCelda.nextElementSibling;
+                while (currentCelda && !currentCelda.classList.contains('celda-asistencia')) currentCelda = currentCelda.nextElementSibling;
+            });
+            startCelda = buscarCeldaVertical(startCelda, 1);
+        });
+        e.preventDefault();
+    }
+
+    // Acciones rápidas por columna
+    window.aplicarEstadoColumna = function(idx, estado) {
+        document.querySelectorAll(`#tablaAsistencia tbody tr`).forEach(tr => {
+            const celda = tr.children[idx];
+            if (celda && celda.classList.contains('celda-asistencia')) guardarEdicionCelda(celda, estado);
+        });
+    }
+
+    // Filtros y búsqueda avanzada
+    function filtrarFilas() {
+        const cargo = document.querySelector('select.form-select[maxwidth="180px"]')?.value || '';
+        const grupo = document.querySelectorAll('select.form-select')[1]?.value || '';
+        const guardia = document.querySelectorAll('select.form-select')[2]?.value || '';
+        document.querySelectorAll('#tablaAsistencia tbody tr.trabajador-row').forEach(tr => {
+            const texto = tr.textContent.toLowerCase();
+            const cargoTr = tr.children[2].textContent.trim();
+            const grupoTr = tr.children[3].textContent.trim();
+            const guardiaTr = tr.children[4].textContent.trim();
+            let visible = true;
+            if (filtroTexto && !texto.includes(filtroTexto)) visible = false;
+            if (cargo && cargoTr !== cargo) visible = false;
+            if (grupo && grupoTr !== grupo) visible = false;
+            if (guardia && guardiaTr !== guardia) visible = false;
+            tr.style.display = visible ? '' : 'none';
+        });
+    }
+
+    // Resumen visual del llenado
+    function mostrarResumenVisual() {
+        setTimeout(()=>{
+            const resumen = {};
+            document.querySelectorAll('.celda-asistencia').forEach(celda => {
+                const est = celda.dataset.estado || '-';
+                resumen[est] = (resumen[est]||0)+1;
+            });
+            let total = Object.values(resumen).reduce((a,b)=>a+b,0);
+            let html = '<div class="alert alert-info mt-2">Resumen: ';
+            for (const [k,v] of Object.entries(resumen)) {
+                html += `<span class='badge bg-primary mx-1'>${k}: ${v}</span>`;
+            }
+            html += '</div>';
+            // Gráfico de barras simple
+            html += '<div class="d-flex align-items-end gap-2 mb-2" style="height:40px;">';
+            for (const [k,v] of Object.entries(resumen)) {
+                const pct = total ? Math.round((v/total)*100) : 0;
+                html += `<div style='height:${pct*0.4}px; width:30px; background:#0d6efd; color:white; text-align:center; font-size:0.7rem; border-radius:3px;' title='${k}: ${v}'>${pct>10?pct+'%':''}</div>`;
+            }
+            html += '</div>';
+            document.getElementById('tablaAsistencia').insertAdjacentHTML('beforebegin', html);
+        }, 500);
+    }
+
+    // Feedback inmediato al usuario (toasts)
+    function mostrarToast(msg, tipo='success') {
+        let toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${tipo} border-0 show position-fixed top-0 end-0 m-3`;
+        toast.role = 'alert';
+        toast.innerHTML = `<div class='d-flex'><div class='toast-body'>${msg}</div><button type='button' class='btn-close me-2 m-auto' data-bs-dismiss='toast'></button></div>`;
+        document.body.appendChild(toast);
+        setTimeout(()=>toast.remove(), 3000);
+    }
+
+    // Deshacer/rehacer cambios
+    function registrarCambio(cambio) {
+        historialCambios = historialCambios.slice(0, historialCursor+1);
+        historialCambios.push(cambio);
+        historialCursor++;
+    }
+    function deshacerCambio() {
+        if (historialCursor < 0) return;
+        const cambio = historialCambios[historialCursor];
+        cambio.celda.dataset.estado = cambio.prevEstado;
+        cambio.celda.innerHTML = `<span class='badge-estado' data-estado='${cambio.prevEstado}'>${cambio.prevEstado}</span>`;
+        historialCursor--;
+    }
+    function rehacerCambio() {
+        if (historialCursor+1 >= historialCambios.length) return;
+        historialCursor++;
+        const cambio = historialCambios[historialCursor];
+        cambio.celda.dataset.estado = cambio.nuevoEstado;
+        cambio.celda.innerHTML = `<span class='badge-estado' data-estado='${cambio.nuevoEstado}'>${cambio.nuevoEstado}</span>`;
+    }
+
+    // Carga masiva por archivo CSV/Excel
+    window.cargarArchivoAsistencias = function(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const rows = text.split('\n');
+            rows.forEach((row, i) => {
+                const cols = row.split(',');
+                // Suponiendo formato: trabajador_id,fecha,estado
+                if (cols.length >= 3) {
+                    const celda = document.querySelector(`.celda-asistencia[data-trabajador-id='${cols[0]}'][data-fecha='${cols[1]}']`);
+                    if (celda) guardarEdicionCelda(celda, cols[2]);
+                }
+            });
+        };
+        reader.readAsText(file);
+    }
+
+    // Optimización de scroll y sticky headers ya implementada en CSS
+
+    // Accesibilidad: mejorar contraste y navegación por teclado (ya implementado con tabindex)
+
+    // --- FIN NUEVAS FUNCIONALIDADES ---
     }
     
     function cambiarModo(nuevoModo) {
@@ -652,15 +1024,15 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('✅ ' + data.message);
-                location.reload();
+                mostrarToast('✅ ' + data.message, 'success');
+                setTimeout(()=>location.reload(), 1000);
             } else {
-                alert('❌ ' + data.message);
+                mostrarToast('❌ ' + data.message, 'danger');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('❌ Error al guardar');
+            mostrarToast('❌ Error al guardar', 'danger');
         });
     }
     
@@ -731,15 +1103,15 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('✅ ' + data.message);
-                location.reload();
+                mostrarToast('✅ ' + data.message, 'success');
+                setTimeout(()=>location.reload(), 1000);
             } else {
-                alert('❌ ' + data.message);
+                mostrarToast('❌ ' + data.message, 'danger');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('❌ Error al guardar');
+            mostrarToast('❌ Error al guardar', 'danger');
         });
     }
 
@@ -802,15 +1174,15 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('✅ ' + data.message);
-                location.reload();
+                mostrarToast('✅ ' + data.message, 'success');
+                setTimeout(()=>location.reload(), 1000);
             } else {
-                alert('❌ ' + data.message);
+                mostrarToast('❌ ' + data.message, 'danger');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('❌ Error al guardar');
+            mostrarToast('❌ Error al guardar', 'danger');
         });
     }
 
