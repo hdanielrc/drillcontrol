@@ -614,7 +614,8 @@
 
 <script>
     // --- MEJORAS UX/UI: Navegación Teclado y Edición Rápida ---
-    
+    let lastFocusedCell = null;
+
     document.addEventListener('DOMContentLoaded', function() {
         // Inicializar celdas para navegación
         const celdas = document.querySelectorAll('.celda-asistencia');
@@ -625,10 +626,24 @@
             celda.addEventListener('keydown', handleCellKeydown);
             
             // Eventos de mouse
+            celda.addEventListener('focus', () => { lastFocusedCell = celda; });
+            
             celda.addEventListener('click', (e) => {
-                if (e.ctrlKey || modoSeleccionMultiple) {
+                if (e.shiftKey && lastFocusedCell) {
+                    // Shift + Click: Range
+                    e.preventDefault(); // Prevent text selection
+                    if (!modoSeleccionMultiple) iniciarSeleccionMultiple();
+                    seleccionarRango(lastFocusedCell, celda);
+                } else if (e.ctrlKey) {
+                    // Ctrl + Click: Toggle
+                    e.preventDefault();
+                    if (!modoSeleccionMultiple) iniciarSeleccionMultiple();
+                    toggleSeleccionCelda(celda);
+                } else if (modoSeleccionMultiple) {
+                    // Mode active, normal click toggles
                     toggleSeleccionCelda(celda);
                 } else {
+                    // Normal mode, just focus
                     celda.focus();
                 }
             });
@@ -644,6 +659,50 @@
             document.getElementById('shortcutHelp').style.display = 'block';
         }, 1000);
     });
+
+    function getCellCoordinates(celda) {
+        const row = celda.parentElement;
+        const tbody = row.parentElement;
+        // Get all worker rows to determine row index logically
+        const workerRows = Array.from(tbody.querySelectorAll('.trabajador-row'));
+        const rowIndex = workerRows.indexOf(row);
+        
+        // Column index relative to the row
+        const colIndex = Array.from(row.children).indexOf(celda);
+        
+        return { row: rowIndex, col: colIndex, rowElement: row };
+    }
+
+    function seleccionarRango(startCell, endCell) {
+        const start = getCellCoordinates(startCell);
+        const end = getCellCoordinates(endCell);
+        
+        if (start.row === -1 || end.row === -1) return; // Not worker rows
+        
+        const minRow = Math.min(start.row, end.row);
+        const maxRow = Math.max(start.row, end.row);
+        const minCol = Math.min(start.col, end.col);
+        const maxCol = Math.max(start.col, end.col);
+        
+        const workerRows = Array.from(document.querySelectorAll('.trabajador-row'));
+        
+        // If not in multi-select mode, start it
+        if (!modoSeleccionMultiple) iniciarSeleccionMultiple();
+        
+        for (let r = minRow; r <= maxRow; r++) {
+            const currentRow = workerRows[r];
+            for (let c = minCol; c <= maxCol; c++) {
+                const cell = currentRow.children[c];
+                if (cell && cell.classList.contains('celda-asistencia')) {
+                    if (!celdasSeleccionadas.includes(cell)) {
+                        celdasSeleccionadas.push(cell);
+                        cell.classList.add('seleccionada');
+                    }
+                }
+            }
+        }
+        actualizarContadorSeleccion();
+    }
 
     function handleCellKeydown(e) {
         const celda = e.target;
