@@ -275,9 +275,8 @@
                                         data-fecha="{{ asist.fecha|date:'Y-m-d' }}"
                                         data-estado="{{ asist.estado }}"
                                         data-tipo="{{ asist.tipo }}"
-                                        onclick="abrirModalAsistencia({{ item.trabajador.id }}, '{{ asist.fecha|date:'Y-m-d' }}', '{{ asist.estado }}', '{{ asist.observaciones|escapejs }}', '{{ asist.tipo }}')"
                                         title="{{ asist.estado_display }} - {{ asist.tipo_display }}{% if asist.observaciones %} | {{ asist.observaciones }}{% endif %}"
-                                        style="cursor: pointer; padding: 2px; font-size: 0.7rem;">
+                                        style="cursor: cell; padding: 2px; font-size: 0.7rem;">
                                         {% if asist.estado %}
                                         <span class="badge-estado" data-estado="{{ asist.estado }}">
                                             {% if asist.estado == 'TRABAJADO' %}T
@@ -457,16 +456,24 @@
         color: #fff !important;
     }
     .celda-asistencia:focus {
-        outline: 2px solid #ffc107;
-        background: #fffbe6 !important;
+        outline: 3px solid #0d6efd;
+        background: #e7f1ff !important;
+        z-index: 100;
+        position: relative;
     }
-    .celda-asistencia.focus-celda {
-        outline: 2px solid #ffc107;
-        background: #fffbe6 !important;
+    .celda-asistencia.saving {
+        background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+        background-size: 1rem 1rem;
+        animation: progress-bar-stripes 1s linear infinite;
     }
+    .celda-asistencia.error {
+        outline: 3px solid #dc3545;
+    }
+    
     .celda-asistencia {
         min-width: 55px;
         font-size: 0.8rem;
+        user-select: none; /* Prevent text selection while navigating */
     }
     .table-responsive {
         scrollbar-width: thin;
@@ -483,12 +490,11 @@
     }
     
     .celda-asistencia {
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease;
     }
     
     .celda-asistencia:hover {
-        background-color: #fff3cd !important;
-        transform: scale(1.05);
+        background-color: #e9ecef;
     }
     
     .celda-asistencia.seleccionada {
@@ -521,6 +527,7 @@
         border-radius: 3px;
         font-size: 0.65rem;
         font-weight: bold;
+        min-width: 20px;
     }
     
     /* Códigos estilo Romina */
@@ -567,349 +574,246 @@
     .badge-estado[data-estado="LICENCIA_FALLECIMIENTO"] { background: #6c757d; color: #fff; }
     .badge-estado[data-estado="LICENCIA_CON_GOCE"] { background: #d4edda; color: #155724; }
     .badge-estado[data-estado=""] { background: #e9ecef; color: #6c757d; }
+    
+    /* Floating Shortcut Help */
+    .shortcut-help {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 2000;
+        font-size: 0.8rem;
+        display: none;
+    }
+    .shortcut-key {
+        display: inline-block;
+        background: #eee;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-family: monospace;
+        font-weight: bold;
+        margin-right: 5px;
+    }
 </style>
 
+<div class="shortcut-help" id="shortcutHelp">
+    <h6 class="mb-2 border-bottom pb-1">Atajos de Teclado</h6>
+    <div class="mb-1"><span class="shortcut-key">T</span> Trabajado</div>
+    <div class="mb-1"><span class="shortcut-key">F</span> Falta</div>
+    <div class="mb-1"><span class="shortcut-key">D</span> Día Libre (DL)</div>
+    <div class="mb-1"><span class="shortcut-key">V</span> Vacaciones</div>
+    <div class="mb-1"><span class="shortcut-key">S</span> Stand By</div>
+    <div class="mb-1"><span class="shortcut-key">M</span> Descanso Médico</div>
+    <div class="mb-1"><span class="shortcut-key">Del</span> Borrar</div>
+    <div class="mt-2 text-muted small">Use flechas para navegar</div>
+</div>
+
 <script>
-    // --- NUEVAS FUNCIONALIDADES UX/UI ---
-    let cambiosPendientes = [];
-    let modoSeleccionMultiple = false;
-    let celdasSeleccionadas = [];
-    let historialCambios = [];
-    let historialCursor = -1;
-    let clipboardCeldas = [];
-    let filtroTexto = '';
-
-    // Edición rápida tipo Excel y navegación con teclado
+    // --- MEJORAS UX/UI: Navegación Teclado y Edición Rápida ---
+    
     document.addEventListener('DOMContentLoaded', function() {
-        const tabla = document.getElementById('tablaAsistencia');
-        if (tabla) {
-            tabla.addEventListener('keydown', handleTableKeydown);
-            tabla.addEventListener('paste', handlePaste);
-            tabla.querySelectorAll('.celda-asistencia').forEach(celda => {
-                celda.setAttribute('tabindex', '0');
-                celda.addEventListener('focus', () => celda.classList.add('focus-celda'));
-                celda.addEventListener('blur', () => celda.classList.remove('focus-celda'));
-                celda.addEventListener('dblclick', () => editarCeldaDirecta(celda));
-            });
-            // Botones copiar/pegar fila/columna
-            const btns = document.createElement('div');
-            btns.className = 'mb-2 d-flex gap-2';
-            btns.innerHTML = `
-                <button class="btn btn-outline-secondary btn-sm" onclick="copiarFilaSeleccionada()"><i class='fas fa-copy'></i> Copiar Fila</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="pegarFilaSeleccionada()"><i class='fas fa-paste'></i> Pegar Fila</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="copiarColumnaSeleccionada()"><i class='fas fa-copy'></i> Copiar Columna</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="pegarColumnaSeleccionada()"><i class='fas fa-paste'></i> Pegar Columna</button>
-            `;
-            tabla.parentElement.insertBefore(btns, tabla);
-        }
-        // Filtros avanzados
-        const filtrosDiv = document.createElement('div');
-        filtrosDiv.className = 'd-flex gap-2 mb-2 flex-wrap';
-        // Filtro texto
-        const filtro = document.createElement('input');
-        filtro.type = 'text';
-        filtro.placeholder = 'Buscar trabajador, cargo, grupo...';
-        filtro.className = 'form-control';
-        filtro.style.maxWidth = '250px';
-        filtro.oninput = function() { filtroTexto = this.value.toLowerCase(); filtrarFilas(); };
-        filtrosDiv.appendChild(filtro);
-        // Filtro cargo
-        const filtroCargo = document.createElement('select');
-        filtroCargo.className = 'form-select';
-        filtroCargo.style.maxWidth = '180px';
-        filtroCargo.innerHTML = '<option value="">Todos los cargos</option>' + Array.from(document.querySelectorAll('.trabajador-row')).map(tr=>tr.children[2].textContent.trim()).filter((v,i,a)=>v&&a.indexOf(v)===i).map(c=>`<option value="${c}">${c}</option>`).join('');
-        filtroCargo.onchange = filtrarFilas;
-        filtrosDiv.appendChild(filtroCargo);
-        // Filtro grupo
-        const filtroGrupo = document.createElement('select');
-        filtroGrupo.className = 'form-select';
-        filtroGrupo.style.maxWidth = '180px';
-        filtroGrupo.innerHTML = '<option value="">Todos los grupos</option>' + Array.from(document.querySelectorAll('.trabajador-row')).map(tr=>tr.children[3].textContent.trim()).filter((v,i,a)=>v&&a.indexOf(v)===i).map(g=>`<option value="${g}">${g}</option>`).join('');
-        filtroGrupo.onchange = filtrarFilas;
-        filtrosDiv.appendChild(filtroGrupo);
-        // Filtro guardia
-        const filtroGuardia = document.createElement('select');
-        filtroGuardia.className = 'form-select';
-        filtroGuardia.style.maxWidth = '180px';
-        filtroGuardia.innerHTML = '<option value="">Todas las guardias</option>' + Array.from(document.querySelectorAll('.trabajador-row')).map(tr=>tr.children[4].textContent.trim()).filter((v,i,a)=>v&&a.indexOf(v)===i).map(g=>`<option value="${g}">${g}</option>`).join('');
-        filtroGuardia.onchange = filtrarFilas;
-        filtrosDiv.appendChild(filtroGuardia);
-        tabla.parentElement.insertBefore(filtrosDiv, tabla);
-        // Resumen visual
-        mostrarResumenVisual();
-    });
-
-    // Copiar y pegar filas completas
-    window.copiarFilaSeleccionada = function() {
-        const celda = document.activeElement;
-        if (!celda || !celda.classList.contains('celda-asistencia')) return;
-        const tr = celda.parentElement;
-        clipboardCeldas = Array.from(tr.querySelectorAll('.celda-asistencia')).map(c=>c.dataset.estado);
-        mostrarToast('Fila copiada','info');
-    }
-    window.pegarFilaSeleccionada = function() {
-        const celda = document.activeElement;
-        if (!celda || !celda.classList.contains('celda-asistencia')) return;
-        const tr = celda.parentElement;
-        const celdas = Array.from(tr.querySelectorAll('.celda-asistencia'));
-        celdas.forEach((celda,i)=>{
-            guardarEdicionCelda(celda, clipboardCeldas[i%clipboardCeldas.length]);
-        });
-        mostrarToast('Fila pegada','success');
-    }
-    // Copiar y pegar columnas completas
-    window.copiarColumnaSeleccionada = function() {
-        const celda = document.activeElement;
-        if (!celda || !celda.classList.contains('celda-asistencia')) return;
-        const idx = Array.from(celda.parentElement.children).indexOf(celda);
-        clipboardCeldas = Array.from(document.querySelectorAll(`#tablaAsistencia tbody tr`)).map(tr=>{
-            const c = tr.children[idx];
-            return c && c.classList.contains('celda-asistencia') ? c.dataset.estado : '';
-        });
-        mostrarToast('Columna copiada','info');
-    }
-    window.pegarColumnaSeleccionada = function() {
-        const celda = document.activeElement;
-        if (!celda || !celda.classList.contains('celda-asistencia')) return;
-        const idx = Array.from(celda.parentElement.children).indexOf(celda);
-        const trs = Array.from(document.querySelectorAll(`#tablaAsistencia tbody tr`));
-        trs.forEach((tr,i)=>{
-            const c = tr.children[idx];
-            if (c && c.classList.contains('celda-asistencia')) guardarEdicionCelda(c, clipboardCeldas[i%clipboardCeldas.length]);
-        });
-        mostrarToast('Columna pegada','success');
-    }
-
-    function handleTableKeydown(e) {
-        const celda = document.activeElement;
-        if (!celda.classList.contains('celda-asistencia')) return;
-        let next;
-        switch (e.key) {
-            case 'ArrowRight':
-                next = celda.nextElementSibling;
-                while (next && !next.classList.contains('celda-asistencia')) next = next.nextElementSibling;
-                if (next) next.focus();
-                e.preventDefault();
-                break;
-            case 'ArrowLeft':
-                next = celda.previousElementSibling;
-                while (next && !next.classList.contains('celda-asistencia')) next = next.previousElementSibling;
-                if (next) next.focus();
-                e.preventDefault();
-                break;
-            case 'ArrowDown':
-            case 'Enter':
-                next = buscarCeldaVertical(celda, 1);
-                if (next) next.focus();
-                e.preventDefault();
-                break;
-            case 'ArrowUp':
-                next = buscarCeldaVertical(celda, -1);
-                if (next) next.focus();
-                e.preventDefault();
-                break;
-            case 'c':
-                if (e.ctrlKey) copiarCeldas();
-                break;
-            case 'v':
-                if (e.ctrlKey) pegarCeldas();
-                break;
-            case 'z':
-                if (e.ctrlKey) deshacerCambio();
-                break;
-            case 'y':
-                if (e.ctrlKey) rehacerCambio();
-                break;
-            case 'Delete':
-                editarCeldaDirecta(celda, true);
-                break;
-        }
-    }
-
-    function buscarCeldaVertical(celda, dir) {
-        const td = celda;
-        const tr = td.parentElement;
-        const idx = Array.from(tr.children).indexOf(td);
-        let nextTr = tr;
-        do {
-            nextTr = dir > 0 ? nextTr.nextElementSibling : nextTr.previousElementSibling;
-        } while (nextTr && nextTr.classList.contains('table-primary'));
-        if (tabla) {
-            tabla.addEventListener('keydown', handleTableKeydown);
-            tabla.addEventListener('paste', handlePaste);
-            tabla.querySelectorAll('.celda-asistencia').forEach(celda => {
-                celda.setAttribute('tabindex', '0');
-                celda.addEventListener('focus', () => celda.classList.add('focus-celda'));
-                celda.addEventListener('blur', () => celda.classList.remove('focus-celda'));
-                celda.addEventListener('dblclick', () => editarCeldaDirecta(celda));
-            });
-            // Botones copiar/pegar fila/columna, deshacer/rehacer y carga masiva
-            const btns = document.createElement('div');
-            btns.className = 'mb-2 d-flex gap-2 flex-wrap';
-            btns.innerHTML = `
-                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"copiarFilaSeleccionada()\"><i class='fas fa-copy'></i> Copiar Fila</button>
-                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"pegarFilaSeleccionada()\"><i class='fas fa-paste'></i> Pegar Fila</button>
-                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"copiarColumnaSeleccionada()\"><i class='fas fa-copy'></i> Copiar Columna</button>
-                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"pegarColumnaSeleccionada()\"><i class='fas fa-paste'></i> Pegar Columna</button>
-                <button class=\"btn btn-outline-warning btn-sm\" onclick=\"deshacerCambio()\"><i class='fas fa-undo'></i> Deshacer</button>
-                <button class=\"btn btn-outline-warning btn-sm\" onclick=\"rehacerCambio()\"><i class='fas fa-redo'></i> Rehacer</button>
-                <label class=\"btn btn-outline-success btn-sm mb-0\" style=\"cursor:pointer;\"><i class='fas fa-upload'></i> Carga Masiva <input type='file' accept='.csv,.txt' style='display:none' onchange='cargarArchivoAsistencias(this)'></label>
-            `;
-            tabla.parentElement.insertBefore(btns, tabla);
-    }
-
-    function guardarEdicionCelda(celda, nuevoEstado) {
-        const prevEstado = celda.dataset.estado;
-        if (nuevoEstado !== prevEstado) {
-            registrarCambio({celda, prevEstado, nuevoEstado});
-            celda.dataset.estado = nuevoEstado;
-            celda.innerHTML = `<span class=\"badge-estado\" data-estado=\"${nuevoEstado}\">${nuevoEstado}</span>`;
-            // Feedback visual
-            celda.classList.add('bg-success', 'text-white');
-            mostrarToast('Cambio aplicado','success');
-            setTimeout(()=>celda.classList.remove('bg-success','text-white'), 800);
-        } else {
-            celda.innerHTML = `<span class=\"badge-estado\" data-estado=\"${prevEstado}\">${prevEstado}</span>`;
-        }
-    }
-
-    // Copiar y pegar celdas (tipo Excel)
-    function copiarCeldas() {
-        clipboardCeldas = celdasSeleccionadas.map(c=>c.dataset.estado);
-    }
-    function pegarCeldas() {
-        if (!clipboardCeldas.length) return;
-        celdasSeleccionadas.forEach((celda,i)=>{
-            guardarEdicionCelda(celda, clipboardCeldas[i%clipboardCeldas.length]);
-        });
-    }
-    function handlePaste(e) {
-        const celda = document.activeElement;
-        if (!celda.classList.contains('celda-asistencia')) return;
-        const text = e.clipboardData.getData('text');
-        const rows = text.split('\n');
-        let startCelda = celda;
-        rows.forEach((row, i) => {
-            const estados = row.split('\t');
-            let currentCelda = startCelda;
-            estados.forEach((estado, j) => {
-                guardarEdicionCelda(currentCelda, estado.trim());
-                currentCelda = currentCelda.nextElementSibling;
-                while (currentCelda && !currentCelda.classList.contains('celda-asistencia')) currentCelda = currentCelda.nextElementSibling;
-            });
-            startCelda = buscarCeldaVertical(startCelda, 1);
-        });
-        e.preventDefault();
-    }
-
-    // Acciones rápidas por columna
-    window.aplicarEstadoColumna = function(idx, estado) {
-        document.querySelectorAll(`#tablaAsistencia tbody tr`).forEach(tr => {
-            const celda = tr.children[idx];
-            if (celda && celda.classList.contains('celda-asistencia')) guardarEdicionCelda(celda, estado);
-        });
-    }
-
-    // Filtros y búsqueda avanzada
-    function filtrarFilas() {
-        const cargo = document.querySelector('select.form-select[maxwidth="180px"]')?.value || '';
-        const grupo = document.querySelectorAll('select.form-select')[1]?.value || '';
-        const guardia = document.querySelectorAll('select.form-select')[2]?.value || '';
-        document.querySelectorAll('#tablaAsistencia tbody tr.trabajador-row').forEach(tr => {
-            const texto = tr.textContent.toLowerCase();
-            const cargoTr = tr.children[2].textContent.trim();
-            const grupoTr = tr.children[3].textContent.trim();
-            const guardiaTr = tr.children[4].textContent.trim();
-            let visible = true;
-            if (filtroTexto && !texto.includes(filtroTexto)) visible = false;
-            if (cargo && cargoTr !== cargo) visible = false;
-            if (grupo && grupoTr !== grupo) visible = false;
-            if (guardia && guardiaTr !== guardia) visible = false;
-            tr.style.display = visible ? '' : 'none';
-        });
-    }
-
-    // Resumen visual del llenado
-    function mostrarResumenVisual() {
-        setTimeout(()=>{
-            const resumen = {};
-            document.querySelectorAll('.celda-asistencia').forEach(celda => {
-                const est = celda.dataset.estado || '-';
-                resumen[est] = (resumen[est]||0)+1;
-            });
-            let total = Object.values(resumen).reduce((a,b)=>a+b,0);
-            let html = '<div class="alert alert-info mt-2">Resumen: ';
-            for (const [k,v] of Object.entries(resumen)) {
-                html += `<span class='badge bg-primary mx-1'>${k}: ${v}</span>`;
-            }
-            html += '</div>';
-            // Gráfico de barras simple
-            html += '<div class="d-flex align-items-end gap-2 mb-2" style="height:40px;">';
-            for (const [k,v] of Object.entries(resumen)) {
-                const pct = total ? Math.round((v/total)*100) : 0;
-                html += `<div style='height:${pct*0.4}px; width:30px; background:#0d6efd; color:white; text-align:center; font-size:0.7rem; border-radius:3px;' title='${k}: ${v}'>${pct>10?pct+'%':''}</div>`;
-            }
-            html += '</div>';
-            document.getElementById('tablaAsistencia').insertAdjacentHTML('beforebegin', html);
-        }, 500);
-    }
-
-    // Feedback inmediato al usuario (toasts)
-    function mostrarToast(msg, tipo='success') {
-        let toast = document.createElement('div');
-        toast.className = `toast align-items-center text-bg-${tipo} border-0 show position-fixed top-0 end-0 m-3`;
-        toast.role = 'alert';
-        toast.innerHTML = `<div class='d-flex'><div class='toast-body'>${msg}</div><button type='button' class='btn-close me-2 m-auto' data-bs-dismiss='toast'></button></div>`;
-        document.body.appendChild(toast);
-        setTimeout(()=>toast.remove(), 3000);
-    }
-
-    // Deshacer/rehacer cambios
-    function registrarCambio(cambio) {
-        historialCambios = historialCambios.slice(0, historialCursor+1);
-        historialCambios.push(cambio);
-        historialCursor++;
-    }
-    function deshacerCambio() {
-        if (historialCursor < 0) return;
-        const cambio = historialCambios[historialCursor];
-        cambio.celda.dataset.estado = cambio.prevEstado;
-        cambio.celda.innerHTML = `<span class='badge-estado' data-estado='${cambio.prevEstado}'>${cambio.prevEstado}</span>`;
-        historialCursor--;
-    }
-    function rehacerCambio() {
-        if (historialCursor+1 >= historialCambios.length) return;
-        historialCursor++;
-        const cambio = historialCambios[historialCursor];
-        cambio.celda.dataset.estado = cambio.nuevoEstado;
-        cambio.celda.innerHTML = `<span class='badge-estado' data-estado='${cambio.nuevoEstado}'>${cambio.nuevoEstado}</span>`;
-    }
-
-    // Carga masiva por archivo CSV/Excel
-    window.cargarArchivoAsistencias = function(input) {
-        const file = input.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const text = e.target.result;
-            const rows = text.split('\n');
-            rows.forEach((row, i) => {
-                const cols = row.split(',');
-                // Suponiendo formato: trabajador_id,fecha,estado
-                if (cols.length >= 3) {
-                    const celda = document.querySelector(`.celda-asistencia[data-trabajador-id='${cols[0]}'][data-fecha='${cols[1]}']`);
-                    if (celda) guardarEdicionCelda(celda, cols[2]);
+        // Inicializar celdas para navegación
+        const celdas = document.querySelectorAll('.celda-asistencia');
+        celdas.forEach(celda => {
+            celda.setAttribute('tabindex', '0'); // Hacer focusable
+            
+            // Eventos de teclado
+            celda.addEventListener('keydown', handleCellKeydown);
+            
+            // Eventos de mouse
+            celda.addEventListener('click', (e) => {
+                if (e.ctrlKey || modoSeleccionMultiple) {
+                    toggleSeleccionCelda(celda);
+                } else {
+                    celda.focus();
                 }
             });
+            
+            celda.addEventListener('dblclick', () => {
+                const data = celda.dataset;
+                abrirModalAsistencia(data.trabajadorId, data.fecha, data.estado, '', data.tipo);
+            });
+        });
+        
+        // Mostrar ayuda de atajos
+        setTimeout(() => {
+            document.getElementById('shortcutHelp').style.display = 'block';
+        }, 1000);
+    });
+
+    function handleCellKeydown(e) {
+        const celda = e.target;
+        const row = celda.parentElement;
+        const cellIndex = Array.from(row.children).indexOf(celda);
+        const rowIndex = Array.from(row.parentElement.children).indexOf(row);
+        const tbody = row.parentElement;
+        
+        // Navegación con flechas
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            let nextRow, nextCell;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    // Buscar fila anterior que sea de trabajador (saltar headers de grupo)
+                    let prevRowIdx = rowIndex - 1;
+                    while (prevRowIdx >= 0) {
+                        const r = tbody.children[prevRowIdx];
+                        if (r.classList.contains('trabajador-row')) {
+                            nextRow = r;
+                            break;
+                        }
+                        prevRowIdx--;
+                    }
+                    if (nextRow) nextCell = nextRow.children[cellIndex];
+                    break;
+                    
+                case 'ArrowDown':
+                    // Buscar fila siguiente que sea de trabajador
+                    let nextRowIdx = rowIndex + 1;
+                    while (nextRowIdx < tbody.children.length) {
+                        const r = tbody.children[nextRowIdx];
+                        if (r.classList.contains('trabajador-row')) {
+                            nextRow = r;
+                            break;
+                        }
+                        nextRowIdx++;
+                    }
+                    if (nextRow) nextCell = nextRow.children[cellIndex];
+                    break;
+                    
+                case 'ArrowLeft':
+                    nextCell = celda.previousElementSibling;
+                    while (nextCell && !nextCell.classList.contains('celda-asistencia')) {
+                        nextCell = nextCell.previousElementSibling;
+                    }
+                    break;
+                    
+                case 'ArrowRight':
+                    nextCell = celda.nextElementSibling;
+                    while (nextCell && !nextCell.classList.contains('celda-asistencia')) {
+                        nextCell = nextCell.nextElementSibling;
+                    }
+                    break;
+            }
+            
+            if (nextCell) nextCell.focus();
+            return;
+        }
+        
+        // Atajos de edición rápida
+        if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+            const key = e.key.toUpperCase();
+            const mapEstados = {
+                'T': 'TRABAJADO',
+                'F': 'FALTA',
+                'D': 'DIA_LIBRE', // D para DL
+                'L': 'DIA_LIBRE', // L también para DL
+                'V': 'VACACIONES',
+                'S': 'STAND_BY',
+                'M': 'DESCANSO_MEDICO',
+                'P': 'PERMISO',
+                'A': 'DIA_APOYO',
+                'I': 'INDUCCION',
+                'R': 'RECORRIDO',
+                'DELETE': '',
+                'BACKSPACE': ''
+            };
+            
+            if (key in mapEstados || e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                const nuevoEstado = mapEstados[key] || '';
+                guardarEstadoRapido(celda, nuevoEstado);
+            }
+        }
+    }
+    
+    function guardarEstadoRapido(celda, estado) {
+        const data = celda.dataset;
+        const estadoAnterior = data.estado;
+        
+        // Optimistic UI Update
+        actualizarCeldaUI(celda, estado);
+        celda.classList.add('saving');
+        
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Determinar tipo automáticamente
+        let tipo = 'NO_PAGABLE';
+        const estadosPagables = ['TRABAJADO', 'DIA_LIBRE', 'INDUCCION', 'INDUCCION_VIRTUAL'];
+        if (estadosPagables.includes(estado)) tipo = 'PAGABLE';
+        
+        fetch('/tareo/guardar-asistencia/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                trabajador_id: data.trabajadorId,
+                fecha: data.fecha,
+                estado: estado,
+                tipo: tipo,
+                observaciones: '' // Limpiar observaciones en edición rápida
+            })
+        })
+        .then(response => response.json())
+        .then(resp => {
+            celda.classList.remove('saving');
+            if (!resp.success) {
+                // Revertir si falla
+                actualizarCeldaUI(celda, estadoAnterior);
+                celda.classList.add('error');
+                mostrarToast('Error al guardar: ' + resp.message, 'danger');
+            } else {
+                // Actualizar dataset con valores confirmados
+                celda.dataset.estado = estado;
+                celda.dataset.tipo = tipo;
+            }
+        })
+        .catch(err => {
+            celda.classList.remove('saving');
+            actualizarCeldaUI(celda, estadoAnterior);
+            celda.classList.add('error');
+            console.error(err);
+        });
+    }
+    
+    function actualizarCeldaUI(celda, estado) {
+        celda.dataset.estado = estado;
+        
+        if (!estado) {
+            celda.innerHTML = '<span class="text-muted">-</span>';
+            return;
+        }
+        
+        // Mapeo de nombres cortos para display
+        const displayMap = {
+            'TRABAJADO': 'T',
+            'DIA_LIBRE': 'DL',
+            'DIA_APOYO': 'DA',
+            'PERMISO_PATERNIDAD': 'PT',
+            'DESCANSO_MEDICO': 'DM',
+            'STAND_BY': 'SB',
+            'SUBSIDIO': 'SUB',
+            'INDUCCION': 'I',
+            'INDUCCION_VIRTUAL': 'IV',
+            'RECORRIDO': 'R',
+            'FALTA': 'F',
+            'PERMISO': 'P',
+            'SUSPENSION': 'S',
+            'VACACIONES': 'V'
         };
-        reader.readAsText(file);
+        
+        const displayText = displayMap[estado] || estado.substring(0, 3);
+        celda.innerHTML = `<span class="badge-estado" data-estado="${estado}">${displayText}</span>`;
     }
 
-    // Optimización de scroll y sticky headers ya implementada en CSS
 
-    // Accesibilidad: mejorar contraste y navegación por teclado (ya implementado con tabindex)
-
-    // --- FIN NUEVAS FUNCIONALIDADES ---
     }
     
     function cambiarModo(nuevoModo) {
