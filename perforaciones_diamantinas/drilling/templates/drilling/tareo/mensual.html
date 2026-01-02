@@ -812,9 +812,6 @@
         const displayText = displayMap[estado] || estado.substring(0, 3);
         celda.innerHTML = `<span class="badge-estado" data-estado="${estado}">${displayText}</span>`;
     }
-
-
-    }
     
     function cambiarModo(nuevoModo) {
         const contratoId = {{ contrato.id }};
