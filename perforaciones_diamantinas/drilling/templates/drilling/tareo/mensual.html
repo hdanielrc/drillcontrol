@@ -680,6 +680,53 @@
         }, 1000);
     });
 
+    // Delegated handlers as a robust fallback (in case per-cell listeners failed)
+    try {
+        const tabla = document.getElementById('tablaAsistencia');
+        if (tabla) {
+            console.log('Inicializando delegación de eventos en tablaAsistencia');
+
+            tabla.addEventListener('click', function(e) {
+                const celda = e.target.closest('.celda-asistencia');
+                if (!celda) return;
+
+                // Shift+Click range
+                if (e.shiftKey && lastFocusedCell) {
+                    if (!modoSeleccionMultiple) iniciarSeleccionMultiple();
+                    seleccionarRango(lastFocusedCell, celda);
+                    return;
+                }
+
+                // Ctrl/Cmd toggle
+                if (e.ctrlKey || e.metaKey) {
+                    if (!modoSeleccionMultiple) iniciarSeleccionMultiple();
+                    toggleSeleccionCelda(celda);
+                    lastFocusedCell = celda;
+                    return;
+                }
+
+                if (modoSeleccionMultiple) {
+                    toggleSeleccionCelda(celda);
+                    lastFocusedCell = celda;
+                    return;
+                }
+
+                // Normal click: focus cell
+                celda.focus();
+                lastFocusedCell = celda;
+            }, true);
+
+            tabla.addEventListener('dblclick', function(e) {
+                const celda = e.target.closest('.celda-asistencia');
+                if (!celda) return;
+                const data = celda.dataset;
+                abrirModalAsistencia(data.trabajadorId, data.fecha, data.estado, data.observaciones || '', data.tipo || 'PAGABLE');
+            }, true);
+        }
+    } catch (err) {
+        console.error('Error iniciando delegación de eventos en tablaAsistencia', err);
+    }
+
     function getCellCoordinates(celda) {
         const row = celda.parentElement;
         const tbody = row.parentElement;
