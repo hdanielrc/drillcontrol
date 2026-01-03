@@ -927,10 +927,8 @@
     }
     
     function abrirModalAsistencia(trabajadorId, fecha, estadoActual, observaciones, tipoActual) {
-        if (modoSeleccionMultiple) {
-            toggleSeleccionCelda(event.target.closest('.celda-asistencia'));
-            return;
-        }
+        // Nota: la selección múltiple se maneja en el handler de click del DOM,
+        // aquí abrimos siempre el modal (doble click) sin depender de la variable global `event`.
         
         document.getElementById('modalTrabajadorId').value = trabajadorId;
         document.getElementById('modalFecha').value = fecha;
