@@ -101,85 +101,73 @@
     </div>
 </div>
 
-<!-- Barra de herramientas -->
+<!-- Barra de herramientas optimizada -->
 <div class="list-section mb-4">
-    <div class="list-header" style="background: linear-gradient(135deg, #6c757d, #495057); color: white;">
-        <i class="fas fa-tools me-2"></i> Herramientas
+    <div class="list-header py-2 px-3 d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #6c757d, #495057); color: white;">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-tools"></i> 
+            <span class="fw-bold">Herramientas</span>
+            <span class="badge bg-light text-dark ms-2">{{ total_trabajadores }} Trabajadores</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="form-check form-switch mb-0 me-2">
+                <input class="form-check-input" type="checkbox" id="toggleModoRapido" onchange="toggleModoRapido()">
+                <label class="form-check-label text-white" for="toggleModoRapido">Modo Rápido (Clic)</label>
+            </div>
+            <select class="form-select form-select-sm" id="estadoRapido" style="width: 150px;" disabled>
+                <option value="TRABAJADO">TRABAJADO (T)</option>
+                <option value="DIA_LIBRE">DIA LIBRE (DL)</option>
+                <option value="FALTA">FALTA (F)</option>
+                <option value="VACACIONES">VACACIONES (V)</option>
+                <option value="STAND_BY">STAND BY (SB)</option>
+                <option value="DESCANSO_MEDICO">DESC. MEDICO (DM)</option>
+                <option value="DIA_APOYO">DIA APOYO (DA)</option>
+                <option value="PERMISO">PERMISO (P)</option>
+                <option value="">LIMPIAR (-)</option>
+            </select>
+        </div>
     </div>
-    <div class="list-body">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-card" style="min-width: auto; padding: 0.75rem 1.25rem;">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="fas fa-users text-primary"></i>
-                        <div>
-                            <div class="stat-value" style="font-size: 1.2rem;">{{ total_trabajadores }}</div>
-                            <div class="stat-label" style="font-size: 0.7rem;">Trabajadores</div>
-                        </div>
-                    </div>
+    <div class="list-body p-2 bg-light border-bottom">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <!-- Selección Múltiple -->
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="iniciarSeleccionMultiple()" id="btnIniciarSeleccion">
+                    <i class="fas fa-check-square me-1"></i> Selección Múltiple
+                </button>
+                <div id="controlesSeleccion" style="display: none;" class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <span class="badge bg-warning text-dark" id="celdasSeleccionadas">0</span>
+                    <select class="form-select form-select-sm" id="estadoSeleccion" style="width:140px;">
+                        <option value="">Estado...</option>
+                        {% for codigo, nombre in estados_asistencia %}
+                        <option value="{{ codigo }}">{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                    <select class="form-select form-select-sm" id="turnoSeleccion" style="width:80px;">
+                        <option value="">Turno</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" onclick="aplicarSeleccion()">
+                        <i class="fas fa-check"></i> Aplicar
+                    </button>
                 </div>
             </div>
             
-            <div class="d-flex gap-2 align-items-center">
-                <label class="mb-0 text-muted">Selección Múltiple:</label>
-                <button class="btn btn-sm btn-info" onclick="iniciarSeleccionMultiple()">
-                    <i class="fas fa-check-square me-1"></i> Activar
-                </button>
-                <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()" id="btnCancelar" style="display: none;">
-                    <i class="fas fa-times me-1"></i> Cancelar
-                </button>
-                <select class="form-select form-select-sm ms-2" id="estadoSeleccion" style="min-width:140px;">
-                    <option value="">Estado selección</option>
-                    {% for codigo, nombre in estados_asistencia %}
-                    <option value="{{ codigo }}">{{ nombre }}</option>
-                    {% endfor %}
-                </select>
-                <select class="form-select form-select-sm ms-2" id="turnoSeleccion" style="min-width:90px;">
-                    <option value="">Turno</option>
-                    <option value="A">A</option>
-                    <option value="B">B</option>
-                    <option value="C">C</option>
-                </select>
-                <button class="btn btn-sm btn-warning ms-2" onclick="aplicarSeleccion()">
-                    <i class="fas fa-magic"></i> Aplicar a selección
-                </button>
-            </div>
-            
-            <div class="d-flex gap-2">
-                <button class="btn btn-success" onclick="guardarCambios()">
-                    <i class="fas fa-save me-1"></i> Guardar
-                </button>
-                <button class="btn btn-primary" onclick="exportarExcel()">
-                    <i class="fas fa-file-excel me-1"></i> Exportar
+            <!-- Exportar -->
+            <div>
+                <button class="btn btn-sm btn-success" onclick="exportarExcel()">
+                    <i class="fas fa-file-excel me-1"></i> Exportar Excel
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Panel de selección múltiple (oculto por defecto) -->
-<div class="mb-4" id="panelSeleccionMultiple" style="display: none;">
-    <div class="alert alert-warning border-0" style="background: linear-gradient(135deg, rgba(255, 194, 72, 0.2), rgba(255, 194, 72, 0.1)); border-left: 4px solid var(--warning-color) !important;">
-        <div class="d-flex align-items-center mb-2">
-            <i class="fas fa-magic fa-lg me-2 text-warning"></i>
-            <strong>Modo Selección Múltiple Activo</strong>
-        </div>
-        <p class="mb-2">Selecciona las celdas que desees modificar (clic en las celdas), luego elige el estado:</p>
-        <div class="d-flex gap-2 flex-wrap">
-            {% for codigo, nombre in estados_asistencia %}
-            <button class="btn btn-sm btn-outline-primary" 
-                    onclick="aplicarEstadoMultiple('{{ codigo }}', '{{ nombre }}')">
-                            {{ nombre }}
-                        </button>
-                        {% endfor %}
-                    </div>
-                    <div class="mt-2">
-                        <span id="celdasSeleccionadas">0 celdas seleccionadas</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Matriz de asistencia -->
     <div class="row">
@@ -635,6 +623,21 @@
 <script>
     // --- MEJORAS UX/UI: Navegación Teclado y Edición Rápida ---
     let lastFocusedCell = null;
+    let modoRapido = false;
+    let modoSeleccionMultiple = false;
+    let celdasSeleccionadas = [];
+
+    function toggleModoRapido() {
+        modoRapido = document.getElementById('toggleModoRapido').checked;
+        const selector = document.getElementById('estadoRapido');
+        selector.disabled = !modoRapido;
+        
+        if (modoRapido) {
+            mostrarToast('Modo Rápido activado: Clic para aplicar estado', 'info');
+            // Desactivar selección múltiple si está activa
+            if (modoSeleccionMultiple) cancelarSeleccionMultiple();
+        }
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
         // Inicializar celdas para navegación
@@ -649,6 +652,12 @@
             celda.addEventListener('focus', () => { lastFocusedCell = celda; });
             
             celda.addEventListener('click', (e) => {
+                if (modoRapido) {
+                    const estado = document.getElementById('estadoRapido').value;
+                    guardarEstadoRapido(celda, estado);
+                    return;
+                }
+
                 if (e.shiftKey && lastFocusedCell) {
                     // Shift + Click: Range
                     e.preventDefault(); // Prevent text selection
@@ -889,23 +898,21 @@
         })
         .then(response => response.json())
         .then(data => {
+            celda.classList.remove('saving');
             if (data.success) {
-                mostrarToast(data.message, 'success');
-                setTimeout(()=>location.reload(), 1000);
+                // Success - UI already updated optimistically
+                // Just show a small indicator or nothing to be faster
             } else {
                 mostrarToast(data.message, 'danger');
+                // Revert
+                actualizarCeldaUI(celda, estadoAnterior);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            mostrarToast('Error al guardar', 'danger');
-        });
-        })
-        .catch(err => {
             celda.classList.remove('saving');
             actualizarCeldaUI(celda, estadoAnterior);
-            celda.classList.add('error');
-            console.error(err);
+            mostrarToast('Error al guardar', 'danger');
         });
     }
     
@@ -1050,7 +1057,18 @@
         .then(data => {
             if (data.success) {
                 mostrarToast(data.message, 'success');
-                setTimeout(()=>location.reload(), 1000);
+                // Actualizar UI sin recargar
+                const celda = document.querySelector(`.celda-asistencia[data-trabajador-id="${trabajadorId}"][data-fecha="${fecha}"]`);
+                if (celda) {
+                    actualizarCeldaUI(celda, estado);
+                    celda.dataset.tipo = tipo;
+                    celda.dataset.observaciones = observaciones;
+                    celda.title = `${estado} - ${tipo}${observaciones ? ' | ' + observaciones : ''}`;
+                }
+                // Cerrar modal
+                const modalEl = document.getElementById('modalAsistencia');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
             } else {
                 mostrarToast(data.message, 'danger');
             }
@@ -1065,16 +1083,28 @@
     function iniciarSeleccionMultiple() {
         modoSeleccionMultiple = true;
         celdasSeleccionadas = [];
-        document.getElementById('panelSeleccionMultiple').style.display = 'block';
-        document.getElementById('btnCancelar').style.display = 'inline-block';
+        
+        // UI Updates
+        document.getElementById('controlesSeleccion').style.display = 'flex';
+        document.getElementById('btnIniciarSeleccion').style.display = 'none';
+        
+        // Desactivar modo rápido si está activo
+        if (modoRapido) {
+            document.getElementById('toggleModoRapido').checked = false;
+            toggleModoRapido();
+        }
+        
         actualizarContadorSeleccion();
     }
     
     function cancelarSeleccionMultiple() {
         modoSeleccionMultiple = false;
         celdasSeleccionadas = [];
-        document.getElementById('panelSeleccionMultiple').style.display = 'none';
-        document.getElementById('btnCancelar').style.display = 'none';
+        
+        // UI Updates
+        document.getElementById('controlesSeleccion').style.display = 'none';
+        document.getElementById('btnIniciarSeleccion').style.display = 'inline-block';
+        
         document.querySelectorAll('.celda-asistencia.seleccionada').forEach(celda => {
             celda.classList.remove('seleccionada');
         });
@@ -1098,47 +1128,7 @@
             `${celdasSeleccionadas.length} celdas seleccionadas`;
     }
     
-    function aplicarEstadoMultiple(estado, nombreEstado) {
-        if (celdasSeleccionadas.length === 0) {
-            mostrarToast('No hay celdas seleccionadas', 'warning');
-            return;
-        }
-        
-        if (!confirm(`¿Aplicar "${nombreEstado}" a ${celdasSeleccionadas.length} celdas seleccionadas?`)) {
-            return;
-        }
-        
-        const asistencias = celdasSeleccionadas.map(celda => ({
-            trabajador_id: parseInt(celda.dataset.trabajadorId),
-            fecha: celda.dataset.fecha,
-            estado: estado,
-            observaciones: ''
-        }));
-        
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        
-        fetch('/tareo/guardar-asistencias-masivas/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken
-            },
-            body: JSON.stringify({ asistencias: asistencias })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                mostrarToast('✅ ' + data.message, 'success');
-                setTimeout(()=>location.reload(), 1000);
-            } else {
-                mostrarToast('❌ ' + data.message, 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            mostrarToast('❌ Error al guardar', 'danger');
-        });
-    }
+
 
     // Selección masiva por grupo (selecciona/deselecciona y aplica estado/turno)
     function seleccionarTodoGrupo(grupoId) {
@@ -1188,6 +1178,12 @@
         }));
 
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Optimistic UI
+        rows.forEach(celda => {
+            if (estado) actualizarCeldaUI(celda, estado);
+        });
+
         fetch('/tareo/guardar-asistencias-masivas/', {
             method: 'POST',
             headers: {
@@ -1200,9 +1196,13 @@
         .then(data => {
             if (data.success) {
                 mostrarToast('✅ ' + data.message, 'success');
-                setTimeout(()=>location.reload(), 1000);
+                // Deseleccionar
+                const checkbox = document.getElementById(`selectAllGrupo${grupoId}`);
+                if (checkbox) checkbox.checked = false;
+                seleccionarTodoGrupo(grupoId); // This will uncheck because checkbox is false
             } else {
                 mostrarToast('❌ ' + data.message, 'danger');
+                setTimeout(()=>location.reload(), 2000);
             }
         })
         .catch(error => {
@@ -1261,7 +1261,7 @@
             return;
         }
 
-        if (!confirm(`¿Aplicar cambios a ${celdasSeleccionadas.length} celdas seleccionadas?`)) return;
+        // if (!confirm(`¿Aplicar cambios a ${celdasSeleccionadas.length} celdas seleccionadas?`)) return; // Remove confirm for speed
 
         const asistencias = celdasSeleccionadas.map(celda => ({
             trabajador_id: parseInt(celda.dataset.trabajadorId),
@@ -1272,6 +1272,13 @@
         }));
 
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Optimistic UI update
+        celdasSeleccionadas.forEach(celda => {
+            if (estado) actualizarCeldaUI(celda, estado);
+            // Turno visual update not implemented yet as it's not visible in cell content usually
+        });
+
         fetch('/tareo/guardar-asistencias-masivas/', {
             method: 'POST',
             headers: {
@@ -1284,9 +1291,11 @@
         .then(data => {
             if (data.success) {
                 mostrarToast(data.message, 'success');
-                setTimeout(()=>location.reload(), 1000);
+                cancelarSeleccionMultiple();
             } else {
                 mostrarToast(data.message, 'danger');
+                // Revert logic would be complex here, assuming success for now or reload on error
+                setTimeout(()=>location.reload(), 2000);
             }
         })
         .catch(error => {
