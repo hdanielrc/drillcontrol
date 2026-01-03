@@ -278,8 +278,9 @@
                                         data-fecha="{{ asist.fecha|date:'Y-m-d' }}"
                                         data-estado="{{ asist.estado }}"
                                         data-tipo="{{ asist.tipo }}"
+                                        data-sugerido="{{ asist.estado_sugerido|default:'' }}"
                                         title="{{ asist.estado_display }} - {{ asist.tipo_display }}{% if asist.observaciones %} | {{ asist.observaciones }}{% endif %}"
-                                        style="cursor: cell; padding: 2px; font-size: 0.7rem;">
+                                        style="cursor: cell; padding: 2px; font-size: 0.7rem; {% if not asist.estado and asist.estado_sugerido == 'DIA_LIBRE' %}background-color: #f0f0f0;{% endif %}">
                                         {% if asist.estado %}
                                         <span class="badge-estado" data-estado="{{ asist.estado }}">
                                             {% if asist.estado == 'TRABAJADO' %}T
@@ -298,6 +299,12 @@
                                             {% elif asist.estado == 'VACACIONES' %}V
                                             {% else %}{{ asist.estado_display|truncatewords:1|slice:":3" }}
                                             {% endif %}
+                                        </span>
+                                        {% elif asist.estado_sugerido %}
+                                            <span class="text-muted small" style="opacity: 0.5;">
+                                                {% if asist.estado_sugerido == 'TRABAJADO' %}T?{% elif asist.estado_sugerido == 'DIA_LIBRE' %}DL?{% endif %}
+                                            </span>
+                                        {% endif %}
                                         </span>
                                         {% if user.role in 'GERENCIA,CONTROL_PROYECTOS' and asist.tipo == 'PAGABLE' %}
                                         <small class="text-success" style="font-size: 0.6rem;">💰</small>

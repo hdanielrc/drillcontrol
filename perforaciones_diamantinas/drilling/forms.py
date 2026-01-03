@@ -19,7 +19,8 @@ class TrabajadorForm(forms.ModelForm):
         model = Trabajador
         fields = [
             'contrato', 'nombres', 'apellidos', 'cargo', 'area', 'maquina_asignada', 'guardia_asignada', 
-            'vehiculo_asignado', 'dni', 'telefono', 'email', 'fecha_ingreso', 
+            'vehiculo_asignado', 'regimen_laboral', 'fecha_inicio_ciclo',
+            'dni', 'telefono', 'email', 'fecha_ingreso', 
             'estado', 'subestado',
             'fotocheck_fecha_emision', 'fotocheck_fecha_caducidad',
             'emo_fecha_realizado', 'emo_fecha_vencimiento', 'emo_programacion', 'emo_estado'
@@ -37,6 +38,8 @@ class TrabajadorForm(forms.ModelForm):
             'maquina_asignada': forms.Select(attrs={'class': 'form-select'}),
             'guardia_asignada': forms.Select(attrs={'class': 'form-select'}),
             'vehiculo_asignado': forms.Select(attrs={'class': 'form-select'}),
+            'regimen_laboral': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_inicio_ciclo': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'dni': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'DNI o documento de identidad'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '+56 9 1234 5678'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'correo@ejemplo.com'}),

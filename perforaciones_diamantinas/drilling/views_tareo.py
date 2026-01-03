@@ -173,9 +173,16 @@ def tareo_mensual_view(request):
         for dia_info in dias_rango:
             fecha = dia_info['fecha']
             asist_dia = asistencias_dict.get(trabajador.id, {}).get(fecha)
+            
+            # Calcular estado sugerido si no hay asistencia
+            estado_sugerido = None
+            if not asist_dia:
+                estado_sugerido = trabajador.calcular_estado_regimen(fecha)
+
             asistencias_trabajador.append({
                 'fecha': fecha,
                 'estado': asist_dia['estado'] if asist_dia else None,
+                'estado_sugerido': estado_sugerido,
                 'estado_display': asist_dia['estado_display'] if asist_dia else '-',
                 'tipo': asist_dia['tipo'] if asist_dia else 'PAGABLE',
                 'tipo_display': asist_dia['tipo_display'] if asist_dia else 'Pagable',
@@ -308,7 +315,9 @@ def guardar_asistencia(request):
                 'estado': estado,
                 'tipo': tipo,
                 'observaciones': observaciones,
-                'registrado_por': user
+                'registrado_por': user,
+                'cargo_snapshot': trabajador.cargo.nombre if trabajador.cargo else None,
+                'guardia_snapshot': trabajador.guardia_asignada
             }
         )
         
@@ -384,7 +393,9 @@ def guardar_asistencias_masivas(request):
                         defaults = {
                             'estado': estado,
                             'observaciones': observaciones,
-                            'registrado_por': user
+                            'registrado_por': user,
+                            'cargo_snapshot': trabajador.cargo.nombre if trabajador.cargo else None,
+                            'guardia_snapshot': trabajador.guardia_asignada
                         }
                         if tipo:
                             defaults['tipo'] = tipo

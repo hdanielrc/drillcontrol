@@ -22,6 +22,7 @@ Para navegar: Ctrl+G (ir a línea) o Ctrl+F (buscar "# ===")
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from decimal import Decimal
@@ -860,6 +861,22 @@ class AsistenciaTrabajador(models.Model):
         verbose_name='Tipo',
         help_text='Define si la asistencia es pagable o no pagable'
     )
+    
+    # Snapshot fields for historical accuracy
+    cargo_snapshot = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        verbose_name='Cargo (Histórico)',
+        help_text='Cargo del trabajador al momento del registro'
+    )
+    guardia_snapshot = models.CharField(
+        max_length=1,
+        blank=True,
+        null=True,
+        verbose_name='Guardia (Histórico)',
+        help_text='Guardia asignada al momento del registro'
+    )
     observaciones = models.TextField(
         blank=True, 
         verbose_name='Observaciones',
@@ -1095,6 +1112,27 @@ class Trabajador(models.Model):
         verbose_name='Guardia (Organigrama)',
         help_text='⚠️ SOLO PARA ORGANIGRAMA - Guardia A, B o C para visualización'
     )
+
+    # Régimen Laboral
+    REGIMEN_CHOICES = [
+        ('14x7', '14 Días Trabajo x 7 Días Descanso'),
+        ('20x10', '20 Días Trabajo x 10 Días Descanso'),
+        ('28x14', '28 Días Trabajo x 14 Días Descanso'),
+        ('5x2', '5 Días Trabajo x 2 Días Descanso'),
+        ('6x1', '6 Días Trabajo x 1 Día Descanso'),
+    ]
+    regimen_laboral = models.CharField(
+        max_length=10,
+        choices=REGIMEN_CHOICES,
+        default='14x7',
+        verbose_name='Régimen Laboral'
+    )
+    fecha_inicio_ciclo = models.DateField(
+        null=True, 
+        blank=True,
+        verbose_name='Inicio de Ciclo',
+        help_text='Fecha de inicio del ciclo actual (Día 1 de trabajo)'
+    )
     
     # =====================================================================
     # Vehículo asignado (principalmente para conductores en organigrama)
@@ -1167,6 +1205,35 @@ class Trabajador(models.Model):
     def __str__(self):
         return f"{self.nombres} {self.apellidos or ''} - {self.cargo.nombre}"
     
+    def calcular_estado_regimen(self, fecha_consulta):
+        """
+        Calcula el estado esperado (TRABAJADO o DIA_LIBRE) según el régimen y fecha de inicio.
+        Retorna None si no hay datos suficientes.
+        """
+        if not self.fecha_inicio_ciclo or not self.regimen_laboral:
+            return None
+            
+        # Parsear régimen (ej: "14x7")
+        try:
+            dias_trabajo, dias_descanso = map(int, self.regimen_laboral.lower().split('x'))
+            ciclo_total = dias_trabajo + dias_descanso
+        except ValueError:
+            return None
+            
+        delta = (fecha_consulta - self.fecha_inicio_ciclo).days
+        
+        # Si la fecha es anterior al inicio, no aplica
+        if delta < 0:
+            return None
+            
+        dia_en_ciclo = delta % ciclo_total
+        
+        # Si está dentro de los días de trabajo (0 a dias_trabajo - 1)
+        if dia_en_ciclo < dias_trabajo:
+            return 'TRABAJADO'
+        else:
+            return 'DIA_LIBRE'
+
     def asignar_grupo_automatico(self):
         """
         Asigna automáticamente el grupo funcional basado en el cargo del trabajador.
@@ -1227,6 +1294,28 @@ class Trabajador(models.Model):
                 self.grupo = grupo_calculado
         
         super().save(*args, **kwargs)
+
+
+class HistorialLaboral(models.Model):
+    """
+    Historial de cambios laborales del trabajador (Cargo, Guardia, Régimen)
+    """
+    trabajador = models.ForeignKey(Trabajador, on_delete=models.CASCADE, related_name='historial_laboral')
+    fecha_inicio = models.DateField(verbose_name='Fecha Inicio')
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name='Fecha Fin')
+    
+    cargo = models.ForeignKey(Cargo, on_delete=models.PROTECT, verbose_name='Cargo')
+    guardia = models.CharField(max_length=1, choices=Trabajador.GUARDIA_CHOICES, null=True, blank=True, verbose_name='Guardia')
+    regimen = models.CharField(max_length=10, choices=Trabajador.REGIMEN_CHOICES, null=True, blank=True, verbose_name='Régimen')
+    
+    observaciones = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        verbose_name = 'Historial Laboral'
+        verbose_name_plural = 'Historiales Laborales'
+        ordering = ['-fecha_inicio']
 
 
 # =============================================================================
