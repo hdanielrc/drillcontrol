@@ -270,7 +270,9 @@
                                     <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle;">
                                         <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.get_grupo_display|default:"-"|truncatechars:10 }}</span>
                                     </td>
-                                    <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle;">
+                                    <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle; cursor: pointer;" 
+                                        onclick="toggleGuardia(this, {{ item.trabajador.id }})"
+                                        title="Clic para cambiar guardia (A -> B -> C -> -)">
                                         {% if item.trabajador.guardia_asignada %}
                                         <span class="badge bg-info" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.guardia_asignada }}</span>
                                         {% else %}
@@ -1219,6 +1221,46 @@
             console.error('Error:', error);
             mostrarToast('❌ Error al guardar', 'danger');
         });
+    }
+
+    function toggleGuardia(td, trabajadorId) {
+        const badge = td.querySelector('.badge') || td.querySelector('.text-muted');
+        let currentGuardia = badge.innerText.trim();
+        if (currentGuardia === '-') currentGuardia = '';
+        
+        const cycle = {'': 'A', 'A': 'B', 'B': 'C', 'C': ''};
+        const nextGuardia = cycle[currentGuardia] || 'A';
+        
+        // Optimistic UI
+        if (nextGuardia) {
+            td.innerHTML = `<span class="badge bg-info" style="font-size: 0.65rem; padding: 2px 4px;">${nextGuardia}</span>`;
+        } else {
+            td.innerHTML = `<span class="text-muted">-</span>`;
+        }
+        
+        // Send to backend
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        fetch('/tareo/guardar-asistencias-masivas/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                asistencias: [{
+                    trabajador_id: trabajadorId,
+                    turno: nextGuardia
+                }]
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                mostrarToast('Error al actualizar guardia', 'danger');
+                // Revert UI logic could be added here
+            }
+        })
+        .catch(err => console.error(err));
     }
 
     function guardarCambios() {
