@@ -178,11 +178,11 @@
                         <table class="table table-bordered table-hover table-sm mb-0" id="tablaAsistencia">
                             <thead class="table-dark sticky-top">
                                 <tr>
-                                    <th class="text-center sticky-column" style="min-width: 50px; z-index: 1001;">#</th>
-                                    <th class="text-center sticky-column-2" style="min-width: 200px; z-index: 1001;">Trabajador</th>
-                                    <th class="text-center" style="min-width: 150px;">Cargo</th>
+                                    <th class="text-center sticky-column" style="min-width: 40px; z-index: 1001;">#</th>
+                                    <th class="text-center sticky-column-2" style="min-width: 250px; z-index: 1001;">Trabajador</th>
+                                    <th class="text-center" style="min-width: 150px; display: none;">Cargo</th>
                                     <th class="text-center" style="min-width: 80px;">Grupo</th>
-                                    <th class="text-center" style="min-width: 70px;">Guardia</th>
+                                    <th class="text-center" style="min-width: 60px;">Guardia</th>
                                     {% for dia in dias_rango %}
                                     <th class="text-center {% if dia.es_domingo %}table-danger{% elif dia.es_sabado %}table-warning{% endif %}" 
                                         style="min-width: 60px; font-size: 0.75rem; position:relative;">
@@ -207,31 +207,31 @@
                                 {% for grupo in grupos_ordenados %}
                                 <!-- Separador de Grupo con controles de selección masiva -->
                                 <tr class="table-primary align-middle">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-center fw-bold">
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-center fw-bold p-1">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap">
-                                            <div>
+                                            <div style="font-size: 0.85rem;">
                                                 <i class="fas fa-users"></i> {{ grupo.nombre|upper }} 
-                                                <span class="badge bg-primary ms-2">{{ grupo.total_trabajadores }} trabajadores</span>
+                                                <span class="badge bg-primary ms-2" style="font-size: 0.7rem;">{{ grupo.total_trabajadores }}</span>
                                             </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="selectAllGrupo{{ grupo.key }}" onclick="seleccionarTodoGrupo('{{ grupo.key }}')">
-                                                    <label class="form-check-label ms-1 text-white" for="selectAllGrupo{{ grupo.key }}" style="font-size:0.9rem;">Seleccionar todo</label>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <div class="form-check me-2">
+                                                    <input class="form-check-input" type="checkbox" id="selectAllGrupo{{ grupo.key }}" onclick="seleccionarTodoGrupo('{{ grupo.key }}')" style="width: 0.9em; height: 0.9em;">
+                                                    <label class="form-check-label ms-1 text-white" for="selectAllGrupo{{ grupo.key }}" style="font-size:0.75rem;">Todos</label>
                                                 </div>
-                                                <select class="form-select form-select-sm" id="estadoGrupo{{ grupo.key }}" style="min-width:140px;">
+                                                <select class="form-select form-select-sm py-0" id="estadoGrupo{{ grupo.key }}" style="min-width:100px; font-size: 0.75rem; height: 24px;">
                                                     <option value="">Estado</option>
                                                     {% for codigo, nombre in estados_asistencia %}
                                                     <option value="{{ codigo }}">{{ nombre }}</option>
                                                     {% endfor %}
                                                 </select>
-                                                <select class="form-select form-select-sm" id="turnoGrupo{{ grupo.key }}" style="min-width:90px;">
+                                                <select class="form-select form-select-sm py-0" id="turnoGrupo{{ grupo.key }}" style="min-width:70px; font-size: 0.75rem; height: 24px;">
                                                     <option value="">Turno</option>
                                                     <option value="A">A</option>
                                                     <option value="B">B</option>
                                                     <option value="C">C</option>
                                                 </select>
-                                                <button class="btn btn-sm btn-warning fw-bold" style="color:#084298;" onclick="aplicarMasivoGrupo('{{ grupo.key }}')">
-                                                    <i class="fas fa-magic"></i> Aplicar a grupo
+                                                <button class="btn btn-sm btn-warning fw-bold py-0" style="color:#084298; font-size: 0.75rem; height: 24px;" onclick="aplicarMasivoGrupo('{{ grupo.key }}')">
+                                                    <i class="fas fa-check"></i> Aplicar
                                                 </button>
                                             </div>
                                         </div>
@@ -242,9 +242,9 @@
                                 <!-- Separador de Guardia -->
                                 {% if guardia.key != 'SIN_GUARDIA' %}
                                 <tr class="table-info">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-4">
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-4 p-1" style="font-size: 0.8rem;">
                                         <i class="fas fa-shield-alt"></i> <strong>{{ guardia.nombre }}</strong>
-                                        <span class="badge bg-info ms-2">{{ guardia.trabajadores|length }} trabajadores</span>
+                                        <span class="badge bg-info ms-2" style="font-size: 0.7rem;">{{ guardia.trabajadores|length }}</span>
                                     </td>
                                 </tr>
                                 {% endif %}
@@ -252,22 +252,27 @@
                                 <!-- Trabajadores de esta guardia -->
                                 {% for item in guardia.trabajadores %}
                                 <tr data-trabajador-id="{{ item.trabajador.id }}" data-grupo-id="{{ grupo.key }}" class="trabajador-row">
-                                    <td class="sticky-column bg-light text-center" style="z-index: 1000; font-size: 0.8rem;">
+                                    <td class="sticky-column bg-light text-center p-1" style="z-index: 1000; font-size: 0.75rem; vertical-align: middle;">
                                         {{ forloop.parentloop.parentloop.counter }}{{ forloop.parentloop.counter }}{{ forloop.counter }}
                                     </td>
-                                    <td class="sticky-column-2 bg-light" style="z-index: 1000;">
-                                        <strong>{{ item.trabajador.apellidos }}, {{ item.trabajador.nombres }}</strong>
-                                        <br><small class="text-muted">DNI: {{ item.trabajador.dni }}</small>
+                                    <td class="sticky-column-2 bg-light p-1" style="z-index: 1000; vertical-align: middle;">
+                                        <div style="line-height: 1.1;">
+                                            <div class="fw-bold text-truncate" style="font-size: 0.8rem; max-width: 200px;" title="{{ item.trabajador.apellidos }}, {{ item.trabajador.nombres }}">
+                                                {{ item.trabajador.apellidos }}, {{ item.trabajador.nombres }}
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo.nombre|truncatechars:25 }} | {{ item.trabajador.dni }}</div>
+                                        </div>
                                     </td>
-                                    <td class="text-center" style="font-size: 0.8rem;">
+                                    <td class="text-center p-1" style="font-size: 0.75rem; vertical-align: middle; display: none;">
+                                        <!-- Oculto para ahorrar espacio, ya se muestra con el nombre -->
                                         {{ item.trabajador.cargo.nombre }}
                                     </td>
-                                    <td class="text-center" style="font-size: 0.75rem;">
-                                        <span class="badge bg-secondary">{{ item.trabajador.get_grupo_display|default:"Sin Grupo" }}</span>
+                                    <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle;">
+                                        <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.get_grupo_display|default:"-"|truncatechars:10 }}</span>
                                     </td>
-                                    <td class="text-center" style="font-size: 0.75rem;">
+                                    <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle;">
                                         {% if item.trabajador.guardia_asignada %}
-                                        <span class="badge bg-info">{{ item.trabajador.guardia_asignada }}</span>
+                                        <span class="badge bg-info" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.guardia_asignada }}</span>
                                         {% else %}
                                         <span class="text-muted">-</span>
                                         {% endif %}
