@@ -128,6 +128,21 @@
                 <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()" id="btnCancelar" style="display: none;">
                     <i class="fas fa-times me-1"></i> Cancelar
                 </button>
+                <select class="form-select form-select-sm ms-2" id="estadoSeleccion" style="min-width:140px;">
+                    <option value="">Estado selección</option>
+                    {% for codigo, nombre in estados_asistencia %}
+                    <option value="{{ codigo }}">{{ nombre }}</option>
+                    {% endfor %}
+                </select>
+                <select class="form-select form-select-sm ms-2" id="turnoSeleccion" style="min-width:90px;">
+                    <option value="">Turno</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                </select>
+                <button class="btn btn-sm btn-warning ms-2" onclick="aplicarSeleccion()">
+                    <i class="fas fa-magic"></i> Aplicar a selección
+                </button>
             </div>
             
             <div class="d-flex gap-2">
@@ -427,6 +442,11 @@
 </div>
 
 {% csrf_token %}
+
+<!-- Toast container -->
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 2147483647;">
+    <div id="toastContainer"></div>
+</div>
 
 <style>
     .sticky-column {
@@ -821,18 +841,18 @@
             })
         })
         .then(response => response.json())
-        .then(resp => {
-            celda.classList.remove('saving');
-            if (!resp.success) {
-                // Revertir si falla
-                actualizarCeldaUI(celda, estadoAnterior);
-                celda.classList.add('error');
-                mostrarToast('Error al guardar: ' + resp.message, 'danger');
+        .then(data => {
+            if (data.success) {
+                mostrarToast(data.message, 'success');
+                setTimeout(()=>location.reload(), 1000);
             } else {
-                // Actualizar dataset con valores confirmados
-                celda.dataset.estado = estado;
-                celda.dataset.tipo = tipo;
+                mostrarToast(data.message, 'danger');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarToast('Error al guardar', 'danger');
+        });
         })
         .catch(err => {
             celda.classList.remove('saving');
@@ -894,12 +914,12 @@
         const fechaFin = document.getElementById('fechaFin').value;
         
         if (!fechaInicio || !fechaFin) {
-            alert('Debe seleccionar ambas fechas');
+            mostrarToast('Debe seleccionar ambas fechas', 'warning');
             return;
         }
-        
+
         if (new Date(fechaInicio) > new Date(fechaFin)) {
-            alert('La fecha de inicio debe ser menor o igual a la fecha fin');
+            mostrarToast('La fecha de inicio debe ser menor o igual a la fecha fin', 'warning');
             return;
         }
         
@@ -961,7 +981,7 @@
         const observaciones = document.getElementById('modalObservaciones').value;
         
         if (!estado) {
-            alert('Debe seleccionar un estado');
+            mostrarToast('Debe seleccionar un estado', 'warning');
             return;
         }
         
@@ -984,10 +1004,10 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                mostrarToast('✅ ' + data.message, 'success');
+                mostrarToast(data.message, 'success');
                 setTimeout(()=>location.reload(), 1000);
             } else {
-                mostrarToast('❌ ' + data.message, 'danger');
+                mostrarToast(data.message, 'danger');
             }
         })
         .catch(error => {
@@ -1035,7 +1055,7 @@
     
     function aplicarEstadoMultiple(estado, nombreEstado) {
         if (celdasSeleccionadas.length === 0) {
-            alert('No hay celdas seleccionadas');
+            mostrarToast('No hay celdas seleccionadas', 'warning');
             return;
         }
         
@@ -1105,11 +1125,11 @@
         const turno = document.getElementById(`turnoGrupo${grupoId}`).value;
         const rows = document.querySelectorAll(`tr[data-grupo-id='${grupoId}'] .celda-asistencia.seleccionada`);
         if (rows.length === 0) {
-            alert('No hay celdas seleccionadas en el grupo');
+            mostrarToast('No hay celdas seleccionadas en el grupo', 'warning');
             return;
         }
         if (!estado && !turno) {
-            alert('Seleccione estado y/o turno para aplicar');
+            mostrarToast('Seleccione estado y/o turno para aplicar', 'warning');
             return;
         }
         if (!confirm(`¿Aplicar cambios a ${rows.length} celdas seleccionadas en el grupo?`)) return;
@@ -1147,7 +1167,87 @@
     }
 
     function guardarCambios() {
-        alert('Todos los cambios se guardan automáticamente');
+        mostrarToast('Todos los cambios se guardan automáticamente', 'info');
+    }
+
+    // Mostrar toast usando Bootstrap Toasts
+    function mostrarToast(mensaje, tipo='info', delay=2500) {
+        const container = document.getElementById('toastContainer');
+        if (!container) {
+            console.warn('No toast container found');
+            return;
+        }
+
+        const toastId = 'toast-' + Date.now();
+        const bgClass = tipo === 'success' ? 'bg-success text-white' : (tipo === 'danger' ? 'bg-danger text-white' : (tipo === 'warning' ? 'bg-warning text-dark' : 'bg-info text-white'));
+
+        const toastHtml = `
+            <div id="${toastId}" class="toast ${bgClass}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">${mensaje}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+
+        const temp = document.createElement('div');
+        temp.innerHTML = toastHtml;
+        const toastEl = temp.firstElementChild;
+        container.appendChild(toastEl);
+
+        const toast = new bootstrap.Toast(toastEl, { delay: delay });
+        toast.show();
+
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            toastEl.remove();
+        });
+    }
+
+    // Aplicar cambios a la selección global
+    function aplicarSeleccion() {
+        if (celdasSeleccionadas.length === 0) {
+            mostrarToast('No hay celdas seleccionadas', 'warning');
+            return;
+        }
+        const estado = document.getElementById('estadoSeleccion').value;
+        const turno = document.getElementById('turnoSeleccion').value;
+        if (!estado && !turno) {
+            mostrarToast('Seleccione estado y/o turno para aplicar a la selección', 'warning');
+            return;
+        }
+
+        if (!confirm(`¿Aplicar cambios a ${celdasSeleccionadas.length} celdas seleccionadas?`)) return;
+
+        const asistencias = celdasSeleccionadas.map(celda => ({
+            trabajador_id: parseInt(celda.dataset.trabajadorId),
+            fecha: celda.dataset.fecha,
+            estado: estado || null,
+            turno: turno || null,
+            observaciones: ''
+        }));
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        fetch('/tareo/guardar-asistencias-masivas/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ asistencias: asistencias })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast(data.message, 'success');
+                setTimeout(()=>location.reload(), 1000);
+            } else {
+                mostrarToast(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarToast('Error al guardar', 'danger');
+        });
     }
     
     function exportarExcel() {
