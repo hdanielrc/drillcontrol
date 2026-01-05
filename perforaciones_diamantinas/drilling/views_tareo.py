@@ -656,7 +656,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     cell.alignment = Alignment(horizontal='center', vertical='center')
     
     # FILA 2: Etiquetas de semanas
-    col_actual = 9  # Columna I (después de las 8 columnas fijas)
+    col_actual = 7  # Columna G (después de las 6 columnas fijas)
     fecha_actual = fecha_inicio
     
     while fecha_actual <= fecha_fin:
