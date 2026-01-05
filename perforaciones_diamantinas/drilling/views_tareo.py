@@ -888,25 +888,64 @@ def auto_rellenar_asistencia(request):
         ESTADOS_PROTEGIDOS = ['VACACIONES', 'DESCANSO_MEDICO', 'LICENCIA', 'PERMISO', 'SUBSIDIO']
 
         with transaction.atomic():
+            # 1. ASIGNACIÓN AUTOMÁTICA DE GUARDIAS (BALANCEO)
+            # Si hay trabajadores sin guardia, asignarlos para balancear A, B, C
+            trabajadores_sin_guardia = [t for t in trabajadores if not t.guardia_asignada]
+            if trabajadores_sin_guardia:
+                # Contar actuales
+                conteos = {'A': 0, 'B': 0, 'C': 0}
+                for t in trabajadores:
+                    if t.guardia_asignada in conteos:
+                        conteos[t.guardia_asignada] += 1
+                
+                # Asignar round-robin a la guardia con menos gente
+                for t in trabajadores_sin_guardia:
+                    # Encontrar guardia con menor conteo
+                    min_guardia = min(conteos, key=conteos.get)
+                    t.guardia_asignada = min_guardia
+                    t.save(update_fields=['guardia_asignada'])
+                    conteos[min_guardia] += 1
+
+            # 2. GENERACIÓN DE ASISTENCIA CON ROTACIÓN
             for trabajador in trabajadores:
                 # Iterar días
                 delta = (fecha_fin - fecha_inicio).days + 1
                 for i in range(delta):
                     fecha = fecha_inicio + timedelta(days=i)
                     
-                    # Calcular estado según régimen (REINICIO MENSUAL)
-                    # Se asume que el ciclo inicia el día 1 de cada mes
+                    # Calcular estado según régimen y guardia (ROTACIÓN 14x7)
                     estado_regimen = None
-                    if trabajador.regimen_laboral:
+                    
+                    # Lógica específica para 14x7 con rotación de 3 guardias
+                    if trabajador.regimen_laboral == '14x7' and trabajador.guardia_asignada:
+                        # Offsets para escalonar las guardias:
+                        # Guardia A: Inicia día 1 (Offset 0)
+                        # Guardia B: Inicia día 8 (Offset 7)
+                        # Guardia C: Inicia día 15 (Offset 14)
+                        offsets = {'A': 0, 'B': 7, 'C': 14}
+                        offset = offsets.get(trabajador.guardia_asignada, 0)
+                        
+                        # Ciclo de 21 días (14 trabajo + 7 descanso)
+                        # Ajustar el día del mes con el offset
+                        dia_mes = fecha.day
+                        dia_ciclo = (dia_mes - 1 - offset) % 21
+                        
+                        # Días 0-13 son trabajo (14 días), 14-20 son descanso (7 días)
+                        # Nota: El módulo puede dar negativo en Python, ajustar si es necesario
+                        # (a % n) tiene el mismo signo que n en Python, así que -7 % 21 = 14. Correcto.
+                        
+                        if 0 <= dia_ciclo < 14:
+                            estado_regimen = 'TRABAJADO'
+                        else:
+                            estado_regimen = 'DIA_LIBRE'
+                            
+                    # Fallback para otros regímenes (lógica simple inicio mes)
+                    elif trabajador.regimen_laboral:
                         try:
-                            # Parsear régimen (ej: "14x7")
                             dias_trabajo, dias_descanso = map(int, trabajador.regimen_laboral.lower().split('x'))
                             ciclo_total = dias_trabajo + dias_descanso
-                            
-                            # Usar el 1ro del mes actual como inicio de ciclo
                             inicio_mes = fecha.replace(day=1)
                             delta_dias = (fecha - inicio_mes).days
-                            
                             dia_en_ciclo = delta_dias % ciclo_total
                             
                             if dia_en_ciclo < dias_trabajo:
@@ -917,7 +956,7 @@ def auto_rellenar_asistencia(request):
                             pass
 
                     if not estado_regimen:
-                        continue # No se puede calcular
+                        continue 
 
                     # Verificar estado actual
                     asistencia, created = AsistenciaTrabajador.objects.get_or_create(
@@ -933,7 +972,6 @@ def auto_rellenar_asistencia(request):
                         count_updated += 1
                     else:
                         # Si ya existe, verificar si es sobrescribible
-                        # Sobrescribir también si es FALTA o vacío
                         if asistencia.estado not in ESTADOS_PROTEGIDOS:
                             if asistencia.estado != estado_regimen:
                                 asistencia.estado = estado_regimen
