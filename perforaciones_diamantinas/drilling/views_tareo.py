@@ -1112,7 +1112,42 @@ def actualizar_grupos_trabajadores(request):
             stats[grupo] = stats.get(grupo, 0) + 1
             
         detalles = ", ".join([f"{k}: {v}" for k, v in stats.items()])
-        return JsonResponse({'success': True, 'message': f'Se actualizaron {count} trabajadores. Detalles: {detalles}'})
+        
+        # --- VALIDACIÓN DE PERFORISTAS POR GUARDIA ---
+        alertas = []
+        guardias_check = ['A', 'B', 'C']
+        
+        # Re-consultar trabajadores activos para validación
+        if contrato_id:
+             trabajadores_activos = Trabajador.objects.filter(
+                contrato_id=contrato_id, 
+                estado='ACTIVO'
+            ).select_related('cargo')
+        else:
+             trabajadores_activos = Trabajador.objects.filter(
+                estado='ACTIVO'
+            ).select_related('cargo')
+
+        for guardia in guardias_check:
+            # Filtrar trabajadores de esta guardia
+            trabajadores_guardia = [t for t in trabajadores_activos if t.guardia_asignada == guardia]
+            
+            # Si hay gente en la guardia, verificar que haya al menos 1 perforista
+            if len(trabajadores_guardia) > 0:
+                num_perforistas = 0
+                for t in trabajadores_guardia:
+                    if t.cargo and 'PERFORISTA' in t.cargo.nombre.upper() and 'AYUDANTE' not in t.cargo.nombre.upper():
+                        num_perforistas += 1
+                
+                if num_perforistas == 0:
+                    alertas.append(f"Guardia {guardia}: Falta Perforista")
+
+        message = f'Se actualizaron {count} trabajadores. Detalles: {detalles}'
+        
+        if alertas:
+            message += " | ⚠️ ADVERTENCIA: " + "; ".join(alertas)
+
+        return JsonResponse({'success': True, 'message': message})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
