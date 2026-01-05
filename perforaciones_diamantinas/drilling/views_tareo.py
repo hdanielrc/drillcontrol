@@ -1135,12 +1135,17 @@ def actualizar_grupos_trabajadores(request):
             # Si hay gente en la guardia, verificar que haya al menos 1 perforista
             if len(trabajadores_guardia) > 0:
                 num_perforistas = 0
+                cargos_debug = []
                 for t in trabajadores_guardia:
-                    if t.cargo and 'PERFORISTA' in t.cargo.nombre.upper() and 'AYUDANTE' not in t.cargo.nombre.upper():
-                        num_perforistas += 1
+                    if t.cargo:
+                        cargo_nombre = t.cargo.nombre.upper().strip()
+                        cargos_debug.append(cargo_nombre)
+                        if 'PERFORISTA' in cargo_nombre and 'AYUDANTE' not in cargo_nombre:
+                            num_perforistas += 1
                 
                 if num_perforistas == 0:
-                    alertas.append(f"Guardia {guardia}: Falta Perforista")
+                    cargos_str = ", ".join(cargos_debug[:3]) # Mostrar primeros 3 cargos para debug
+                    alertas.append(f"Guardia {guardia}: Falta Perforista (Cargos: {cargos_str})")
 
         message = f'Se actualizaron {count} trabajadores. Detalles: {detalles}'
         
