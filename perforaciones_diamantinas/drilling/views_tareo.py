@@ -165,7 +165,12 @@ def tareo_mensual_view(request):
             if not grupo_key:
                 grupo_key = 'SIN_GRUPO'
         
-        guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
+        # Determinar guardia para agrupación
+        # Para LINEA_MANDO, forzamos SIN_GUARDIA para que no se dividan por turnos visualmente
+        if grupo_key == 'LINEA_MANDO':
+            guardia_key = 'SIN_GUARDIA'
+        else:
+            guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
         
         # Crear estructura de grupos si no existe
         if grupo_key not in trabajadores_por_grupo:
