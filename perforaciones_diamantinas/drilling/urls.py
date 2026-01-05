@@ -45,6 +45,7 @@ urlpatterns = [
     path('tareo/guardar-asistencias-masivas/', guardar_asistencias_masivas_tareo, name='tareo-guardar-masivas'),
     path('tareo/auto-rellenar/', auto_rellenar_asistencia, name='tareo-auto-rellenar'),
     path('tareo/actualizar-grupos/', actualizar_grupos_trabajadores, name='tareo-actualizar-grupos'),
+    path('tareo/debug-trabajadores/', debug_trabajadores, name='tareo-debug-trabajadores'),
     path('tareo/exportar-excel/', exportar_asistencias_excel, name='tareo-exportar-excel'),
     
     # Trabajadores - Hub y CRUD

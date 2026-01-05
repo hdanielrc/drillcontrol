@@ -8,6 +8,7 @@ Formato de Exportación:
 - Agrupación por semanas y resúmenes por trabajador
 """
 from django.shortcuts import render, redirect
+from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
@@ -915,12 +916,17 @@ def auto_rellenar_asistencia(request):
         with transaction.atomic():
             # 1. ASIGNACIÓN AUTOMÁTICA DE GUARDIAS (BALANCEO)
             # Si hay trabajadores sin guardia, asignarlos para balancear A, B, C
-            trabajadores_sin_guardia = [t for t in trabajadores if not t.guardia_asignada]
+            # EXCEPCIÓN: No asignar guardia a LINEA_MANDO
+            trabajadores_sin_guardia = [
+                t for t in trabajadores 
+                if not t.guardia_asignada and t.grupo != 'LINEA_MANDO'
+            ]
+            
             if trabajadores_sin_guardia:
-                # Contar actuales
+                # Contar actuales (excluyendo linea de mando)
                 conteos = {'A': 0, 'B': 0, 'C': 0}
                 for t in trabajadores:
-                    if t.guardia_asignada in conteos:
+                    if t.guardia_asignada in conteos and t.grupo != 'LINEA_MANDO':
                         conteos[t.guardia_asignada] += 1
                 
                 # Asignar round-robin a la guardia con menos gente
@@ -941,8 +947,35 @@ def auto_rellenar_asistencia(request):
                     # Calcular estado según régimen y guardia (ROTACIÓN 14x7)
                     estado_regimen = None
                     
-                    # Lógica específica para 14x7 con rotación de 3 guardias
-                    if trabajador.regimen_laboral == '14x7' and trabajador.guardia_asignada:
+                    # CASO ESPECIAL: LINEA DE MANDO (Siempre TRABAJADO, excepto domingos si aplica, o según régimen simple)
+                    if trabajador.grupo == 'LINEA_MANDO':
+                        # Asumimos TRABAJADO por defecto para línea de mando, o lógica simple
+                        # Si tienen régimen, intentar respetarlo, pero sin offsets de guardia
+                        if trabajador.regimen_laboral:
+                             try:
+                                dias_trabajo, dias_descanso = map(int, trabajador.regimen_laboral.lower().split('x'))
+                                # Para linea de mando, a veces es continuo. 
+                                # Si es 14x7 pero sin guardia, ¿cómo sabemos cuándo empieza?
+                                # Usamos fecha_inicio_ciclo si existe, sino asumimos TRABAJADO siempre
+                                if trabajador.fecha_inicio_ciclo:
+                                    ciclo_total = dias_trabajo + dias_descanso
+                                    delta_ciclo = (fecha - trabajador.fecha_inicio_ciclo).days
+                                    if delta_ciclo >= 0:
+                                        dia_en_ciclo = delta_ciclo % ciclo_total
+                                        if dia_en_ciclo < dias_trabajo:
+                                            estado_regimen = 'TRABAJADO'
+                                        else:
+                                            estado_regimen = 'DIA_LIBRE'
+                                else:
+                                    # Si no hay fecha inicio ciclo, asumir TRABAJADO siempre (ej. régimen administrativo)
+                                    estado_regimen = 'TRABAJADO'
+                             except:
+                                 estado_regimen = 'TRABAJADO'
+                        else:
+                            estado_regimen = 'TRABAJADO'
+
+                    # Lógica específica para 14x7 con rotación de 3 guardias (SOLO SI TIENE GUARDIA)
+                    elif trabajador.regimen_laboral == '14x7' and trabajador.guardia_asignada:
                         # Offsets para escalonar las guardias:
                         # Guardia A: Inicia día 1 (Offset 0)
                         # Guardia B: Inicia día 8 (Offset 7)
@@ -1090,6 +1123,69 @@ def actualizar_grupos_trabajadores(request):
         return JsonResponse({'success': True, 'message': f'Se actualizaron {count} trabajadores. Detalles: {detalles}'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@login_required
+def debug_trabajadores(request):
+    """Vista de depuración para listar trabajadores y sus grupos"""
+    if not request.user.is_staff:
+        return HttpResponseForbidden("Solo staff")
+        
+    contrato_id = request.GET.get('contrato')
+    if contrato_id:
+        trabajadores = Trabajador.objects.filter(contrato_id=contrato_id).select_related('cargo', 'contrato').order_by('grupo', 'apellidos')
+    else:
+        trabajadores = Trabajador.objects.all().select_related('cargo', 'contrato').order_by('contrato', 'grupo', 'apellidos')
+        
+    html = """
+    <html>
+    <head>
+        <title>Debug Trabajadores</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="p-4">
+        <h1>Debug Trabajadores</h1>
+        <table class="table table-striped table-bordered table-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Contrato</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Cargo</th>
+                    <th>Grupo (DB)</th>
+                    <th>Grupo (Calculado)</th>
+                    <th>Estado</th>
+                    <th>Guardia</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+    
+    for t in trabajadores:
+        grupo_calc = t.asignar_grupo_automatico()
+        match_style = "text-success" if t.grupo == grupo_calc else "text-danger fw-bold"
+        
+        html += f"""
+        <tr>
+            <td>{t.id}</td>
+            <td>{t.contrato.nombre_contrato if t.contrato else '-'}</td>
+            <td>{t.nombres}</td>
+            <td>{t.apellidos}</td>
+            <td>{t.cargo.nombre if t.cargo else '-'}</td>
+            <td>{t.grupo}</td>
+            <td class="{match_style}">{grupo_calc}</td>
+            <td>{t.estado}</td>
+            <td>{t.guardia_asignada}</td>
+        </tr>
+        """
+        
+    html += """
+            </tbody>
+        </table>
+    </body>
+    </html>
+    """
+    return HttpResponse(html)
     
     ws.column_dimensions['A'].width = 40
     ws.column_dimensions['B'].width = 15
