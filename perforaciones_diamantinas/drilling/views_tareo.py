@@ -212,8 +212,13 @@ def tareo_mensual_view(request):
     grupos_ordenados = []
     orden_grupos = ['LINEA_MANDO', 'OPERADORES', 'SERVICIOS_GEOLOGICOS', 'PERSONAL_AUXILIAR', 'SIN_GRUPO']
     
+    # Conjunto para rastrear grupos ya procesados
+    grupos_procesados = set()
+
+    # 1. Procesar grupos en el orden definido
     for grupo_key in orden_grupos:
         if grupo_key in trabajadores_por_grupo:
+            grupos_procesados.add(grupo_key)
             grupo_data = trabajadores_por_grupo[grupo_key]
             # Ordenar guardias (A, B, C, luego sin guardia)
             guardias_ordenadas = []
@@ -224,6 +229,26 @@ def tareo_mensual_view(request):
                         'nombre': grupo_data['guardias'][guardia_key]['nombre'],
                         'trabajadores': grupo_data['guardias'][guardia_key]['trabajadores']
                     })
+            
+            grupos_ordenados.append({
+                'key': grupo_key,
+                'nombre': grupo_data['nombre'],
+                'guardias': guardias_ordenadas,
+                'total_trabajadores': sum(len(g['trabajadores']) for g in guardias_ordenadas)
+            })
+
+    # 2. Procesar cualquier otro grupo que no esté en la lista ordenada (para evitar ocultar trabajadores)
+    for grupo_key in trabajadores_por_grupo:
+        if grupo_key not in grupos_procesados:
+            grupo_data = trabajadores_por_grupo[grupo_key]
+            guardias_ordenadas = []
+            # Ordenar guardias alfabéticamente para grupos desconocidos
+            for guardia_key in sorted(grupo_data['guardias'].keys()):
+                guardias_ordenadas.append({
+                    'key': guardia_key,
+                    'nombre': grupo_data['guardias'][guardia_key]['nombre'],
+                    'trabajadores': grupo_data['guardias'][guardia_key]['trabajadores']
+                })
             
             grupos_ordenados.append({
                 'key': grupo_key,
@@ -1054,11 +1079,15 @@ def actualizar_grupos_trabajadores(request):
             trabajadores = Trabajador.objects.all()
             
         count = 0
+        stats = {}
         for t in trabajadores:
             t.save() # Esto dispara asignar_grupo_automatico() en models.py
             count += 1
+            grupo = t.grupo if t.grupo else 'SIN_GRUPO'
+            stats[grupo] = stats.get(grupo, 0) + 1
             
-        return JsonResponse({'success': True, 'message': f'Se actualizaron los grupos de {count} trabajadores.'})
+        detalles = ", ".join([f"{k}: {v}" for k, v in stats.items()])
+        return JsonResponse({'success': True, 'message': f'Se actualizaron {count} trabajadores. Detalles: {detalles}'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
     
