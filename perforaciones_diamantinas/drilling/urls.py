@@ -14,7 +14,7 @@ from .views_tareo import (
     tareo_mensual_view, guardar_asistencia, 
     guardar_asistencias_masivas as guardar_asistencias_masivas_tareo, 
     exportar_asistencias_excel, auto_rellenar_asistencia,
-    actualizar_grupos_trabajadores
+    actualizar_grupos_trabajadores, debug_trabajadores
 )
 
 urlpatterns = [
