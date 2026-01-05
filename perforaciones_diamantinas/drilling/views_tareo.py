@@ -551,71 +551,77 @@ def exportar_asistencias_excel(request):
     if not contrato:
         return HttpResponse('Contrato no encontrado', status=404)
     
-    # Calcular rango de fechas
-    if fecha_inicio_str:
-        try:
-            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        except:
-            fecha_inicio = date.today()
-    else:
-        fecha_inicio = date.today()
-    
-    # Calcular fecha_fin según modo
-    if modo == 'semana':
-        dias_a_mostrar = 7
-        dia_semana = fecha_inicio.weekday()
-        fecha_inicio = fecha_inicio - timedelta(days=dia_semana)
-        fecha_fin = fecha_inicio + timedelta(days=dias_a_mostrar - 1)
-    elif modo == 'quincena':
-        dias_a_mostrar = 15
-        fecha_fin = fecha_inicio + timedelta(days=dias_a_mostrar - 1)
-    elif modo == 'mes':
-        primer_dia = fecha_inicio.replace(day=1)
-        if primer_dia.month == 12:
-            ultimo_dia = primer_dia.replace(year=primer_dia.year + 1, month=1, day=1) - timedelta(days=1)
-        else:
-            ultimo_dia = primer_dia.replace(month=primer_dia.month + 1, day=1) - timedelta(days=1)
-        fecha_inicio = primer_dia
-        fecha_fin = ultimo_dia
-        dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
-    else:  # personalizado
-        if fecha_fin_str:
+    try:
+        # Calcular rango de fechas
+        if fecha_inicio_str:
             try:
-                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
             except:
-                fecha_fin = fecha_inicio + timedelta(days=7)
+                fecha_inicio = date.today()
         else:
-            fecha_fin = fecha_inicio + timedelta(days=7)
-        dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
-    
-    num_dias = dias_a_mostrar
-    
-    # Crear workbook
-    wb = Workbook()
-    wb.remove(wb.active)  # Remover hoja por defecto
-    
-    # 1. CREAR HOJA TAREO
-    ws_tareo = wb.create_sheet("Tareo", 0)
-    _crear_hoja_tareo(ws_tareo, contrato, fecha_inicio, fecha_fin, num_dias)
-    
-    # 2. CREAR HOJA LEYENDA
-    ws_leyenda = wb.create_sheet("LEYENDA", 1)
-    _crear_hoja_leyenda(ws_leyenda)
-    
-    # 3. CREAR HOJA INFORME
-    ws_informe = wb.create_sheet("Informe", 2)
-    _crear_hoja_informe(ws_informe, contrato, fecha_inicio, fecha_fin)
-    
-    # Preparar respuesta
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    mes_nombre = fecha_inicio.strftime('%B').capitalize()
-    filename = f"Tareo_{contrato.nombre_contrato.replace(' ', '_')}_{mes_nombre}_{fecha_inicio.year}.xlsx"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    
-    wb.save(response)
-    return response
+            fecha_inicio = date.today()
+        
+        # Calcular fecha_fin según modo
+        if modo == 'semana':
+            dias_a_mostrar = 7
+            dia_semana = fecha_inicio.weekday()
+            fecha_inicio = fecha_inicio - timedelta(days=dia_semana)
+            fecha_fin = fecha_inicio + timedelta(days=dias_a_mostrar - 1)
+        elif modo == 'quincena':
+            dias_a_mostrar = 15
+            fecha_fin = fecha_inicio + timedelta(days=dias_a_mostrar - 1)
+        elif modo == 'mes':
+            primer_dia = fecha_inicio.replace(day=1)
+            if primer_dia.month == 12:
+                ultimo_dia = primer_dia.replace(year=primer_dia.year + 1, month=1, day=1) - timedelta(days=1)
+            else:
+                ultimo_dia = primer_dia.replace(month=primer_dia.month + 1, day=1) - timedelta(days=1)
+            fecha_inicio = primer_dia
+            fecha_fin = ultimo_dia
+            dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
+        else:  # personalizado
+            if fecha_fin_str:
+                try:
+                    fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+                except:
+                    fecha_fin = fecha_inicio + timedelta(days=7)
+            else:
+                fecha_fin = fecha_inicio + timedelta(days=7)
+            dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
+        
+        num_dias = dias_a_mostrar
+        
+        # Crear workbook
+        wb = Workbook()
+        wb.remove(wb.active)  # Remover hoja por defecto
+        
+        # 1. CREAR HOJA TAREO
+        ws_tareo = wb.create_sheet("Tareo", 0)
+        _crear_hoja_tareo(ws_tareo, contrato, fecha_inicio, fecha_fin, num_dias)
+        
+        # 2. CREAR HOJA LEYENDA
+        ws_leyenda = wb.create_sheet("LEYENDA", 1)
+        _crear_hoja_leyenda(ws_leyenda)
+        
+        # 3. CREAR HOJA INFORME
+        ws_informe = wb.create_sheet("Informe", 2)
+        _crear_hoja_informe(ws_informe, contrato, fecha_inicio, fecha_fin)
+        
+        # Preparar respuesta
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        mes_nombre = fecha_inicio.strftime('%B').capitalize()
+        filename = f"Tareo_{contrato.nombre_contrato.replace(' ', '_')}_{mes_nombre}_{fecha_inicio.year}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f'Error al generar Excel: {str(e)}', status=500)
 
 
 def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
@@ -756,7 +762,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         ws.cell(row=row_num, column=5).number_format = 'DD/MM/YYYY'
         ws.cell(row=row_num, column=6).value = "INT"  # Tipo de trabajo
         ws.cell(row=row_num, column=7).value = trabajador.get_grupo_display() if trabajador.grupo else ""
-        ws.cell(row=row_num, column=8).value = trabajador.guardia if trabajador.guardia else ""
+        ws.cell(row=row_num, column=8).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
         ws.cell(row=row_num, column=9).value = "ACTIVO"
         
         # Marcaciones diarias
