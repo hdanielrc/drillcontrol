@@ -693,7 +693,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     # FILA 3: Headers de columnas
     headers = [
         'ITEM', 'CODIGO', 'APELLIDOS Y NOMBRES', 'Cargo', 
-        'Fecha de Ingreso', 'Tipo de Trabajo', 'GRUPO', 'GUARDIA', 'Situacion'
+        'GRUPO', 'GUARDIA'
     ]
     
     for col_num, header in enumerate(headers, 1):
@@ -706,11 +706,11 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     
     # Headers de días
     fecha_actual = fecha_inicio
-    col_num = 10  # Después de "Situacion"
+    col_num = 7  # Después de "GUARDIA"
     while fecha_actual <= fecha_fin:
         cell = ws.cell(row=3, column=col_num)
         cell.value = fecha_actual
-        cell.number_format = 'DD/MM/YYYY'
+        cell.number_format = 'DD/MM'
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -718,13 +718,10 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         col_num += 1
         fecha_actual += timedelta(days=1)
     
-    # Headers de resumen (después de los días)
+    # Headers de resumen (SIMPLIFICADO)
     headers_resumen = [
-        'DIAS TRABAJADOS', 'DIAS APOYO', 'Por Superar Metros', 'DIAS PATERNIDAD',
-        'CAPACITACION INDUCCION + RECORRIDO', 'DIAS VACACIONES', 'DIAS DM', 'SUB',
-        'DIAS PROYECCION', 'DIAS FERIADO', 'INDUCION ISEM', 
-        'DIAS PERMISO + DIAS SUSPENDIDOS + DIAS FALTO', 'TOTAL DIAS', 'Total H.',
-        'comentarios', 'RESUMEN', 'PARA BONOS', 'P', 'F', 'S', 'SB', 'V', 'DM', 'PT', 'TOTAL AUSENCIAS'
+        'TRABAJADO (T)', 'DIAS LIBRES (DL)', 'FALTAS (F)', 
+        'VACACIONES (V)', 'D. MEDICO (DM)', 'TOTAL DIAS'
     ]
     
     for header in headers_resumen:
@@ -763,17 +760,13 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         ws.cell(row=row_num, column=2).value = trabajador.dni
         ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
         ws.cell(row=row_num, column=4).value = trabajador.cargo.nombre if trabajador.cargo else ""
-        ws.cell(row=row_num, column=5).value = trabajador.fecha_ingreso
-        ws.cell(row=row_num, column=5).number_format = 'DD/MM/YYYY'
-        ws.cell(row=row_num, column=6).value = "INT"  # Tipo de trabajo
-        ws.cell(row=row_num, column=7).value = trabajador.get_grupo_display() if trabajador.grupo else ""
-        ws.cell(row=row_num, column=8).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
-        ws.cell(row=row_num, column=9).value = "ACTIVO"
+        ws.cell(row=row_num, column=5).value = trabajador.get_grupo_display() if trabajador.grupo else ""
+        ws.cell(row=row_num, column=6).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
         
         # Marcaciones diarias
         fecha_actual = fecha_inicio
-        col_num = 10
-        contadores = {'T': 0, 'DL': 0, 'F': 0, 'P': 0, 'S': 0, 'SB': 0, 'V': 0, 'DM': 0, 'PT': 0, 'DA': 0}
+        col_num = 7
+        contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
         
         while fecha_actual <= fecha_fin:
             asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
@@ -791,44 +784,32 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
             col_num += 1
             fecha_actual += timedelta(days=1)
         
-        # Totales
-        ws.cell(row=row_num, column=col_num).value = contadores['T']  # DIAS TRABAJADOS
-        ws.cell(row=row_num, column=col_num+1).value = contadores['DA']  # DIAS APOYO
-        ws.cell(row=row_num, column=col_num+3).value = contadores['PT']  # DIAS PATERNIDAD
-        ws.cell(row=row_num, column=col_num+5).value = contadores['V']  # DIAS VACACIONES
-        ws.cell(row=row_num, column=col_num+6).value = contadores['DM']  # DIAS DM
+        # Totales Simplificados
+        ws.cell(row=row_num, column=col_num).value = contadores['T']
+        ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
+        ws.cell(row=row_num, column=col_num+2).value = contadores['F']
+        ws.cell(row=row_num, column=col_num+3).value = contadores['V']
+        ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
         
-        total_dias = sum(contadores.values())
-        ws.cell(row=row_num, column=col_num+12).value = total_dias  # TOTAL DIAS
-        
-        # Para bonos
-        ws.cell(row=row_num, column=col_num+17).value = contadores['P']  # P
-        ws.cell(row=row_num, column=col_num+18).value = contadores['F']  # F
-        ws.cell(row=row_num, column=col_num+19).value = contadores['S']  # S
-        ws.cell(row=row_num, column=col_num+20).value = contadores['SB']  # SB
-        ws.cell(row=row_num, column=col_num+21).value = contadores['V']  # V
-        ws.cell(row=row_num, column=col_num+22).value = contadores['DM']  # DM
-        ws.cell(row=row_num, column=col_num+23).value = contadores['PT']  # PT
-        
-        total_ausencias = contadores['F'] + contadores['P'] + contadores['S']
-        ws.cell(row=row_num, column=col_num+24).value = total_ausencias  # TOTAL AUSENCIAS
+        # Total Días (Suma de todo lo registrado)
+        # Ojo: Si quieres total de días del mes, es num_dias. Si es total de registros, es la suma.
+        # Generalmente en tareo se quiere saber cuántos días se han contabilizado.
+        total_registrados = sum(contadores.values())
+        ws.cell(row=row_num, column=col_num+5).value = total_registrados
         
         row_num += 1
     
     # Ajustar anchos de columna
-    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['A'].width = 5
     ws.column_dimensions['B'].width = 12
     ws.column_dimensions['C'].width = 35
-    ws.column_dimensions['D'].width = 30
+    ws.column_dimensions['D'].width = 25
     ws.column_dimensions['E'].width = 15
-    ws.column_dimensions['F'].width = 15
-    ws.column_dimensions['G'].width = 20
-    ws.column_dimensions['H'].width = 10
-    ws.column_dimensions['I'].width = 12
+    ws.column_dimensions['F'].width = 10
     
     # Días (columnas de marcación)
-    for col in range(10, 10 + num_dias):
-        ws.column_dimensions[get_column_letter(col)].width = 5
+    for col in range(7, 7 + num_dias):
+        ws.column_dimensions[get_column_letter(col)].width = 4
 
 
 def _crear_hoja_leyenda(ws):
