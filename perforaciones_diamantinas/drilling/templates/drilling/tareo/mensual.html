@@ -159,6 +159,9 @@
             
             <!-- Exportar -->
             <div>
+                <button class="btn btn-sm btn-secondary text-white me-2" onclick="actualizarGrupos()" title="Actualizar grupos funcionales (Línea de Mando, Operadores, etc.)">
+                    <i class="fas fa-sync me-1"></i> Grupos
+                </button>
                 <button class="btn btn-sm btn-info text-white me-2" onclick="autoRellenarAsistencia()">
                     <i class="fas fa-magic me-1"></i> Auto Rellenar
                 </button>
@@ -1408,6 +1411,41 @@
         .catch(error => {
             console.error('Error:', error);
             mostrarToast('Error al procesar solicitud', 'danger');
+        });
+    }
+
+    function actualizarGrupos() {
+        if (!confirm('¿Desea recalcular los grupos funcionales (Línea de Mando, Operadores, etc.) para todos los trabajadores?\n\nEsto corregirá la clasificación si ha cambiado cargos recientemente.')) {
+            return;
+        }
+
+        const contratoId = {{ contrato.id }};
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        mostrarToast('Actualizando grupos...', 'info');
+
+        const formData = new FormData();
+        formData.append('contrato_id', contratoId);
+
+        fetch('/tareo/actualizar-grupos/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('✅ ' + data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast('❌ ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarToast('Error al actualizar grupos', 'danger');
         });
     }
 </script>

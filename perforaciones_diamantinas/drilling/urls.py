@@ -13,7 +13,8 @@ from .api_organigrama import (
 from .views_tareo import (
     tareo_mensual_view, guardar_asistencia, 
     guardar_asistencias_masivas as guardar_asistencias_masivas_tareo, 
-    exportar_asistencias_excel, auto_rellenar_asistencia
+    exportar_asistencias_excel, auto_rellenar_asistencia,
+    actualizar_grupos_trabajadores
 )
 
 urlpatterns = [
@@ -43,6 +44,7 @@ urlpatterns = [
     path('tareo/guardar-asistencia/', guardar_asistencia, name='tareo-guardar-asistencia'),
     path('tareo/guardar-asistencias-masivas/', guardar_asistencias_masivas_tareo, name='tareo-guardar-masivas'),
     path('tareo/auto-rellenar/', auto_rellenar_asistencia, name='tareo-auto-rellenar'),
+    path('tareo/actualizar-grupos/', actualizar_grupos_trabajadores, name='tareo-actualizar-grupos'),
     path('tareo/exportar-excel/', exportar_asistencias_excel, name='tareo-exportar-excel'),
     
     # Trabajadores - Hub y CRUD

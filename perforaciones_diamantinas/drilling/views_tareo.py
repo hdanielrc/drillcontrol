@@ -1034,6 +1034,33 @@ def auto_rellenar_asistencia(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def actualizar_grupos_trabajadores(request):
+    """
+    Fuerza la actualización de grupos funcionales para todos los trabajadores.
+    Útil si los cargos han cambiado o si la asignación automática falló.
+    """
+    if not request.user.can_manage_contract_users():
+        return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
+    
+    try:
+        contrato_id = request.POST.get('contrato_id')
+        if contrato_id:
+            trabajadores = Trabajador.objects.filter(contrato_id=contrato_id)
+        else:
+            trabajadores = Trabajador.objects.all()
+            
+        count = 0
+        for t in trabajadores:
+            t.save() # Esto dispara asignar_grupo_automatico() en models.py
+            count += 1
+            
+        return JsonResponse({'success': True, 'message': f'Se actualizaron los grupos de {count} trabajadores.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
     
     ws.column_dimensions['A'].width = 40
     ws.column_dimensions['B'].width = 15
