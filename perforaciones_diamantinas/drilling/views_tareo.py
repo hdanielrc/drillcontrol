@@ -923,7 +923,10 @@ def auto_rellenar_asistencia(request):
                     asistencia, created = AsistenciaTrabajador.objects.get_or_create(
                         trabajador=trabajador,
                         fecha=fecha,
-                        defaults={'estado': estado_regimen}
+                        defaults={
+                            'estado': estado_regimen,
+                            'registrado_por': user
+                        }
                     )
 
                     if created:
