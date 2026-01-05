@@ -64,7 +64,7 @@ def tareo_mensual_view(request):
         return redirect('dashboard')
     
     # Determinar el rango de fechas a mostrar
-    modo = request.GET.get('modo', 'semana')  # 'semana', 'quincena', 'mes', 'personalizado'
+    modo = request.GET.get('modo', 'mes')  # Por defecto 'mes'
     
     # Obtener fecha de inicio
     fecha_inicio_str = request.GET.get('fecha_inicio')
@@ -74,9 +74,14 @@ def tareo_mensual_view(request):
         except ValueError:
             fecha_inicio = datetime.now().date()
     else:
-        # Por defecto, inicio de la semana actual (lunes)
+        # Por defecto, hoy
         hoy = datetime.now().date()
-        fecha_inicio = hoy - timedelta(days=hoy.weekday())
+        if modo == 'mes':
+            # Si es mes, forzar al día 1 del mes actual
+            fecha_inicio = hoy.replace(day=1)
+        else:
+            # Si es semana/quincena, inicio de la semana (lunes)
+            fecha_inicio = hoy - timedelta(days=hoy.weekday())
     
     # Calcular fecha fin según el modo
     if modo == 'semana':
@@ -150,8 +155,15 @@ def tareo_mensual_view(request):
     trabajadores_por_grupo = {}
     
     for trabajador in trabajadores:
-        # Determinar grupo (usar el grupo del trabajador o crear uno genérico)
-        grupo_key = trabajador.grupo if trabajador.grupo else 'SIN_GRUPO'
+        # Determinar grupo (usar el grupo del trabajador o calcularlo si falta)
+        grupo_key = trabajador.grupo
+        if not grupo_key:
+            # Intentar asignar automáticamente si no tiene grupo
+            grupo_key = trabajador.asignar_grupo_automatico()
+            # Si aún así no tiene grupo (ej. sin cargo), usar SIN_GRUPO
+            if not grupo_key:
+                grupo_key = 'SIN_GRUPO'
+        
         guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
         
         # Crear estructura de grupos si no existe
@@ -838,6 +850,149 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
         descripcion = LEYENDA.get(codigo, estado['estado'])
         ws.cell(row=row, column=1).value = f"{codigo} - {descripcion}"
         ws.cell(row=row, column=2).value = estado['total']
+
+
+@login_required
+@require_http_methods(["POST"])
+def auto_rellenar_asistencia(request):
+    """
+    Auto-rellena la asistencia basada en el régimen laboral.
+    Sobrescribe estados 'TRABAJADO', 'DIA_LIBRE', 'FALTA' o vacíos.
+    Respeta licencias, vacaciones, descansos médicos.
+    """
+    user = request.user
+    if not user.can_manage_contract_users():
+        return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        contrato_id = data.get('contrato_id')
+        fecha_inicio_str = data.get('fecha_inicio')
+        fecha_fin_str = data.get('fecha_fin')
+
+        if not all([contrato_id, fecha_inicio_str, fecha_fin_str]):
+            return JsonResponse({'success': False, 'message': 'Faltan datos'}, status=400)
+
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+
+        # Obtener trabajadores
+        trabajadores = Trabajador.objects.filter(
+            contrato_id=contrato_id,
+            estado='ACTIVO'
+        ).select_related('cargo')
+
+        count_updated = 0
+        
+        # Estados que NO se deben sobrescribir (protegidos)
+        ESTADOS_PROTEGIDOS = ['VACACIONES', 'DESCANSO_MEDICO', 'LICENCIA', 'PERMISO', 'SUBSIDIO']
+
+        with transaction.atomic():
+            for trabajador in trabajadores:
+                # Iterar días
+                delta = (fecha_fin - fecha_inicio).days + 1
+                for i in range(delta):
+                    fecha = fecha_inicio + timedelta(days=i)
+                    
+                    # Calcular estado según régimen (REINICIO MENSUAL)
+                    # Se asume que el ciclo inicia el día 1 de cada mes
+                    estado_regimen = None
+                    if trabajador.regimen_laboral:
+                        try:
+                            # Parsear régimen (ej: "14x7")
+                            dias_trabajo, dias_descanso = map(int, trabajador.regimen_laboral.lower().split('x'))
+                            ciclo_total = dias_trabajo + dias_descanso
+                            
+                            # Usar el 1ro del mes actual como inicio de ciclo
+                            inicio_mes = fecha.replace(day=1)
+                            delta_dias = (fecha - inicio_mes).days
+                            
+                            dia_en_ciclo = delta_dias % ciclo_total
+                            
+                            if dia_en_ciclo < dias_trabajo:
+                                estado_regimen = 'TRABAJADO'
+                            else:
+                                estado_regimen = 'DIA_LIBRE'
+                        except ValueError:
+                            pass
+
+                    if not estado_regimen:
+                        continue # No se puede calcular
+
+                    # Verificar estado actual
+                    asistencia, created = AsistenciaTrabajador.objects.get_or_create(
+                        trabajador=trabajador,
+                        fecha=fecha,
+                        defaults={'estado': estado_regimen}
+                    )
+
+                    if created:
+                        count_updated += 1
+                    else:
+                        # Si ya existe, verificar si es sobrescribible
+                        # Sobrescribir también si es FALTA o vacío
+                        if asistencia.estado not in ESTADOS_PROTEGIDOS:
+                            if asistencia.estado != estado_regimen:
+                                asistencia.estado = estado_regimen
+                                asistencia.save()
+                                count_updated += 1
+        
+        # --- VALIDACIÓN DE COBERTURA ---
+        # "SIEMPRE debemos de tener 1 perforista y por lo menos 1 ayudante" por turno (Guardia)
+        
+        alertas = []
+        
+        # Consultar asistencias del rango para verificar
+        asistencias = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato_id=contrato_id,
+            fecha__range=[fecha_inicio, fecha_fin],
+            estado='TRABAJADO'
+        ).select_related('trabajador', 'trabajador__cargo')
+
+        # Agrupar por Fecha -> Guardia
+        cobertura = {}
+        for asist in asistencias:
+            fecha_str = asist.fecha.strftime('%Y-%m-%d')
+            guardia = asist.trabajador.guardia_asignada
+            if not guardia:
+                continue # Ignorar si no tiene guardia asignada
+            
+            key = f"{fecha_str}|{guardia}"
+            if key not in cobertura:
+                cobertura[key] = {'perforistas': 0, 'ayudantes': 0}
+            
+            cargo_nombre = asist.trabajador.cargo.nombre.upper()
+            if 'PERFORISTA' in cargo_nombre and 'AYUDANTE' not in cargo_nombre:
+                cobertura[key]['perforistas'] += 1
+            elif 'AYUDANTE' in cargo_nombre:
+                cobertura[key]['ayudantes'] += 1
+
+        # Verificar mínimos
+        for key, counts in cobertura.items():
+            fecha_s, guardia = key.split('|')
+            perf = counts['perforistas']
+            ayu = counts['ayudantes']
+            
+            if perf < 1 or ayu < 1:
+                # Formatear fecha para mensaje
+                f_obj = datetime.strptime(fecha_s, '%Y-%m-%d')
+                f_fmt = f_obj.strftime('%d/%m')
+                alertas.append(f"Día {f_fmt} Guardia {guardia}: {perf} Perf. / {ayu} Ayud. (Mínimo 1 Perf + 1 Ayud)")
+
+        msg = f'Se actualizaron {count_updated} registros.'
+        if alertas:
+            msg += " ADVERTENCIA DE COBERTURA: " + "; ".join(alertas[:5])
+            if len(alertas) > 5:
+                msg += f" ... y {len(alertas)-5} más."
+
+        return JsonResponse({
+            'success': True, 
+            'message': msg,
+            'alertas': alertas
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
     
     ws.column_dimensions['A'].width = 40
     ws.column_dimensions['B'].width = 15

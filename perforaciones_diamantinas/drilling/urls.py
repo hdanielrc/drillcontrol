@@ -10,7 +10,11 @@ from .api_organigrama import (
     guardar_guardias_conductores, eliminar_asignacion,
     guardar_asignaciones_equipos
 )
-from .views_tareo import tareo_mensual_view, guardar_asistencia, guardar_asistencias_masivas as guardar_asistencias_masivas_tareo, exportar_asistencias_excel
+from .views_tareo import (
+    tareo_mensual_view, guardar_asistencia, 
+    guardar_asistencias_masivas as guardar_asistencias_masivas_tareo, 
+    exportar_asistencias_excel, auto_rellenar_asistencia
+)
 
 urlpatterns = [
     # Autenticación
@@ -38,6 +42,7 @@ urlpatterns = [
     path('tareo/', tareo_mensual_view, name='tareo-mensual'),
     path('tareo/guardar-asistencia/', guardar_asistencia, name='tareo-guardar-asistencia'),
     path('tareo/guardar-asistencias-masivas/', guardar_asistencias_masivas_tareo, name='tareo-guardar-masivas'),
+    path('tareo/auto-rellenar/', auto_rellenar_asistencia, name='tareo-auto-rellenar'),
     path('tareo/exportar-excel/', exportar_asistencias_excel, name='tareo-exportar-excel'),
     
     # Trabajadores - Hub y CRUD
