@@ -1250,7 +1250,80 @@ def actualizar_grupos_trabajadores(request):
             stats[grupo] = stats.get(grupo, 0) + 1
             
         detalles = ", ".join([f"{k}: {v}" for k, v in stats.items()])
-        return JsonResponse({'success': True, 'message': f'Se actualizaron {count} trabajadores. Detalles: {detalles}'})
+        
+        # --- VALIDACIÓN Y REBALANCEO DE PERFORISTAS POR GUARDIA ---
+        alertas = []
+        rebalanceo_msg = []
+        guardias_check = ['A', 'B', 'C']
+        
+        # Re-consultar trabajadores activos para validación
+        if contrato_id:
+             trabajadores_activos = Trabajador.objects.filter(
+                contrato_id=contrato_id, 
+                estado='ACTIVO'
+            ).select_related('cargo')
+        else:
+             trabajadores_activos = Trabajador.objects.filter(
+                estado='ACTIVO'
+            ).select_related('cargo')
+
+        # Estructura para analizar distribución
+        distribucion = {g: {'perforistas': [], 'otros': []} for g in guardias_check}
+        
+        for t in trabajadores_activos:
+            if t.guardia_asignada in guardias_check:
+                es_perforista = False
+                if t.cargo:
+                    cargo_nombre = t.cargo.nombre.upper().strip()
+                    if 'PERFORISTA' in cargo_nombre and 'AYUDANTE' not in cargo_nombre:
+                        es_perforista = True
+                
+                if es_perforista:
+                    distribucion[t.guardia_asignada]['perforistas'].append(t)
+                else:
+                    distribucion[t.guardia_asignada]['otros'].append(t)
+
+        # Identificar déficits y superávits
+        guardias_sin_perforista = []
+        guardias_con_exceso = [] # Más de 1 perforista
+
+        for g in guardias_check:
+            num_p = len(distribucion[g]['perforistas'])
+            num_total = num_p + len(distribucion[g]['otros'])
+            
+            if num_total > 0 and num_p == 0:
+                guardias_sin_perforista.append(g)
+            elif num_p > 1:
+                guardias_con_exceso.append(g)
+
+        # Intentar rebalancear
+        for g_deficit in guardias_sin_perforista:
+            if guardias_con_exceso:
+                # Tomar del primer grupo con exceso
+                g_exceso = guardias_con_exceso[0]
+                
+                # Mover perforista
+                perforista_a_mover = distribucion[g_exceso]['perforistas'].pop()
+                perforista_a_mover.guardia_asignada = g_deficit
+                perforista_a_mover.save(update_fields=['guardia_asignada'])
+                
+                rebalanceo_msg.append(f"Se movió a {perforista_a_mover.apellidos} de Guardia {g_exceso} a {g_deficit}")
+                
+                # Actualizar conteos locales
+                if len(distribucion[g_exceso]['perforistas']) <= 1:
+                    guardias_con_exceso.pop(0)
+            else:
+                alertas.append(f"Guardia {g_deficit}: Falta Perforista y no hay excedentes para reasignar.")
+
+        message = f'Se actualizaron {count} trabajadores. Detalles: {detalles}'
+        
+        if rebalanceo_msg:
+            message += " | 🔄 REBALANCEO: " + "; ".join(rebalanceo_msg)
+        
+        if alertas:
+            message += " | ⚠️ ADVERTENCIA: " + "; ".join(alertas)
+
+        return JsonResponse({'success': True, 'message': message})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
