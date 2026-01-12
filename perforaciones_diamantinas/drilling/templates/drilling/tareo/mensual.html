@@ -277,7 +277,14 @@
                                         {{ item.trabajador.cargo.nombre }}
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle;">
-                                        <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.get_grupo_display|default:"-"|truncatechars:10 }}</span>
+                                        <div class="d-flex flex-column align-items-center">
+                                            <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.get_grupo_display|default:"-"|truncatechars:10 }}</span>
+                                            {% if item.trabajador.maquina_asignada %}
+                                            <span class="badge bg-dark mt-1" style="font-size: 0.6rem; padding: 1px 3px;" title="{{ item.trabajador.maquina_asignada }}">
+                                                {{ item.trabajador.maquina_asignada.nombre }}
+                                            </span>
+                                            {% endif %}
+                                        </div>
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle; cursor: pointer;" 
                                         onclick="toggleGuardia(this, {{ item.trabajador.id }})"

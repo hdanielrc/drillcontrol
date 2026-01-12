@@ -130,7 +130,7 @@ def tareo_mensual_view(request):
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).select_related('cargo').order_by('grupo', 'guardia_asignada', 'apellidos', 'nombres')
+    ).select_related('cargo', 'maquina_asignada').order_by('grupo', 'guardia_asignada', 'apellidos', 'nombres')
     
     # Obtener asistencias del rango
     asistencias = AsistenciaTrabajador.objects.filter(
