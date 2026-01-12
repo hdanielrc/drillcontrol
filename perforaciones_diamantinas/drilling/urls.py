@@ -4,6 +4,7 @@ from . import api_views
 from . import auth_views
 from . import views_gestion_proyectos
 from . import views_stock
+from . import views_tareo
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
     guardar_asignaciones_masivas, marcar_stand_by, 
