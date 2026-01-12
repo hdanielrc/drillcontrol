@@ -61,6 +61,7 @@
                         <th>DNI</th>
                         <th>Nombre</th>
                         <th>Cargo</th>
+                        <th>Tipo Trabajo</th>
                         <th>Teléfono</th>
                         <th>Email</th>
                         <th>Estado</th>
@@ -81,6 +82,13 @@
                         </td>
                         <td>
                             <span class="badge bg-info">{{ trabajador.cargo.nombre }}</span>
+                        </td>
+                        <td>
+                            {% if trabajador.tipo_trabajo == 'SUBTERRANEA' %}
+                                <span class="badge bg-dark">Interior Mina</span>
+                            {% else %}    
+                                <span class="badge bg-warning text-dark">Superficial</span>
+                            {% endif %}
                         </td>
                         <td>{{ trabajador.telefono|default:"-" }}</td>
                         <td>{{ trabajador.email|default:"-" }}</td>

@@ -19,7 +19,7 @@ class TrabajadorForm(forms.ModelForm):
         model = Trabajador
         fields = [
             'contrato', 'nombres', 'apellidos', 'cargo', 'area', 'maquina_asignada', 'guardia_asignada', 
-            'vehiculo_asignado', 'regimen_laboral', 'fecha_inicio_ciclo',
+            'vehiculo_asignado', 'tipo_trabajo', 'regimen_laboral', 'fecha_inicio_ciclo',
             'dni', 'telefono', 'email', 'fecha_ingreso', 
             'estado', 'subestado',
             'fotocheck_fecha_emision', 'fotocheck_fecha_caducidad',
@@ -38,6 +38,7 @@ class TrabajadorForm(forms.ModelForm):
             'maquina_asignada': forms.Select(attrs={'class': 'form-select'}),
             'guardia_asignada': forms.Select(attrs={'class': 'form-select'}),
             'vehiculo_asignado': forms.Select(attrs={'class': 'form-select'}),
+            'tipo_trabajo': forms.Select(attrs={'class': 'form-select'}),
             'regimen_laboral': forms.Select(attrs={'class': 'form-select'}),
             'fecha_inicio_ciclo': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'dni': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'DNI o documento de identidad'}),
@@ -164,10 +165,11 @@ class TrabajadorForm(forms.ModelForm):
 class MaquinaForm(forms.ModelForm):
     class Meta:
         model = Maquina
-        fields = ['nombre', 'tipo', 'estado', 'horometro']
+        fields = ['nombre', 'tipo', 'tipo_trabajo', 'estado', 'horometro']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la máquina'}),
             'tipo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tipo/Modelo de máquina'}),
+            'tipo_trabajo': forms.Select(attrs={'class': 'form-select'}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
             'horometro': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
         }

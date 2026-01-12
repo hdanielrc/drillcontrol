@@ -159,6 +159,9 @@
             
             <!-- Exportar -->
             <div>
+                <button class="btn btn-sm btn-danger text-white me-2" onclick="confirmarLimpiezaMes()" title="Limpiar asistencias del mes actual">
+                    <i class="fas fa-trash-alt me-1"></i> Limpiar Mes
+                </button>
                 <button class="btn btn-sm btn-secondary text-white me-2" onclick="actualizarGrupos()" title="Actualizar grupos funcionales (Línea de Mando, Operadores, etc.)">
                     <i class="fas fa-sync me-1"></i> Grupos
                 </button>
@@ -1359,6 +1362,43 @@
         .catch(error => {
             console.error('Error:', error);
             mostrarToast('Error al guardar', 'danger');
+        });
+    }
+
+    function confirmarLimpiezaMes() {
+        if (!confirm('¿Está seguro de limpiar todas las asistencias del período visible? Esta acción eliminará los registros de asistencia excepto Vacaciones, Descansos Médicos y Licencias.')) {
+            return;
+        }
+        
+        const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
+        const fechaFin = '{{ fecha_fin|date:"Y-m-d" }}';
+        const contratoId = {{ contrato.id|default:0 }};
+        
+        fetch('/tareo/limpiar-mes/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                contrato_id: contratoId,
+                fecha_inicio: fechaInicio,
+                fecha_fin: fechaFin,
+                mantener_protegidos: true
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) {
+                mostrarToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast('Error: ' + data.message, 'danger');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            mostrarToast('Error al conectar con el servidor', 'danger');
         });
     }
     

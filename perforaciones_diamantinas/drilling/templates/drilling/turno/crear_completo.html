@@ -660,16 +660,31 @@
                 <span class="section-card-icon"><i class="fas fa-users"></i></span>
                 Trabajadores del Turno
             </h5>
-            <button type="button" class="btn btn-add-item btn-sm" id="agregar-trabajador-btn">
-                <i class="fas fa-plus"></i> Agregar Trabajador
-            </button>
+            <div class="d-flex gap-2 align-items-center">
+                 <div class="input-group input-group-sm" style="width: 250px;">
+                    <span class="input-group-text bg-light fw-bold">Auto-rellenar:</span>
+                    <select class="form-select border-primary" id="select-guardia-auto">
+                        <option value="">Seleccionar Guardia...</option>
+                        <option value="A">Guardia A</option>
+                        <option value="B">Guardia B</option>
+                        <option value="C">Guardia C</option>
+                    </select>
+                    <button class="btn btn-primary" type="button" id="btn-auto-guardia" title="Cargar trabajadores de esta guardia">
+                        <i class="fas fa-magic"></i>
+                    </button>
+                </div>
+                <div class="vr mx-1"></div>
+                <button type="button" class="btn btn-add-item btn-sm" id="agregar-trabajador-btn">
+                    <i class="fas fa-plus"></i> Agregar Trabajador
+                </button>
+            </div>
         </div>
         <div class="section-card-body">
             <div id="trabajadores-seccion">
                 <!-- Trabajadores se agregan aquí dinámicamente -->
                 <div class="section-empty-state" id="empty-trabajadores">
                     <i class="fas fa-user-plus"></i>
-                    <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" para comenzar.</p>
+                    <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" o use el selector de Guardia para comenzar.</p>
                 </div>
             </div>
         </div>
@@ -890,21 +905,32 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
         <div class="trabajador-row border rounded p-3 mb-3 bg-light">
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Trabajador</label>
                     <select name="trabajador_${trabajadorCount}" class="form-select" required>
                         <option value="">Seleccionar trabajador</option>
                         {% for trabajador in trabajadores %}
-                        <option value="{{ trabajador.dni }}">{{ trabajador.apellidos }}, {{ trabajador.nombres }}{% if trabajador.dni %} - {{ trabajador.dni }}{% endif %} - {{ trabajador.get_cargo_display }}</option>
+                        <option value="{{ trabajador.id }}">{{ trabajador.apellidos }}, {{ trabajador.nombres }}{% if trabajador.dni %} - {{ trabajador.dni }}{% endif %} - {{ trabajador.get_cargo_display }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Función</label>
                     <select name="funcion_${trabajadorCount}" class="form-select" required>
                         <option value="">Seleccionar función</option>
                         <option value="PERFORISTA">Perforista</option>
                         <option value="AYUDANTE">Ayudante</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Asistencia</label>
+                    <select name="estado_asistencia_${trabajadorCount}" class="form-select asistencia-select">
+                        <option value="TRABAJADO" selected>Trabajado</option>
+                        <option value="FALTA">Falta</option>
+                        <option value="DESCANSO_MEDICO">Descanso Médico</option>
+                        <option value="PERMISO">Permiso</option>
+                        <option value="VACACIONES">Vacaciones</option>
+                        <option value="LICENCIA_SIN_GOCE">Lic. Sin Goce</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -1472,7 +1498,161 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         </div>`;
     }
-    
+
+    // ==========================================
+    // AUTO-RELLENADO DE TRABAJADORES POR GUARDIA
+    // ==========================================
+    const btnAutoGuardia = document.getElementById('btn-auto-guardia');
+    if (btnAutoGuardia) {
+        btnAutoGuardia.addEventListener('click', function() {
+            const guardia = document.getElementById('select-guardia-auto').value;
+            const fecha = document.getElementById('fecha').value;
+            const contratoId = "{{ user.contrato.id }}"; // O obtener del contexto si es multi-contrato
+            
+            if (!guardia) {
+                alert('Por favor seleccione una guardia (A, B o C)');
+                return;
+            }
+            if (!fecha) {
+                alert('Por favor seleccione una fecha primero');
+                return;
+            }
+            
+            // Mostrar loading
+            const originalIcon = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            this.disabled = true;
+            
+            // Llamar al endpoint
+            fetch('/tareo/auto-rellenar-turno/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    contrato_id: contratoId,
+                    fecha: fecha,
+                    guardia: guardia
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.trabajadores.length > 0) {
+                    // Limpiar trabajadores actuales si se desea, o añadir
+                    if (confirm(`Se encontraron ${data.trabajadores.length} trabajadores en la guardia ${guardia}. ¿Desea añadirlos?`)) {
+                        // Iterar y añadir cada trabajador
+                        data.trabajadores.forEach(trabajador => {
+                            agregarTrabajadorRow(trabajador);
+                        });
+                        actualizarBadges();
+                    }
+                } else {
+                    alert(data.message || 'No se encontraron trabajadores disponibles para esta guardia y fecha.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al consultar trabajadores: ' + error);
+            })
+            .finally(() => {
+                this.innerHTML = originalIcon;
+                this.disabled = false;
+            });
+        });
+    }
+
+    // Helper para añadir trabajador con datos prellenados
+    function agregarTrabajadorRow(data = null) {
+        const container = document.getElementById('trabajadores-seccion');
+        const emptyState = document.getElementById('empty-trabajadores');
+        if (emptyState) emptyState.remove();
+
+        // 1. Crear el elemento DOM para la fila
+        const div = document.createElement('div');
+        div.className = 'trabajador-row dynamic-row';
+        
+        // 2. Generar IDs únicos
+        const timestamp = Date.now() + Math.random().toString(36).substring(7);
+        
+        // 3. Determinar valores iniciales (si vienen de auto-rellenado o edición)
+        const trabajadorId = data ? data.id : '';
+        const funcion = data ? (data.cargo || '') : ''; // Si viene cargo se usa como función inicial
+        const observaciones = data ? (data.observaciones || '') : '';
+        const asistencia = data ? (data.estado_asistencia || 'TRABAJADO') : 'TRABAJADO';
+        
+        // 4. HTML de la fila
+        div.innerHTML = `
+            <button type="button" class="btn-remove-row btn-outline-danger" onclick="eliminarFila(this)">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="row align-items-end g-3">
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold text-uppercase">Trabajador</label>
+                    <select class="form-select select-trabajador" required onchange="actualizarFuncionTrabajador(this)">
+                        <option value="">Seleccionar trabajador...</option>
+                        {% for t in trabajadores_disponibles %}
+                        <option value="{{ t.id }}" data-cargo="{{ t.cargo.nombre }}" ${trabajadorId == '{{ t.id }}' ? 'selected' : ''}>
+                            {{ t.apellidos }}, {{ t.nombres }} - {{ t.cargo.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold text-uppercase">Función en turno</label>
+                    <input type="text" class="form-control input-funcion" placeholder="Cargo/Función" value="${funcion}" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-bold text-uppercase">Asistencia</label>
+                    <select class="form-select status-selector" onchange="actualizarEstiloFila(this)">
+                        <option value="TRABAJADO" ${asistencia === 'TRABAJADO' ? 'selected' : ''}>Trabajado</option>
+                        <option value="FALTA" ${asistencia === 'FALTA' ? 'selected' : ''}>Falta</option>
+                        <option value="DESCANSO_MEDICO" ${asistencia === 'DESCANSO_MEDICO' ? 'selected' : ''}>Descanso Médico</option>
+                        <option value="PERMISO" ${asistencia === 'PERMISO' ? 'selected' : ''}>Permiso</option>
+                        <option value="VACACIONES" ${asistencia === 'VACACIONES' ? 'selected' : ''}>Vacaciones</option>
+                        <option value="LICENCIA_SIN_GOCE" ${asistencia === 'LICENCIA_SIN_GOCE' ? 'selected' : ''}>Lic. Sin Goce</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold text-uppercase">Observaciones</label>
+                    <input type="text" class="form-control input-observaciones" placeholder="Opcional" value="${observaciones}">
+                </div>
+            </div>
+        `;
+        
+        // 5. Añadir al contenedor
+        container.appendChild(div);
+        
+        // 6. Si no hay data predefinida, inicializar selectores vacíos es suficiente.
+        // Si hay data (auto-rellenado), el atributo 'selected' ya hizo el trabajo en el template string 
+        // PERO solo funciona si iteramos de nuevo las opciones o si usamos JS para setear value.
+        // Mejor usamos JS explícito para asegurar:
+        if (trabajadorId) {
+            const select = div.querySelector('.select-trabajador');
+            select.value = trabajadorId;
+            // Disparar actualización de función si no vino predefinida
+            if (!funcion) {
+                actualizarFuncionTrabajador(select);
+            }
+        }
+        
+        actualizarBadges();
+    }
+
+    // Actualiza el campo "Función" cuando se selecciona un trabajador
+    window.actualizarFuncionTrabajador = function(selectElement) {
+        const option = selectElement.options[selectElement.selectedIndex];
+        const cargo = option.getAttribute('data-cargo');
+        if (cargo) {
+            // Buscar el input de función en la misma fila
+            const row = selectElement.closest('.trabajador-row');
+            const inputFuncion = row.querySelector('.input-funcion');
+            if (inputFuncion) {
+                inputFuncion.value = cargo;
+            }
+        }
+    };
+
     // If server provided edit-data, it will be available as JSON inside a
     // <script id="edit-data" type="application/json"> tag. Parse it and
     // populate dynamic rows (avoids placing Django tags directly inside JS
@@ -2256,19 +2436,39 @@ document.addEventListener('DOMContentLoaded', function() {
     // RECOLECCIÓN DE DATOS ANTES DEL SUBMIT
     // =============================================
     
+    function actualizarEstiloFila(select) {
+        const row = select.closest('.trabajador-row');
+        if (select.value !== 'TRABAJADO') {
+            row.style.backgroundColor = '#fff3cd'; // Amarillo alerta
+            row.style.borderLeft = '4px solid #ffc107'; 
+        } else {
+            row.style.backgroundColor = '';
+            row.style.borderLeft = '';
+        }
+    }
+
     document.getElementById('form-turno').addEventListener('submit', function(e) {
         // Recolectar trabajadores
         const trabajadores = [];
         document.querySelectorAll('.trabajador-row').forEach(row => {
             const trabajadorId = row.querySelector('select[name*="trabajador_"]').value;
-            const funcion = row.querySelector('select[name*="funcion_"]').value;
+            // Manejar tanto select (manual) como input (auto) para función
+            let funcion = '';
+            const funcSelect = row.querySelector('select[name*="funcion_"]');
+            const funcInput = row.querySelector('.input-funcion');
+            if (funcInput) funcion = funcInput.value;
+            else if (funcSelect) funcion = funcSelect.value;
+
             const observaciones = row.querySelector('input[name*="obs_"]').value;
+            const estadoSelect = row.querySelector('.status-selector');
+            const estado = estadoSelect ? estadoSelect.value : 'TRABAJADO';
             
             if (trabajadorId && funcion) {
                 trabajadores.push({
                     trabajador_id: trabajadorId,
                     funcion: funcion,
-                    observaciones: observaciones
+                    observaciones: observaciones,
+                    estado_asistencia: estado
                 });
             }
         });

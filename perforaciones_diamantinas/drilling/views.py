@@ -1164,7 +1164,8 @@ def crear_turno_completo(request, pk=None):
                         trabajadores_parsed.append({
                             'trabajador_id': t['trabajador_id'],
                             'funcion': t['funcion'],
-                            'observaciones': t.get('observaciones', '')
+                            'observaciones': t.get('observaciones', ''),
+                            'estado_asistencia': t.get('estado_asistencia', 'TRABAJADO')
                         })
                 except json.JSONDecodeError as e:
                     messages.error(request, f'JSON invÃ¡lido en trabajadores: {e}')
@@ -1494,19 +1495,53 @@ def crear_turno_completo(request, pk=None):
                         messages.warning(request, f'Error al calcular incremento de horÃ³metro: {str(e)}')
 
                 # Crear trabajadores usando bulk_create para mejor rendimiento
+                # Y ACTUALIZAR TAREO (AsistenciaTrabajador)
                 if trabajadores_parsed:
-                    dnis = [str(t['trabajador_id']) for t in trabajadores_parsed]
-                    trabajadores_dict = Trabajador.objects.in_bulk(dnis, field_name='dni')
+                    # Usamos IDs para buscar
+                    try:
+                        ids = [int(t['trabajador_id']) for t in trabajadores_parsed]
+                        trabajadores_dict = Trabajador.objects.in_bulk(ids)
+                    except ValueError:
+                        # Fallback si por alguna razón vienen DNIs
+                        dnis = [str(t['trabajador_id']) for t in trabajadores_parsed]
+                        trabajadores_dict = Trabajador.objects.in_bulk(dnis, field_name='dni')
+
                     turno_trabajadores = []
                     for t in trabajadores_parsed:
-                        trabajador_obj = trabajadores_dict.get(str(t['trabajador_id']))
+                        # Intentar buscar por ID, luego por DNI si es necesario?
+                        # Simplificamos asumiendo que el dict tiene la key correcta (str vs int)
+                        tid = t['trabajador_id']
+                        trabajador_obj = trabajadores_dict.get(int(tid)) if isinstance(tid, (int, str)) and str(tid).isdigit() else None
+                        
+                        # Si no se encontró por ID numerico, intentar string (caso DNI si fallback activado)
+                        if not trabajador_obj and trabajadores_dict:
+                            trabajador_obj = trabajadores_dict.get(str(tid))
+
                         if trabajador_obj:
-                            turno_trabajadores.append(TurnoTrabajador(
-                                turno=turno,
+                            asistencia_estado = t.get('estado_asistencia', 'TRABAJADO')
+                            
+                            # Registro/Actualización en TAREO
+                            # Se usa update_or_create para asegurar que si ya hay tareo ese dia, se corrija
+                            AsistenciaTrabajador.objects.update_or_create(
                                 trabajador=trabajador_obj,
-                                funcion=t['funcion'],
-                                observaciones=t['observaciones']
-                            ))
+                                fecha=fecha,
+                                defaults={
+                                    'estado': asistencia_estado,
+                                    'guardia_snapshot': trabajador_obj.guardia_asignada,
+                                    'registrado_por': request.user, # Asumiendo usuario actual
+                                    'observaciones': f'Actualizado desde Turno {turno.id}'
+                                }
+                            )
+
+                            # Solo agregamos al Turno si trabajó efectivamente
+                            if asistencia_estado == 'TRABAJADO':
+                                turno_trabajadores.append(TurnoTrabajador(
+                                    turno=turno,
+                                    trabajador=trabajador_obj,
+                                    funcion=t['funcion'],
+                                    observaciones=t['observaciones']
+                                ))
+                    
                     if turno_trabajadores:
                         TurnoTrabajador.objects.bulk_create(turno_trabajadores)
 

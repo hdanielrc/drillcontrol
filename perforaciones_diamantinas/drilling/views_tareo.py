@@ -214,9 +214,21 @@ def tareo_mensual_view(request):
             'asistencias': asistencias_trabajador
         })
     
-    # Convertir a lista ordenada para el template
+    # Lista ordenada de grupos para visualización
     grupos_ordenados = []
-    orden_grupos = ['LINEA_MANDO', 'OPERADORES', 'SERVICIOS_GEOLOGICOS', 'PERSONAL_AUXILIAR', 'SIN_GRUPO']
+    orden_grupos = [
+        'LINEA_MANDO', 
+        'OPERADORES_INTERIOR_MINA',
+        'OPERADORES_SUPERFICIE',
+        'OPERADORES', # Legacy
+        'SERVICIOS_GEOLOGICOS_INTERIOR_MINA',
+        'SERVICIOS_GEOLOGICOS_SUPERFICIE',
+        'SERVICIOS_GEOLOGICOS', # Legacy
+        'PERSONAL_AUXILIAR_INTERIOR_MINA',
+        'PERSONAL_AUXILIAR_SUPERFICIE',
+        'PERSONAL_AUXILIAR', # Legacy
+        'SIN_GRUPO'
+    ]
     
     # Conjunto para rastrear grupos ya procesados
     grupos_procesados = set()
@@ -868,6 +880,132 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
         descripcion = LEYENDA.get(codigo, estado['estado'])
         ws.cell(row=row, column=1).value = f"{codigo} - {descripcion}"
         ws.cell(row=row, column=2).value = estado['total']
+
+
+@login_required
+@require_http_methods(["POST"])
+def limpiar_asistencias_mes(request):
+    """
+    Limpia todas las asistencias del contrato para el rango de fechas especificado.
+    Elimina registros de AsistenciaTrabajador excepto los estados protegidos si se solicita.
+    """
+    user = request.user
+    if not user.can_manage_contract_users():
+        return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
+        
+    try:
+        data = json.loads(request.body)
+        contrato_id = data.get('contrato_id')
+        fecha_inicio_str = data.get('fecha_inicio')
+        fecha_fin_str = data.get('fecha_fin')
+        mantener_protegidos = data.get('mantener_protegidos', True)
+        
+        if not all([contrato_id, fecha_inicio_str, fecha_fin_str]):
+            return JsonResponse({'success': False, 'message': 'Faltan datos requeridos'}, status=400)
+            
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        
+        # Validar periodo (máximo 40 días para evitar limpiezas masivas accidentales)
+        dias = (fecha_fin - fecha_inicio).days
+        if dias > 40:
+             return JsonResponse({'success': False, 'message': 'Rango de fechas demasiado amplio (máx 40 días)'}, status=400)
+             
+        query = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato_id=contrato_id,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin
+        )
+        
+        if mantener_protegidos:
+            ESTADOS_PROTEGIDOS = ['VACACIONES', 'DESCANSO_MEDICO', 'LICENCIA', 'PERMISO', 'SUBSIDIO']
+            query = query.exclude(estado__in=ESTADOS_PROTEGIDOS)
+            
+        count, _ = query.delete()
+        
+        return JsonResponse({'success': True, 'message': f'Se eliminaron {count} registros de asistencia.'})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def auto_rellenar_turno_view(request):
+    """
+    Retorna trabajadores sugeridos para un turno en fecha y guardia específica.
+    Se basa en la asistencia ya registrada (tareo).
+    Si el trabajador tiene asistencia 'TRABAJADO' y coincide la guardia, se sugiere.
+    """
+    try:
+        data = json.loads(request.body)
+        contrato_id = data.get('contrato_id')
+        fecha_str = data.get('fecha')
+        guardia = data.get('guardia')
+        
+        if not all([contrato_id, fecha_str, guardia]):
+            return JsonResponse({'success': False, 'message': 'Faltan datos'}, status=400)
+            
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        
+        # 1. Obtener trabajadores que tengan asistencia TRABAJADO en esa fecha
+        asistencias = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato_id=contrato_id,
+            fecha=fecha,
+            estado='TRABAJADO' # Solo los que han ido a trabajar
+        ).select_related('trabajador', 'trabajador__cargo')
+        
+        # 2. Filtrar por guardia.
+        # La guardia se puede tomar de la asistencia (parametro 'turno') o del perfil del trabajador.
+        # Prioridad: turno en asistencia > perfil trabajador.
+        
+        trabajadores_list = []
+        for a in asistencias:
+            t = a.trabajador
+            
+            # Verificar guardia
+            guardia_trabajador = a.turno if a.turno else t.guardia_asignada
+            
+            # Si coincide la guardia, agregar
+            if guardia_trabajador == guardia:
+                trabajadores_list.append({
+                    'id': t.id,
+                    'nombres': t.nombres,
+                    'apellidos': t.apellidos,
+                    'cargo': t.cargo.nombre if t.cargo else '',
+                    'observaciones': ''
+                })
+        
+        # Si no hay asistencias registradas (quizás no se ha hecho el tareo aún), 
+        # fallback a sugerir según asignación estática del perfil
+        if not trabajadores_list:
+            trabajadores_perfil = Trabajador.objects.filter(
+                contrato_id=contrato_id,
+                estado='ACTIVO',
+                subestado='EN_OPERACION',
+                guardia_asignada=guardia
+            ).select_related('cargo')
+            
+            for t in trabajadores_perfil:
+                # Verificar si hoy le toca trabajar según régimen (opcional, para no sugerir en días libres)
+                # estado_calc = t.calcular_estado_regimen(fecha)
+                # if estado_calc != 'TRABAJADO': continue 
+                
+                trabajadores_list.append({
+                    'id': t.id,
+                    'nombres': t.nombres,
+                    'apellidos': t.apellidos,
+                    'cargo': t.cargo.nombre if t.cargo else '',
+                    'observaciones': 'Sugerido por perfil'
+                })
+
+        return JsonResponse({
+            'success': True, 
+            'trabajadores': trabajadores_list
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
 @login_required

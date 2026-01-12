@@ -104,6 +104,7 @@
                     <tr>
                         <th>Nombre</th>
                         <th>Tipo</th>
+                        <th>Tipo Trabajo</th>
                         <th>Estado</th>
                         <th>Contrato</th>
                         <th class="text-center" style="width: 150px;">Acciones</th>
@@ -122,6 +123,13 @@
                         </td>
                         <td>
                             <span class="text-muted">{{ maquina.tipo }}</span>
+                        </td>
+                        <td>
+                            {% if maquina.tipo_trabajo == 'SUBTERRANEA' %}
+                                <span class="badge bg-dark">Interior Mina</span>
+                            {% else %}    
+                                <span class="badge bg-warning text-dark">Superficial</span>
+                            {% endif %}
                         </td>
                         <td>
                             {% if maquina.estado == 'OPERATIVO' %}

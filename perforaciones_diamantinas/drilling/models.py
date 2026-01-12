@@ -568,10 +568,16 @@ class Maquina(models.Model):
         ('MANTENIMIENTO', 'En Mantenimiento'),
         ('FUERA_SERVICIO', 'Fuera de Servicio'),
     ]
+
+    TIPO_TRABAJO_CHOICES = [
+        ('SUBTERRANEA', 'Interior Mina'),
+        ('SUPERFICIAL', 'Superficial'),
+    ]
     
     contrato = models.ForeignKey(Contrato, on_delete=models.PROTECT, related_name='maquinas')
     nombre = models.CharField(max_length=100)
     tipo = models.CharField(max_length=100)
+    tipo_trabajo = models.CharField(max_length=20, choices=TIPO_TRABAJO_CHOICES, default='SUBTERRANEA', verbose_name='Tipo de Trabajo')
     # Horómetro acumulado en horas (decimal con 2 decimales)
     horometro = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='OPERATIVO')
@@ -1072,10 +1078,16 @@ class Trabajador(models.Model):
         ('DIAS_LIBRES', 'Días Libres'),
         ('FALTA', 'Falta'),
     ]
+
+    TIPO_TRABAJO_CHOICES = [
+        ('SUBTERRANEA', 'Interior Mina'),
+        ('SUPERFICIAL', 'Superficial'),
+    ]
     
     contrato = models.ForeignKey(Contrato, on_delete=models.PROTECT, related_name='trabajadores')
     nombres = models.CharField(max_length=200)
     apellidos = models.CharField(max_length=200, blank=True)
+    tipo_trabajo = models.CharField(max_length=20, choices=TIPO_TRABAJO_CHOICES, default='SUBTERRANEA', verbose_name='Tipo de Trabajo')
     cargo = models.ForeignKey(Cargo, on_delete=models.PROTECT, related_name='trabajadores', verbose_name='Cargo')
     area = models.CharField(max_length=100, blank=True, verbose_name='Área', help_text='Área de trabajo del trabajador')
     
@@ -1167,17 +1179,24 @@ class Trabajador(models.Model):
     
     # Grupo funcional del trabajador (se asigna automáticamente según cargo)
     GRUPO_CHOICES = [
-        ('OPERADORES', 'Operadores'),
-        ('SERVICIOS_GEOLOGICOS', 'Servicios Geológicos'),
+        ('OPERADORES_INTERIOR_MINA', 'Operadores Interior Mina'),
+        ('OPERADORES_SUPERFICIE', 'Operadores Superficie'),
+        ('SERVICIOS_GEOLOGICOS_INTERIOR_MINA', 'Servicios Geológicos Interior Mina'),
+        ('SERVICIOS_GEOLOGICOS_SUPERFICIE', 'Servicios Geológicos Superficie'),
+        ('PERSONAL_AUXILIAR_INTERIOR_MINA', 'Personal Auxiliar Interior Mina'),
+        ('PERSONAL_AUXILIAR_SUPERFICIE', 'Personal Auxiliar Superficie'),
         ('LINEA_MANDO', 'Línea de Mando'),
-        ('PERSONAL_AUXILIAR', 'Personal Auxiliar'),
+        # Legacy groups (keep for compatibility until data migration)
+        ('OPERADORES', 'Operadores (Legacy)'),
+        ('SERVICIOS_GEOLOGICOS', 'Servicios Geológicos (Legacy)'),
+        ('PERSONAL_AUXILIAR', 'Personal Auxiliar (Legacy)'),
     ]
     grupo = models.CharField(
-        max_length=30,
+        max_length=50,
         choices=GRUPO_CHOICES,
         blank=True,
         verbose_name='Grupo Funcional',
-        help_text='Se asigna automáticamente según el cargo'
+        help_text='Se asigna automáticamente según el cargo y zona de trabajo'
     )
     
     # Timestamps automáticos
@@ -1236,18 +1255,32 @@ class Trabajador(models.Model):
 
     def asignar_grupo_automatico(self):
         """
-        Asigna automáticamente el grupo funcional basado en el cargo del trabajador.
+        Asigna automáticamente el grupo funcional basado en el cargo del trabajador
+        y su tipo de trabajo / máquina asignada.
         
         Reglas de asignación:
-        - OPERADORES: Perforistas (DDH-I, DDH-II), Ayudantes (DDH-I, DDH-II), Ayudante Perforista
-        - SERVICIOS_GEOLOGICOS: Personal de geología (Ayudante Muestrero, Maestro Muestrero, 
-          Cortador de Testigos, Geólogo Pleno Logueo Geomecánico, Geólogo Junior de Logueo, 
-          Asistente de Densidad)
-        - PERSONAL_AUXILIAR: Conductores y Mecánicos
-        - LINEA_MANDO: Todos los demás cargos
+        - OPERADORES: Perforistas, Ayudantes. Se dividen en Interior Mina / Superficie.
+        - SERVICIOS_GEOLOGICOS: Muestreros, Geólogos. Se dividen en Interior Mina / Superficie.
+        - PERSONAL_AUXILIAR: Conductores, Mecánicos. Se dividen en Interior Mina / Superficie.
+        - LINEA_MANDO: Todos los demás cargos. No se divide.
         """
         if not self.cargo:
             return None
+        
+        # Determinar zona de trabajo (Interior Mina vs Superficie)
+        # Prioridad: 1. Máquina asignada, 2. Tipo de trabajo del trabajador
+        es_subterranea = True
+        
+        # Si tiene máquina asignada, usar su tipo
+        if self.maquina_asignada:
+            # Si maquina tiene atributo tipo_trabajo (que acabamos de añadir)
+            if hasattr(self.maquina_asignada, 'tipo_trabajo'):
+                es_subterranea = (self.maquina_asignada.tipo_trabajo == 'SUBTERRANEA')
+        else:
+            # Usar preferencia del trabajador
+            es_subterranea = (self.tipo_trabajo == 'SUBTERRANEA')
+            
+        suffix = '_INTERIOR_MINA' if es_subterranea else '_SUPERFICIE'
         
         cargo_nombre = self.cargo.nombre.upper().strip()
         
@@ -1261,7 +1294,7 @@ class Trabajador(models.Model):
             'AYUDANTE DE PERFORISTA'
         ]
         if any(keyword in cargo_nombre for keyword in operadores_keywords):
-            return 'OPERADORES'
+            return f'OPERADORES{suffix}'
         
         # SERVICIOS GEOLÓGICOS
         servicios_geologicos_keywords = [
@@ -1275,12 +1308,12 @@ class Trabajador(models.Model):
             'ASISTENTE DE DENSIDAD'
         ]
         if any(keyword in cargo_nombre for keyword in servicios_geologicos_keywords):
-            return 'SERVICIOS_GEOLOGICOS'
+            return f'SERVICIOS_GEOLOGICOS{suffix}'
         
         # PERSONAL AUXILIAR: Conductores y Mecánicos
         auxiliar_keywords = ['CONDUCTOR', 'MECANICO', 'MECÁNICO', 'TECNICO MECANICO']
         if any(keyword in cargo_nombre for keyword in auxiliar_keywords):
-            return 'PERSONAL_AUXILIAR'
+            return f'PERSONAL_AUXILIAR{suffix}'
         
         # LINEA DE MANDO: Todos los demás
         return 'LINEA_MANDO'
