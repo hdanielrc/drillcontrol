@@ -128,24 +128,34 @@ class TrabajadorForm(forms.ModelForm):
             accessible_contracts = user.get_accessible_contracts()
             self.fields['contrato'].queryset = accessible_contracts
             
-            # Filtrar máquinas del contrato del usuario
-            if user.contrato:
+            # Lógica para filtrar máquinas y vehículos
+            if user.has_access_to_all_contracts():
+                # Admin/Gerencia: Ver todas las máquinas operativas
+                self.fields['maquina_asignada'].queryset = Maquina.objects.filter(
+                    estado='OPERATIVO'
+                ).order_by('contrato__nombre', 'nombre')
+                
+                self.fields['vehiculo_asignado'].queryset = Vehiculo.objects.filter(
+                    estado='OPERATIVO'
+                ).order_by('contrato__nombre', 'placa')
+                
+            elif user.contrato:
+                # Usuario Contract Manager: Ver solo máquinas de su contrato
                 self.fields['maquina_asignada'].queryset = Maquina.objects.filter(
                     contrato=user.contrato,
                     estado='OPERATIVO'
                 ).order_by('nombre')
                 
-                # Filtrar vehículos del contrato del usuario
                 self.fields['vehiculo_asignado'].queryset = Vehiculo.objects.filter(
                     contrato=user.contrato,
                     estado='OPERATIVO'
                 ).order_by('placa')
             else:
-                # Si no hay contrato, lista vacía
+                # Usuario sin contrato y sin permisos globales (caso raro): lista vacía
                 self.fields['maquina_asignada'].queryset = Maquina.objects.none()
                 self.fields['vehiculo_asignado'].queryset = Vehiculo.objects.none()
             
-            # Si solo tiene acceso a un contrato, preseleccionarlo
+            # Si solo tiene acceso a un contrato, preseleccionar y bloquear cambiolo
             if not user.has_access_to_all_contracts() and user.contrato:
                 self.fields['contrato'].initial = user.contrato
                 # NO usar disabled, solo readonly visual

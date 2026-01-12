@@ -153,36 +153,67 @@ def tareo_mensual_view(request):
         }
     
     # Combinar trabajadores con sus asistencias y agrupar
+    # NUEVA LÓGICA DE AGRUPACIÓN (Por Área Funcional/Máquina -> Guardia)
     trabajadores_por_grupo = {}
     
+    # helper para sorting
+    grupos_sort_map = {} 
+    
     for trabajador in trabajadores:
-        # Determinar grupo (usar el grupo del trabajador o calcularlo si falta)
-        grupo_key = trabajador.grupo
-        if not grupo_key:
-            # Intentar asignar automáticamente si no tiene grupo
-            grupo_key = trabajador.asignar_grupo_automatico()
-            # Si aún así no tiene grupo (ej. sin cargo), usar SIN_GRUPO
-            if not grupo_key:
-                grupo_key = 'SIN_GRUPO'
+        # 1. Determinar el GRUPO PRINCIPAL (Área/Máquina)
+        primary_key = ''
+        primary_name = ''
+        order_weight = 99
         
-        # Determinar guardia para agrupación
-        # Para LINEA_MANDO, forzamos SIN_GUARDIA para que no se dividan por turnos visualmente
-        if grupo_key == 'LINEA_MANDO':
-            guardia_key = 'SIN_GUARDIA'
+        # Prioridad 1: Línea de Mando
+        if trabajador.grupo == 'LINEA_MANDO':
+            primary_key = '00_LINEA_MANDO'
+            primary_name = 'LÍNEA DE MANDO'
+            order_weight = 0
+            
+        # Prioridad 2: Máquina Asignada (si existe)
+        elif trabajador.maquina_asignada:
+            primary_key = f'10_MAQ_{trabajador.maquina_asignada.id}'
+            primary_name = trabajador.maquina_asignada.nombre
+            order_weight = 10
+            
+        # Prioridad 3: Vehículo Asignado (si existe y tiene rol de conductor o auxiliar)
+        elif trabajador.vehiculo_asignado and ('CHOFER' in (trabajador.cargo.nombre.upper() if trabajador.cargo else '') or 'CONDUCTOR' in (trabajador.cargo.nombre.upper() if trabajador.cargo else '')):
+             primary_key = f'20_VEH_{trabajador.vehiculo_asignado.id}'
+             primary_name = f'VEHÍCULO {trabajador.vehiculo_asignado.placa}' # O nombre
+             order_weight = 20
+             
+        # Prioridad 4: Grupo Funcional por defecto
         else:
-            guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
+            grupo_raw = trabajador.grupo
+            if not grupo_raw:
+                grupo_raw = trabajador.asignar_grupo_automatico() or 'SIN_GRUPO'
+            
+            primary_key = f'90_{grupo_raw}'
+            primary_name = trabajador.get_grupo_display() if trabajador.grupo else grupo_raw.replace('_', ' ')
+            order_weight = 90
+
+        # Almacenar peso para ordenamiento final
+        if primary_key not in grupos_sort_map:
+            grupos_sort_map[primary_key] = (order_weight, primary_name)
+
+        # 2. Determinar GUARDIA
+        if primary_key == '00_LINEA_MANDO':
+             guardia_key = 'SIN_GUARDIA' # Línea de mando no se divide por guardia visualmente
+        else:
+             guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
         
         # Crear estructura de grupos si no existe
-        if grupo_key not in trabajadores_por_grupo:
-            trabajadores_por_grupo[grupo_key] = {
-                'nombre': trabajador.get_grupo_display() if trabajador.grupo else 'Sin Grupo',
+        if primary_key not in trabajadores_por_grupo:
+            trabajadores_por_grupo[primary_key] = {
+                'nombre': primary_name,
                 'guardias': {}
             }
         
         # Crear estructura de guardias si no existe
-        if guardia_key not in trabajadores_por_grupo[grupo_key]['guardias']:
-            trabajadores_por_grupo[grupo_key]['guardias'][guardia_key] = {
-                'nombre': f"Guardia {trabajador.guardia_asignada}" if trabajador.guardia_asignada else 'Sin Guardia',
+        if guardia_key not in trabajadores_por_grupo[primary_key]['guardias']:
+            trabajadores_por_grupo[primary_key]['guardias'][guardia_key] = {
+                'nombre': f"GUARDIA {trabajador.guardia_asignada}" if trabajador.guardia_asignada else 'SIN GUARDIA',
                 'trabajadores': []
             }
         
@@ -209,71 +240,47 @@ def tareo_mensual_view(request):
                 'es_sabado': dia_info['es_sabado']
             })
         
-        trabajadores_por_grupo[grupo_key]['guardias'][guardia_key]['trabajadores'].append({
+        trabajadores_por_grupo[primary_key]['guardias'][guardia_key]['trabajadores'].append({
             'trabajador': trabajador,
             'asistencias': asistencias_trabajador
         })
     
-    # Lista ordenada de grupos para visualización
+    # 3. Construir lista ordenada final
     grupos_ordenados = []
-    orden_grupos = [
-        'LINEA_MANDO', 
-        'OPERADORES_INTERIOR_MINA',
-        'OPERADORES_SUPERFICIE',
-        'OPERADORES', # Legacy
-        'SERVICIOS_GEOLOGICOS_INTERIOR_MINA',
-        'SERVICIOS_GEOLOGICOS_SUPERFICIE',
-        'SERVICIOS_GEOLOGICOS', # Legacy
-        'PERSONAL_AUXILIAR_INTERIOR_MINA',
-        'PERSONAL_AUXILIAR_SUPERFICIE',
-        'PERSONAL_AUXILIAR', # Legacy
-        'SIN_GRUPO'
-    ]
     
-    # Conjunto para rastrear grupos ya procesados
-    grupos_procesados = set()
-
-    # 1. Procesar grupos en el orden definido
-    for grupo_key in orden_grupos:
-        if grupo_key in trabajadores_por_grupo:
-            grupos_procesados.add(grupo_key)
-            grupo_data = trabajadores_por_grupo[grupo_key]
-            # Ordenar guardias (A, B, C, luego sin guardia)
-            guardias_ordenadas = []
-            for guardia_key in ['A', 'B', 'C', 'SIN_GUARDIA']:
-                if guardia_key in grupo_data['guardias']:
-                    guardias_ordenadas.append({
-                        'key': guardia_key,
-                        'nombre': grupo_data['guardias'][guardia_key]['nombre'],
-                        'trabajadores': grupo_data['guardias'][guardia_key]['trabajadores']
-                    })
-            
-            grupos_ordenados.append({
-                'key': grupo_key,
-                'nombre': grupo_data['nombre'],
-                'guardias': guardias_ordenadas,
-                'total_trabajadores': sum(len(g['trabajadores']) for g in guardias_ordenadas)
-            })
-
-    # 2. Procesar cualquier otro grupo que no esté en la lista ordenada (para evitar ocultar trabajadores)
-    for grupo_key in trabajadores_por_grupo:
-        if grupo_key not in grupos_procesados:
-            grupo_data = trabajadores_por_grupo[grupo_key]
-            guardias_ordenadas = []
-            # Ordenar guardias alfabéticamente para grupos desconocidos
-            for guardia_key in sorted(grupo_data['guardias'].keys()):
+    # Ordenar las keys de grupos basados en (weight, name)
+    ordered_keys = sorted(grupos_sort_map.keys(), key=lambda k: (grupos_sort_map[k][0], k)) # sort by weight then key(name included in key mostly)
+    
+    for grupo_key in ordered_keys:
+        grupo_data = trabajadores_por_grupo[grupo_key]
+        
+        # Ordenar guardias (A, B, C, luego sin guardia)
+        guardias_ordenadas = []
+        for guardia_key in ['A', 'B', 'C', 'SIN_GUARDIA']:
+            if guardia_key in grupo_data['guardias']:
+                guardia_info = grupo_data['guardias'][guardia_key]
+                # Ordenar trabajadores por cargo (Jerarquía simple) y luego apellido
+                # Simple logic: Perforista antes que Ayudante
+                # Esto ya venía un poco ordenado de la query pero al mezclar puede perderse si no es estricto
+                # Hacemos un sort in-place ligero
+                guardia_info['trabajadores'].sort(key=lambda x: (
+                    0 if 'PERFORISTA' in (x['trabajador'].cargo.nombre.upper() if x['trabajador'].cargo else '') else 1,
+                    x['trabajador'].apellidos
+                ))
+                
                 guardias_ordenadas.append({
                     'key': guardia_key,
-                    'nombre': grupo_data['guardias'][guardia_key]['nombre'],
-                    'trabajadores': grupo_data['guardias'][guardia_key]['trabajadores']
+                    'nombre': guardia_info['nombre'],
+                    'trabajadores': guardia_info['trabajadores']
                 })
-            
-            grupos_ordenados.append({
-                'key': grupo_key,
-                'nombre': grupo_data['nombre'],
-                'guardias': guardias_ordenadas,
-                'total_trabajadores': sum(len(g['trabajadores']) for g in guardias_ordenadas)
-            })
+        
+        grupos_ordenados.append({
+            'key': grupo_key,
+            'nombre': grupo_data['nombre'],
+            'guardias': guardias_ordenadas,
+            'total_trabajadores': sum(len(g['trabajadores']) for g in guardias_ordenadas)
+        })
+
     
     # Navegación
     if modo == 'semana':
