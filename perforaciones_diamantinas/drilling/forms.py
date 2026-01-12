@@ -113,11 +113,11 @@ class TrabajadorForm(forms.ModelForm):
         self.fields['emo_estado'].required = False
         
         # Labels mejorados
-        self.fields['maquina_asignada'].label = 'Máquina (opcional)'
-        self.fields['maquina_asignada'].help_text = 'Solo para organigrama'
-        self.fields['guardia_asignada'].label = 'Guardia (opcional)'
-        self.fields['guardia_asignada'].help_text = 'A, B o C para organigrama'
-        self.fields['vehiculo_asignado'].label = 'Vehículo (opcional)'
+        self.fields['maquina_asignada'].label = 'Máquina asignada'
+        self.fields['maquina_asignada'].help_text = 'Define agrupación en Tareo y Organigrama'
+        self.fields['guardia_asignada'].label = 'Guardia'
+        self.fields['guardia_asignada'].help_text = 'A, B o C'
+        self.fields['vehiculo_asignado'].label = 'Vehículo asignado'
         self.fields['vehiculo_asignado'].help_text = 'Para conductores'
         self.fields['fotocheck_fecha_caducidad'].help_text = 'Se calcula automáticamente (1 año)'
         self.fields['emo_fecha_vencimiento'].help_text = 'Se calcula automáticamente (1 año - 1 día)'
@@ -129,31 +129,32 @@ class TrabajadorForm(forms.ModelForm):
             self.fields['contrato'].queryset = accessible_contracts
             
             # Lógica para filtrar máquinas y vehículos
+            base_maquina_qs = Maquina.objects.none()
+            base_vehiculo_qs = Vehiculo.objects.none()
+
             if user.has_access_to_all_contracts():
                 # Admin/Gerencia: Ver todas las máquinas operativas
-                self.fields['maquina_asignada'].queryset = Maquina.objects.filter(
-                    estado='OPERATIVO'
-                ).order_by('contrato__nombre', 'nombre')
-                
-                self.fields['vehiculo_asignado'].queryset = Vehiculo.objects.filter(
-                    estado='OPERATIVO'
-                ).order_by('contrato__nombre', 'placa')
+                base_maquina_qs = Maquina.objects.filter(estado='OPERATIVO')
+                base_vehiculo_qs = Vehiculo.objects.filter(estado='OPERATIVO')
                 
             elif user.contrato:
                 # Usuario Contract Manager: Ver solo máquinas de su contrato
-                self.fields['maquina_asignada'].queryset = Maquina.objects.filter(
-                    contrato=user.contrato,
-                    estado='OPERATIVO'
-                ).order_by('nombre')
-                
-                self.fields['vehiculo_asignado'].queryset = Vehiculo.objects.filter(
-                    contrato=user.contrato,
-                    estado='OPERATIVO'
-                ).order_by('placa')
-            else:
-                # Usuario sin contrato y sin permisos globales (caso raro): lista vacía
-                self.fields['maquina_asignada'].queryset = Maquina.objects.none()
-                self.fields['vehiculo_asignado'].queryset = Vehiculo.objects.none()
+                base_maquina_qs = Maquina.objects.filter(contrato=user.contrato, estado='OPERATIVO')
+                base_vehiculo_qs = Vehiculo.objects.filter(contrato=user.contrato, estado='OPERATIVO')
+
+            # Asegurar que la máquina actual (si existe) esté en el queryset para evitar errores de validación
+            if self.instance.pk and self.instance.maquina_asignada:
+                current_maquina = Maquina.objects.filter(pk=self.instance.maquina_asignada.pk)
+                base_maquina_qs = (base_maquina_qs | current_maquina).distinct()
+
+            # Asegurar que el vehículo actual (si existe) esté en el queryset
+            if self.instance.pk and self.instance.vehiculo_asignado:
+                current_vehiculo = Vehiculo.objects.filter(pk=self.instance.vehiculo_asignado.pk)
+                base_vehiculo_qs = (base_vehiculo_qs | current_vehiculo).distinct()
+            
+            # Asignar querysets finales
+            self.fields['maquina_asignada'].queryset = base_maquina_qs.order_by('nombre')
+            self.fields['vehiculo_asignado'].queryset = base_vehiculo_qs.order_by('placa')
             
             # Si solo tiene acceso a un contrato, preseleccionar y bloquear cambiolo
             if not user.has_access_to_all_contracts() and user.contrato:
