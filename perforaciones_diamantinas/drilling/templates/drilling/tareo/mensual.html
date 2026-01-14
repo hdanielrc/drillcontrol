@@ -1360,6 +1360,9 @@
         const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
         const fechaFin = '{{ fecha_fin|date:"Y-m-d" }}';
         const contratoId = {{ contrato.id|default:0 }};
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        mostrarToast('Limpiando asistencias...', 'info');
         
         fetch('/tareo/limpiar-mes/', {
             method: 'POST',
@@ -1377,12 +1380,17 @@
         .then(r => r.json())
         .then(data => {
             if(data.success) {
-                mostrarToast(data.message, 'success');
+                mostrarToast('✅ ' + data.message, 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                mostrarToast('Error: ' + data.message, 'danger');
+                mostrarToast('❌ Error: ' + (data.message || data.error || 'Error desconocido'), 'danger');
             }
         })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarToast('Error al limpiar asistencias', 'danger');
+        });
+    }
         .catch(err => {
             console.error(err);
             mostrarToast('Error al conectar con el servidor', 'danger');
