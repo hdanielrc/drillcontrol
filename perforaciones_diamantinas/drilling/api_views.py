@@ -180,17 +180,26 @@ def api_grupos_disponibles_por_fecha(request):
     
     try:
         # Buscar grupos disponibles en la fecha específica del contrato
-        # Solo considerar trabajadores en estado TRABAJADO
+        # Solo considerar trabajadores en estado TRABAJADO y que sean OPERADORES
         grupos_query = AsistenciaTrabajador.objects.filter(
             trabajador__contrato=contrato,
             fecha=fecha,
             estado='TRABAJADO',  # Solo trabajadores que asistieron
             guardia_snapshot__isnull=False
+        ).filter(
+            # Filtrar solo por grupos de operadores (perforistas y ayudantes)
+            trabajador__grupo__in=[
+                'OPERADORES_INTERIOR_MINA',
+                'OPERADORES_SUPERFICIE',
+                'OPERADORES'  # Legacy
+            ]
         ).exclude(
             guardia_snapshot=''
         ).values_list('guardia_snapshot', flat=True).distinct().order_by('guardia_snapshot')
         
         grupos = list(grupos_query)
+        
+        logger.info(f"Grupos disponibles para fecha {fecha_str}: {grupos}")
         
         return JsonResponse({
             'success': True,
