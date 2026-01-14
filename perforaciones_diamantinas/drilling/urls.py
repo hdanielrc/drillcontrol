@@ -50,6 +50,8 @@ urlpatterns = [
     path('tareo/actualizar-grupos/', actualizar_grupos_trabajadores, name='tareo-actualizar-grupos'),
     path('tareo/debug-trabajadores/', debug_trabajadores, name='tareo-debug-trabajadores'),
     path('tareo/exportar-excel/', exportar_asistencias_excel, name='tareo-exportar-excel'),
+    path('tareo/generar-guardias/', views_tareo.generar_guardias_automaticas, name='tareo-generar-guardias'),
+    path('tareo/autocompletar-regimen/', views_tareo.autocompletar_tareo_por_regimen, name='tareo-autocompletar-regimen'),
     
     # Trabajadores - Hub y CRUD
     path('trabajadores/hub/', views.trabajadores_hub, name='trabajadores-hub'),

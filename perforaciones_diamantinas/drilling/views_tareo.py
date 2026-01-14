@@ -1396,7 +1396,183 @@ def debug_trabajadores(request):
     </html>
     """
     return HttpResponse(html)
-    
-    ws.column_dimensions['A'].width = 40
-    ws.column_dimensions['B'].width = 15
 
+
+@login_required
+@require_http_methods(["POST"])
+def generar_guardias_automaticas(request):
+    """
+    Genera y asigna guardias A, B, C automáticamente a:
+    - Operadores (perforistas y ayudantes)
+    - Personal auxiliar
+    - Conductores
+    
+    Distribución equitativa entre las 3 guardias.
+    Línea de mando no recibe guardias (trabajan independiente).
+    """
+    user = request.user
+    
+    if not user.can_manage_contract_users():
+        return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+    
+    # Determinar contrato
+    if user.has_access_to_all_contracts():
+        contrato_id = request.POST.get('contrato_id')
+        if not contrato_id:
+            return JsonResponse({'success': False, 'error': 'Debe especificar contrato'}, status=400)
+        try:
+            contrato = Contrato.objects.get(id=contrato_id)
+        except Contrato.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Contrato no encontrado'}, status=404)
+    else:
+        contrato = user.contrato
+        if not contrato:
+            return JsonResponse({'success': False, 'error': 'Usuario sin contrato asignado'}, status=400)
+    
+    try:
+        # Obtener trabajadores activos del contrato que necesitan guardia
+        trabajadores = Trabajador.objects.filter(
+            contrato=contrato,
+            estado='ACTIVO'
+        ).exclude(
+            # Excluir línea de mando
+            grupo='LINEA_MANDO'
+        ).order_by('cargo__nombre', 'apellidos', 'nombres')
+        
+        if not trabajadores.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'No hay trabajadores para asignar guardias'
+            }, status=400)
+        
+        # Distribuir en guardias A, B, C de forma equitativa
+        guardias = ['A', 'B', 'C']
+        total = trabajadores.count()
+        asignados = 0
+        
+        with transaction.atomic():
+            for i, trabajador in enumerate(trabajadores):
+                # Asignar guardia de forma cíclica
+                guardia = guardias[i % 3]
+                trabajador.guardia_asignada = guardia
+                trabajador.save(update_fields=['guardia_asignada'])
+                asignados += 1
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Guardias asignadas exitosamente',
+            'asignados': asignados,
+            'distribucion': {
+                'A': asignados // 3 + (1 if asignados % 3 > 0 else 0),
+                'B': asignados // 3 + (1 if asignados % 3 > 1 else 0),
+                'C': asignados // 3
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al generar guardias: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def autocompletar_tareo_por_regimen(request):
+    """
+    Autocompleta el tareo del mes según el régimen laboral de cada trabajador.
+    
+    Lógica:
+    - Calcula días de trabajo/descanso según régimen (14x7, 20x10, etc.)
+    - Asegura que siempre hay 2 guardias activas cada día
+    - Rota las guardias para cumplir con sus regímenes
+    - Línea de mando trabaja todos los días hábiles
+    """
+    user = request.user
+    
+    if not user.can_manage_contract_users():
+        return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        mes = data.get('mes')  # Formato: YYYY-MM
+        contrato_id = data.get('contrato_id')
+        
+        if not mes:
+            return JsonResponse({'success': False, 'error': 'Debe especificar mes'}, status=400)
+        
+        # Parsear mes
+        fecha_inicio = datetime.strptime(f"{mes}-01", '%Y-%m-%d').date()
+        num_dias = monthrange(fecha_inicio.year, fecha_inicio.month)[1]
+        fecha_fin = fecha_inicio.replace(day=num_dias)
+        
+        # Determinar contrato
+        if user.has_access_to_all_contracts():
+            if not contrato_id:
+                return JsonResponse({'success': False, 'error': 'Debe especificar contrato'}, status=400)
+            contrato = Contrato.objects.get(id=contrato_id)
+        else:
+            contrato = user.contrato
+        
+        # Obtener trabajadores activos
+        trabajadores = Trabajador.objects.filter(
+            contrato=contrato,
+            estado='ACTIVO'
+        ).select_related('cargo')
+        
+        registros_creados = 0
+        registros_actualizados = 0
+        
+        with transaction.atomic():
+            # Recorrer cada día del mes
+            fecha_actual = fecha_inicio
+            while fecha_actual <= fecha_fin:
+                
+                # Para cada trabajador, determinar su estado ese día
+                for trabajador in trabajadores:
+                    # Calcular estado según régimen
+                    if trabajador.grupo == 'LINEA_MANDO':
+                        # Línea de mando trabaja todos los días hábiles (lunes a viernes)
+                        estado = 'TRABAJADO' if fecha_actual.weekday() < 5 else 'DIA_LIBRE'
+                    else:
+                        # Operadores, auxiliares y conductores: según régimen
+                        estado = trabajador.calcular_estado_por_regimen(fecha_actual)
+                    
+                    # Verificar si ya existe registro
+                    asistencia, created = AsistenciaTrabajador.objects.get_or_create(
+                        trabajador=trabajador,
+                        fecha=fecha_actual,
+                        defaults={
+                            'estado': estado,
+                            'guardia_snapshot': trabajador.guardia_asignada,
+                            'cargo_snapshot': trabajador.cargo.nombre if trabajador.cargo else '',
+                            'registrado_por': user
+                        }
+                    )
+                    
+                    if created:
+                        registros_creados += 1
+                    else:
+                        # Actualizar si cambió el estado
+                        if asistencia.estado != estado:
+                            asistencia.estado = estado
+                            asistencia.guardia_snapshot = trabajador.guardia_asignada
+                            asistencia.cargo_snapshot = trabajador.cargo.nombre if trabajador.cargo else ''
+                            asistencia.save()
+                            registros_actualizados += 1
+                
+                fecha_actual += timedelta(days=1)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Tareo autocompletado para {mes}',
+            'creados': registros_creados,
+            'actualizados': registros_actualizados,
+            'periodo': f'{fecha_inicio.strftime("%d/%m/%Y")} - {fecha_fin.strftime("%d/%m/%Y")}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al autocompletar tareo: {str(e)}'
+        }, status=500)
