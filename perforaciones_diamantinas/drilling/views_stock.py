@@ -440,10 +440,16 @@ def historial_sincronizaciones(request):
     historial = []
     
     if contrato:
+        # Debug: Verificar si hay snapshots
+        total_snapshots = StockSnapshot.objects.filter(contrato=contrato).count()
+        print(f"[DEBUG] Total snapshots para {contrato.nombre_contrato}: {total_snapshots}")
+        
         # Obtener fechas únicas de sincronización (últimas 50)
         fechas_sync = StockSnapshot.objects.filter(
             contrato=contrato
         ).values('fecha_sync').distinct().order_by('-fecha_sync')[:50]
+        
+        print(f"[DEBUG] Fechas únicas encontradas: {fechas_sync.count()}")
         
         for fecha_obj in fechas_sync:
             fecha = fecha_obj['fecha_sync']
@@ -467,11 +473,14 @@ def historial_sincronizaciones(request):
                 'adit_count': adit_count,
                 'total': pdd_count + adit_count
             })
+            
+        print(f"[DEBUG] Historial generado con {len(historial)} entradas")
     
     context = {
         'contratos': contratos,
         'contrato_seleccionado': contrato,
         'historial': historial,
+        'tiene_centro_costo': contrato.codigo_centro_costo if contrato else None,
     }
     
     return render(request, 'drilling/stock/historial_sincronizaciones.html', context)

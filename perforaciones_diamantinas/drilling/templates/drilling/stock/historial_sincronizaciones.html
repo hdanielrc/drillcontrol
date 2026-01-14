@@ -58,6 +58,16 @@
     </div>
 
     {% if contrato_seleccionado %}
+    
+    <!-- Alerta si no tiene centro de costo -->
+    {% if not tiene_centro_costo %}
+    <div class="alert alert-warning mb-4">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Centro de costo no configurado:</strong> Este contrato no tiene código de centro de costo asignado. 
+        No se pueden sincronizar datos de stock desde la API de Vilbragroup hasta que se configure.
+    </div>
+    {% endif %}
+    
     <!-- Información del Contrato -->
     <div class="row mb-4">
         <div class="col-12">
