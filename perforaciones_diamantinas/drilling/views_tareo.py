@@ -1502,12 +1502,14 @@ def autocompletar_tareo_por_regimen(request):
         trabajadores_sin_ciclo = 0
         
         with transaction.atomic():
-            # Inicializar fecha_inicio_ciclo para trabajadores que no la tienen
+            # Recalcular fecha_inicio_ciclo para TODOS los operadores según su guardia
             # Para régimen 14x7 (ciclo de 21 días), con 3 guardias, el desfase es 7 días
             # Esto garantiza que siempre haya 2 guardias trabajando y 1 descansando
             for trabajador in trabajadores:
-                if trabajador.grupo != 'LINEA_MANDO' and not trabajador.fecha_inicio_ciclo:
-                    # Asignar inicio de ciclo según guardia (desfase de 7 días por guardia)
+                if trabajador.grupo != 'LINEA_MANDO':
+                    fecha_anterior = trabajador.fecha_inicio_ciclo
+                    
+                    # Recalcular inicio de ciclo según guardia (desfase de 7 días por guardia)
                     if trabajador.guardia_asignada == 'A':
                         # Guardia A: Empieza el primer día del período
                         trabajador.fecha_inicio_ciclo = fecha_inicio
@@ -1520,8 +1522,10 @@ def autocompletar_tareo_por_regimen(request):
                     else:
                         # Sin guardia, usar fecha inicio
                         trabajador.fecha_inicio_ciclo = fecha_inicio
-                    trabajador.save()
-                    trabajadores_sin_ciclo += 1
+                    
+                    if fecha_anterior != trabajador.fecha_inicio_ciclo:
+                        trabajador.save()
+                        trabajadores_sin_ciclo += 1
             
             # Recorrer cada día del mes
             fecha_actual = fecha_inicio
