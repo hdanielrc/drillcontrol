@@ -61,13 +61,23 @@ class VilbragroupAPIClient:
             print("[API DEBUG] Status Code:", response.status_code)
             print("[API DEBUG] Response Text (primeros 1000 chars):", response.text[:1000])
             
-            # Si es 403, mostrar más info antes de fallar
+            # Si es 403, intentar parsear el mensaje de error
             if response.status_code == 403:
                 print("[API DEBUG] ❌ Error 403 Forbidden - Verificar token y centro de costo")
                 print("[API DEBUG] Token presente:", 'token' in params and bool(params.get('token')))
                 print("[API DEBUG] Centro costo:", params.get('cc', 'NO ENVIADO'))
                 print("[API DEBUG] Familia:", params.get('fam', 'NO ENVIADO'))
+                
+                # Intentar parsear el response como JSON por si hay mensaje de error
+                try:
+                    error_data = response.json()
+                    print("[API DEBUG] Error JSON:", error_data)
+                except:
+                    print("[API DEBUG] Response no es JSON, probablemente HTML de Cloudflare")
+                
+                return None
             
+            # Para otros errores HTTP, lanzar excepción
             response.raise_for_status()
             return response.json()
         except Exception as e:
