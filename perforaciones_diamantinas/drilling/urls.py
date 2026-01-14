@@ -145,6 +145,10 @@ urlpatterns = [
     # APIs Sondajes
     path('api/sondaje/<int:sondaje_id>/estado/', api_views.api_sondaje_estado, name='api-sondaje-estado'),
     
+    # APIs Tareo - Grupos y Trabajadores
+    path('api/tareo/grupos-disponibles/', api_views.api_grupos_disponibles_por_fecha, name='api-grupos-disponibles'),
+    path('api/tareo/trabajadores-por-grupo/', api_views.api_trabajadores_por_grupo_fecha, name='api-trabajadores-por-grupo'),
+    
     # Abastecimiento CRUD Completo
     path('abastecimiento/', views.AbastecimientoListView.as_view(), name='abastecimiento-list'),
     path('abastecimiento/nuevo/', views.AbastecimientoCreateView.as_view(), name='abastecimiento-create'),

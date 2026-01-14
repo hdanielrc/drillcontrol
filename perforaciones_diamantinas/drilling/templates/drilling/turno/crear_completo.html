@@ -663,11 +663,8 @@
             <div class="d-flex gap-2 align-items-center">
                  <div class="input-group input-group-sm" style="width: 250px;">
                     <span class="input-group-text bg-light fw-bold">Auto-rellenar:</span>
-                    <select class="form-select border-primary" id="select-guardia-auto">
-                        <option value="">Seleccionar Guardia...</option>
-                        <option value="A">Guardia A</option>
-                        <option value="B">Guardia B</option>
-                        <option value="C">Guardia C</option>
+                    <select class="form-select border-primary" id="select-guardia-auto" disabled>
+                        <option value="">Primero seleccione fecha...</option>
                     </select>
                     <button class="btn btn-primary" type="button" id="btn-auto-guardia" title="Cargar trabajadores de esta guardia">
                         <i class="fas fa-magic"></i>
@@ -1500,6 +1497,53 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
+    // CARGAR GRUPOS DISPONIBLES SEGÚN FECHA
+    // ==========================================
+    const inputFecha = document.getElementById('fecha');
+    const selectGuardia = document.getElementById('select-guardia-auto');
+    
+    if (inputFecha && selectGuardia) {
+        // Listener para cuando cambia la fecha
+        inputFecha.addEventListener('change', function() {
+            const fecha = this.value;
+            if (!fecha) {
+                selectGuardia.disabled = true;
+                selectGuardia.innerHTML = '<option value="">Primero seleccione fecha...</option>';
+                return;
+            }
+            
+            // Obtener contrato_id (del usuario o del contexto)
+            const contratoId = "{{ user.contrato.id }}";
+            
+            // Llamar al API para obtener grupos disponibles
+            selectGuardia.disabled = true;
+            selectGuardia.innerHTML = '<option value="">Cargando grupos...</option>';
+            
+            fetch(`/api/tareo/grupos-disponibles/?fecha=${fecha}&contrato_id=${contratoId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.grupos && data.grupos.length > 0) {
+                        // Llenar el select con los grupos disponibles
+                        let options = '<option value="">Seleccionar Guardia...</option>';
+                        data.grupos.forEach(grupo => {
+                            options += `<option value="${grupo}">Guardia ${grupo}</option>`;
+                        });
+                        selectGuardia.innerHTML = options;
+                        selectGuardia.disabled = false;
+                    } else {
+                        selectGuardia.innerHTML = '<option value="">No hay grupos disponibles en esta fecha</option>';
+                        selectGuardia.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando grupos:', error);
+                    selectGuardia.innerHTML = '<option value="">Error al cargar grupos</option>';
+                    selectGuardia.disabled = true;
+                });
+        });
+    }
+
+    // ==========================================
     // AUTO-RELLENADO DE TRABAJADORES POR GUARDIA
     // ==========================================
     const btnAutoGuardia = document.getElementById('btn-auto-guardia');
@@ -1507,10 +1551,10 @@ document.addEventListener('DOMContentLoaded', function() {
         btnAutoGuardia.addEventListener('click', function() {
             const guardia = document.getElementById('select-guardia-auto').value;
             const fecha = document.getElementById('fecha').value;
-            const contratoId = "{{ user.contrato.id }}"; // O obtener del contexto si es multi-contrato
+            const contratoId = "{{ user.contrato.id }}";
             
             if (!guardia) {
-                alert('Por favor seleccione una guardia (A, B o C)');
+                alert('Por favor seleccione una guardia');
                 return;
             }
             if (!fecha) {
@@ -1523,42 +1567,48 @@ document.addEventListener('DOMContentLoaded', function() {
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             this.disabled = true;
             
-            // Llamar al endpoint
-            fetch('/tareo/auto-rellenar-turno/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    contrato_id: contratoId,
-                    fecha: fecha,
-                    guardia: guardia
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.trabajadores.length > 0) {
-                    // Limpiar trabajadores actuales si se desea, o añadir
-                    if (confirm(`Se encontraron ${data.trabajadores.length} trabajadores en la guardia ${guardia}. ¿Desea añadirlos?`)) {
-                        // Iterar y añadir cada trabajador
-                        data.trabajadores.forEach(trabajador => {
-                            agregarTrabajadorRow(trabajador);
-                        });
-                        actualizarBadges();
+            // Llamar al nuevo endpoint para obtener trabajadores del grupo
+            fetch(`/api/tareo/trabajadores-por-grupo/?fecha=${fecha}&grupo=${guardia}&contrato_id=${contratoId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.trabajadores && data.trabajadores.length > 0) {
+                        // Confirmar antes de agregar
+                        if (confirm(`Se encontraron ${data.trabajadores.length} trabajadores en la Guardia ${guardia}. ¿Desea añadirlos al turno?`)) {
+                            // Iterar y añadir cada trabajador
+                            data.trabajadores.forEach(trabajador => {
+                                agregarTrabajadorRow(trabajador);
+                            });
+                            actualizarBadges();
+                            
+                            // Mostrar mensaje de éxito
+                            const successMsg = document.createElement('div');
+                            successMsg.className = 'alert alert-success alert-dismissible fade show mt-2';
+                            successMsg.innerHTML = `
+                                <i class="fas fa-check-circle"></i> 
+                                Se agregaron ${data.trabajadores.length} trabajadores de la Guardia ${guardia}.
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            `;
+                            document.querySelector('#seccion-trabajadores .section-card-body').prepend(successMsg);
+                            
+                            // Auto-remover mensaje después de 5 segundos
+                            setTimeout(() => {
+                                if (successMsg.parentNode) {
+                                    successMsg.remove();
+                                }
+                            }, 5000);
+                        }
+                    } else {
+                        alert(data.error || 'No se encontraron trabajadores disponibles para esta guardia y fecha.');
                     }
-                } else {
-                    alert(data.message || 'No se encontraron trabajadores disponibles para esta guardia y fecha.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error al consultar trabajadores: ' + error);
-            })
-            .finally(() => {
-                this.innerHTML = originalIcon;
-                this.disabled = false;
-            });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al consultar trabajadores: ' + error);
+                })
+                .finally(() => {
+                    this.innerHTML = originalIcon;
+                    this.disabled = false;
+                });
         });
     }
 

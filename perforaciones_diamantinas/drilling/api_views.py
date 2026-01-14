@@ -127,3 +127,172 @@ def api_sondaje_estado(request, sondaje_id):
         }, status=500)
 
 
+@login_required
+@require_http_methods(["GET"])
+def api_grupos_disponibles_por_fecha(request):
+    """
+    Endpoint para obtener los grupos (guardias A, B, C) disponibles en una fecha específica
+    según el tareo de asistencia.
+    
+    Parámetros:
+        - fecha: Fecha en formato YYYY-MM-DD
+        - contrato_id: ID del contrato (opcional, se obtiene del usuario si no se proporciona)
+    
+    Retorna:
+        JSON con los grupos disponibles en esa fecha
+    """
+    from .models import AsistenciaTrabajador, Contrato
+    from datetime import datetime
+    
+    fecha_str = request.GET.get('fecha')
+    contrato_id = request.GET.get('contrato_id')
+    
+    if not fecha_str:
+        return JsonResponse({
+            'success': False,
+            'error': 'Debe proporcionar una fecha'
+        }, status=400)
+    
+    try:
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
+        }, status=400)
+    
+    # Determinar el contrato
+    if contrato_id:
+        try:
+            contrato = Contrato.objects.get(id=contrato_id)
+        except Contrato.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Contrato no encontrado'
+            }, status=404)
+    elif hasattr(request.user, 'contrato') and request.user.contrato:
+        contrato = request.user.contrato
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se pudo determinar el contrato'
+        }, status=400)
+    
+    try:
+        # Buscar grupos disponibles en la fecha específica del contrato
+        grupos_query = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato=contrato,
+            fecha=fecha,
+            guardia_snapshot__isnull=False
+        ).exclude(
+            guardia_snapshot=''
+        ).values_list('guardia_snapshot', flat=True).distinct().order_by('guardia_snapshot')
+        
+        grupos = list(grupos_query)
+        
+        return JsonResponse({
+            'success': True,
+            'fecha': fecha_str,
+            'contrato': contrato.nombre_contrato,
+            'grupos': grupos,
+            'count': len(grupos)
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo grupos disponibles para fecha {fecha_str}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_trabajadores_por_grupo_fecha(request):
+    """
+    Endpoint para obtener los trabajadores de un grupo específico en una fecha dada
+    según el tareo de asistencia.
+    
+    Parámetros:
+        - fecha: Fecha en formato YYYY-MM-DD
+        - grupo: Grupo/Guardia (A, B, C)
+        - contrato_id: ID del contrato (opcional, se obtiene del usuario si no se proporciona)
+    
+    Retorna:
+        JSON con los trabajadores del grupo en esa fecha con sus funciones
+    """
+    from .models import AsistenciaTrabajador, Contrato, Trabajador
+    from datetime import datetime
+    
+    fecha_str = request.GET.get('fecha')
+    grupo = request.GET.get('grupo')
+    contrato_id = request.GET.get('contrato_id')
+    
+    if not fecha_str or not grupo:
+        return JsonResponse({
+            'success': False,
+            'error': 'Debe proporcionar fecha y grupo'
+        }, status=400)
+    
+    try:
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
+        }, status=400)
+    
+    # Determinar el contrato
+    if contrato_id:
+        try:
+            contrato = Contrato.objects.get(id=contrato_id)
+        except Contrato.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Contrato no encontrado'
+            }, status=404)
+    elif hasattr(request.user, 'contrato') and request.user.contrato:
+        contrato = request.user.contrato
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se pudo determinar el contrato'
+        }, status=400)
+    
+    try:
+        # Obtener trabajadores del grupo en la fecha específica
+        asistencias = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato=contrato,
+            fecha=fecha,
+            guardia_snapshot=grupo,
+            estado='TRABAJADO'  # Solo trabajadores que asistieron
+        ).select_related('trabajador', 'trabajador__cargo')
+        
+        trabajadores_data = []
+        for asistencia in asistencias:
+            trabajador = asistencia.trabajador
+            trabajadores_data.append({
+                'id': trabajador.id,
+                'dni': trabajador.dni,
+                'nombres': trabajador.nombres,
+                'apellido_paterno': trabajador.apellido_paterno,
+                'apellido_materno': trabajador.apellido_materno,
+                'nombre_completo': f"{trabajador.nombres} {trabajador.apellido_paterno} {trabajador.apellido_materno}",
+                'cargo': asistencia.cargo_snapshot or (trabajador.cargo.nombre_cargo if trabajador.cargo else ''),
+                'guardia': asistencia.guardia_snapshot,
+                'funcion': trabajador.cargo.nombre_cargo if trabajador.cargo else ''  # Función por defecto basada en su cargo
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'fecha': fecha_str,
+            'grupo': grupo,
+            'contrato': contrato.nombre_contrato,
+            'trabajadores': trabajadores_data,
+            'count': len(trabajadores_data)
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo trabajadores del grupo {grupo} para fecha {fecha_str}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
