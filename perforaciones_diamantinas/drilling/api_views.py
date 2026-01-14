@@ -180,9 +180,11 @@ def api_grupos_disponibles_por_fecha(request):
     
     try:
         # Buscar grupos disponibles en la fecha específica del contrato
+        # Solo considerar trabajadores en estado TRABAJADO
         grupos_query = AsistenciaTrabajador.objects.filter(
             trabajador__contrato=contrato,
             fecha=fecha,
+            estado='TRABAJADO',  # Solo trabajadores que asistieron
             guardia_snapshot__isnull=False
         ).exclude(
             guardia_snapshot=''
