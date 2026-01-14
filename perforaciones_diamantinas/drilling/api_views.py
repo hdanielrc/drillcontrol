@@ -262,11 +262,19 @@ def api_trabajadores_por_grupo_fecha(request):
     
     try:
         # Obtener trabajadores del grupo en la fecha específica
+        # Filtrar solo OPERADORES (perforistas y ayudantes)
         asistencias = AsistenciaTrabajador.objects.filter(
             trabajador__contrato=contrato,
             fecha=fecha,
             guardia_snapshot=grupo,
             estado='TRABAJADO'  # Solo trabajadores que asistieron
+        ).filter(
+            # Filtrar solo por grupos de operadores
+            trabajador__grupo__in=[
+                'OPERADORES_INTERIOR_MINA',
+                'OPERADORES_SUPERFICIE',
+                'OPERADORES'  # Legacy
+            ]
         ).select_related('trabajador', 'trabajador__cargo')
         
         trabajadores_data = []
