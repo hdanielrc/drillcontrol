@@ -1725,15 +1725,33 @@ document.addEventListener('DOMContentLoaded', function() {
         // 5. Añadir al contenedor
         container.appendChild(div);
         
-        // 6. Si no hay data predefinida, inicializar selectores vacíos es suficiente.
-        // Si hay data (auto-rellenado), el atributo 'selected' ya hizo el trabajo en el template string 
-        // PERO solo funciona si iteramos de nuevo las opciones o si usamos JS para setear value.
-        // Mejor usamos JS explícito para asegurar:
-        if (trabajadorId) {
+        // 6. Si viene data del API (auto-rellenado), agregar option dinámicamente si no existe
+        if (data && trabajadorId) {
             const select = div.querySelector('.select-trabajador');
+            
+            // Verificar si el trabajador ya existe en las opciones
+            let optionExists = false;
+            for (let option of select.options) {
+                if (option.value == trabajadorId) {
+                    optionExists = true;
+                    break;
+                }
+            }
+            
+            // Si no existe, crear la option dinámicamente
+            if (!optionExists && data.nombre_completo) {
+                const newOption = document.createElement('option');
+                newOption.value = trabajadorId;
+                newOption.textContent = data.nombre_completo;
+                newOption.setAttribute('data-cargo', data.cargo || '');
+                select.appendChild(newOption);
+            }
+            
+            // Seleccionar el trabajador
             select.value = trabajadorId;
+            
             // Disparar actualización de función si no vino predefinida
-            if (!funcion) {
+            if (!funcion && data.cargo) {
                 actualizarFuncionTrabajador(select);
             }
         }
