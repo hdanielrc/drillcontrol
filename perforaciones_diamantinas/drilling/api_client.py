@@ -2,7 +2,7 @@
 Cliente para APIs de Vilbragroup TIC
 Maneja la conexión con las APIs de trabajadores y almacén
 """
-import requests
+import cloudscraper
 from django.conf import settings
 from typing import Optional, List, Dict, Any
 import logging
@@ -25,20 +25,19 @@ class VilbragroupAPIClient:
         """
         self.token = token or getattr(settings, 'VILBRAGROUP_API_TOKEN', '')
         self.centro_costo = centro_costo or getattr(settings, 'CENTRO_COSTO_DEFAULT', '')
-        self.session = requests.Session()
+        # Usar cloudscraper en lugar de requests.Session para bypass Cloudflare
+        self.session = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'desktop': True
+            }
+        )
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
             'Referer': 'https://tic.vilbragroup.net/',
             'Origin': 'https://tic.vilbragroup.net',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
         })
     
     def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
