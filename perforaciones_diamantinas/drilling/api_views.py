@@ -180,11 +180,33 @@ def api_grupos_disponibles_por_fecha(request):
     
     try:
         # Buscar grupos disponibles en la fecha específica del contrato
-        # Solo considerar trabajadores en estado TRABAJADO y que sean OPERADORES
+        # Primero verificar TODOS los trabajadores para debug
+        todos_trabajadores = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato=contrato,
+            fecha=fecha,
+            estado='TRABAJADO',
+            guardia_snapshot__isnull=False
+        ).exclude(
+            guardia_snapshot=''
+        ).select_related('trabajador')
+        
+        # Log para debug
+        debug_info = {}
+        for asist in todos_trabajadores:
+            guardia = asist.guardia_snapshot
+            grupo = asist.trabajador.grupo or 'SIN_GRUPO'
+            cargo = asist.trabajador.cargo.nombre if asist.trabajador.cargo else 'SIN_CARGO'
+            if guardia not in debug_info:
+                debug_info[guardia] = []
+            debug_info[guardia].append(f"{grupo} - {cargo}")
+        
+        logger.info(f"DEBUG - Trabajadores por guardia en {fecha_str}: {debug_info}")
+        
+        # Ahora filtrar solo OPERADORES
         grupos_query = AsistenciaTrabajador.objects.filter(
             trabajador__contrato=contrato,
             fecha=fecha,
-            estado='TRABAJADO',  # Solo trabajadores que asistieron
+            estado='TRABAJADO',
             guardia_snapshot__isnull=False
         ).filter(
             # Filtrar solo por grupos de operadores (perforistas y ayudantes)
@@ -199,14 +221,15 @@ def api_grupos_disponibles_por_fecha(request):
         
         grupos = list(grupos_query)
         
-        logger.info(f"Grupos disponibles para fecha {fecha_str}: {grupos}")
+        logger.info(f"Grupos con OPERADORES para fecha {fecha_str}: {grupos}")
         
         return JsonResponse({
             'success': True,
             'fecha': fecha_str,
             'contrato': contrato.nombre_contrato,
             'grupos': grupos,
-            'count': len(grupos)
+            'count': len(grupos),
+            'debug': debug_info  # Agregar info de debug en respuesta
         })
     except Exception as e:
         logger.error(f"Error obteniendo grupos disponibles para fecha {fecha_str}: {str(e)}")

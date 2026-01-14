@@ -1563,6 +1563,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     console.log('Grupos disponibles:', data); // Debug
+                    console.log('Debug info por guardia:', data.debug); // Mostrar grupos funcionales
+                    
                     if (data.success && data.grupos && data.grupos.length > 0) {
                         // Llenar el select con los grupos disponibles
                         let options = '<option value="">Seleccionar Guardia...</option>';
@@ -1572,7 +1574,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         selectGuardia.innerHTML = options;
                         selectGuardia.disabled = false;
                     } else {
-                        selectGuardia.innerHTML = '<option value="">No hay grupos disponibles en esta fecha</option>';
+                        // Mostrar mensaje con información de debug
+                        let mensaje = 'No hay grupos con perforistas/ayudantes en esta fecha';
+                        if (data.debug && Object.keys(data.debug).length > 0) {
+                            mensaje += '\n\nTrabajadores encontrados:\n';
+                            for (let guardia in data.debug) {
+                                mensaje += `\nGuardia ${guardia}:\n${data.debug[guardia].join('\n')}`;
+                            }
+                        }
+                        console.warn(mensaje);
+                        selectGuardia.innerHTML = '<option value="">No hay perforistas disponibles</option>';
                         selectGuardia.disabled = true;
                     }
                 })
