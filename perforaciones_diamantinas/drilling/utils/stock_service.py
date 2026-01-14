@@ -69,30 +69,46 @@ class StockService:
         
         # Sincronizar PDD
         try:
+            print(f"[DEBUG SYNC] Consultando PDD para centro costo: {self.contrato.codigo_centro_costo}")
             pdd_data = self.api_client.obtener_productos_diamantados(
                 centro_costo=self.contrato.codigo_centro_costo
             )
+            print(f"[DEBUG SYNC] PDD recibidos: {len(pdd_data) if pdd_data else 0}")
             if pdd_data:
+                print(f"[DEBUG SYNC] Primer PDD: {pdd_data[0] if len(pdd_data) > 0 else 'N/A'}")
                 snapshots_pdd = self._crear_snapshots(pdd_data, 'PDD')
                 resultado['pdd']['count'] = len(snapshots_pdd)
                 resultado['pdd']['success'] = True
                 logger.info(f"✅ {self.contrato.nombre_contrato}: {len(snapshots_pdd)} PDD sincronizados")
+            else:
+                print(f"[DEBUG SYNC] API retornó None o lista vacía para PDD")
         except Exception as e:
             resultado['pdd']['error'] = str(e)
+            print(f"[DEBUG SYNC] Error en PDD: {str(e)}")
+            import traceback
+            traceback.print_exc()
             logger.error(f"❌ Error sincronizando PDD para {self.contrato.nombre_contrato}: {e}")
         
         # Sincronizar ADIT
         try:
+            print(f"[DEBUG SYNC] Consultando ADIT para centro costo: {self.contrato.codigo_centro_costo}")
             adit_data = self.api_client.obtener_aditivos(
                 centro_costo=self.contrato.codigo_centro_costo
             )
+            print(f"[DEBUG SYNC] ADIT recibidos: {len(adit_data) if adit_data else 0}")
             if adit_data:
+                print(f"[DEBUG SYNC] Primer ADIT: {adit_data[0] if len(adit_data) > 0 else 'N/A'}")
                 snapshots_adit = self._crear_snapshots(adit_data, 'ADIT')
                 resultado['adit']['count'] = len(snapshots_adit)
                 resultado['adit']['success'] = True
                 logger.info(f"✅ {self.contrato.nombre_contrato}: {len(snapshots_adit)} ADIT sincronizados")
+            else:
+                print(f"[DEBUG SYNC] API retornó None o lista vacía para ADIT")
         except Exception as e:
             resultado['adit']['error'] = str(e)
+            print(f"[DEBUG SYNC] Error en ADIT: {str(e)}")
+            import traceback
+            traceback.print_exc()
             logger.error(f"❌ Error sincronizando ADIT para {self.contrato.nombre_contrato}: {e}")
         
         # Generar alertas
@@ -117,6 +133,7 @@ class StockService:
         Returns:
             Lista de StockSnapshot creados
         """
+        print(f"[DEBUG _crear_snapshots] Procesando {len(datos_api)} items de familia {familia}")
         snapshots = []
         
         for item in datos_api:
@@ -135,12 +152,17 @@ class StockService:
                 )
                 snapshots.append(snapshot)
             except Exception as e:
+                print(f"[DEBUG _crear_snapshots] Error procesando artículo {item}: {e}")
                 logger.warning(f"Error procesando artículo {item}: {e}")
                 continue
         
         # Bulk create para mejor performance
         if snapshots:
+            print(f"[DEBUG _crear_snapshots] Guardando {len(snapshots)} snapshots en BD")
             StockSnapshot.objects.bulk_create(snapshots)
+            print(f"[DEBUG _crear_snapshots] ✅ Snapshots guardados exitosamente")
+        else:
+            print(f"[DEBUG _crear_snapshots] ⚠️ No se crearon snapshots")
         
         return snapshots
     
