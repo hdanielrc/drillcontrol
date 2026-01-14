@@ -193,6 +193,7 @@ urlpatterns = [
     # Dashboard de Stock
     path('stock/dashboard/', views_stock.dashboard_stock, name='dashboard-stock'),
     path('stock/articulo/<int:contrato_id>/<str:codigo_articulo>/', views_stock.detalle_articulo_stock, name='detalle-articulo-stock'),
+    path('stock/historial-sincronizaciones/', views_stock.historial_sincronizaciones, name='historial-sincronizaciones'),
     
     # Alertas de Stock
     path('stock/alertas/', views_stock.AlertaStockListView.as_view(), name='alertas-stock-list'),

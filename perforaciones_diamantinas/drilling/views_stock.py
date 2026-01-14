@@ -409,3 +409,69 @@ def sincronizar_stock_contrato(request, contrato_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required
+def historial_sincronizaciones(request):
+    """
+    Vista para mostrar el historial de sincronizaciones de stock por contrato.
+    Muestra las últimas sincronizaciones, cantidad de artículos y tiempos.
+    """
+    user = request.user
+    
+    # Verificar permisos
+    if not user.is_superuser and user.role not in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR']:
+        messages.error(request, "No tienes permisos para ver este historial.")
+        return redirect('dashboard')
+    
+    # Obtener contratos accesibles
+    if user.is_superuser or user.role in ['GERENCIA', 'CONTROL_PROYECTOS']:
+        contratos = Contrato.objects.filter(estado='ACTIVO')
+    else:
+        contratos = Contrato.objects.filter(id=user.contrato.id) if hasattr(user, 'contrato') else Contrato.objects.none()
+    
+    # Contrato seleccionado
+    contrato_id = request.GET.get('contrato')
+    if contrato_id:
+        contrato = get_object_or_404(Contrato, id=contrato_id, estado='ACTIVO')
+    else:
+        contrato = contratos.first()
+    
+    historial = []
+    
+    if contrato:
+        # Obtener fechas únicas de sincronización (últimas 50)
+        fechas_sync = StockSnapshot.objects.filter(
+            contrato=contrato
+        ).values('fecha_sync').distinct().order_by('-fecha_sync')[:50]
+        
+        for fecha_obj in fechas_sync:
+            fecha = fecha_obj['fecha_sync']
+            
+            # Contar artículos por familia en esa fecha
+            pdd_count = StockSnapshot.objects.filter(
+                contrato=contrato,
+                fecha_sync=fecha,
+                familia='PDD'
+            ).count()
+            
+            adit_count = StockSnapshot.objects.filter(
+                contrato=contrato,
+                fecha_sync=fecha,
+                familia='ADIT'
+            ).count()
+            
+            historial.append({
+                'fecha': fecha,
+                'pdd_count': pdd_count,
+                'adit_count': adit_count,
+                'total': pdd_count + adit_count
+            })
+    
+    context = {
+        'contratos': contratos,
+        'contrato_seleccionado': contrato,
+        'historial': historial,
+    }
+    
+    return render(request, 'drilling/stock/historial_sincronizaciones.html', context)
