@@ -27,9 +27,18 @@ class VilbragroupAPIClient:
         self.centro_costo = centro_costo or getattr(settings, 'CENTRO_COSTO_DEFAULT', '')
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'DrillControl/1.0',
-            'Accept': 'application/json',
-            'Referer': 'https://tic.vilbragroup.net/'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Referer': 'https://tic.vilbragroup.net/',
+            'Origin': 'https://tic.vilbragroup.net',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
         })
     
     def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
