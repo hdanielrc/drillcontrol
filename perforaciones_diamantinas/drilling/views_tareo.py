@@ -1499,8 +1499,25 @@ def autocompletar_tareo_por_regimen(request):
         
         registros_creados = 0
         registros_actualizados = 0
+        trabajadores_sin_ciclo = 0
         
         with transaction.atomic():
+            # Inicializar fecha_inicio_ciclo para trabajadores que no la tienen
+            for trabajador in trabajadores:
+                if trabajador.grupo != 'LINEA_MANDO' and not trabajador.fecha_inicio_ciclo:
+                    # Asignar inicio de ciclo según guardia para que no coincidan
+                    if trabajador.guardia_asignada == 'A':
+                        trabajador.fecha_inicio_ciclo = fecha_inicio
+                    elif trabajador.guardia_asignada == 'B':
+                        trabajador.fecha_inicio_ciclo = fecha_inicio + timedelta(days=7)
+                    elif trabajador.guardia_asignada == 'C':
+                        trabajador.fecha_inicio_ciclo = fecha_inicio + timedelta(days=14)
+                    else:
+                        # Sin guardia, usar fecha inicio
+                        trabajador.fecha_inicio_ciclo = fecha_inicio
+                    trabajador.save()
+                    trabajadores_sin_ciclo += 1
+            
             # Recorrer cada día del mes
             fecha_actual = fecha_inicio
             while fecha_actual <= fecha_fin:
@@ -1512,8 +1529,11 @@ def autocompletar_tareo_por_regimen(request):
                         # Línea de mando trabaja todos los días hábiles (lunes a viernes)
                         estado = 'TRABAJADO' if fecha_actual.weekday() < 5 else 'DIA_LIBRE'
                     else:
-                        # Operadores, auxiliares y conductores: según régimen
-                        estado = trabajador.calcular_estado_regimen(fecha_actual) or 'TRABAJADO'
+                        # Operadores, auxiliares y conductores: según régimen configurado
+                        estado = trabajador.calcular_estado_regimen(fecha_actual)
+                        if not estado:
+                            # Fallback si aún no se pudo calcular
+                            estado = 'TRABAJADO'
                     
                     # Verificar si ya existe registro
                     asistencia, created = AsistenciaTrabajador.objects.get_or_create(
@@ -1540,11 +1560,16 @@ def autocompletar_tareo_por_regimen(request):
                 
                 fecha_actual += timedelta(days=1)
         
+        mensaje = f'✅ Tareo autocompletado: {registros_creados} registros creados, {registros_actualizados} actualizados'
+        if trabajadores_sin_ciclo > 0:
+            mensaje += f' ({trabajadores_sin_ciclo} trabajadores inicializados con fecha de ciclo)'
+        
         return JsonResponse({
             'success': True,
-            'message': f'Tareo autocompletado: {registros_creados} registros creados, {registros_actualizados} actualizados',
+            'message': mensaje,
             'creados': registros_creados,
             'actualizados': registros_actualizados,
+            'inicializados': trabajadores_sin_ciclo,
             'periodo': f'{fecha_inicio.strftime("%d/%m/%Y")} - {fecha_fin.strftime("%d/%m/%Y")}'
         })
         
