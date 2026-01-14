@@ -278,9 +278,9 @@ def api_trabajadores_por_grupo_fecha(request):
                 'nombres': trabajador.nombres,
                 'apellidos': trabajador.apellidos,
                 'nombre_completo': f"{trabajador.nombres} {trabajador.apellidos}".strip(),
-                'cargo': asistencia.cargo_snapshot or (trabajador.cargo.nombre_cargo if trabajador.cargo else ''),
+                'cargo': asistencia.cargo_snapshot or (trabajador.cargo.nombre if trabajador.cargo else ''),
                 'guardia': asistencia.guardia_snapshot,
-                'funcion': trabajador.cargo.nombre_cargo if trabajador.cargo else ''  # Función por defecto basada en su cargo
+                'funcion': trabajador.cargo.nombre if trabajador.cargo else ''  # Función por defecto basada en su cargo
             })
         
         return JsonResponse({

@@ -1522,6 +1522,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`/api/tareo/grupos-disponibles/?fecha=${fecha}&contrato_id=${contratoId}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Grupos disponibles:', data); // Debug
                     if (data.success && data.grupos && data.grupos.length > 0) {
                         // Llenar el select con los grupos disponibles
                         let options = '<option value="">Seleccionar Guardia...</option>';
