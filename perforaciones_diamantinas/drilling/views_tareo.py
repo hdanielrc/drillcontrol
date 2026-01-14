@@ -845,6 +845,8 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
 
 @login_required
 @require_http_methods(["POST"])
+@login_required
+@require_http_methods(["POST"])
 def limpiar_asistencias_mes(request):
     """
     Limpia todas las asistencias del contrato para el rango de fechas especificado.
@@ -861,6 +863,8 @@ def limpiar_asistencias_mes(request):
         fecha_fin_str = data.get('fecha_fin')
         mantener_protegidos = data.get('mantener_protegidos', True)
         
+        print(f"DEBUG Limpiar mes - Contrato: {contrato_id}, Fechas: {fecha_inicio_str} a {fecha_fin_str}")
+        
         if not all([contrato_id, fecha_inicio_str, fecha_fin_str]):
             return JsonResponse({'success': False, 'message': 'Faltan datos requeridos'}, status=400)
             
@@ -868,9 +872,11 @@ def limpiar_asistencias_mes(request):
         fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
         
         # Validar periodo (máximo 40 días para evitar limpiezas masivas accidentales)
-        dias = (fecha_fin - fecha_inicio).days
+        dias = (fecha_fin - fecha_inicio).days + 1
+        print(f"DEBUG - Días en el rango: {dias}")
+        
         if dias > 40:
-             return JsonResponse({'success': False, 'message': 'Rango de fechas demasiado amplio (máx 40 días)'}, status=400)
+             return JsonResponse({'success': False, 'message': f'Rango de fechas demasiado amplio ({dias} días, máx 40)'}, status=400)
              
         query = AsistenciaTrabajador.objects.filter(
             trabajador__contrato_id=contrato_id,
@@ -878,15 +884,28 @@ def limpiar_asistencias_mes(request):
             fecha__lte=fecha_fin
         )
         
+        total_antes = query.count()
+        print(f"DEBUG - Total registros antes de filtrar: {total_antes}")
+        
         if mantener_protegidos:
             ESTADOS_PROTEGIDOS = ['VACACIONES', 'DESCANSO_MEDICO', 'LICENCIA', 'PERMISO', 'SUBSIDIO']
             query = query.exclude(estado__in=ESTADOS_PROTEGIDOS)
             
+        total_a_eliminar = query.count()
+        print(f"DEBUG - Total a eliminar (sin protegidos): {total_a_eliminar}")
+        
         count, _ = query.delete()
         
-        return JsonResponse({'success': True, 'message': f'Se eliminaron {count} registros de asistencia.'})
+        print(f"DEBUG - Registros eliminados: {count}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Se eliminaron {count} de {total_antes} registros de asistencia.'
+        })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
