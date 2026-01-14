@@ -150,7 +150,7 @@
                                 <tr>
                                     <th class="text-center sticky-column" style="min-width: 40px; z-index: 1001;">#</th>
                                     <th class="text-center sticky-column-2" style="min-width: 250px; z-index: 1001;">Trabajador</th>
-                                    <th class="text-center" style="min-width: 150px; display: none;">Cargo</th>
+                                    <th class="text-center" style="min-width: 120px;">Máquina</th>
                                     <th class="text-center" style="min-width: 80px;">Grupo</th>
                                     <th class="text-center" style="min-width: 60px;">Guardia</th>
                                     {% for dia in dias_rango %}
@@ -164,7 +164,7 @@
                                             </button>
                                             <ul class="dropdown-menu p-1" style="min-width:120px;">
                                                 {% for codigo, nombre in estados_asistencia %}
-                                                <li><a class="dropdown-item py-1 px-2" href="#" onclick="aplicarEstadoColumna({{ forloop.parentloop.counter0|add:6 }}, '{{ codigo }}');return false;">{{ nombre }}</a></li>
+                                                <li><a class="dropdown-item py-1 px-2" href="#" onclick="aplicarEstadoColumna({{ forloop.parentloop.counter0|add:5 }}, '{{ codigo }}');return false;">{{ nombre }}</a></li>
                                                 {% endfor %}
                                             </ul>
                                         </div>
@@ -280,19 +280,18 @@
                                             <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo.nombre|truncatechars:25 }} | {{ item.trabajador.dni }}</div>
                                         </div>
                                     </td>
-                                    <td class="text-center p-1" style="font-size: 0.75rem; vertical-align: middle; display: none;">
-                                        <!-- Oculto para ahorrar espacio, ya se muestra con el nombre -->
-                                        {{ item.trabajador.cargo.nombre }}
+                                    <td class="text-center p-1" style="font-size: 0.75rem; vertical-align: middle;">
+                                        {% if item.trabajador.maquina_asignada %}
+                                        <span class="badge bg-primary" style="font-size: 0.7rem;" title="{{ item.trabajador.maquina_asignada.nombre }}">
+                                            <i class="fas fa-industry me-1"></i>{{ item.trabajador.maquina_asignada.codigo }}
+                                        </span>
+                                        <div class="text-muted mt-1" style="font-size: 0.6rem;">{{ item.trabajador.maquina_asignada.nombre|truncatechars:15 }}</div>
+                                        {% else %}
+                                        <span class="text-muted" style="font-size: 0.65rem;">-</span>
+                                        {% endif %}
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle;">
-                                        <div class="d-flex flex-column align-items-center">
-                                            <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.get_grupo_display|default:"-"|truncatechars:10 }}</span>
-                                            {% if item.trabajador.maquina_asignada and 'MAQ' not in grupo.key %}
-                                            <span class="badge bg-dark mt-1" style="font-size: 0.6rem; padding: 1px 3px;" title="{{ item.trabajador.maquina_asignada }}">
-                                                {{ item.trabajador.maquina_asignada.nombre }}
-                                            </span>
-                                            {% endif %}
-                                        </div>
+                                        <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.get_grupo_display|default:"-"|truncatechars:10 }}</span>
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle; cursor: pointer;" 
                                         onclick="toggleGuardia(this, {{ item.trabajador.id }})"
