@@ -1253,6 +1253,40 @@ class Trabajador(models.Model):
         else:
             return 'DIA_LIBRE'
 
+    def asignar_maquina_por_defecto(self):
+        """
+        Asigna una máquina por defecto al trabajador según su cargo y disponibilidad.
+        Solo asigna si el cargo es perforista o ayudante.
+        
+        Prioridad:
+        1. Máquinas del contrato que no tienen trabajadores asignados
+        2. Máquinas con menos trabajadores asignados
+        """
+        if not self.cargo:
+            return None
+        
+        cargo_nombre = self.cargo.nombre.upper()
+        
+        # Solo asignar a perforistas y ayudantes
+        if not any(keyword in cargo_nombre for keyword in ['PERFORISTA', 'AYUDANTE']):
+            return None
+        
+        # Buscar máquinas disponibles del mismo contrato
+        from django.db.models import Count
+        
+        maquinas_disponibles = Maquina.objects.filter(
+            contrato=self.contrato,
+            estado='OPERATIVO'
+        ).annotate(
+            num_trabajadores=Count('trabajadores_asignados')
+        ).order_by('num_trabajadores', 'codigo')
+        
+        # Retornar la máquina con menos trabajadores asignados
+        if maquinas_disponibles.exists():
+            return maquinas_disponibles.first()
+        
+        return None
+
     def asignar_grupo_automatico(self):
         """
         Asigna automáticamente el grupo funcional basado en el cargo del trabajador
@@ -1319,12 +1353,19 @@ class Trabajador(models.Model):
         return 'LINEA_MANDO'
     
     def save(self, *args, **kwargs):
-        """Override save para asignar automáticamente el grupo"""
+        """Override save para asignar automáticamente el grupo y máquina"""
         # Asignar grupo automáticamente si no tiene o si cambió el cargo
         if self.cargo:
             grupo_calculado = self.asignar_grupo_automatico()
             if grupo_calculado:
                 self.grupo = grupo_calculado
+        
+        # Asignar máquina por defecto si no tiene una asignada
+        # y es perforista o ayudante
+        if not self.maquina_asignada and self.cargo:
+            maquina_sugerida = self.asignar_maquina_por_defecto()
+            if maquina_sugerida:
+                self.maquina_asignada = maquina_sugerida
         
         super().save(*args, **kwargs)
 
