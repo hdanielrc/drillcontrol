@@ -10,11 +10,11 @@
         <i class="fas fa-calendar-check"></i>
     </div>
     <div class="page-header-content">
-        <h2>Tareo de Asistencia</h2>
-        <p>Control de asistencia y marcado de trabajadores</p>
+        <h2>Tareo de Asistencia - {{ nombre_periodo }}</h2>
+        <p>Control de asistencia mensual completo</p>
     </div>
-    {% if contratos_disponibles %}
-    <div class="page-header-actions">
+    <div class="page-header-actions d-flex gap-2">
+        {% if contratos_disponibles %}
         <select class="form-select" id="selectContrato" onchange="cambiarContrato()" style="min-width: 200px;">
             {% for c in contratos_disponibles %}
             <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
@@ -22,80 +22,41 @@
             </option>
             {% endfor %}
         </select>
+        {% endif %}
+        <button class="btn btn-success text-white" onclick="descargarTareoMes()" title="Descargar tareo del mes en Excel">
+            <i class="fas fa-download me-2"></i> Descargar Tareo
+        </button>
     </div>
-    {% endif %}
 </div>
 
-<!-- Controles de Navegación -->
+<!-- Navegación de Mes -->
 <div class="filter-section mb-4">
-    <div class="filter-header">
-        <i class="fas fa-sliders-h"></i> Configuración de Período
+    <div class="filter-header" style="background: linear-gradient(135deg, #0470AC, #084163);">
+        <i class="fas fa-calendar-alt"></i> Navegación Mensual
     </div>
     <div class="filter-body">
-        <!-- Selector de modo de visualización -->
-        <div class="row mb-3">
-            <div class="col-12">
-                <label class="form-label fw-medium">Modo de Visualización:</label>
-                <div class="btn-group" role="group">
-                    <input type="radio" class="btn-check" name="modo" id="modoSemana" value="semana" 
-                           {% if modo == 'semana' %}checked{% endif %} onchange="cambiarModo('semana')">
-                    <label class="btn btn-outline-primary" for="modoSemana">
-                        <i class="fas fa-calendar-week me-1"></i> Semana
-                    </label>
-                    
-                    <input type="radio" class="btn-check" name="modo" id="modoQuincena" value="quincena" 
-                           {% if modo == 'quincena' %}checked{% endif %} onchange="cambiarModo('quincena')">
-                    <label class="btn btn-outline-primary" for="modoQuincena">
-                        <i class="fas fa-calendar-alt me-1"></i> Quincena
-                    </label>
-                    
-                    <input type="radio" class="btn-check" name="modo" id="modoMes" value="mes" 
-                           {% if modo == 'mes' %}checked{% endif %} onchange="cambiarModo('mes')">
-                    <label class="btn btn-outline-primary" for="modoMes">
-                        <i class="fas fa-calendar me-1"></i> Mes Completo
-                    </label>
-                    
-                    <input type="radio" class="btn-check" name="modo" id="modoPersonalizado" value="personalizado" 
-                           {% if modo == 'personalizado' %}checked{% endif %} onchange="mostrarRangoPersonalizado()">
-                    <label class="btn btn-outline-primary" for="modoPersonalizado">
-                        <i class="fas fa-calendar-day me-1"></i> Personalizado
-                    </label>
-                </div>
-            </div>
+        <!-- Nota informativa -->
+        <div class="alert alert-info mb-3" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            Vista mensual completa. Use los botones de navegación para cambiar de mes.
         </div>
         
-        <!-- Rango personalizado (oculto por defecto) -->
-        <div class="row mb-3" id="rangoPersonalizado" style="display: {% if modo == 'personalizado' %}flex{% else %}none{% endif %};">
-            <div class="col-md-4">
-                <label class="form-label fw-medium">Fecha Inicio:</label>
-                <input type="date" class="form-control" id="fechaInicio" value="{{ fecha_inicio|date:'Y-m-d' }}">
-            </div>
-            <div class="col-md-4">
-                <label class="form-label fw-medium">Fecha Fin:</label>
-                <input type="date" class="form-control" id="fechaFin" value="{{ fecha_fin|date:'Y-m-d' }}">
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button class="btn btn-primary" onclick="aplicarRangoPersonalizado()">
-                    <i class="fas fa-search me-1"></i> Aplicar
-                </button>
-            </div>
-        </div>
-        
-        <!-- Navegación del período -->
-        <div class="d-flex justify-content-between align-items-center p-3 rounded" style="background: linear-gradient(135deg, rgba(4, 112, 172, 0.1), rgba(8, 65, 99, 0.05));">
-            <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_anterior|date:'Y-m-d' }}" 
-               class="btn btn-outline-primary">
-                <i class="fas fa-chevron-left me-1"></i> Anterior
+        <!-- Navegación del mes -->
+        <div class="d-flex justify-content-between align-items-center p-4 rounded" style="background: linear-gradient(135deg, rgba(4, 112, 172, 0.15), rgba(8, 65, 99, 0.1));">
+            <a href="?contrato={{ contrato.id }}&mes_offset=-1" 
+               class="btn btn-lg btn-outline-primary">
+                <i class="fas fa-chevron-left me-2"></i> Mes Anterior
             </a>
             
             <div class="text-center">
-                <h5 class="mb-0 text-primary">{{ nombre_periodo }}</h5>
-                <small class="text-muted">{{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</small>
+                <h3 class="mb-1 text-primary fw-bold">{{ nombre_periodo }}</h3>
+                <p class="mb-0 text-muted">{{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</p>
+                <small class="badge bg-primary mt-2">{{ total_dias }} días</small>
             </div>
             
-            <a href="?contrato={{ contrato.id }}&modo={{ modo }}&fecha_inicio={{ fecha_siguiente|date:'Y-m-d' }}" 
-               class="btn btn-outline-primary">
-                Siguiente <i class="fas fa-chevron-right ms-1"></i>
+            <a href="?contrato={{ contrato.id }}&mes_offset=1" 
+               class="btn btn-lg btn-outline-primary">
+                Mes Siguiente <i class="fas fa-chevron-right ms-2"></i>
             </a>
         </div>
     </div>
@@ -157,19 +118,19 @@
                 </div>
             </div>
             
-            <!-- Exportar -->
+            <!-- Herramientas de automatización y exportación -->
             <div>
-                <button class="btn btn-sm btn-danger text-white me-2" onclick="confirmarLimpiezaMes()" title="Limpiar asistencias del mes actual">
+                <button class="btn btn-sm btn-primary text-white me-2" onclick="generarGuardiasAutomaticas()" title="Generar guardias A, B, C automáticamente">
+                    <i class="fas fa-users-cog me-1"></i> Generar Guardias
+                </button>
+                <button class="btn btn-sm btn-info text-white me-2" onclick="autocompletarRegimen()" title="Autocompletar tareo según régimen laboral">
+                    <i class="fas fa-magic me-1"></i> Autocompletar Régimen
+                </button>
+                <button class="btn btn-sm btn-secondary text-white me-2" onclick="actualizarGrupos()" title="Actualizar grupos funcionales">
+                    <i class="fas fa-sync me-1"></i> Actualizar Grupos
+                </button>
+                <button class="btn btn-sm btn-danger text-white" onclick="confirmarLimpiezaMes()" title="Limpiar asistencias del mes">
                     <i class="fas fa-trash-alt me-1"></i> Limpiar Mes
-                </button>
-                <button class="btn btn-sm btn-secondary text-white me-2" onclick="actualizarGrupos()" title="Actualizar grupos funcionales (Línea de Mando, Operadores, etc.)">
-                    <i class="fas fa-sync me-1"></i> Grupos
-                </button>
-                <button class="btn btn-sm btn-info text-white me-2" onclick="autoRellenarAsistencia()">
-                    <i class="fas fa-magic me-1"></i> Auto Rellenar
-                </button>
-                <button class="btn btn-sm btn-success" onclick="exportarExcel()">
-                    <i class="fas fa-file-excel me-1"></i> Exportar Excel
                 </button>
             </div>
         </div>
@@ -1021,39 +982,13 @@
         celda.innerHTML = `<span class="badge-estado" data-estado="${estado}">${displayText}</span>`;
     }
     
-    function cambiarModo(nuevoModo) {
-        const contratoId = {{ contrato.id }};
-        // Para semana, usar el lunes de la semana actual
-        const hoy = new Date();
-        const diaActual = hoy.getDay() || 7; // 0=Domingo -> 7, 1=Lunes -> 1, etc.
-        const lunes = new Date(hoy);
-        lunes.setDate(hoy.getDate() - (diaActual - 1));
-        const fechaInicio = lunes.toISOString().split('T')[0];
-        
-        window.location.href = `?contrato=${contratoId}&modo=${nuevoModo}&fecha_inicio=${fechaInicio}`;
+    // Funciones de navegación simplificadas
+    function cambiarContrato() {
+        const selectContrato = document.getElementById('selectContrato');
+        const contratoId = selectContrato.value;
+        window.location.href = `?contrato=${contratoId}`;
     }
-    
-    function mostrarRangoPersonalizado() {
-        document.getElementById('rangoPersonalizado').style.display = 'flex';
-    }
-    
-    function aplicarRangoPersonalizado() {
-        const contratoId = {{ contrato.id }};
-        const fechaInicio = document.getElementById('fechaInicio').value;
-        const fechaFin = document.getElementById('fechaFin').value;
-        
-        if (!fechaInicio || !fechaFin) {
-            mostrarToast('Debe seleccionar ambas fechas', 'warning');
-            return;
-        }
 
-        if (new Date(fechaInicio) > new Date(fechaFin)) {
-            mostrarToast('La fecha de inicio debe ser menor o igual a la fecha fin', 'warning');
-            return;
-        }
-        
-        window.location.href = `?contrato=${contratoId}&modo=personalizado&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
-    }
     
     function abrirModalAsistencia(trabajadorId, fecha, estadoActual, observaciones, tipoActual) {
         // Nota: la selección múltiple se maneja en el handler de click del DOM,
@@ -1456,57 +1391,7 @@
         });
     }
     
-    function exportarExcel() {
-        const contratoId = {{ contrato.id }};
-        const modo = '{{ modo }}';
-        const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
-        const fechaFin = '{{ fecha_fin|date:"Y-m-d" }}';
-        window.location.href = `/tareo/exportar-excel/?contrato=${contratoId}&modo=${modo}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
-    }
 
-    function autoRellenarAsistencia() {
-        if (!confirm('¿Está seguro de auto-rellenar la asistencia según el régimen laboral?\n\nEsto sobrescribirá estados vacíos, TRABAJADO, DIA_LIBRE y FALTA.\nNo afectará licencias, vacaciones ni descansos médicos.')) {
-            return;
-        }
-
-        const contratoId = {{ contrato.id }};
-        const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
-        const fechaFin = '{{ fecha_fin|date:"Y-m-d" }}';
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        mostrarToast('Procesando auto-rellenado...', 'info', 5000);
-
-        fetch('/tareo/auto-rellenar/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken
-            },
-            body: JSON.stringify({
-                contrato_id: contratoId,
-                fecha_inicio: fechaInicio,
-                fecha_fin: fechaFin
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                mostrarToast('✅ ' + data.message, 'success', 5000);
-                if (data.alertas && data.alertas.length > 0) {
-                    setTimeout(() => {
-                        alert('ADVERTENCIAS DE COBERTURA:\n\n' + data.alertas.join('\n'));
-                    }, 1000);
-                }
-                setTimeout(() => location.reload(), 2000);
-            } else {
-                mostrarToast('❌ ' + data.message, 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            mostrarToast('Error al procesar solicitud', 'danger');
-        });
-    }
 
     function actualizarGrupos() {
         if (!confirm('¿Desea recalcular los grupos funcionales (Línea de Mando, Operadores, etc.) para todos los trabajadores?\n\nEsto corregirá la clasificación si ha cambiado cargos recientemente.')) {
@@ -1542,6 +1427,94 @@
             mostrarToast('Error al actualizar grupos', 'danger');
         });
     }
+
+    function generarGuardiasAutomaticas() {
+        if (!confirm('¿Generar guardias A, B, C automáticamente para:\n\n- Operadores (Perforistas/Ayudantes)\n- Personal Auxiliar\n- Conductores\n\n¿Continuar?')) {
+            return;
+        }
+
+        const contratoId = {{ contrato.id }};
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        mostrarToast('Generando guardias...', 'info');
+
+        const formData = new FormData();
+        formData.append('contrato_id', contratoId);
+
+        fetch('/tareo/generar-guardias/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('✅ ' + data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast('❌ ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarToast('Error al generar guardias', 'danger');
+        });
+    }
+
+    function autocompletarRegimen() {
+        if (!confirm('¿Autocompletar tareo del mes según régimen laboral?\n\nEsto llenará las asistencias basándose en:\n- Régimen de trabajo (14x7, 20x10, etc.)\n- Rotación de guardias\n- Días trabajados/descanso\n\n¿Continuar?')) {
+            return;
+        }
+
+        const contratoId = {{ contrato.id }};
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        mostrarToast('Autocompletando tareo...', 'info', 3000);
+
+        const formData = new FormData();
+        formData.append('contrato_id', contratoId);
+        formData.append('fecha_inicio', '{{ fecha_inicio|date:"Y-m-d" }}');
+        formData.append('fecha_fin', '{{ fecha_fin|date:"Y-m-d" }}');
+
+        fetch('/tareo/autocompletar-regimen/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('✅ ' + data.message, 'success', 4000);
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                mostrarToast('❌ ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarToast('Error al autocompletar tareo', 'danger');
+        });
+    }
+
+    function descargarTareoMes() {
+        // Obtener parámetros actuales
+        const contratoId = {{ contrato.id }};
+        const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
+        const fechaFin = '{{ fecha_fin|date:"Y-m-d" }}';
+        
+        // Construir URL de exportación
+        const url = `/tareo/exportar-excel/?contrato=${contratoId}&modo=mes&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+        
+        mostrarToast('Descargando tareo del mes...', 'info', 2000);
+        
+        // Abrir en nueva pestaña para descargar
+        window.open(url, '_blank');
+    }
+
 </script>
 
 {% endblock %}

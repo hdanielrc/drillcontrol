@@ -64,49 +64,44 @@ def tareo_mensual_view(request):
         messages.warning(request, 'No hay contratos activos disponibles')
         return redirect('dashboard')
     
-    # Determinar el rango de fechas a mostrar
-    modo = request.GET.get('modo', 'mes')  # Por defecto 'mes'
+    # NUEVA LÓGICA: Siempre mostrar mes completo, navegación por meses
+    mes_offset = int(request.GET.get('mes_offset', 0))
     
-    # Obtener fecha de inicio
-    fecha_inicio_str = request.GET.get('fecha_inicio')
-    if fecha_inicio_str:
-        try:
-            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        except ValueError:
-            fecha_inicio = datetime.now().date()
+    # Calcular el mes a mostrar
+    hoy = datetime.now().date()
+    if mes_offset == 0:
+        # Mes actual
+        fecha_base = hoy
     else:
-        # Por defecto, hoy
-        hoy = datetime.now().date()
-        if modo == 'mes':
-            # Si es mes, forzar al día 1 del mes actual
-            fecha_inicio = hoy.replace(day=1)
-        else:
-            # Si es semana/quincena, inicio de la semana (lunes)
-            fecha_inicio = hoy - timedelta(days=hoy.weekday())
+        # Agregar/restar meses
+        fecha_base = hoy
+        for _ in range(abs(mes_offset)):
+            if mes_offset > 0:
+                # Mes siguiente
+                if fecha_base.month == 12:
+                    fecha_base = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
+                else:
+                    fecha_base = fecha_base.replace(month=fecha_base.month + 1, day=1)
+            else:
+                # Mes anterior
+                if fecha_base.month == 1:
+                    fecha_base = fecha_base.replace(year=fecha_base.year - 1, month=12, day=1)
+                else:
+                    fecha_base = fecha_base.replace(month=fecha_base.month - 1, day=1)
     
-    # Calcular fecha fin según el modo
-    if modo == 'semana':
-        fecha_fin = fecha_inicio + timedelta(days=6)  # 7 días
-        dias_a_mostrar = 7
-    elif modo == 'quincena':
-        fecha_fin = fecha_inicio + timedelta(days=14)  # 15 días
-        dias_a_mostrar = 15
-    elif modo == 'mes':
-        # Mes completo
-        fecha_inicio = fecha_inicio.replace(day=1)
-        num_dias = monthrange(fecha_inicio.year, fecha_inicio.month)[1]
-        fecha_fin = fecha_inicio + timedelta(days=num_dias - 1)
-        dias_a_mostrar = num_dias
-    else:  # personalizado
-        fecha_fin_str = request.GET.get('fecha_fin')
-        if fecha_fin_str:
-            try:
-                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
-            except ValueError:
-                fecha_fin = fecha_inicio + timedelta(days=6)
-        else:
-            fecha_fin = fecha_inicio + timedelta(days=6)
-        dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
+    # Calcular primer y último día del mes
+    fecha_inicio = fecha_base.replace(day=1)
+    num_dias = monthrange(fecha_inicio.year, fecha_inicio.month)[1]
+    fecha_fin = fecha_inicio + timedelta(days=num_dias - 1)
+    dias_a_mostrar = num_dias
+    
+    # Nombre del período
+    meses_es = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    nombre_periodo = f"{meses_es[fecha_inicio.month]} {fecha_inicio.year}"
     
     # Generar lista de días del rango
     dias_rango = []
@@ -282,50 +277,10 @@ def tareo_mensual_view(request):
         })
 
     
-    # Navegación
-    if modo == 'semana':
-        fecha_anterior = fecha_inicio - timedelta(days=7)
-        fecha_siguiente = fecha_inicio + timedelta(days=7)
-    elif modo == 'quincena':
-        fecha_anterior = fecha_inicio - timedelta(days=15)
-        fecha_siguiente = fecha_inicio + timedelta(days=15)
-    elif modo == 'mes':
-        # Mes anterior
-        if fecha_inicio.month == 1:
-            fecha_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=1)
-        else:
-            fecha_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=1)
-        # Mes siguiente
-        if fecha_inicio.month == 12:
-            fecha_siguiente = fecha_inicio.replace(year=fecha_inicio.year + 1, month=1, day=1)
-        else:
-            fecha_siguiente = fecha_inicio.replace(month=fecha_inicio.month + 1, day=1)
-    else:
-        dias_diff = dias_a_mostrar
-        fecha_anterior = fecha_inicio - timedelta(days=dias_diff)
-        fecha_siguiente = fecha_inicio + timedelta(days=dias_diff)
-    
-    # Nombre del período
-    meses_es = {
-        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
-        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
-        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
-    }
-    
-    if modo == 'mes':
-        nombre_periodo = f"{meses_es[fecha_inicio.month]} {fecha_inicio.year}"
-    elif modo == 'semana':
-        if fecha_inicio.month == fecha_fin.month:
-            nombre_periodo = f"Semana del {fecha_inicio.day} al {fecha_fin.day} de {meses_es[fecha_inicio.month]} {fecha_inicio.year}"
-        else:
-            nombre_periodo = f"Semana del {fecha_inicio.day} {meses_es[fecha_inicio.month]} al {fecha_fin.day} {meses_es[fecha_fin.month]} {fecha_inicio.year}"
-    else:
-        nombre_periodo = f"{fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
-    
+    # Contexto para el template
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
-        'modo': modo,
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
         'nombre_periodo': nombre_periodo,
@@ -334,8 +289,6 @@ def tareo_mensual_view(request):
         'total_trabajadores': trabajadores.count(),
         'total_dias': dias_a_mostrar,
         'estados_asistencia': AsistenciaTrabajador.ESTADO_ASISTENCIA_CHOICES,
-        'fecha_anterior': fecha_anterior,
-        'fecha_siguiente': fecha_siguiente,
     }
     
     return render(request, 'drilling/tareo/mensual.html', context)
