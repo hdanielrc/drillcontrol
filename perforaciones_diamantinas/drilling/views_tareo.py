@@ -18,6 +18,7 @@ from django.db.models import Count
 from datetime import datetime, timedelta, date
 from calendar import monthrange
 from openpyxl import Workbook
+import json
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from .models import Contrato, Trabajador, AsistenciaTrabajador
@@ -1353,6 +1354,8 @@ def debug_trabajadores(request):
 
 @login_required
 @require_http_methods(["POST"])
+@login_required
+@require_http_methods(["POST"])
 def generar_guardias_automaticas(request):
     """
     Genera y asigna guardias A, B, C automáticamente a:
@@ -1431,6 +1434,8 @@ def generar_guardias_automaticas(request):
 
 @login_required
 @require_http_methods(["POST"])
+@login_required
+@require_http_methods(["POST"])
 def autocompletar_tareo_por_regimen(request):
     """
     Autocompleta el tareo del mes según el régimen laboral de cada trabajador.
@@ -1444,25 +1449,25 @@ def autocompletar_tareo_por_regimen(request):
     user = request.user
     
     if not user.can_manage_contract_users():
-        return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+        return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
     
     try:
-        data = json.loads(request.body)
-        mes = data.get('mes')  # Formato: YYYY-MM
-        contrato_id = data.get('contrato_id')
+        # Obtener datos de POST (FormData)
+        contrato_id = request.POST.get('contrato_id')
+        fecha_inicio_str = request.POST.get('fecha_inicio')
+        fecha_fin_str = request.POST.get('fecha_fin')
         
-        if not mes:
-            return JsonResponse({'success': False, 'error': 'Debe especificar mes'}, status=400)
+        if not fecha_inicio_str or not fecha_fin_str:
+            return JsonResponse({'success': False, 'message': 'Fechas no especificadas'}, status=400)
         
-        # Parsear mes
-        fecha_inicio = datetime.strptime(f"{mes}-01", '%Y-%m-%d').date()
-        num_dias = monthrange(fecha_inicio.year, fecha_inicio.month)[1]
-        fecha_fin = fecha_inicio.replace(day=num_dias)
+        # Parsear fechas
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
         
         # Determinar contrato
         if user.has_access_to_all_contracts():
             if not contrato_id:
-                return JsonResponse({'success': False, 'error': 'Debe especificar contrato'}, status=400)
+                return JsonResponse({'success': False, 'message': 'Debe especificar contrato'}, status=400)
             contrato = Contrato.objects.get(id=contrato_id)
         else:
             contrato = user.contrato
@@ -1518,14 +1523,16 @@ def autocompletar_tareo_por_regimen(request):
         
         return JsonResponse({
             'success': True,
-            'message': f'Tareo autocompletado para {mes}',
+            'message': f'Tareo autocompletado: {registros_creados} registros creados, {registros_actualizados} actualizados',
             'creados': registros_creados,
             'actualizados': registros_actualizados,
             'periodo': f'{fecha_inicio.strftime("%d/%m/%Y")} - {fecha_fin.strftime("%d/%m/%Y")}'
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
-            'error': f'Error al autocompletar tareo: {str(e)}'
+            'message': f'Error al autocompletar tareo: {str(e)}'
         }, status=500)

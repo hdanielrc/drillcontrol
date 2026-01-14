@@ -1452,7 +1452,7 @@
                 mostrarToast('✅ ' + data.message, 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                mostrarToast('❌ ' + data.message, 'danger');
+                mostrarToast('❌ ' + (data.message || data.error || 'Error desconocido'), 'danger');
             }
         })
         .catch(error => {
@@ -1489,7 +1489,7 @@
                 mostrarToast('✅ ' + data.message, 'success', 4000);
                 setTimeout(() => location.reload(), 2000);
             } else {
-                mostrarToast('❌ ' + data.message, 'danger');
+                mostrarToast('❌ ' + (data.message || data.error || 'Error desconocido'), 'danger');
             }
         })
         .catch(error => {
