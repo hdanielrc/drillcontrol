@@ -70,15 +70,12 @@ class VilbragroupAPIClient:
             
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout al conectar con {url}")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error en petición a {url}: {str(e)}")
+        except Exception as e:
+            # Manejar todos los errores (timeout, HTTP errors, etc)
+            error_type = type(e).__name__
+            logger.error(f"Error {error_type} en petición a {url}: {str(e)}")
+            print(f"[API DEBUG] Exception type: {error_type}")
             print(f"[API DEBUG] Exception details: {str(e)}")
-            return None
-        except ValueError as e:
-            logger.error(f"Error al parsear JSON de {url}: {str(e)}")
             return None
     
 
