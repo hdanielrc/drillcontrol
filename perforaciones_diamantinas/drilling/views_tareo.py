@@ -1513,7 +1513,7 @@ def autocompletar_tareo_por_regimen(request):
                         estado = 'TRABAJADO' if fecha_actual.weekday() < 5 else 'DIA_LIBRE'
                     else:
                         # Operadores, auxiliares y conductores: según régimen
-                        estado = trabajador.calcular_estado_por_regimen(fecha_actual)
+                        estado = trabajador.calcular_estado_regimen(fecha_actual) or 'TRABAJADO'
                     
                     # Verificar si ya existe registro
                     asistencia, created = AsistenciaTrabajador.objects.get_or_create(
