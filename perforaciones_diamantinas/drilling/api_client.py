@@ -55,12 +55,20 @@ class VilbragroupAPIClient:
         url = f"{self.BASE_URL}/{endpoint}"
         # Log detallado para depuración
         print("[API DEBUG] URL:", url)
-        print("[API DEBUG] Headers:", self.session.headers)
+        print("[API DEBUG] Headers:", dict(self.session.headers))
         print("[API DEBUG] Params:", params)
         try:
             response = self.session.get(url, params=params, timeout=30)
             print("[API DEBUG] Status Code:", response.status_code)
-            print("[API DEBUG] Response Text:", response.text[:500])  # Solo los primeros 500 caracteres
+            print("[API DEBUG] Response Text (primeros 1000 chars):", response.text[:1000])
+            
+            # Si es 403, mostrar más info antes de fallar
+            if response.status_code == 403:
+                print("[API DEBUG] ❌ Error 403 Forbidden - Verificar token y centro de costo")
+                print("[API DEBUG] Token presente:", 'token' in params and bool(params.get('token')))
+                print("[API DEBUG] Centro costo:", params.get('cc', 'NO ENVIADO'))
+                print("[API DEBUG] Familia:", params.get('fam', 'NO ENVIADO'))
+            
             response.raise_for_status()
             return response.json()
         except requests.exceptions.Timeout:
@@ -68,6 +76,7 @@ class VilbragroupAPIClient:
             return None
         except requests.exceptions.RequestException as e:
             logger.error(f"Error en petición a {url}: {str(e)}")
+            print(f"[API DEBUG] Exception details: {str(e)}")
             return None
         except ValueError as e:
             logger.error(f"Error al parsear JSON de {url}: {str(e)}")
@@ -103,12 +112,20 @@ class VilbragroupAPIClient:
         """
         cc = centro_costo or self.centro_costo
         
+        print(f"[API DEBUG obtener_articulos_almacen] Familia: {familia}")
+        print(f"[API DEBUG obtener_articulos_almacen] Centro costo recibido: {centro_costo}")
+        print(f"[API DEBUG obtener_articulos_almacen] Centro costo por defecto: {self.centro_costo}")
+        print(f"[API DEBUG obtener_articulos_almacen] Centro costo final (cc): {cc}")
+        print(f"[API DEBUG obtener_articulos_almacen] Token configurado: {bool(self.token)}")
+        
         if not self.token:
             logger.error("Token de API no configurado")
+            print("[API DEBUG obtener_articulos_almacen] ❌ ERROR: Token no configurado")
             return []
         
         if not cc:
             logger.error("Centro de costo no especificado")
+            print("[API DEBUG obtener_articulos_almacen] ❌ ERROR: Centro de costo no especificado")
             return []
         
         if familia not in ['PDD', 'ADIT']:
