@@ -188,7 +188,7 @@ def api_grupos_disponibles_por_fecha(request):
             guardia_snapshot__isnull=False
         ).exclude(
             guardia_snapshot=''
-        ).select_related('trabajador')
+        ).select_related('trabajador', 'trabajador__cargo')
         
         # Log para debug
         debug_info = {}
@@ -202,19 +202,16 @@ def api_grupos_disponibles_por_fecha(request):
         
         logger.info(f"DEBUG - Trabajadores por guardia en {fecha_str}: {debug_info}")
         
-        # Ahora filtrar solo OPERADORES
+        # Filtrar por CARGO en lugar de grupo funcional
+        # Buscar cargos que contengan palabras clave de operadores
         grupos_query = AsistenciaTrabajador.objects.filter(
             trabajador__contrato=contrato,
             fecha=fecha,
             estado='TRABAJADO',
             guardia_snapshot__isnull=False
         ).filter(
-            # Filtrar solo por grupos de operadores (perforistas y ayudantes)
-            trabajador__grupo__in=[
-                'OPERADORES_INTERIOR_MINA',
-                'OPERADORES_SUPERFICIE',
-                'OPERADORES'  # Legacy
-            ]
+            # Filtrar por cargo que contenga palabras clave de perforistas/ayudantes
+            trabajador__cargo__nombre__iregex=r'(perforist|ayudante|operador|winch)'
         ).exclude(
             guardia_snapshot=''
         ).values_list('guardia_snapshot', flat=True).distinct().order_by('guardia_snapshot')
@@ -294,19 +291,15 @@ def api_trabajadores_por_grupo_fecha(request):
     
     try:
         # Obtener trabajadores del grupo en la fecha específica
-        # Filtrar solo OPERADORES (perforistas y ayudantes)
+        # Filtrar por CARGO en lugar de grupo funcional
         asistencias = AsistenciaTrabajador.objects.filter(
             trabajador__contrato=contrato,
             fecha=fecha,
             guardia_snapshot=grupo,
             estado='TRABAJADO'  # Solo trabajadores que asistieron
         ).filter(
-            # Filtrar solo por grupos de operadores
-            trabajador__grupo__in=[
-                'OPERADORES_INTERIOR_MINA',
-                'OPERADORES_SUPERFICIE',
-                'OPERADORES'  # Legacy
-            ]
+            # Filtrar por cargo que contenga palabras clave de perforistas/ayudantes
+            trabajador__cargo__nombre__iregex=r'(perforist|ayudante|operador|winch)'
         ).select_related('trabajador', 'trabajador__cargo')
         
         trabajadores_data = []
