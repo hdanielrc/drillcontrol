@@ -1279,7 +1279,7 @@ class Trabajador(models.Model):
             estado='OPERATIVO'
         ).annotate(
             num_trabajadores=Count('trabajadores_asignados')
-        ).order_by('num_trabajadores', 'codigo')
+        ).order_by('num_trabajadores', 'nombre')
         
         # Retornar la máquina con menos trabajadores asignados
         if maquinas_disponibles.exists():

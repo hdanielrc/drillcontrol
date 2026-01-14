@@ -87,7 +87,7 @@ class Command(BaseCommand):
                     asignados += 1
                     self.stdout.write(self.style.SUCCESS(f"✅ {trabajador.apellidos}, {trabajador.nombres}"))
                     self.stdout.write(f"   Cargo: {trabajador.cargo.nombre}")
-                    self.stdout.write(f"   Máquina asignada: {maquina.nombre} ({maquina.codigo})")
+                    self.stdout.write(f"   Máquina asignada: {maquina.nombre}")
                     self.stdout.write(f"   Contrato: {trabajador.contrato.nombre_contrato}")
                     if dry_run:
                         self.stdout.write(self.style.WARNING("   [SIMULACIÓN - No guardado]"))
@@ -154,7 +154,7 @@ class Command(BaseCommand):
         
         maquinas = Maquina.objects.filter(**filtro_maquinas).select_related('contrato').annotate(
             num_trabajadores=Count('trabajadores_asignados')
-        ).order_by('contrato__nombre_contrato', 'codigo')
+        ).order_by('contrato__nombre_contrato', 'nombre')
         
         if maquinas.exists():
             contrato_actual = None
@@ -162,6 +162,6 @@ class Command(BaseCommand):
                 if contrato_actual != maquina.contrato.nombre_contrato:
                     contrato_actual = maquina.contrato.nombre_contrato
                     self.stdout.write(f"\n   📍 {contrato_actual}:")
-                self.stdout.write(f"      • {maquina.nombre} ({maquina.codigo}) - {maquina.num_trabajadores} trabajadores")
+                self.stdout.write(f"      • {maquina.nombre} - {maquina.num_trabajadores} trabajadores")
         else:
             self.stdout.write(self.style.WARNING("   ⚠️  No hay máquinas operativas"))
