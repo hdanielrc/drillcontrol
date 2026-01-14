@@ -276,9 +276,8 @@ def api_trabajadores_por_grupo_fecha(request):
                 'id': trabajador.id,
                 'dni': trabajador.dni,
                 'nombres': trabajador.nombres,
-                'apellido_paterno': trabajador.apellido_paterno,
-                'apellido_materno': trabajador.apellido_materno,
-                'nombre_completo': f"{trabajador.nombres} {trabajador.apellido_paterno} {trabajador.apellido_materno}",
+                'apellidos': trabajador.apellidos,
+                'nombre_completo': f"{trabajador.nombres} {trabajador.apellidos}".strip(),
                 'cargo': asistencia.cargo_snapshot or (trabajador.cargo.nombre_cargo if trabajador.cargo else ''),
                 'guardia': asistencia.guardia_snapshot,
                 'funcion': trabajador.cargo.nombre_cargo if trabajador.cargo else ''  # Función por defecto basada en su cargo
