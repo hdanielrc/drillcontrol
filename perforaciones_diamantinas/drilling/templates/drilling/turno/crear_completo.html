@@ -1497,6 +1497,46 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
+    // FUNCIÓN PARA ACTUALIZAR BADGES DEL SIDEBAR
+    // ==========================================
+    function actualizarBadges() {
+        // Contar trabajadores
+        const numTrabajadores = document.querySelectorAll('.trabajador-row').length;
+        const badgeTrabajadores = document.getElementById('badge-trabajadores');
+        if (badgeTrabajadores) {
+            badgeTrabajadores.textContent = numTrabajadores;
+        }
+        
+        // Contar complementos/diamantados
+        const numDiamantados = document.querySelectorAll('.complemento-row').length;
+        const badgeDiamantados = document.getElementById('badge-diamantados');
+        if (badgeDiamantados) {
+            badgeDiamantados.textContent = numDiamantados;
+        }
+        
+        // Contar aditivos
+        const numAditivos = document.querySelectorAll('.aditivo-row').length;
+        const badgeAditivos = document.getElementById('badge-aditivos');
+        if (badgeAditivos) {
+            badgeAditivos.textContent = numAditivos;
+        }
+        
+        // Contar actividades
+        const numActividades = document.querySelectorAll('.actividad-row').length;
+        const badgeActividades = document.getElementById('badge-actividades');
+        if (badgeActividades) {
+            badgeActividades.textContent = numActividades;
+        }
+        
+        // Contar corridas
+        const numCorridas = document.querySelectorAll('.corrida-row').length;
+        const badgeCorridas = document.getElementById('badge-corridas');
+        if (badgeCorridas) {
+            badgeCorridas.textContent = numCorridas;
+        }
+    }
+
+    // ==========================================
     // CARGAR GRUPOS DISPONIBLES SEGÚN FECHA
     // ==========================================
     const inputFecha = document.getElementById('fecha');
@@ -2484,8 +2524,28 @@ document.addEventListener('DOMContentLoaded', function() {
     agregarTooltips();
 
     // =============================================
-    // RECOLECCIÓN DE DATOS ANTES DEL SUBMIT
+    // FUNCIONES GLOBALES PARA TRABAJADORES
     // =============================================
+    
+    // Función para eliminar fila de trabajador
+    window.eliminarFila = function(button) {
+        const row = button.closest('.trabajador-row');
+        if (row) {
+            row.remove();
+            actualizarBadges();
+            
+            // Mostrar empty state si no quedan trabajadores
+            const container = document.getElementById('trabajadores-seccion');
+            if (container.querySelectorAll('.trabajador-row').length === 0) {
+                container.innerHTML = `
+                    <div class="section-empty-state" id="empty-trabajadores">
+                        <i class="fas fa-user-plus"></i>
+                        <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" o use el selector de Guardia para comenzar.</p>
+                    </div>
+                `;
+            }
+        }
+    };
     
     function actualizarEstiloFila(select) {
         const row = select.closest('.trabajador-row');
@@ -2502,7 +2562,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Recolectar trabajadores
         const trabajadores = [];
         document.querySelectorAll('.trabajador-row').forEach(row => {
-            const trabajadorId = row.querySelector('select[name*="trabajador_"]').value;
+            // Intentar buscar tanto por nombre como por clase
+            const selectTrabajador = row.querySelector('.select-trabajador') || row.querySelector('select[name*="trabajador_"]');
+            const trabajadorId = selectTrabajador ? selectTrabajador.value : null;
+            
             // Manejar tanto select (manual) como input (auto) para función
             let funcion = '';
             const funcSelect = row.querySelector('select[name*="funcion_"]');
@@ -2510,7 +2573,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (funcInput) funcion = funcInput.value;
             else if (funcSelect) funcion = funcSelect.value;
 
-            const observaciones = row.querySelector('input[name*="obs_"]').value;
+            // Observaciones
+            const obsInput = row.querySelector('.input-observaciones') || row.querySelector('input[name*="obs_"]');
+            const observaciones = obsInput ? obsInput.value : '';
+            
             const estadoSelect = row.querySelector('.status-selector');
             const estado = estadoSelect ? estadoSelect.value : 'TRABAJADO';
             
