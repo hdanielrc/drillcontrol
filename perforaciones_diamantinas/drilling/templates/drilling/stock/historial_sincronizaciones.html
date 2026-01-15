@@ -3,50 +3,20 @@
 
 {% block title %}Historial de Sincronizaciones - Stock{% endblock %}
 
-{% block extra_css %}
-<style>
-    .sync-card {
-        transition: all 0.2s ease;
-        border-left: 4px solid #0d6efd;
-    }
-    .sync-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
-    }
-    .sync-badge {
-        font-size: 0.875rem;
-        padding: 0.375rem 0.75rem;
-    }
-    .sync-time {
-        color: #6c757d;
-        font-size: 0.875rem;
-    }
-    .stats-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.25rem;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h2 class="mb-1">
-                <i class="fas fa-sync-alt text-primary"></i>
-                Historial de Sincronizaciones
-            </h2>
-            <p class="text-muted">Registro de actualizaciones de stock desde la API de Vilbragroup</p>
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-icon" style="background: linear-gradient(135deg, var(--info-main), var(--info-light));">
+            <i class="fas fa-sync-alt"></i>
         </div>
-        <div class="col-md-4">
+        <div class="page-header-content">
+            <h2>Historial de Sincronizaciones</h2>
+            <p>Registro de actualizaciones de stock desde la API de Vilbragroup</p>
+        </div>
+        <div class="page-header-actions">
             <!-- Selector de Contrato -->
-            <select class="form-select" onchange="window.location.href='?contrato=' + this.value">
+            <select class="form-select" onchange="window.location.href='?contrato=' + this.value" style="width: auto; min-width: 250px;">
                 <option value="">Seleccionar contrato...</option>
                 {% for c in contratos %}
                 <option value="{{ c.id }}" {% if contrato_seleccionado.id == c.id %}selected{% endif %}>
@@ -61,7 +31,7 @@
     
     <!-- Alerta si no tiene centro de costo -->
     {% if not tiene_centro_costo %}
-    <div class="alert alert-warning mb-4">
+    <div class="alert alert-warning animate-fade-in">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>Centro de costo no configurado:</strong> Este contrato no tiene código de centro de costo asignado. 
         No se pueden sincronizar datos de stock desde la API de Vilbragroup hasta que se configure.
@@ -69,26 +39,22 @@
     {% endif %}
     
     <!-- Información del Contrato -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h5 class="mb-1">{{ contrato_seleccionado.nombre_contrato }}</h5>
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-building me-2"></i>{{ contrato_seleccionado.cliente.nombre }}
-                                {% if contrato_seleccionado.codigo_centro_costo %}
-                                <span class="badge bg-light text-dark ms-2">CC: {{ contrato_seleccionado.codigo_centro_costo }}</span>
-                                {% endif %}
-                            </p>
-                        </div>
-                        <div class="col-md-4 text-end">
-                            <button class="btn btn-primary" onclick="sincronizarManual()">
-                                <i class="fas fa-sync"></i> Sincronizar Ahora
-                            </button>
-                        </div>
-                    </div>
+    <div class="card card-modern mb-4 animate-fade-in">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h5 class="mb-1">{{ contrato_seleccionado.nombre_contrato }}</h5>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-building me-2"></i>{{ contrato_seleccionado.cliente.nombre }}
+                        {% if contrato_seleccionado.codigo_centro_costo %}
+                        <span class="badge bg-light text-dark ms-2">CC: {{ contrato_seleccionado.codigo_centro_costo }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-primary" onclick="sincronizarManual()" id="btnSincronizar">
+                        <i class="fas fa-sync me-2"></i> Sincronizar Ahora
+                    </button>
                 </div>
             </div>
         </div>
@@ -96,139 +62,136 @@
 
     <!-- Resumen Rápido -->
     {% if historial %}
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="stats-icon bg-primary bg-opacity-10 text-primary me-3">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div>
-                            <div class="text-muted small">Última Sincronización</div>
-                            <h5 class="mb-0">{{ historial.0.fecha|date:"d/m/Y H:i" }}</h5>
-                        </div>
-                    </div>
-                </div>
+    <div class="stats-grid mb-4 animate-fade-in">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, var(--primary-main), var(--primary-light));">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">Última Sincronización</div>
+                <div class="stat-value" style="font-size: 1.25rem;">{{ historial.0.fecha|date:"d/m/Y H:i" }}</div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="stats-icon bg-success bg-opacity-10 text-success me-3">
-                            <i class="fas fa-gem"></i>
-                        </div>
-                        <div>
-                            <div class="text-muted small">Productos Diamantados</div>
-                            <h5 class="mb-0">{{ historial.0.pdd_count }} artículos</h5>
-                        </div>
-                    </div>
-                </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, var(--success-main), var(--success-light));">
+                <i class="fas fa-gem"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">Productos Diamantados</div>
+                <div class="stat-value">{{ historial.0.pdd_count }}</div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="stats-icon bg-info bg-opacity-10 text-info me-3">
-                            <i class="fas fa-flask"></i>
-                        </div>
-                        <div>
-                            <div class="text-muted small">Aditivos</div>
-                            <h5 class="mb-0">{{ historial.0.adit_count }} artículos</h5>
-                        </div>
-                    </div>
-                </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, var(--info-main), var(--info-light));">
+                <i class="fas fa-flask"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">Aditivos</div>
+                <div class="stat-value">{{ historial.0.adit_count }}</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, var(--warning-main), var(--warning-light));">
+                <i class="fas fa-box"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">Total Artículos</div>
+                <div class="stat-value">{{ historial.0.total }}</div>
             </div>
         </div>
     </div>
     {% endif %}
 
     <!-- Listado de Sincronizaciones -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0">
-                        <i class="fas fa-list me-2"></i>
-                        Últimas 50 Sincronizaciones
-                    </h5>
-                </div>
-                <div class="card-body p-0">
-                    {% if historial %}
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th width="5%">#</th>
-                                    <th width="25%">Fecha y Hora</th>
-                                    <th width="20%" class="text-center">Productos Diamantados</th>
-                                    <th width="20%" class="text-center">Aditivos</th>
-                                    <th width="15%" class="text-center">Total Artículos</th>
-                                    <th width="15%" class="text-center">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for sync in historial %}
-                                <tr>
-                                    <td>{{ forloop.counter }}</td>
-                                    <td>
-                                        <i class="fas fa-calendar-alt text-muted me-2"></i>
-                                        {{ sync.fecha|date:"d/m/Y" }}<br>
+    <div class="list-section animate-fade-in">
+        <div class="list-header">
+            <i class="fas fa-list me-2"></i>
+            Últimas 50 Sincronizaciones
+        </div>
+        <div class="list-body p-0">
+            {% if historial %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th width="5%" class="text-center">#</th>
+                            <th width="25%">Fecha y Hora</th>
+                            <th width="20%" class="text-center">Productos Diamantados</th>
+                            <th width="20%" class="text-center">Aditivos</th>
+                            <th width="15%" class="text-center">Total Artículos</th>
+                            <th width="15%" class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sync in historial %}
+                        <tr>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark">{{ forloop.counter }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-calendar-alt text-muted me-2"></i>
+                                    <div>
+                                        <div>{{ sync.fecha|date:"d/m/Y" }}</div>
                                         <small class="text-muted">
                                             <i class="fas fa-clock me-1"></i>
                                             {{ sync.fecha|date:"H:i:s" }}
                                         </small>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge sync-badge bg-success">
-                                            <i class="fas fa-gem me-1"></i>
-                                            {{ sync.pdd_count }}
-                                        </span>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge sync-badge bg-info">
-                                            <i class="fas fa-flask me-1"></i>
-                                            {{ sync.adit_count }}
-                                        </span>
-                                    </td>
-                                    <td class="text-center">
-                                        <strong>{{ sync.total }}</strong>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge bg-success">
-                                            <i class="fas fa-check-circle"></i> Exitosa
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">No hay sincronizaciones registradas para este contrato.</p>
-                        <button class="btn btn-primary mt-2" onclick="sincronizarManual()">
-                            <i class="fas fa-sync"></i> Realizar Primera Sincronización
-                        </button>
-                    </div>
-                    {% endif %}
-                </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success">
+                                    <i class="fas fa-gem me-1"></i>
+                                    {{ sync.pdd_count }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info">
+                                    <i class="fas fa-flask me-1"></i>
+                                    {{ sync.adit_count }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <strong class="tabular-nums">{{ sync.total }}</strong>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle me-1"></i> Exitosa
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h5>No hay sincronizaciones registradas</h5>
+                <p>No hay sincronizaciones registradas para este contrato.</p>
+                <button class="btn btn-primary mt-2" onclick="sincronizarManual()">
+                    <i class="fas fa-sync me-2"></i> Realizar Primera Sincronización
+                </button>
+            </div>
+            {% endif %}
         </div>
     </div>
 
     {% else %}
     <!-- Sin Contrato Seleccionado -->
-    <div class="alert alert-warning">
+    <div class="alert alert-warning animate-fade-in">
         <i class="fas fa-exclamation-triangle me-2"></i>
         Por favor selecciona un contrato para ver el historial de sincronizaciones.
     </div>
     {% endif %}
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 function sincronizarManual() {
     const contratoId = {{ contrato_seleccionado.id|default:0 }};
@@ -242,15 +205,17 @@ function sincronizarManual() {
         return;
     }
     
-    // Mostrar loading
-    const originalText = event.target.innerHTML;
-    event.target.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
-    event.target.disabled = true;
+    // Obtener botón y mostrar loading
+    const btn = document.getElementById('btnSincronizar');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sincronizando...';
+    btn.disabled = true;
     
     fetch(`/api/stock/v2/sincronizar/${contratoId}/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
         }
     })
     .then(response => response.json())
@@ -259,19 +224,20 @@ function sincronizarManual() {
             alert(`✅ Sincronización exitosa\n\n` +
                   `Productos Diamantados: ${data.pdd_count}\n` +
                   `Aditivos: ${data.adit_count}\n` +
-                  `Alertas generadas: ${data.alertas_generadas}`);
-            location.reload();
+                  `Alertas generadas: ${data.alertas_generadas || 0}`);
+            // Recargar la página para ver los nuevos datos
+            window.location.reload();
         } else {
-            alert('❌ Error: ' + data.error);
+            alert('❌ Error: ' + (data.error || 'Error desconocido'));
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al sincronizar: ' + error);
-    })
-    .finally(() => {
-        event.target.innerHTML = originalText;
-        event.target.disabled = false;
+        alert('❌ Error al sincronizar. Por favor intente nuevamente.');
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
     });
 }
 </script>
