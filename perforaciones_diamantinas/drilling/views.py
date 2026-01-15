@@ -229,7 +229,7 @@ def dashboard(request):
         ).values(
             'maquina__nombre'
         ).annotate(
-            total_metros=models.Sum('turnoavance__metros_perforados')
+            total_metros=models.Sum('avance__metros_perforados')
         ).order_by('-total_metros')[:5]
         
         # Tendencia mensual - últimos 6 meses
@@ -328,7 +328,7 @@ def dashboard(request):
         ).values(
             'maquina__nombre'
         ).annotate(
-            total_metros=models.Sum('turnoavance__metros_perforados')
+            total_metros=models.Sum('avance__metros_perforados')
         ).order_by('-total_metros')[:5]
         
         # Tendencia mensual - últimos 6 meses
