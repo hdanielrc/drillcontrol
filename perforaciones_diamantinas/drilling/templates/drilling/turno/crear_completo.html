@@ -1040,6 +1040,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 row.setAttribute('data-categoria', productoEncontrado.categoria || '');
                 event.target.classList.remove('is-invalid');
                 event.target.classList.add('is-valid');
+                
+                // Recalcular metraje del sondaje después de establecer la categoría
+                const subsection = row.closest('.complemento-subsection');
+                if (subsection) {
+                    recalcularMetrajeSondaje(subsection.dataset.sondajeId);
+                }
             } else {
                 hiddenId.value = '';
                 descripcionInput.value = '';
@@ -1078,15 +1084,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!subsection) return;
         
         let totalMetraje = 0;
+        let detalleCalculo = [];
+        
         subsection.querySelectorAll('.complemento-row').forEach(function(row) {
             const metrosTurno = parseFloat(row.querySelector('input[name*="metros_turno"]')?.value) || 0;
             const categoria = row.getAttribute('data-categoria') || '';
+            const serie = row.querySelector('.input-serie')?.value || 'Sin serie';
             
             // SOLO sumar si es una BROCA (no reamers ni otros complementos)
-            if (metrosTurno > 0 && categoria === 'BROCA') {
-                totalMetraje += metrosTurno;
+            if (metrosTurno > 0) {
+                if (categoria === 'BROCA') {
+                    totalMetraje += metrosTurno;
+                    detalleCalculo.push(`✓ ${serie} (BROCA): ${metrosTurno}m`);
+                } else {
+                    detalleCalculo.push(`✗ ${serie} (${categoria || 'SIN CATEGORIA'}): ${metrosTurno}m - EXCLUIDO`);
+                }
             }
         });
+        
+        // Log para debug (puedes removerlo después)
+        if (detalleCalculo.length > 0) {
+            console.log('=== Cálculo de Metraje Sondaje ' + sondajeId + ' ===');
+            detalleCalculo.forEach(d => console.log(d));
+            console.log('Total: ' + totalMetraje + 'm');
+            console.log('========================================');
+        }
         
         // Buscar la fila del sondaje y actualizar su campo de metraje
         const sondajeRows = document.querySelectorAll('.sondaje-row');
