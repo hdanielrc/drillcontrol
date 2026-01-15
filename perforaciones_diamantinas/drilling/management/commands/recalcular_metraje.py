@@ -77,12 +77,15 @@ class Command(BaseCommand):
                     self.stdout.write(f"  Diferencia: {metros_anterior - metros_nuevo}m")
                     
                     # Mostrar detalle de complementos
-                    total_items = TurnoComplemento.objects.filter(turno=turno).count()
                     total_brocas_count = TurnoComplemento.objects.filter(
                         turno=turno, 
                         tipo_complemento__categoria='BROCA'
                     ).count()
-                    total_complementos = total_items - total_brocas_count
+                    total_complementos = TurnoComplemento.objects.filter(
+                        turno=turno
+                    ).exclude(
+                        tipo_complemento__categoria='BROCA'
+                    ).count()
                     self.stdout.write(
                         f"  Items: {total_brocas_count} brocas, {total_complementos} complementos\n"
                     )
