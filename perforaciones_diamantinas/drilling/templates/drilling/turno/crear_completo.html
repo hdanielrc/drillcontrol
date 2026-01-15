@@ -1903,9 +1903,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                 descripcionInput.value = productoEncontrado.nombre + 
                                     (productoEncontrado.descripcion ? ' - ' + productoEncontrado.descripcion : '');
                             }
+                            // Establecer categoría para el cálculo de metraje
+                            row.setAttribute('data-categoria', productoEncontrado.categoria || '');
                             serieInput.classList.add('is-valid');
                         }
                     }
+                    
+                    // Recalcular metraje del sondaje después de cargar
+                    recalcularMetrajeSondaje(sid);
                 });
             }
 
