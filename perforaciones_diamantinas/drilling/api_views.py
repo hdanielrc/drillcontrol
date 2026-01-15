@@ -330,3 +330,94 @@ def api_trabajadores_por_grupo_fecha(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_crear_sondaje_rapido(request):
+    """
+    API para crear un sondaje rápido desde el formulario de crear turno
+    """
+    from .models import Sondaje
+    from decimal import Decimal, InvalidOperation
+    from django.core.exceptions import ValidationError
+    
+    try:
+        # Validar permisos
+        if not request.user.can_supervise_operations():
+            return JsonResponse({
+                'success': False,
+                'error': 'No tiene permisos para crear sondajes'
+            }, status=403)
+        
+        # Obtener contrato del usuario
+        if not request.user.contrato:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuario sin contrato asignado'
+            }, status=400)
+        
+        # Obtener datos del formulario
+        nombre_sondaje = request.POST.get('nombre_sondaje', '').strip()
+        fecha_inicio = request.POST.get('fecha_inicio')
+        profundidad = request.POST.get('profundidad')
+        inclinacion = request.POST.get('inclinacion')
+        cota_collar = request.POST.get('cota_collar')
+        
+        # Validar campos requeridos
+        if not all([nombre_sondaje, fecha_inicio, profundidad, inclinacion, cota_collar]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Todos los campos son requeridos'
+            }, status=400)
+        
+        # Convertir a Decimal
+        try:
+            profundidad = Decimal(profundidad)
+            inclinacion = Decimal(inclinacion)
+            cota_collar = Decimal(cota_collar)
+        except (InvalidOperation, ValueError):
+            return JsonResponse({
+                'success': False,
+                'error': 'Valores numéricos inválidos'
+            }, status=400)
+        
+        # Crear sondaje
+        sondaje = Sondaje(
+            contrato=request.user.contrato,
+            nombre_sondaje=nombre_sondaje,
+            fecha_inicio=fecha_inicio,
+            profundidad=profundidad,
+            inclinacion=inclinacion,
+            cota_collar=cota_collar,
+            estado='ACTIVO'
+        )
+        
+        # Validar modelo
+        sondaje.full_clean()
+        sondaje.save()
+        
+        return JsonResponse({
+            'success': True,
+            'sondaje': {
+                'id': sondaje.id,
+                'nombre_sondaje': sondaje.nombre_sondaje,
+                'fecha_inicio': sondaje.fecha_inicio.isoformat(),
+                'profundidad': float(sondaje.profundidad),
+                'inclinacion': float(sondaje.inclinacion),
+                'cota_collar': float(sondaje.cota_collar),
+                'estado': sondaje.estado
+            }
+        })
+        
+    except ValidationError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error creando sondaje rápido: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error interno al crear el sondaje'
+        }, status=500)

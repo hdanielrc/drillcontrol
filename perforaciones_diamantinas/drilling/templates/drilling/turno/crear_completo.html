@@ -619,9 +619,14 @@
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label fw-bold">Sondajes *</label>
-                            <button type="button" class="btn btn-add-item btn-sm" id="agregar-sondaje-btn">
-                                <i class="fas fa-plus"></i> Agregar Sondaje
-                            </button>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" id="crear-sondaje-btn" data-bs-toggle="modal" data-bs-target="#modalCrearSondaje">
+                                    <i class="fas fa-plus-circle"></i> Nuevo Sondaje
+                                </button>
+                                <button type="button" class="btn btn-add-item" id="agregar-sondaje-btn">
+                                    <i class="fas fa-plus"></i> Agregar
+                                </button>
+                            </div>
                         </div>
                         <div id="sondajes-seccion">
                             <!-- Filas de sondajes dinámicas -->
@@ -924,6 +929,69 @@
         </div>
     </div>
 </form>
+
+<!-- MODAL CREAR SONDAJE -->
+<div class="modal fade" id="modalCrearSondaje" tabindex="-1" aria-labelledby="modalCrearSondajeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #0470AC 0%, #084163 100%); color: white;">
+                <h5 class="modal-title" id="modalCrearSondajeLabel">
+                    <i class="fas fa-bullseye"></i> Crear Nuevo Sondaje
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-crear-sondaje">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="nuevo_nombre_sondaje" class="form-label fw-bold">Nombre Sondaje *</label>
+                        <input type="text" class="form-control" id="nuevo_nombre_sondaje" name="nombre_sondaje" required placeholder="Ej: DDH-247-25-M">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nuevo_fecha_inicio" class="form-label fw-bold">Fecha Inicio *</label>
+                                <input type="date" class="form-control" id="nuevo_fecha_inicio" name="fecha_inicio" required value="{{ today|date:'Y-m-d' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nuevo_profundidad" class="form-label fw-bold">Profundidad (m) *</label>
+                                <input type="number" class="form-control" id="nuevo_profundidad" name="profundidad" step="0.01" min="0.01" max="3000" required placeholder="Ej: 250.00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nuevo_inclinacion" class="form-label fw-bold">Inclinación (°) *</label>
+                                <input type="number" class="form-control" id="nuevo_inclinacion" name="inclinacion" step="0.01" min="-90" max="90" required placeholder="Ej: -65.00">
+                                <small class="text-muted">-90° a 90°</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nuevo_cota_collar" class="form-label fw-bold">Cota Collar (msnm) *</label>
+                                <input type="number" class="form-control" id="nuevo_cota_collar" name="cota_collar" step="0.01" required placeholder="Ej: 3250.50">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i> <small>El sondaje se creará en el contrato: <strong>{{ user.contrato.nombre_contrato }}</strong></small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-guardar-sondaje">
+                    <i class="fas fa-save"></i> Crear Sondaje
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
     </main>
 </div>
@@ -2854,6 +2922,75 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (err) {
             console.warn('Validación de metraje por sondaje falló:', err);
         }
+    });
+
+    // ============================================
+    // CREAR SONDAJE DESDE MODAL
+    // ============================================
+    document.getElementById('btn-guardar-sondaje').addEventListener('click', function() {
+        const form = document.getElementById('form-crear-sondaje');
+        const formData = new FormData(form);
+        const btn = this;
+        const btnText = btn.innerHTML;
+
+        // Validar formulario
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        // Deshabilitar botón
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+
+        // Enviar por AJAX
+        fetch('{% url "api-crear-sondaje-rapido" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Agregar el nuevo sondaje a todos los selectores
+                const nuevoSondaje = data.sondaje;
+                document.querySelectorAll('select[name^="sondaje_"]').forEach(function(select) {
+                    const option = document.createElement('option');
+                    option.value = nuevoSondaje.id;
+                    option.textContent = nuevoSondaje.nombre_sondaje;
+                    select.appendChild(option);
+                });
+
+                // Cerrar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearSondaje'));
+                modal.hide();
+
+                // Limpiar formulario
+                form.reset();
+                document.getElementById('nuevo_fecha_inicio').value = '{{ today|date:"Y-m-d" }}';
+
+                // Mostrar mensaje de éxito
+                alert('✓ Sondaje "' + nuevoSondaje.nombre_sondaje + '" creado exitosamente');
+
+                // Si hay un selector de sondaje vacío, autoseleccionar el nuevo
+                const firstEmpty = document.querySelector('select[name^="sondaje_"]');
+                if (firstEmpty && firstEmpty.value === '') {
+                    firstEmpty.value = nuevoSondaje.id;
+                }
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo crear el sondaje'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al crear el sondaje. Intente nuevamente.');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = btnText;
+        });
     });
 });
 </script>

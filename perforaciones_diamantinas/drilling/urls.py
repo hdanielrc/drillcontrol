@@ -146,6 +146,7 @@ urlpatterns = [
     
     # APIs Sondajes
     path('api/sondaje/<int:sondaje_id>/estado/', api_views.api_sondaje_estado, name='api-sondaje-estado'),
+    path('api/sondaje/crear-rapido/', api_views.api_crear_sondaje_rapido, name='api-crear-sondaje-rapido'),
     
     # APIs Tareo - Grupos y Trabajadores
     path('api/tareo/grupos-disponibles/', api_views.api_grupos_disponibles_por_fecha, name='api-grupos-disponibles'),
