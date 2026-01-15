@@ -2,6 +2,7 @@
 from decimal import Decimal
 from datetime import datetime, date
 from django.shortcuts import render, redirect, get_object_or_404
+from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
@@ -259,8 +260,8 @@ def dashboard(request):
             'maquinas_operativas': maquinas_operativas,
             'ultimos_turnos': ultimos_turnos,
             'trabajadores_recientes': trabajadores_recientes,
-            'metraje_por_maquina': json.dumps(list(metraje_por_maquina)),
-            'tendencia_mensual': json.dumps(tendencia_mensual),
+            'metraje_por_maquina': json.dumps(list(metraje_por_maquina), cls=DjangoJSONEncoder),
+            'tendencia_mensual': json.dumps(tendencia_mensual, cls=DjangoJSONEncoder),
         }
         
         return render(request, 'drilling/dashboards/manager_dashboard.html', context)
@@ -359,8 +360,8 @@ def dashboard(request):
             'maquinas_operativas': maquinas_operativas,
             'ultimos_turnos': ultimos_turnos,
             'stock_critico': stock_critico,
-            'metraje_por_maquina': json.dumps(list(metraje_por_maquina)),
-            'tendencia_mensual': json.dumps(tendencia_mensual),
+            'metraje_por_maquina': json.dumps(list(metraje_por_maquina), cls=DjangoJSONEncoder),
+            'tendencia_mensual': json.dumps(tendencia_mensual, cls=DjangoJSONEncoder),
         }
         
         return render(request, 'drilling/dashboard.html', context)
