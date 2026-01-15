@@ -1739,17 +1739,29 @@ def crear_turno_completo(request, pk=None):
                     ]
                     TurnoCorrida.objects.bulk_create(corridas_objetos)
 
-                # Crear avance: preferimos sumar los metrajes guardados en TurnoSondaje
-                # (si la bulk_create funcionÃ³). Como fallback, usamos el valor sumado
-                # recibido en POST (metros_perforados_val) si existe.
+                # Crear avance: calcular solo los metros de BROCAS (no reamers ni complementos)
+                # Filtramos por tipo_complemento__categoria='BROCA'
                 try:
-                    from django.db.models import Sum
-                    total_db = TurnoSondaje.objects.filter(turno=turno).aggregate(total=Sum('metros_turno'))['total']
-                    total_db = float(total_db) if total_db is not None else 0.0
+                    from django.db.models import Sum, Q
+                    # Calcular total solo de BROCAS
+                    total_brocas = TurnoComplemento.objects.filter(
+                        turno=turno,
+                        tipo_complemento__categoria='BROCA'
+                    ).aggregate(total=Sum('metros_turno_calc'))['total']
+                    total_brocas = float(total_brocas) if total_brocas is not None else 0.0
                 except Exception:
-                    total_db = 0.0
+                    total_brocas = 0.0
 
-                final_total_metros = total_db if total_db > 0 else (metros_perforados_val or 0)
+                # También consideramos los metrajes de TurnoSondaje como fallback
+                try:
+                    total_sondaje = TurnoSondaje.objects.filter(turno=turno).aggregate(total=Sum('metros_turno'))['total']
+                    total_sondaje = float(total_sondaje) if total_sondaje is not None else 0.0
+                except Exception:
+                    total_sondaje = 0.0
+                
+                # Usar el mayor entre: metros de brocas, metros de sondaje, o valor del POST
+                final_total_metros = max(total_brocas, total_sondaje, (metros_perforados_val or 0))
+                
                 try:
                     if final_total_metros and float(final_total_metros) > 0:
                         TurnoAvance.objects.create(
