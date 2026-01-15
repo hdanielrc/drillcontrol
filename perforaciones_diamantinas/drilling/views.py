@@ -227,7 +227,7 @@ def dashboard(request):
             fecha__gte=fecha_inicio,
             maquina__isnull=False
         ).values(
-            'maquina__codigo_maquina'
+            'maquina__nombre'
         ).annotate(
             total_metros=models.Sum('turnoavance__metros_perforados')
         ).order_by('-total_metros')[:5]
@@ -326,7 +326,7 @@ def dashboard(request):
             fecha__gte=fecha_inicio,
             maquina__isnull=False
         ).values(
-            'maquina__codigo_maquina'
+            'maquina__nombre'
         ).annotate(
             total_metros=models.Sum('turnoavance__metros_perforados')
         ).order_by('-total_metros')[:5]

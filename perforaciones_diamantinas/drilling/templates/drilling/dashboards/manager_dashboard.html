@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const metrajePorMaquinaData = JSON.parse('{{ metraje_por_maquina|escapejs }}');
         
         // Preparar datos para Chart.js
-        const labels = metrajePorMaquinaData.map(item => item.maquina__codigo_maquina || 'Sin Máquina');
+        const labels = metrajePorMaquinaData.map(item => item.maquina__nombre || 'Sin Máquina');
         const data = metrajePorMaquinaData.map(item => parseFloat(item.total_metros || 0));
         
         // Generar colores dinámicamente
