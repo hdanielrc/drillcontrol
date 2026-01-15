@@ -218,15 +218,15 @@ def dashboard(request):
             turno__fecha__month=hoy.month,
             turno__fecha__year=hoy.year
         ).values(
-            'trabajador__nombre',
-            'trabajador__apellido'
+            'trabajador__nombres',
+            'trabajador__apellidos'
         ).annotate(
             total_metros=DbSum('turno__avance__metros_perforados')
         ).order_by('-total_metros')[:5]
         
         top_trabajadores_data = []
         for item in top_trabajadores:
-            nombre_completo = f"{item['trabajador__nombre']} {item['trabajador__apellido']}"
+            nombre_completo = f"{item['trabajador__nombres']} {item['trabajador__apellidos']}"
             metros = item['total_metros'] or 0
             top_trabajadores_data.append({
                 'nombre': nombre_completo,
