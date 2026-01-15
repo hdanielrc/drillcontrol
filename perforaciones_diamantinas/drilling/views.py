@@ -280,6 +280,7 @@ def dashboard(request):
         
         # Datos para gráficas - Metraje por máquina (últimos 30 días)
         from datetime import timedelta
+        from django.core.serializers.json import DjangoJSONEncoder
         fecha_inicio = hoy - timedelta(days=30)
         
         metraje_por_maquina = Turno.objects.filter(
@@ -379,6 +380,7 @@ def dashboard(request):
         
         # Datos para gráficas - Metraje por máquina (últimos 30 días)
         from datetime import timedelta
+        from django.core.serializers.json import DjangoJSONEncoder
         fecha_inicio = hoy - timedelta(days=30)
         
         metraje_por_maquina = Turno.objects.filter(
