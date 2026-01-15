@@ -176,6 +176,63 @@ def dashboard(request):
             print(f"Error en stock crÃ­tico: {e}")
             stock_critico = []
         
+        # Datos para gráficas - Metraje por máquina (últimos 7 días)
+        from datetime import timedelta
+        from django.core.serializers.json import DjangoJSONEncoder
+        fecha_inicio = hoy - timedelta(days=7)
+        
+        # Obtener top 5 máquinas por metraje total
+        top_maquinas = Turno.objects.filter(
+            fecha__gte=fecha_inicio,
+            maquina__isnull=False
+        ).values('maquina__nombre').annotate(
+            total_metros=models.Sum('avance__metros_perforados')
+        ).order_by('-total_metros')[:5]
+        
+        # Para cada máquina, obtener metraje por día
+        metraje_diario_data = []
+        for item in top_maquinas:
+            maquina_nombre = item['maquina__nombre']
+            metraje_por_dia = []
+            
+            for i in range(7, -1, -1):
+                dia = hoy - timedelta(days=i)
+                metros = TurnoAvance.objects.filter(
+                    turno__maquina__nombre=maquina_nombre,
+                    turno__fecha=dia
+                ).aggregate(total=models.Sum('metros_perforados'))['total'] or 0
+                
+                metraje_por_dia.append({
+                    'fecha': dia.strftime('%d/%m'),
+                    'metros': float(metros) if metros else 0
+                })
+            
+            metraje_diario_data.append({
+                'maquina': maquina_nombre,
+                'datos': metraje_por_dia
+            })
+        
+        # Top 5 trabajadores por metraje del mes
+        from django.db.models import Sum as DbSum
+        top_trabajadores = TurnoTrabajador.objects.filter(
+            turno__fecha__month=hoy.month,
+            turno__fecha__year=hoy.year
+        ).values(
+            'trabajador__nombre',
+            'trabajador__apellido'
+        ).annotate(
+            total_metros=DbSum('turno__avance__metros_perforados')
+        ).order_by('-total_metros')[:5]
+        
+        top_trabajadores_data = []
+        for item in top_trabajadores:
+            nombre_completo = f"{item['trabajador__nombre']} {item['trabajador__apellido']}"
+            metros = item['total_metros'] or 0
+            top_trabajadores_data.append({
+                'nombre': nombre_completo,
+                'metros': float(metros) if metros else 0
+            })
+        
         context = {
             'contratos_activos': contratos_activos,
             'usuarios_activos': usuarios_activos,
@@ -184,6 +241,8 @@ def dashboard(request):
             'metricas_por_contrato': metricas_por_contrato,
             'ultimos_turnos': ultimos_turnos,
             'stock_critico': stock_critico,
+            'metraje_diario_data': json.dumps(metraje_diario_data, cls=DjangoJSONEncoder),
+            'top_trabajadores_data': json.dumps(top_trabajadores_data, cls=DjangoJSONEncoder),
         }
         
         return render(request, 'drilling/dashboards/admin_dashboard.html', context)

@@ -122,6 +122,31 @@
     </div>
 </div>
 
+<!-- Gráficas de Análisis -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="list-section">
+            <div class="list-header">
+                <i class="fas fa-chart-line me-2"></i> Metraje por Máquina (Últimos 7 días)
+            </div>
+            <div class="list-body">
+                <canvas id="metrajePorMaquinaChart" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="list-section">
+            <div class="list-header">
+                <i class="fas fa-trophy me-2"></i> Top 5 Trabajadores (Mes)
+            </div>
+            <div class="list-body">
+                <canvas id="topTrabajadoresChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Actividad Reciente y Alertas -->
 <div class="row">
     <div class="col-md-6">
@@ -220,4 +245,180 @@
         </div>
     </div>
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuración común de Chart.js
+    Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+    Chart.defaults.color = '#64748b';
+    
+    // Datos del backend
+    const metrajeDiarioData = JSON.parse('{{ metraje_diario_data|safe }}');
+    const topTrabajadoresData = JSON.parse('{{ top_trabajadores_data|safe }}');
+    
+    // Gráfico 1: Metraje Diario por Máquina (Líneas)
+    if (metrajeDiarioData && metrajeDiarioData.length > 0) {
+        const labels = metrajeDiarioData[0].datos.map(d => d.fecha);
+        const colors = [
+            '#0470AC',
+            '#7AD57C',
+            '#FFC248',
+            '#dc3545',
+            '#6c5ce7'
+        ];
+        
+        const datasets = metrajeDiarioData.map((item, index) => ({
+            label: item.maquina,
+            data: item.datos.map(d => d.metros),
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length] + '20',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#fff',
+            pointBorderWidth: 2,
+            pointBorderColor: colors[index % colors.length]
+        }));
+        
+        const ctx1 = document.getElementById('metrajePorMaquinaChart');
+        new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { family: 'Inter', size: 12 },
+                            usePointStyle: true,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        cornerRadius: 8,
+                        titleFont: { family: 'Inter', size: 13, weight: '600' },
+                        bodyFont: { family: 'Inter', size: 12 },
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + 'm';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'm';
+                            },
+                            font: { family: 'Inter', size: 11 }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: { family: 'Inter', size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráfico 2: Top Trabajadores (Barras horizontales)
+    if (topTrabajadoresData && topTrabajadoresData.length > 0) {
+        const ctx2 = document.getElementById('topTrabajadoresChart');
+        const colorsBar = [
+            'rgba(4, 112, 172, 0.8)',
+            'rgba(122, 213, 124, 0.8)',
+            'rgba(255, 194, 72, 0.8)',
+            'rgba(220, 53, 69, 0.8)',
+            'rgba(108, 92, 231, 0.8)'
+        ];
+        const borderColors = [
+            '#0470AC',
+            '#7AD57C',
+            '#FFC248',
+            '#dc3545',
+            '#6c5ce7'
+        ];
+        
+        new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: topTrabajadoresData.map(item => item.nombre),
+                datasets: [{
+                    label: 'Metros Perforados',
+                    data: topTrabajadoresData.map(item => item.metros),
+                    backgroundColor: colorsBar,
+                    borderColor: borderColors,
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        cornerRadius: 8,
+                        titleFont: { family: 'Inter', size: 13, weight: '600' },
+                        bodyFont: { family: 'Inter', size: 12 },
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.x.toFixed(1) + ' metros';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'm';
+                            },
+                            font: { family: 'Inter', size: 11 }
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: { family: 'Inter', size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
