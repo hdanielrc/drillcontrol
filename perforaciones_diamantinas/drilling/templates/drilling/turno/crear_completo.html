@@ -1014,7 +1014,8 @@ document.addEventListener('DOMContentLoaded', function() {
             id: {{ complemento.id }},
             serie: '{{ complemento.serie|default:"" }}',
             nombre: '{{ complemento.nombre }}',
-            descripcion: '{{ complemento.descripcion|default:"" }}'
+            descripcion: '{{ complemento.descripcion|default:"" }}',
+            categoria: '{{ complemento.categoria|default:"" }}'
         },
         {% endfor %}
     ];
@@ -1035,6 +1036,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (productoEncontrado) {
                 hiddenId.value = productoEncontrado.id;
                 descripcionInput.value = productoEncontrado.nombre + (productoEncontrado.descripcion ? ' - ' + productoEncontrado.descripcion : '');
+                // Guardar categoría en el row para el cálculo de metraje
+                row.setAttribute('data-categoria', productoEncontrado.categoria || '');
                 event.target.classList.remove('is-invalid');
                 event.target.classList.add('is-valid');
             } else {
@@ -1077,7 +1080,10 @@ document.addEventListener('DOMContentLoaded', function() {
         let totalMetraje = 0;
         subsection.querySelectorAll('.complemento-row').forEach(function(row) {
             const metrosTurno = parseFloat(row.querySelector('input[name*="metros_turno"]')?.value) || 0;
-            if (metrosTurno > 0) {
+            const categoria = row.getAttribute('data-categoria') || '';
+            
+            // SOLO sumar si es una BROCA (no reamers ni otros complementos)
+            if (metrosTurno > 0 && categoria === 'BROCA') {
                 totalMetraje += metrosTurno;
             }
         });
