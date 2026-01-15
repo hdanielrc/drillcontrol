@@ -1570,10 +1570,8 @@ def crear_turno_completo(request, pk=None):
                         estado_rotacion=request.POST.get('estado_rotacion', 'OPERATIVO'),
                         comentarios_mantenimiento=request.POST.get('comentarios_mantenimiento', '')
                     )
-                        comentarios_mantenimiento=request.POST.get('comentarios_mantenimiento', '')
-                    )
 
-                    # DespuÃ©s de crear TurnoMaquina, su save() habrÃ¡ calculado horas_trabajadas_calc.
+                    # Después de crear TurnoMaquina, su save() habrá calculado horas_trabajadas_calc.
                     # Sumar ese valor al horÃ³metro de la mÃ¡quina asociada.
                     try:
                         if tm.horas_trabajadas_calc and tm.horas_trabajadas_calc > 0:
