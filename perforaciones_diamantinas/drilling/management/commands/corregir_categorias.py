@@ -28,7 +28,7 @@ class Command(BaseCommand):
         # Definir reglas de categorización basadas en palabras clave
         reglas = [
             {
-                'keywords': ['REAMER', 'REAMING'],
+                'keywords': ['REAMER', 'REAMING', 'ESCARIADOR'],
                 'categoria': 'REAMING_SHELL',
                 'descripcion': 'Reaming Shells'
             },
