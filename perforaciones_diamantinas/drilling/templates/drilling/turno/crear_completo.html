@@ -532,6 +532,10 @@
                 <span>Corridas</span>
                 <span class="nav-sidebar-badge" id="badge-corridas">0</span>
             </a>
+            <a href="#seccion-comentarios" class="nav-sidebar-item" data-section="comentarios">
+                <i class="fas fa-comment-dots"></i>
+                <span>Comentarios</span>
+            </a>
             <a href="#seccion-estado" class="nav-sidebar-item" data-section="estado">
                 <i class="fas fa-exchange-alt"></i>
                 <span>Estado</span>
@@ -593,7 +597,10 @@
         "hora_fin_maq": "{{ edit_hora_fin_maq|default:''|escapejs }}",
         "estado_bomba": "{{ edit_estado_bomba|default:''|escapejs }}",
         "estado_unidad": "{{ edit_estado_unidad|default:''|escapejs }}",
-        "estado_rotacion": "{{ edit_estado_rotacion|default:''|escapejs }}"
+        "estado_rotacion": "{{ edit_estado_rotacion|default:''|escapejs }}",
+        "comentarios_mantenimiento": "{{ edit_comentarios_mantenimiento|default:''|escapejs }}",
+        "comentarios_perforistas": "{{ edit_comentarios_perforistas|default:''|escapejs }}",
+        "litologia_general": "{{ edit_litologia_general|default:''|escapejs }}"
         }
         </script>
     {% endif %}
@@ -647,6 +654,15 @@
                     <div class="mb-3">
                         <label for="fecha" class="form-label fw-bold">Fecha *</label>
                         <input type="date" id="fecha" name="fecha" class="form-control" required value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label for="litologia_general" class="form-label fw-bold"><i class="fas fa-layer-group"></i> Litología General</label>
+                        <textarea id="litologia_general" name="litologia_general" class="form-control" rows="2" placeholder="Ej: Roca andesita fracturada con presencia de cuarzo..."></textarea>
+                        <small class="text-muted"><i class="fas fa-info-circle"></i> Descripción general de la litología del turno (independiente de las corridas)</small>
                     </div>
                 </div>
             </div>
@@ -743,6 +759,15 @@
             <div class="row">
                 <div class="col-12">
                     <small class="text-muted"><i class="fas fa-info-circle"></i> Ingrese lecturas de horómetro como número decimal (ej. 100.5 = 100 horas y 30 minutos)</small>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label for="comentarios_mantenimiento" class="form-label fw-bold"><i class="fas fa-wrench"></i> Comentarios de Mantenimiento</label>
+                        <textarea id="comentarios_mantenimiento" name="comentarios_mantenimiento" class="form-control" rows="2" placeholder="Ej: Cambio de aceite hidráulico, revisión de bomba..."></textarea>
+                        <small class="text-muted"><i class="fas fa-tools"></i> Observaciones sobre mantenimiento preventivo o correctivo realizado</small>
+                    </div>
                 </div>
             </div>
             <div class="row mt-3">
@@ -862,6 +887,24 @@
             </div>
             <div id="cambios-estado-seccion">
                 <!-- Se generarán selectores por cada sondaje agregado -->
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN: COMENTARIOS DE PERFORISTAS -->
+    <div id="seccion-comentarios" class="section-card">
+        <div class="section-card-header" style="background: #f0f7ff;">
+            <h5 class="section-card-title">
+                <span class="section-card-icon" style="background: #e3f2fd; color: #1976d2;"><i class="fas fa-comment-dots"></i></span>
+                Comentarios de Perforistas
+            </h5>
+        </div>
+        <div class="section-card-body">
+            <div class="row">
+                <div class="col-12">
+                    <textarea id="comentarios_perforistas" name="comentarios_perforistas" class="form-control" rows="4" placeholder="Ej: Presencia de agua a los 50m, dificultad en el avance por roca dura, se requiere cambio de broca..."></textarea>
+                    <small class="text-muted"><i class="fas fa-info-circle"></i> Observaciones generales del turno por parte del equipo de perforistas</small>
+                </div>
             </div>
         </div>
     </div>
@@ -1859,6 +1902,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (editData.estado_bomba && document.getElementById('estado_bomba')) document.getElementById('estado_bomba').value = editData.estado_bomba;
                 if (editData.estado_unidad && document.getElementById('estado_unidad')) document.getElementById('estado_unidad').value = editData.estado_unidad;
                 if (editData.estado_rotacion && document.getElementById('estado_rotacion')) document.getElementById('estado_rotacion').value = editData.estado_rotacion;
+                if (editData.comentarios_mantenimiento && document.getElementById('comentarios_mantenimiento')) document.getElementById('comentarios_mantenimiento').value = editData.comentarios_mantenimiento;
+                if (editData.comentarios_perforistas && document.getElementById('comentarios_perforistas')) document.getElementById('comentarios_perforistas').value = editData.comentarios_perforistas;
+                if (editData.litologia_general && document.getElementById('litologia_general')) document.getElementById('litologia_general').value = editData.litologia_general;
             } catch (e) {
                 console.warn('No se pudieron poblar campos principales desde editData:', e);
             }

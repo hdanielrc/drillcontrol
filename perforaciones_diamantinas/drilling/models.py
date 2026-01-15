@@ -1413,6 +1413,8 @@ class Turno(models.Model):
     tipo_turno = models.ForeignKey(TipoTurno, on_delete=models.PROTECT)
     fecha = models.DateField()
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='BORRADOR')
+    comentarios_perforistas = models.TextField(blank=True, verbose_name='Comentarios de Perforistas')
+    litologia_general = models.TextField(blank=True, verbose_name='Litología General')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1642,6 +1644,7 @@ class TurnoMaquina(models.Model):
     estado_bomba = models.CharField(max_length=20, choices=ESTADO_CHOICES)
     estado_unidad = models.CharField(max_length=20, choices=ESTADO_CHOICES)
     estado_rotacion = models.CharField(max_length=20, choices=ESTADO_CHOICES)
+    comentarios_mantenimiento = models.TextField(blank=True, verbose_name='Comentarios de Mantenimiento')
 
     class Meta:
         db_table = 'turno_maquina'

@@ -1474,6 +1474,8 @@ def crear_turno_completo(request, pk=None):
                     turno.tipo_turno = tipo_turno
                     turno.fecha = fecha
                     turno.contrato = contrato_sondajes
+                    turno.comentarios_perforistas = request.POST.get('comentarios_perforistas', '')
+                    turno.litologia_general = request.POST.get('litologia_general', '')
                     turno.save()
                     # actualizar asociaciones many-to-many de sondajes
                     try:
@@ -1497,12 +1499,14 @@ def crear_turno_completo(request, pk=None):
                     TurnoCorrida.objects.filter(turno=turno).delete()
                     TurnoAvance.objects.filter(turno=turno).delete()
                 else:
-                    # Crear el turno principal CON relaciÃ³n directa a contrato
+                    # Crear el turno principal CON relación directa a contrato
                     turno = Turno.objects.create(
                         fecha=fecha,
                         contrato=contrato_sondajes,
                         maquina=maquina,
                         tipo_turno=tipo_turno,
+                        comentarios_perforistas=request.POST.get('comentarios_perforistas', ''),
+                        litologia_general=request.POST.get('litologia_general', ''),
                     )
                     # asignar sondajes seleccionados
                     try:
@@ -1563,7 +1567,10 @@ def crear_turno_completo(request, pk=None):
                         horometro_fin=horometro_fin_val,
                         estado_bomba=request.POST.get('estado_bomba', 'OPERATIVO'),
                         estado_unidad=request.POST.get('estado_unidad', 'OPERATIVO'),
-                        estado_rotacion=request.POST.get('estado_rotacion', 'OPERATIVO')
+                        estado_rotacion=request.POST.get('estado_rotacion', 'OPERATIVO'),
+                        comentarios_mantenimiento=request.POST.get('comentarios_mantenimiento', '')
+                    )
+                        comentarios_mantenimiento=request.POST.get('comentarios_mantenimiento', '')
                     )
 
                     # DespuÃ©s de crear TurnoMaquina, su save() habrÃ¡ calculado horas_trabajadas_calc.
@@ -1953,6 +1960,9 @@ def crear_turno_completo(request, pk=None):
             'edit_estado_bomba': getattr(getattr(turno, 'maquina_estado', None), 'estado_bomba', ''),
             'edit_estado_unidad': getattr(getattr(turno, 'maquina_estado', None), 'estado_unidad', ''),
             'edit_estado_rotacion': getattr(getattr(turno, 'maquina_estado', None), 'estado_rotacion', ''),
+            'edit_comentarios_mantenimiento': getattr(getattr(turno, 'maquina_estado', None), 'comentarios_mantenimiento', ''),
+            'edit_comentarios_perforistas': turno.comentarios_perforistas or '',
+            'edit_litologia_general': turno.litologia_general or '',
         })
 
     return render(request, 'drilling/turno/crear_completo.html', context)
