@@ -14,6 +14,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from drilling.api_client import get_api_client
 from drilling.models import TipoComplemento, Contrato
+from drilling.utils.categorizar_producto import categorizar_producto_por_nombre
 import logging
 
 logger = logging.getLogger(__name__)
@@ -151,20 +152,24 @@ class Command(BaseCommand):
                     # Preparar para bulk operation
                     if serie in series_existentes:
                         # Producto existe, agregar a lista de actualización
+                        nombre_producto = descripcion or f'Producto {codigo}'
                         productos_a_actualizar.append({
                             'serie': serie,
-                            'nombre': descripcion or f'Producto {codigo}',
+                            'nombre': nombre_producto,
                             'codigo': codigo,
-                            'contrato': contrato
+                            'contrato': contrato,
+                            'categoria': categorizar_producto_por_nombre(nombre_producto)
                         })
                     else:
                         # Producto nuevo, agregar a lista de creación
+                        nombre_producto = descripcion or f'Producto {codigo}'
                         productos_a_crear.append(TipoComplemento(
                             serie=serie,
-                            nombre=descripcion or f'Producto {codigo}',
+                            nombre=nombre_producto,
                             codigo=codigo,
                             contrato=contrato,
-                            estado='NUEVO'
+                            estado='NUEVO',
+                            categoria=categorizar_producto_por_nombre(nombre_producto)
                         ))
 
             except Exception as e:
@@ -192,7 +197,8 @@ class Command(BaseCommand):
                         try:
                             TipoComplemento.objects.filter(serie=prod_data['serie']).update(
                                 nombre=prod_data['nombre'],
-                                codigo=prod_data['codigo']
+                                codigo=prod_data['codigo'],
+                                categoria=prod_data['categoria']
                             )
                             actualizados += 1
                         except Exception as e:
