@@ -62,66 +62,6 @@
     </div>
 </div>
 
-<!-- Métricas por Contrato -->
-<div class="list-section mb-4">
-    <div class="list-header">
-        <i class="fas fa-building me-2"></i> Resumen por Contrato
-        <span class="badge bg-secondary ms-2">{{ contratos_activos }} contratos</span>
-    </div>
-    <div class="list-body">
-        {% if metricas_por_contrato %}
-        <div class="table-responsive">
-            <table class="table table-enhanced mb-0">
-                <thead>
-                    <tr>
-                        <th>Contrato</th>
-                        <th class="text-center">Sondajes</th>
-                        <th class="text-center">Trabajadores</th>
-                        <th class="text-center">Turnos (Mes)</th>
-                        <th class="text-end">Metros (Mes)</th>
-                        <th class="text-center">Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for metrica in metricas_por_contrato %}
-                    <tr>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="item-avatar me-2" style="background: linear-gradient(135deg, #0470AC, #084163);">
-                                    <i class="fas fa-building"></i>
-                                </div>
-                                <div>
-                                    <strong>{{ metrica.nombre_contrato }}</strong><br>
-                                    <small class="text-muted">{{ metrica.cliente }}</small>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge-status badge-status-info">{{ metrica.sondajes_activos }}</span>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge-status badge-status-active">{{ metrica.trabajadores_activos }}</span>
-                        </td>
-                        <td class="text-center">{{ metrica.turnos_mes }}</td>
-                        <td class="text-end"><strong class="text-primary">{{ metrica.metros_mes|floatformat:1 }}m</strong></td>
-                        <td class="text-center">
-                            <span class="badge-status badge-status-active">{{ metrica.estado }}</span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="empty-state">
-            <i class="fas fa-chart-bar"></i>
-            <h5>No hay datos disponibles</h5>
-            <p>Aún no hay contratos con métricas para mostrar</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
 <!-- Gráficas de Análisis -->
 <div class="row mb-4">
     <div class="col-lg-8">
