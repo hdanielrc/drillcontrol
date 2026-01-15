@@ -157,7 +157,7 @@ urlpatterns = [
     path('abastecimiento/<int:pk>/', views.AbastecimientoDetailView.as_view(), name='abastecimiento-detail'),
     path('abastecimiento/<int:pk>/editar/', views.AbastecimientoUpdateView.as_view(), name='abastecimiento-update'),
     path('abastecimiento/<int:pk>/eliminar/', views.AbastecimientoDeleteView.as_view(), name='abastecimiento-delete'),
-    path('abastecimiento/importar/', views.importar_abastecimiento_excel, name='importar-abastecimiento'),
+
     
     # Consumo CRUD Completo
     path('consumo/', views.ConsumoStockListView.as_view(), name='consumo-list'),

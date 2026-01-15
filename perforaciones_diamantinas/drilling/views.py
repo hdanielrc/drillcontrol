@@ -17,7 +17,6 @@ from django.core.paginator import Paginator
 from .models import *
 from .mixins import AdminOrContractFilterMixin, SystemAdminRequiredMixin
 from .forms import *
-from .utils.excel_importer import AbastecimientoExcelImporter
 
 from datetime import datetime, time, timedelta
 import json
@@ -2349,74 +2348,6 @@ class AbastecimientoDeleteView(AdminOrContractFilterMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Abastecimiento eliminado exitosamente')
         return super().delete(request, *args, **kwargs)
-
-@login_required
-def importar_abastecimiento_excel(request):
-    """Vista para importar con borrado previo por mes operativo"""
-    
-    if request.method == 'POST':
-        if 'excel_file' not in request.FILES:
-            messages.error(request, 'Debe seleccionar un archivo Excel')
-            return redirect('importar-abastecimiento')
-        
-        excel_file = request.FILES['excel_file']
-        delete_existing = request.POST.get('delete_existing', 'on') == 'on'
-        
-        # Validar extensiÃ³n
-        if not excel_file.name.endswith(('.xlsx', '.xls')):
-            messages.error(request, 'El archivo debe ser formato Excel (.xlsx o .xls)')
-            return redirect('importar-abastecimiento')
-        
-        # Procesar archivo
-        importer = AbastecimientoExcelImporter(request.user)
-        result = importer.process_excel(excel_file, delete_existing)
-        
-        if result['success']:
-            mensaje_principal = f"ImportaciÃ³n completada: {result['success_count']} registros creados"
-            
-            if result['deleted_count'] > 0:
-                mensaje_principal += f", {result['deleted_count']} registros anteriores eliminados"
-                
-            if result['skip_count'] > 0:
-                mensaje_principal += f", {result['skip_count']} registros omitidos"
-            
-            messages.success(request, mensaje_principal)
-            
-            # Mostrar informaciÃ³n adicional
-            if result['meses_procesados']:
-                messages.info(
-                    request,
-                    f"Meses procesados: {', '.join(result['meses_procesados'])}"
-                )
-            
-            if result['contratos_procesados']:
-                messages.info(
-                    request,
-                    f"Contratos afectados: {', '.join(result['contratos_procesados'])}"
-                )
-            
-            # Mostrar errores si los hay
-            if result['errors']:
-                for error in result['errors'][:10]:  # Mostrar mÃ¡ximo 10 errores
-                    messages.warning(request, error)
-                    
-                if len(result['errors']) > 10:
-                    messages.warning(
-                        request,
-                        f"... y {len(result['errors']) - 10} errores mÃ¡s"
-                    )
-        else:
-            messages.error(request, f"Error en importaciÃ³n: {result['error']}")
-            
-        return redirect('abastecimiento-list')
-    
-    # GET - Mostrar formulario de importaciÃ³n
-    context = {
-        'is_system_admin': request.user.can_manage_all_contracts(),
-        'accessible_contracts': request.user.get_accessible_contracts()
-    }
-    
-    return render(request, 'drilling/abastecimiento/importar.html', context)
 
 # ===============================
 # CONSUMO STOCK VIEWS - COMPLETO
