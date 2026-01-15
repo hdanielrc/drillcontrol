@@ -67,6 +67,31 @@
     </div>
 </div>
 
+<!-- Gráficas de Producción -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="list-section animate-fade-in">
+            <div class="list-header">
+                <i class="fas fa-chart-bar me-2"></i> Metraje por Máquina (Últimos 30 días)
+            </div>
+            <div class="list-body">
+                <canvas id="chartMetrajeMaquinas" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="list-section animate-fade-in">
+            <div class="list-header" style="background: linear-gradient(135deg, #7AD57C, #5cb85c);">
+                <i class="fas fa-chart-line me-2"></i> Tendencia Mensual
+            </div>
+            <div class="list-body">
+                <canvas id="chartTendenciaMensual" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Accesos rápidos -->
 <div class="list-section mb-4 animate-fade-in">
     <div class="list-header">
@@ -206,4 +231,208 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuración global de Chart.js
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = '#6B7280';
+    
+    // Gráfica de Metraje por Máquina
+    const ctxMaquinas = document.getElementById('chartMetrajeMaquinas');
+    if (ctxMaquinas) {
+        // Datos del backend
+        const metrajePorMaquinaData = JSON.parse('{{ metraje_por_maquina|escapejs }}');
+        
+        // Preparar datos para Chart.js
+        const labels = metrajePorMaquinaData.map(item => item.maquina__codigo_maquina || 'Sin Máquina');
+        const data = metrajePorMaquinaData.map(item => parseFloat(item.total_metros || 0));
+        
+        // Generar colores dinámicamente
+        const colores = [
+            { bg: 'rgba(4, 112, 172, 0.8)', border: 'rgba(4, 112, 172, 1)' },
+            { bg: 'rgba(6, 170, 255, 0.8)', border: 'rgba(6, 170, 255, 1)' },
+            { bg: 'rgba(122, 213, 124, 0.8)', border: 'rgba(122, 213, 124, 1)' },
+            { bg: 'rgba(255, 194, 72, 0.8)', border: 'rgba(255, 194, 72, 1)' },
+            { bg: 'rgba(8, 65, 99, 0.8)', border: 'rgba(8, 65, 99, 1)' }
+        ];
+        
+        const metrajePorMaquina = {
+            labels: labels.length > 0 ? labels : ['Sin datos'],
+            datasets: [{
+                label: 'Metros Perforados',
+                data: data.length > 0 ? data : [0],
+                backgroundColor: labels.map((_, i) => colores[i % colores.length].bg),
+                borderColor: labels.map((_, i) => colores[i % colores.length].border),
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false
+            }]
+        };
+        
+        new Chart(ctxMaquinas, {
+            type: 'bar',
+            data: metrajePorMaquina,
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Metraje: ' + context.parsed.y.toFixed(1) + ' m';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + ' m';
+                            },
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 12,
+                                weight: '600'
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+    
+    // Gráfica de Tendencia Mensual
+    const ctxTendencia = document.getElementById('chartTendenciaMensual');
+    if (ctxTendencia) {
+        // Datos del backend
+        const tendenciaMensualData = JSON.parse('{{ tendencia_mensual|escapejs }}');
+        
+        const tendenciaLabels = tendenciaMensualData.map(item => item.mes);
+        const tendenciaData = tendenciaMensualData.map(item => parseFloat(item.metros));
+        
+        const tendenciaMensual = {
+            labels: tendenciaLabels.length > 0 ? tendenciaLabels : ['Sin datos'],
+            datasets: [{
+                label: 'Metros',
+                data: tendenciaData.length > 0 ? tendenciaData : [0],
+                fill: true,
+                backgroundColor: 'rgba(122, 213, 124, 0.1)',
+                borderColor: 'rgba(122, 213, 124, 1)',
+                borderWidth: 3,
+                tension: 0.4,
+                pointBackgroundColor: 'rgba(122, 213, 124, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        };
+        
+        new Chart(ctxTendencia, {
+            type: 'line',
+            data: tendenciaMensual,
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Total: ' + context.parsed.y.toFixed(0) + ' m';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'm';
+                            },
+                            font: {
+                                size: 10
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 10,
+                                weight: '600'
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

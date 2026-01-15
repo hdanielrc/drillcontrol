@@ -282,6 +282,39 @@ def dashboard(request):
             print(f"Error en stock crÃ­tico: {e}")
             stock_critico = []
         
+        # Datos para gráficas - Metraje por máquina (últimos 30 días)
+        from datetime import timedelta
+        fecha_inicio = hoy - timedelta(days=30)
+        
+        metraje_por_maquina = Turno.objects.filter(
+            contrato=contract,
+            fecha__gte=fecha_inicio,
+            maquina__isnull=False
+        ).values(
+            'maquina__codigo_maquina'
+        ).annotate(
+            total_metros=models.Sum('turnoavance__metros_perforados')
+        ).order_by('-total_metros')[:5]
+        
+        # Tendencia mensual - últimos 6 meses
+        from datetime import datetime
+        tendencia_mensual = []
+        for i in range(5, -1, -1):
+            mes_referencia = hoy - timedelta(days=30*i)
+            mes = mes_referencia.month
+            anio = mes_referencia.year
+            
+            metros = TurnoAvance.objects.filter(
+                turno__contrato=contract,
+                turno__fecha__month=mes,
+                turno__fecha__year=anio
+            ).aggregate(total=models.Sum('metros_perforados'))['total'] or 0
+            
+            tendencia_mensual.append({
+                'mes': mes_referencia.strftime('%b'),
+                'metros': float(metros)
+            })
+        
         context = {
             'contract': contract,
             'is_system_admin': user.can_manage_all_contracts(),
@@ -291,6 +324,8 @@ def dashboard(request):
             'maquinas_operativas': maquinas_operativas,
             'ultimos_turnos': ultimos_turnos,
             'stock_critico': stock_critico,
+            'metraje_por_maquina': json.dumps(list(metraje_por_maquina)),
+            'tendencia_mensual': json.dumps(tendencia_mensual),
         }
         
         return render(request, 'drilling/dashboard.html', context)
