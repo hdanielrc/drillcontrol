@@ -60,6 +60,7 @@
                     <tr>
                         <th>DNI</th>
                         <th>Nombre</th>
+                        <th>Contrato</th>
                         <th>Cargo</th>
                         <th>Tipo Trabajo</th>
                         <th>Teléfono</th>
@@ -79,6 +80,10 @@
                             {% if trabajador.fecha_ingreso %}
                                 <br><small class="text-muted">Desde: {{ trabajador.fecha_ingreso|date:"d/m/Y" }}</small>
                             {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ trabajador.contrato.nombre_contrato }}</div>
+                            <small class="text-muted">{{ trabajador.contrato.cliente.nombre }}</small>
                         </td>
                         <td>
                             <span class="badge bg-info">{{ trabajador.cargo.nombre }}</span>
@@ -112,7 +117,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7">
+                        <td colspan="9">
                             <div class="empty-state">
                                 <i class="fas fa-users"></i>
                                 <h5>No hay trabajadores registrados</h5>
