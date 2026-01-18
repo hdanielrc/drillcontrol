@@ -94,6 +94,20 @@
                             <small class="form-text text-muted">Asignar a una máquina específica (opcional)</small>
                         </div>
                         
+                        <!-- Observaciones -->
+                        <div class="col-12">
+                            <label for="{{ form.observaciones.id_for_label }}" class="form-label">
+                                <i class="fas fa-comment me-1"></i> Observaciones <span class="text-muted">(Opcional)</span>
+                            </label>
+                            {{ form.observaciones }}
+                            {% if form.observaciones.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.observaciones.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Notas adicionales sobre este headcount</small>
+                        </div>
+                        
                         <!-- Activo -->
                         <div class="col-12">
                             <div class="form-check form-switch">
@@ -203,36 +217,51 @@ document.addEventListener('DOMContentLoaded', function() {
     const contratoSelect = document.querySelector('select[name="contrato"]');
     const maquinaSelect = document.querySelector('select[name="maquina"]');
     
+    console.log('Contrato select:', contratoSelect);
+    console.log('Maquina select:', maquinaSelect);
+    
+    function cargarMaquinas(contratoId) {
+        console.log('Cargando máquinas para contrato:', contratoId);
+        
+        // Limpiar select de máquinas
+        maquinaSelect.innerHTML = '<option value="">Sin asignar a máquina específica</option>';
+        
+        if (contratoId) {
+            // Cargar máquinas del contrato
+            fetch(`/headcount/api/maquinas/?contrato_id=${contratoId}`)
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Máquinas recibidas:', data);
+                    if (data.maquinas && data.maquinas.length > 0) {
+                        data.maquinas.forEach(maquina => {
+                            const option = document.createElement('option');
+                            option.value = maquina.id;
+                            option.textContent = maquina.nombre;
+                            maquinaSelect.appendChild(option);
+                        });
+                        console.log(`${data.maquinas.length} máquinas cargadas`);
+                    } else {
+                        console.log('No hay máquinas para este contrato');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar máquinas:', error);
+                });
+        }
+    }
+    
     if (contratoSelect && maquinaSelect) {
         contratoSelect.addEventListener('change', function() {
-            const contratoId = this.value;
-            
-            // Limpiar select de máquinas
-            maquinaSelect.innerHTML = '<option value="">Sin asignar a máquina específica</option>';
-            
-            if (contratoId) {
-                // Cargar máquinas del contrato
-                fetch(`/headcount/api/maquinas/?contrato_id=${contratoId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.maquinas && data.maquinas.length > 0) {
-                            data.maquinas.forEach(maquina => {
-                                const option = document.createElement('option');
-                                option.value = maquina.id;
-                                option.textContent = maquina.nombre;
-                                maquinaSelect.appendChild(option);
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error al cargar máquinas:', error);
-                    });
-            }
+            cargarMaquinas(this.value);
         });
         
         // Si ya hay un contrato seleccionado al cargar la página, cargar sus máquinas
         if (contratoSelect.value) {
-            contratoSelect.dispatchEvent(new Event('change'));
+            console.log('Contrato preseleccionado:', contratoSelect.value);
+            cargarMaquinas(contratoSelect.value);
         }
     }
     
