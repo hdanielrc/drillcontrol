@@ -1,0 +1,293 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}Estado EMO - Trabajadores{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-heartbeat"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Estado de Exámenes Médicos Ocupacionales (EMO)</h2>
+        <p>Control y seguimiento de vigencia de exámenes médicos del personal</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'trabajadores-hub' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Volver al Hub
+        </a>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-md-2 mb-3">
+        <div class="card border-secondary h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-secondary mb-2"></i>
+                <h3 class="mb-0">{{ total }}</h3>
+                <small class="text-muted">Total</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card border-danger h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                <h3 class="mb-0 text-danger">{{ vencidos }}</h3>
+                <small class="text-muted">Vencidos</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card border-danger h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x text-danger mb-2"></i>
+                <h3 class="mb-0 text-danger">{{ urgentes }}</h3>
+                <small class="text-muted">Urgente (≤7 días)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card border-warning h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-hourglass-half fa-2x text-warning mb-2"></i>
+                <h3 class="mb-0 text-warning">{{ por_vencer }}</h3>
+                <small class="text-muted">Por Vencer (≤30 días)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card border-success h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                <h3 class="mb-0 text-success">{{ vigentes }}</h3>
+                <small class="text-muted">Vigentes</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card border-secondary h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-question-circle fa-2x text-secondary mb-2"></i>
+                <h3 class="mb-0 text-secondary">{{ sin_datos }}</h3>
+                <small class="text-muted">Sin Datos</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="filter-section mb-4">
+    <div class="filter-header" style="background: linear-gradient(135deg, #0470AC, #084163);">
+        <i class="fas fa-filter"></i> Filtros
+    </div>
+    <div class="filter-body">
+        <form method="get" class="row g-3">
+            {% if contratos|length > 1 %}
+            <div class="col-md-4">
+                <label class="form-label">Contrato:</label>
+                <select name="contrato" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos los contratos</option>
+                    {% for contrato in contratos %}
+                    <option value="{{ contrato.id }}" {% if filtros.contrato == contrato.id|stringformat:'s' %}selected{% endif %}>
+                        {{ contrato.nombre_contrato }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            
+            <div class="col-md-4">
+                <label class="form-label">Estado EMO:</label>
+                <select name="estado" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos los estados</option>
+                    <option value="VENCIDO" {% if filtros.estado == 'VENCIDO' %}selected{% endif %}>🔴 Vencido</option>
+                    <option value="URGENTE" {% if filtros.estado == 'URGENTE' %}selected{% endif %}>🔴 Urgente (≤7 días)</option>
+                    <option value="POR_VENCER" {% if filtros.estado == 'POR_VENCER' %}selected{% endif %}>🟡 Por Vencer (≤30 días)</option>
+                    <option value="VIGENTE" {% if filtros.estado == 'VIGENTE' %}selected{% endif %}>🟢 Vigente</option>
+                    <option value="SIN_DATOS" {% if filtros.estado == 'SIN_DATOS' %}selected{% endif %}>⚪ Sin Datos</option>
+                </select>
+            </div>
+            
+            <div class="col-md-4 d-flex align-items-end">
+                <a href="{% url 'estado-emo-trabajadores' %}" class="btn btn-secondary">
+                    <i class="fas fa-redo"></i> Limpiar Filtros
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de trabajadores -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-table"></i> Trabajadores ({{ trabajadores_data|length }})
+    </div>
+    <div class="list-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th>DNI</th>
+                        <th>Trabajador</th>
+                        <th>Cargo</th>
+                        <th>Contrato</th>
+                        <th>Fecha Realizado</th>
+                        <th>Fecha Vencimiento</th>
+                        <th>Programación</th>
+                        <th class="text-center">Estado EMO</th>
+                        <th class="text-center">Días Restantes</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in trabajadores_data %}
+                    <tr>
+                        <td class="fw-bold">{{ item.trabajador.dni }}</td>
+                        <td>
+                            <div class="fw-bold">{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}</div>
+                            {% if item.trabajador.area %}
+                            <small class="text-muted">{{ item.trabajador.area }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.trabajador.cargo %}
+                            <span class="badge bg-info">{{ item.trabajador.cargo.nombre }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>{{ item.trabajador.contrato.nombre_contrato }}</small>
+                        </td>
+                        <td>
+                            {% if item.trabajador.emo_fecha_realizado %}
+                            <i class="fas fa-calendar-check text-success"></i>
+                            {{ item.trabajador.emo_fecha_realizado|date:"d/m/Y" }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.trabajador.emo_fecha_vencimiento %}
+                            <i class="fas fa-calendar-times text-{% if item.dias_restantes < 0 %}danger{% elif item.dias_restantes <= 30 %}warning{% else %}primary{% endif %}"></i>
+                            {{ item.trabajador.emo_fecha_vencimiento|date:"d/m/Y" }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.trabajador.emo_programacion %}
+                            <i class="fas fa-clock text-info"></i>
+                            {{ item.trabajador.emo_programacion|date:"d/m/Y" }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.estado_emo_calculado == 'VENCIDO' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-exclamation-triangle"></i> VENCIDO
+                            </span>
+                            {% elif item.estado_emo_calculado == 'URGENTE' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-clock"></i> URGENTE
+                            </span>
+                            {% elif item.estado_emo_calculado == 'POR_VENCER' %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-hourglass-half"></i> POR VENCER
+                            </span>
+                            {% elif item.estado_emo_calculado == 'VIGENTE' %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle"></i> VIGENTE
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-question-circle"></i> SIN DATOS
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.dias_restantes is not None %}
+                                {% if item.dias_restantes < 0 %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ item.dias_restantes|abs }} días vencido
+                                </span>
+                                {% elif item.dias_restantes == 0 %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-circle"></i> Vence HOY
+                                </span>
+                                {% elif item.dias_restantes <= 7 %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-clock"></i> {{ item.dias_restantes }} días
+                                </span>
+                                {% elif item.dias_restantes <= 30 %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-hourglass-half"></i> {{ item.dias_restantes }} días
+                                </span>
+                                {% else %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-calendar-check"></i> {{ item.dias_restantes }} días
+                                </span>
+                                {% endif %}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'trabajador-update' item.trabajador.pk %}" 
+                               class="btn btn-sm btn-primary" 
+                               title="Editar fechas EMO">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                            No hay trabajadores activos con los filtros seleccionados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Leyenda -->
+<div class="card mt-4">
+    <div class="card-body">
+        <h6 class="card-title">
+            <i class="fas fa-info-circle text-info"></i> Leyenda de Estados
+        </h6>
+        <div class="row">
+            <div class="col-md-3">
+                <span class="badge bg-danger me-2">VENCIDO</span>
+                <small>Examen vencido, requiere actualización inmediata</small>
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-danger me-2">URGENTE</span>
+                <small>Vence en 7 días o menos</small>
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-warning text-dark me-2">POR VENCER</span>
+                <small>Vence en 30 días o menos</small>
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-success me-2">VIGENTE</span>
+                <small>Examen médico vigente</small>
+            </div>
+        </div>
+        <div class="mt-2">
+            <small class="text-muted">
+                <i class="fas fa-lightbulb"></i> <strong>Recomendación:</strong> 
+                Programe los exámenes médicos con al menos 30 días de anticipación para evitar vencimientos.
+            </small>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

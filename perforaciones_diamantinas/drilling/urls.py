@@ -59,6 +59,7 @@ urlpatterns = [
     path('trabajadores/nuevo/', views.TrabajadorCreateView.as_view(), name='trabajador-create'),
     path('trabajadores/<int:pk>/editar/', views.TrabajadorUpdateView.as_view(), name='trabajador-update'),
     path('trabajadores/<int:pk>/eliminar/', views.TrabajadorDeleteView.as_view(), name='trabajador-delete'),
+    path('trabajadores/estado-emo/', views.estado_emo_trabajadores, name='estado-emo-trabajadores'),
     
     # Equipos - Dashboard y CRUD
     path('equipos/dashboard/', views.equipos_dashboard, name='equipos-dashboard'),

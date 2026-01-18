@@ -443,6 +443,92 @@ def trabajadores_hub(request):
     
     return render(request, 'drilling/trabajadores/hub.html', context)
 
+@login_required
+def estado_emo_trabajadores(request):
+    """Vista para mostrar el estado de los exámenes médicos ocupacionales (EMO) de los trabajadores"""
+    from datetime import date, timedelta
+    
+    # Obtener trabajadores según permisos
+    if request.user.has_access_to_all_contracts():
+        trabajadores = Trabajador.objects.filter(estado='ACTIVO').select_related('cargo', 'contrato')
+    else:
+        trabajadores = Trabajador.objects.filter(
+            contrato=request.user.contrato,
+            estado='ACTIVO'
+        ).select_related('cargo', 'contrato')
+    
+    # Calcular estados del EMO
+    hoy = date.today()
+    alerta_30_dias = hoy + timedelta(days=30)
+    
+    trabajadores_data = []
+    for trabajador in trabajadores:
+        # Calcular estado del EMO
+        estado_emo = 'SIN_DATOS'
+        dias_restantes = None
+        clase_badge = 'secondary'
+        
+        if trabajador.emo_fecha_vencimiento:
+            dias_restantes = (trabajador.emo_fecha_vencimiento - hoy).days
+            
+            if dias_restantes < 0:
+                estado_emo = 'VENCIDO'
+                clase_badge = 'danger'
+            elif dias_restantes <= 7:
+                estado_emo = 'URGENTE'
+                clase_badge = 'danger'
+            elif dias_restantes <= 30:
+                estado_emo = 'POR_VENCER'
+                clase_badge = 'warning'
+            else:
+                estado_emo = 'VIGENTE'
+                clase_badge = 'success'
+        
+        trabajadores_data.append({
+            'trabajador': trabajador,
+            'estado_emo_calculado': estado_emo,
+            'dias_restantes': dias_restantes,
+            'clase_badge': clase_badge
+        })
+    
+    # Filtros
+    contrato_filter = request.GET.get('contrato')
+    estado_filter = request.GET.get('estado')
+    
+    if contrato_filter:
+        trabajadores_data = [t for t in trabajadores_data if str(t['trabajador'].contrato.id) == contrato_filter]
+    
+    if estado_filter:
+        trabajadores_data = [t for t in trabajadores_data if t['estado_emo_calculado'] == estado_filter]
+    
+    # Estadísticas
+    total = len(trabajadores_data)
+    vencidos = len([t for t in trabajadores_data if t['estado_emo_calculado'] == 'VENCIDO'])
+    urgentes = len([t for t in trabajadores_data if t['estado_emo_calculado'] == 'URGENTE'])
+    por_vencer = len([t for t in trabajadores_data if t['estado_emo_calculado'] == 'POR_VENCER'])
+    vigentes = len([t for t in trabajadores_data if t['estado_emo_calculado'] == 'VIGENTE'])
+    sin_datos = len([t for t in trabajadores_data if t['estado_emo_calculado'] == 'SIN_DATOS'])
+    
+    # Obtener contratos disponibles para filtro
+    if request.user.has_access_to_all_contracts():
+        contratos = Contrato.objects.all()
+    else:
+        contratos = [request.user.contrato] if request.user.contrato else []
+    
+    context = {
+        'trabajadores_data': trabajadores_data,
+        'contratos': contratos,
+        'total': total,
+        'vencidos': vencidos,
+        'urgentes': urgentes,
+        'por_vencer': por_vencer,
+        'vigentes': vigentes,
+        'sin_datos': sin_datos,
+        'filtros': request.GET,
+    }
+    
+    return render(request, 'drilling/trabajadores/estado_emo.html', context)
+
 class TrabajadorCreateView(AdminOrContractFilterMixin, CreateView):
     model = Trabajador
     form_class = TrabajadorForm
