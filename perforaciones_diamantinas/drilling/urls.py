@@ -214,9 +214,7 @@ urlpatterns = [
     # APIs
     path('api/abastecimiento/<int:pk>/', views.api_abastecimiento_detalle, name='api-abastecimiento-detalle'),
     
-    # =========================================================================
     # HEADCOUNT - Planificacion de Personal
-    # =========================================================================
     path('headcount/', views_headcount.headcount_dashboard, name='headcount-dashboard'),
     path('headcount/list/', views_headcount.headcount_list, name='headcount-list'),
     path('headcount/create/', views_headcount.headcount_create, name='headcount-create'),
