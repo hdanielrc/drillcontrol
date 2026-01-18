@@ -145,7 +145,7 @@ def headcount_create(request):
             try:
                 headcount = form.save()
                 messages.success(request, f'Headcount creado exitosamente: {headcount}')
-                return redirect('headcount-list') + f'?contrato={headcount.contrato.id}'
+                return redirect(f'/headcount/list/?contrato={headcount.contrato.id}')
             except Exception as e:
                 messages.error(request, f'Error al crear headcount: {str(e)}')
         else:
@@ -179,7 +179,7 @@ def headcount_update(request, pk):
             try:
                 headcount = form.save()
                 messages.success(request, 'Headcount actualizado exitosamente')
-                return redirect('headcount-list') + f'?contrato={headcount.contrato.id}'
+                return redirect(f'/headcount/list/?contrato={headcount.contrato.id}')
             except Exception as e:
                 messages.error(request, f'Error al actualizar headcount: {str(e)}')
         else:
@@ -212,3 +212,24 @@ def headcount_delete(request, pk):
     headcount.save()
     
     return JsonResponse({'success': True, 'message': 'Headcount desactivado correctamente'})
+
+
+@login_required
+def get_maquinas_by_contrato(request):
+    """API para obtener máquinas de un contrato"""
+    contrato_id = request.GET.get('contrato_id')
+    
+    if not contrato_id:
+        return JsonResponse({'maquinas': []})
+    
+    try:
+        maquinas = Maquina.objects.filter(
+            contrato_id=contrato_id,
+            estado='ACTIVO'
+        ).values('id', 'nombre').order_by('nombre')
+        
+        return JsonResponse({
+            'maquinas': list(maquinas)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)

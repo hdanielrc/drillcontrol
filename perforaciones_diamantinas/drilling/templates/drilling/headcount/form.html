@@ -199,6 +199,43 @@ document.addEventListener('DOMContentLoaded', function() {
         checkbox.classList.add('form-check-input');
     }
     
+    // Cargar máquinas dinámicamente cuando se selecciona un contrato
+    const contratoSelect = document.querySelector('select[name="contrato"]');
+    const maquinaSelect = document.querySelector('select[name="maquina"]');
+    
+    if (contratoSelect && maquinaSelect) {
+        contratoSelect.addEventListener('change', function() {
+            const contratoId = this.value;
+            
+            // Limpiar select de máquinas
+            maquinaSelect.innerHTML = '<option value="">Sin asignar a máquina específica</option>';
+            
+            if (contratoId) {
+                // Cargar máquinas del contrato
+                fetch(`/headcount/api/maquinas/?contrato_id=${contratoId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.maquinas && data.maquinas.length > 0) {
+                            data.maquinas.forEach(maquina => {
+                                const option = document.createElement('option');
+                                option.value = maquina.id;
+                                option.textContent = maquina.nombre;
+                                maquinaSelect.appendChild(option);
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al cargar máquinas:', error);
+                    });
+            }
+        });
+        
+        // Si ya hay un contrato seleccionado al cargar la página, cargar sus máquinas
+        if (contratoSelect.value) {
+            contratoSelect.dispatchEvent(new Event('change'));
+        }
+    }
+    
     // Validación en tiempo real para cantidad
     const cantidadInput = document.querySelector('input[name="cantidad_requerida"]');
     if (cantidadInput) {
@@ -223,6 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         {% endif %}
     });
+});
 });
 </script>
 
