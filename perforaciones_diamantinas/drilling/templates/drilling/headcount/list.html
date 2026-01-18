@@ -144,7 +144,7 @@
                             </span>
                             {% elif diferencia < 0 %}
                             <span class="badge bg-warning text-dark">
-                                <i class="fas fa-plus-circle"></i> +{{ diferencia|abs }}
+                                <i class="fas fa-plus-circle"></i> +{% widthratio diferencia 1 -1 %}
                             </span>
                             {% else %}
                             <span class="badge bg-success">

@@ -128,7 +128,7 @@
                                 {% if diferencia > 0 %}
                                 <span class="badge bg-danger">Faltan {{ diferencia }}</span>
                                 {% elif diferencia < 0 %}
-                                <span class="badge bg-warning text-dark">Sobran {{ diferencia|abs }}</span>
+                                <span class="badge bg-warning text-dark">Sobran {% widthratio diferencia 1 -1 %}</span>
                                 {% else %}
                                 <span class="badge bg-success">Completo</span>
                                 {% endif %}
