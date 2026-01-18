@@ -408,6 +408,10 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         queryset = super().get_queryset().select_related('cargo', 'contrato').order_by('apellidos', 'nombres')
         
         # Filtros adicionales
+        contrato = self.request.GET.get('contrato')
+        if contrato:
+            queryset = queryset.filter(contrato_id=contrato)
+        
         cargo = self.request.GET.get('cargo')
         if cargo:
             queryset = queryset.filter(cargo=cargo)
@@ -424,6 +428,13 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Obtener contratos según permisos
+        if self.request.user.has_access_to_all_contracts():
+            context['contratos'] = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+        else:
+            context['contratos'] = Contrato.objects.filter(id=self.request.user.contrato.id)
+        
         context['cargos'] = Cargo.objects.filter(is_active=True).order_by('nombre')
         context['grupos'] = Trabajador.GRUPO_CHOICES
         context['filtros'] = self.request.GET
