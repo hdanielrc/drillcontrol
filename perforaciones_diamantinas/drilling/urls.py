@@ -221,4 +221,5 @@ urlpatterns = [
     path('headcount/<int:pk>/update/', views_headcount.headcount_update, name='headcount-update'),
     path('headcount/<int:pk>/delete/', views_headcount.headcount_delete, name='headcount-delete'),
     path('headcount/api/maquinas/', views_headcount.get_maquinas_by_contrato, name='headcount-api-maquinas'),
+    path('headcount/debug/', views_headcount.debug_headcounts, name='headcount-debug'),
 ]

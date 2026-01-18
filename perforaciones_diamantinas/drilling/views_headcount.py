@@ -241,3 +241,33 @@ def get_maquinas_by_contrato(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def debug_headcounts(request):
+    """Vista de debug para ver todos los headcounts"""
+    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']:
+        messages.error(request, 'No tienes permisos')
+        return redirect('dashboard')
+    
+    contrato_id = request.GET.get('contrato')
+    
+    if contrato_id:
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+        headcounts = HeadCount.objects.filter(contrato=contrato).order_by('-created_at')
+    else:
+        headcounts = HeadCount.objects.all().order_by('-created_at')[:50]
+    
+    data = []
+    for hc in headcounts:
+        data.append({
+            'id': hc.id,
+            'contrato': str(hc.contrato),
+            'cargo': hc.cargo.nombre,
+            'cantidad': hc.cantidad_requerida,
+            'maquina': hc.maquina.nombre if hc.maquina else 'Sin asignar',
+            'activo': hc.activo,
+            'created': hc.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        })
+    
+    return JsonResponse({'headcounts': data, 'total': len(data)})
