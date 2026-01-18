@@ -445,3 +445,50 @@ class TurnoAvanceForm(forms.ModelForm):
         widgets = {
             'metros_perforados': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
+
+
+class HeadCountForm(forms.ModelForm):
+    class Meta:
+        model = HeadCount
+        fields = ['contrato', 'cargo', 'cantidad_requerida', 'maquina', 'observaciones', 'activo']
+        widgets = {
+            'contrato': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'cargo': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'cantidad_requerida': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'min': '1',
+                'required': True,
+                'placeholder': 'Cantidad de personas requeridas'
+            }),
+            'maquina': forms.Select(attrs={'class': 'form-select'}),
+            'observaciones': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Observaciones adicionales (opcional)'
+            }),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Filtrar contratos según permisos del usuario
+        if user:
+            if user.has_access_to_all_contracts():
+                self.fields['contrato'].queryset = Contrato.objects.filter(estado='ACTIVO')
+            else:
+                self.fields['contrato'].queryset = Contrato.objects.filter(id=user.contrato.id, estado='ACTIVO')
+        
+        # Ordenar cargos alfabéticamente
+        self.fields['cargo'].queryset = Cargo.objects.all().order_by('nombre')
+        
+        # Si hay un contrato en la instancia, filtrar máquinas por ese contrato
+        if self.instance and self.instance.pk and self.instance.contrato:
+            self.fields['maquina'].queryset = Maquina.objects.filter(contrato=self.instance.contrato).order_by('nombre')
+        else:
+            self.fields['maquina'].queryset = Maquina.objects.none()
+        
+        # Agregar opción vacía para máquina
+        self.fields['maquina'].required = False
+        self.fields['maquina'].empty_label = "Sin asignar a máquina específica"

@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import Sum, Count
 from .models import HeadCount, Contrato, Trabajador, Cargo, Maquina
+from .forms import HeadCountForm
 
 
 @login_required
@@ -139,47 +140,24 @@ def headcount_create(request):
         return redirect('headcount-dashboard')
     
     if request.method == 'POST':
-        try:
-            contrato_id = request.POST.get('contrato')
-            cargo_id = request.POST.get('cargo')
-            cantidad = request.POST.get('cantidad_requerida')
-            maquina_id = request.POST.get('maquina') or None
-            observaciones = request.POST.get('observaciones', '')
-            
-            contrato = get_object_or_404(Contrato, id=contrato_id)
-            cargo = get_object_or_404(Cargo, id=cargo_id)
-            
-            # Verificar si ya existe
-            filtros = {'contrato': contrato, 'cargo': cargo, 'maquina_id': maquina_id}
-            if HeadCount.objects.filter(**filtros).exists():
-                messages.error(request, 'Ya existe un headcount con estos datos')
-                return redirect('headcount-list') + f'?contrato={contrato_id}'
-            
-            headcount = HeadCount.objects.create(
-                contrato=contrato,
-                cargo=cargo,
-                cantidad_requerida=cantidad,
-                maquina_id=maquina_id,
-                observaciones=observaciones
-            )
-            
-            messages.success(request, f'Headcount creado exitosamente: {headcount}')
-            return redirect('headcount-list') + f'?contrato={contrato_id}'
-            
-        except Exception as e:
-            messages.error(request, f'Error al crear headcount: {str(e)}')
-    
-    # GET - Mostrar formulario
-    if request.user.has_access_to_all_contracts():
-        contratos = Contrato.objects.filter(estado='ACTIVO')
+        form = HeadCountForm(request.POST, user=request.user)
+        if form.is_valid():
+            try:
+                headcount = form.save()
+                messages.success(request, f'Headcount creado exitosamente: {headcount}')
+                return redirect('headcount-list') + f'?contrato={headcount.contrato.id}'
+            except Exception as e:
+                messages.error(request, f'Error al crear headcount: {str(e)}')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
     else:
-        contratos = [request.user.contrato]
-    
-    cargos = Cargo.objects.all().order_by('nombre')
+        form = HeadCountForm(user=request.user)
     
     context = {
-        'contratos': contratos,
-        'cargos': cargos,
+        'form': form,
+        'is_edit': False,
     }
     
     return render(request, 'drilling/headcount/form.html', context)
@@ -196,24 +174,24 @@ def headcount_update(request, pk):
         return redirect('headcount-dashboard')
     
     if request.method == 'POST':
-        try:
-            headcount.cantidad_requerida = request.POST.get('cantidad_requerida')
-            headcount.maquina_id = request.POST.get('maquina') or None
-            headcount.observaciones = request.POST.get('observaciones', '')
-            headcount.save()
-            
-            messages.success(request, 'Headcount actualizado exitosamente')
-            return redirect('headcount-list') + f'?contrato={headcount.contrato.id}'
-            
-        except Exception as e:
-            messages.error(request, f'Error al actualizar headcount: {str(e)}')
-    
-    # GET - Mostrar formulario
-    maquinas = Maquina.objects.filter(contrato=headcount.contrato).order_by('nombre')
+        form = HeadCountForm(request.POST, instance=headcount, user=request.user)
+        if form.is_valid():
+            try:
+                headcount = form.save()
+                messages.success(request, 'Headcount actualizado exitosamente')
+                return redirect('headcount-list') + f'?contrato={headcount.contrato.id}'
+            except Exception as e:
+                messages.error(request, f'Error al actualizar headcount: {str(e)}')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
+    else:
+        form = HeadCountForm(instance=headcount, user=request.user)
     
     context = {
+        'form': form,
         'headcount': headcount,
-        'maquinas': maquinas,
         'is_edit': True,
     }
     
