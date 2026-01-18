@@ -5,8 +5,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
-from django.http import JsonResponse
-from django.db.models import Sum, Count
+from django.http import JsonResponse, HttpResponseRedirect
+from django.db.models import Sum, Count, Q
+from django.urls import reverse
 from .models import HeadCount, Contrato, Trabajador, Cargo, Maquina
 from .forms import HeadCountForm
 
@@ -101,6 +102,11 @@ def headcount_list(request):
         activo=True
     ).select_related('cargo', 'maquina').order_by('cargo__nombre', 'maquina__nombre')
     
+    # Debug: contar todos los headcounts del contrato (incluso inactivos)
+    total_headcounts = HeadCount.objects.filter(contrato=contrato).count()
+    if total_headcounts > headcounts.count():
+        messages.info(request, f'Hay {total_headcounts - headcounts.count()} headcount(s) inactivo(s) para este contrato')
+    
     # Agregar datos calculados
     headcounts_data = []
     for hc in headcounts:
@@ -145,7 +151,8 @@ def headcount_create(request):
             try:
                 headcount = form.save()
                 messages.success(request, f'Headcount creado exitosamente: {headcount}')
-                return redirect(f'/headcount/list/?contrato={headcount.contrato.id}')
+                url = reverse('headcount-list') + f'?contrato={headcount.contrato.id}'
+                return HttpResponseRedirect(url)
             except Exception as e:
                 messages.error(request, f'Error al crear headcount: {str(e)}')
         else:
@@ -179,7 +186,8 @@ def headcount_update(request, pk):
             try:
                 headcount = form.save()
                 messages.success(request, 'Headcount actualizado exitosamente')
-                return redirect(f'/headcount/list/?contrato={headcount.contrato.id}')
+                url = reverse('headcount-list') + f'?contrato={headcount.contrato.id}'
+                return HttpResponseRedirect(url)
             except Exception as e:
                 messages.error(request, f'Error al actualizar headcount: {str(e)}')
         else:
