@@ -280,14 +280,32 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Confirmación antes de enviar
     const form = document.getElementById('headcountForm');
+    const submitButton = form.querySelector('button[type="submit"]');
+    let isSubmitting = false;
+    
     form.addEventListener('submit', function(e) {
+        // Prevenir doble submit
+        if (isSubmitting) {
+            e.preventDefault();
+            console.log('Formulario ya está siendo enviado, submit bloqueado');
+            return false;
+        }
+        
         const cantidad = document.querySelector('input[name="cantidad_requerida"]').value;
         
         {% if not headcount %}
         if (!confirm(`¿Confirma crear headcount para ${cantidad} persona(s)?`)) {
             e.preventDefault();
+            return false;
         }
         {% endif %}
+        
+        // Marcar como enviando y deshabilitar botón
+        isSubmitting = true;
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+        }
     });
 });
 </script>

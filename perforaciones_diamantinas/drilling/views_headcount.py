@@ -149,6 +149,24 @@ def headcount_create(request):
         form = HeadCountForm(request.POST, user=request.user)
         if form.is_valid():
             try:
+                # Verificar si ya existe un headcount activo con los mismos datos
+                contrato = form.cleaned_data['contrato']
+                cargo = form.cleaned_data['cargo']
+                maquina = form.cleaned_data.get('maquina')
+                
+                existe = HeadCount.objects.filter(
+                    contrato=contrato,
+                    cargo=cargo,
+                    maquina=maquina,
+                    activo=True
+                ).exists()
+                
+                if existe:
+                    messages.warning(request, f'Ya existe un headcount activo para {cargo.nombre} en {contrato.nombre_contrato}. '
+                                              f'Edite el existente en lugar de crear uno nuevo.')
+                    url = reverse('headcount-list') + f'?contrato={contrato.id}'
+                    return HttpResponseRedirect(url)
+                
                 headcount = form.save()
                 messages.success(request, f'Headcount creado exitosamente: {headcount}')
                 url = reverse('headcount-list') + f'?contrato={headcount.contrato.id}'
