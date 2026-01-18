@@ -1,0 +1,286 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}Headcount - Listado{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas fa-list"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>Listado de Headcount</h2>
+        <p>Dotación de personal requerida vs actual</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'headcount-dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-chart-bar me-2"></i> Dashboard
+        </a>
+        <a href="{% url 'headcount-create' %}" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i> Nuevo Headcount
+        </a>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <i class="fas fa-filter me-2"></i> Filtros de Búsqueda
+    </div>
+    <div class="card-body">
+        <form method="get" action="" id="filtrosForm">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="contrato" class="form-label">Contrato</label>
+                    <select name="contrato" id="contrato" class="form-select">
+                        <option value="">Todos los contratos</option>
+                        {% for contrato in contratos %}
+                        <option value="{{ contrato.id }}" {% if request.GET.contrato == contrato.id|stringformat:"s" %}selected{% endif %}>
+                            {{ contrato.nombre_contrato }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="cargo" class="form-label">Cargo</label>
+                    <select name="cargo" id="cargo" class="form-select">
+                        <option value="">Todos los cargos</option>
+                        {% for cargo in cargos %}
+                        <option value="{{ cargo.id }}" {% if request.GET.cargo == cargo.id|stringformat:"s" %}selected{% endif %}>
+                            {{ cargo.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="estado" class="form-label">Estado</label>
+                    <select name="estado" id="estado" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="completo" {% if request.GET.estado == "completo" %}selected{% endif %}>Completo</option>
+                        <option value="incompleto" {% if request.GET.estado == "incompleto" %}selected{% endif %}>Incompleto</option>
+                        <option value="excedido" {% if request.GET.estado == "excedido" %}selected{% endif %}>Excedido</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="maquina" class="form-label">Máquina</label>
+                    <select name="maquina" id="maquina" class="form-select">
+                        <option value="">Todas</option>
+                        {% for maquina in maquinas %}
+                        <option value="{{ maquina.id }}" {% if request.GET.maquina == maquina.id|stringformat:"s" %}selected{% endif %}>
+                            {{ maquina.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i> Buscar
+                    </button>
+                    <a href="{% url 'headcount-list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i> Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Headcount -->
+<div class="list-section">
+    <div class="list-header">
+        <i class="fas fa-table"></i> Headcount Definido
+        <span class="badge bg-light text-dark ms-2">{{ headcounts|length }} posiciones</span>
+    </div>
+    <div class="list-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Contrato</th>
+                        <th>Cargo</th>
+                        <th>Máquina</th>
+                        <th class="text-center">Requerido</th>
+                        <th class="text-center">Actual</th>
+                        <th class="text-center">Diferencia</th>
+                        <th class="text-center">% Cumplimiento</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for headcount in headcounts %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold">{{ headcount.contrato.nombre_contrato }}</div>
+                            <small class="text-muted">{{ headcount.contrato.cliente.nombre }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ headcount.cargo.nombre }}</span>
+                        </td>
+                        <td>
+                            {% if headcount.maquina %}
+                            <span class="badge bg-info">{{ headcount.maquina.nombre }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary">{{ headcount.cantidad_requerida }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-success">{{ headcount.get_cantidad_actual }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% with diferencia=headcount.get_diferencia %}
+                            {% if diferencia > 0 %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-minus-circle"></i> -{{ diferencia }}
+                            </span>
+                            {% elif diferencia < 0 %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-plus-circle"></i> +{{ diferencia|abs }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check"></i> 0
+                            </span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="text-center">
+                            {% with porcentaje=headcount.get_porcentaje_cumplimiento %}
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar {% if porcentaje >= 100 %}bg-success{% elif porcentaje >= 80 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ porcentaje }}%"
+                                     aria-valuenow="{{ porcentaje }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ porcentaje }}%
+                                </div>
+                            </div>
+                            {% endwith %}
+                        </td>
+                        <td class="text-center">
+                            {% if headcount.esta_completo %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle"></i> COMPLETO
+                            </span>
+                            {% elif headcount.get_diferencia > 0 %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-exclamation-circle"></i> FALTAN
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-exclamation-triangle"></i> EXCEDIDO
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'headcount-update' headcount.id %}" 
+                                   class="btn btn-sm btn-warning"
+                                   title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-sm btn-danger"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#deleteModal{{ headcount.id }}"
+                                        title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Modal de confirmación de eliminación -->
+                    <div class="modal fade" id="deleteModal{{ headcount.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">
+                                        <i class="fas fa-exclamation-triangle me-2"></i> Confirmar Eliminación
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Está seguro que desea eliminar este headcount?</p>
+                                    <div class="alert alert-warning">
+                                        <strong>Contrato:</strong> {{ headcount.contrato.nombre_contrato }}<br>
+                                        <strong>Cargo:</strong> {{ headcount.cargo.nombre }}<br>
+                                        <strong>Cantidad:</strong> {{ headcount.cantidad_requerida }}
+                                    </div>
+                                    <p class="text-muted mb-0">Esta acción desactivará el registro.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </button>
+                                    <form method="post" action="{% url 'headcount-delete' headcount.id %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                            <p>No hay headcount definido</p>
+                            <a href="{% url 'headcount-create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i> Crear Primer Headcount
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen de resultados -->
+{% if headcounts %}
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                <h4 class="mb-0">{{ total_requerido }}</h4>
+                <small class="text-muted">Total Requerido</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-user-check fa-2x text-success mb-2"></i>
+                <h4 class="mb-0">{{ total_actual }}</h4>
+                <small class="text-muted">Total Actual</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-2x text-info mb-2"></i>
+                <h4 class="mb-0">{{ promedio_cumplimiento }}%</h4>
+                <small class="text-muted">Cumplimiento Promedio</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -4316,3 +4316,6 @@ def metas_maquina_dividir(request, pk):
     }
     
     return render(request, 'drilling/metas/dividir.html', context)
+
+ 
+ 

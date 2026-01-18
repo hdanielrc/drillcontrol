@@ -105,6 +105,7 @@ class CustomUser(AbstractUser):
         ('RESIDENTE', 'Residente'),
         ('CONTROL_PROYECTOS', 'Control de Proyectos'),
         ('GERENCIA', 'Gerencia'),
+        ('HEADCOUNT', 'Gestión de Personal y Headcount'),
     ]
     
     # Campos adicionales
@@ -175,13 +176,13 @@ class CustomUser(AbstractUser):
         """
         Usuario tiene acceso a todos los contratos si:
         - Es Admin del Sistema (is_system_admin=True)
-        - Tiene rol GERENCIA o CONTROL_PROYECTOS (independiente del contrato asignado)
+        - Tiene rol GERENCIA, CONTROL_PROYECTOS o HEADCOUNT (independiente del contrato asignado)
         """
-        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS']
+        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']
     
     def can_manage_all_contracts(self):
-        """GERENCIA y CONTROL_PROYECTOS pueden gestionar todos los contratos"""
-        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS']
+        """GERENCIA, CONTROL_PROYECTOS y HEADCOUNT pueden gestionar todos los contratos"""
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']
     
     def can_manage_contract_users(self):
         """GERENCIA, CONTROL_PROYECTOS y ADMINISTRADOR pueden gestionar usuarios"""
@@ -3318,4 +3319,102 @@ class ConfiguracionAlertaStock(models.Model):
         """Obtiene o crea la configuración para un contrato"""
         config, created = cls.objects.get_or_create(contrato=contrato)
         return config
+
+
+# =============================================================================
+# SECCIÓN: HEADCOUNT - Planificación de Personal
+# =============================================================================
+
+class HeadCount(models.Model):
+    """
+    Modelo para definir el personal planificado/requerido por contrato.
+    Define cuántos trabajadores de cada cargo se necesitan y opcionalmente
+    a qué máquina están asignados.
+    """
+    contrato = models.ForeignKey(
+        Contrato, 
+        on_delete=models.CASCADE, 
+        related_name='headcounts',
+        verbose_name='Contrato'
+    )
+    cargo = models.ForeignKey(
+        'Cargo',
+        on_delete=models.PROTECT,
+        related_name='headcounts',
+        verbose_name='Cargo'
+    )
+    cantidad_requerida = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        verbose_name='Cantidad Requerida',
+        help_text='Número de trabajadores requeridos para este cargo'
+    )
+    maquina = models.ForeignKey(
+        'Maquina',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='headcounts',
+        verbose_name='Máquina Asignada',
+        help_text='Máquina a la que se asignará el personal (opcional)'
+    )
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name='Observaciones',
+        help_text='Comentarios adicionales sobre este requerimiento'
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name='Activo',
+        help_text='Indica si este requerimiento está vigente'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+    
+    class Meta:
+        db_table = 'headcount'
+        verbose_name = 'Headcount'
+        verbose_name_plural = 'Headcounts'
+        unique_together = ['contrato', 'cargo', 'maquina']
+        indexes = [
+            models.Index(fields=['contrato', 'activo']),
+            models.Index(fields=['cargo']),
+            models.Index(fields=['maquina']),
+            models.Index(fields=['-created_at']),
+        ]
+        ordering = ['contrato', 'cargo__nombre']
+    
+    def __str__(self):
+        maquina_str = f" - {self.maquina.nombre}" if self.maquina else ""
+        return f"{self.contrato.nombre_contrato} - {self.cargo.nombre}: {self.cantidad_requerida}{maquina_str}"
+    
+    def get_personal_actual(self):
+        """Obtiene el personal activo que cumple con este headcount"""
+        filtros = {
+            'contrato': self.contrato,
+            'cargo': self.cargo,
+            'estado': 'ACTIVO'
+        }
+        if self.maquina:
+            filtros['maquina_asignada'] = self.maquina
+        
+        return Trabajador.objects.filter(**filtros)
+    
+    def get_cantidad_actual(self):
+        """Retorna la cantidad actual de personal"""
+        return self.get_personal_actual().count()
+    
+    def get_diferencia(self):
+        """Retorna la diferencia entre requerido y actual (positivo = falta, negativo = sobra)"""
+        return self.cantidad_requerida - self.get_cantidad_actual()
+    
+    def get_porcentaje_cumplimiento(self):
+        """Retorna el porcentaje de cumplimiento del headcount"""
+        if self.cantidad_requerida == 0:
+            return 100
+        return min(100, int((self.get_cantidad_actual() / self.cantidad_requerida) * 100))
+    
+    def esta_completo(self):
+        """Verifica si el headcount está completo"""
+        return self.get_cantidad_actual() >= self.cantidad_requerida
 

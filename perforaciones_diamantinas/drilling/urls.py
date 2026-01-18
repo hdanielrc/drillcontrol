@@ -5,6 +5,7 @@ from . import auth_views
 from . import views_gestion_proyectos
 from . import views_stock
 from . import views_tareo
+from . import views_headcount
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
     guardar_asignaciones_masivas, marcar_stand_by, 
@@ -212,4 +213,12 @@ urlpatterns = [
     
     # APIs
     path('api/abastecimiento/<int:pk>/', views.api_abastecimiento_detalle, name='api-abastecimiento-detalle'),
+    # =========================================================================
+    # HEADCOUNT - Planificaci�n de Personal
+    # =========================================================================
+    path('headcount/', views_headcount.headcount_dashboard, name='headcount-dashboard'),
+    path('headcount/list/', views_headcount.headcount_list, name='headcount-list'),
+    path('headcount/create/', views_headcount.headcount_create, name='headcount-create'),
+    path('headcount/<int:pk>/update/', views_headcount.headcount_update, name='headcount-update'),
+    path('headcount/<int:pk>/delete/', views_headcount.headcount_delete, name='headcount-delete'),
 ]

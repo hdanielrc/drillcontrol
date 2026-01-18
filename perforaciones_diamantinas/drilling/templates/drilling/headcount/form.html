@@ -1,0 +1,236 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}{% if headcount %}Editar{% else %}Nuevo{% endif %} Headcount{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-icon">
+        <i class="fas {% if headcount %}fa-edit{% else %}fa-plus{% endif %}"></i>
+    </div>
+    <div class="page-header-content">
+        <h2>{% if headcount %}Editar{% else %}Nuevo{% endif %} Headcount</h2>
+        <p>{% if headcount %}Actualizar dotación requerida{% else %}Definir nueva dotación de personal{% endif %}</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'headcount-list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Volver al Listado
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="fas {% if headcount %}fa-edit{% else %}fa-plus-circle{% endif %} me-2"></i>
+                {% if headcount %}Editar Headcount{% else %}Crear Nuevo Headcount{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post" id="headcountForm">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row g-3">
+                        <!-- Contrato -->
+                        <div class="col-md-6">
+                            <label for="{{ form.contrato.id_for_label }}" class="form-label required">
+                                <i class="fas fa-file-contract me-1"></i> Contrato
+                            </label>
+                            {{ form.contrato }}
+                            {% if form.contrato.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.contrato.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Seleccione el contrato al que aplica</small>
+                        </div>
+                        
+                        <!-- Cargo -->
+                        <div class="col-md-6">
+                            <label for="{{ form.cargo.id_for_label }}" class="form-label required">
+                                <i class="fas fa-user-tag me-1"></i> Cargo
+                            </label>
+                            {{ form.cargo }}
+                            {% if form.cargo.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.cargo.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Seleccione el cargo requerido</small>
+                        </div>
+                        
+                        <!-- Cantidad Requerida -->
+                        <div class="col-md-6">
+                            <label for="{{ form.cantidad_requerida.id_for_label }}" class="form-label required">
+                                <i class="fas fa-hashtag me-1"></i> Cantidad Requerida
+                            </label>
+                            {{ form.cantidad_requerida }}
+                            {% if form.cantidad_requerida.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.cantidad_requerida.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Número de personas requeridas</small>
+                        </div>
+                        
+                        <!-- Máquina (opcional) -->
+                        <div class="col-md-6">
+                            <label for="{{ form.maquina.id_for_label }}" class="form-label">
+                                <i class="fas fa-cog me-1"></i> Máquina <span class="text-muted">(Opcional)</span>
+                            </label>
+                            {{ form.maquina }}
+                            {% if form.maquina.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.maquina.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Asignar a una máquina específica (opcional)</small>
+                        </div>
+                        
+                        <!-- Activo -->
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                {{ form.activo }}
+                                <label class="form-check-label" for="{{ form.activo.id_for_label }}">
+                                    <i class="fas fa-toggle-on me-1"></i> Activo
+                                </label>
+                            </div>
+                            {% if form.activo.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.activo.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Marque para activar este headcount</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Info Adicional si está editando -->
+                    {% if headcount %}
+                    <div class="alert alert-info mt-4">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i> Estado Actual
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Personal Actual:</strong><br>
+                                <span class="badge bg-success">{{ headcount.get_cantidad_actual }}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Diferencia:</strong><br>
+                                {% with diferencia=headcount.get_diferencia %}
+                                {% if diferencia > 0 %}
+                                <span class="badge bg-danger">Faltan {{ diferencia }}</span>
+                                {% elif diferencia < 0 %}
+                                <span class="badge bg-warning text-dark">Sobran {{ diferencia|abs }}</span>
+                                {% else %}
+                                <span class="badge bg-success">Completo</span>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            <div class="col-md-4">
+                                <strong>% Cumplimiento:</strong><br>
+                                <span class="badge bg-primary">{{ headcount.get_porcentaje_cumplimiento }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Botones -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <hr>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{% url 'headcount-list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-times me-2"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i> {% if headcount %}Actualizar{% else %}Crear{% endif %} Headcount
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Card de Ayuda -->
+        <div class="card mt-4 border-info">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-question-circle me-2"></i> Ayuda
+            </div>
+            <div class="card-body">
+                <h6>¿Cómo usar el Headcount?</h6>
+                <ul class="mb-0">
+                    <li><strong>Contrato:</strong> Seleccione el contrato para el cual está definiendo la dotación.</li>
+                    <li><strong>Cargo:</strong> Elija el cargo/posición que necesita personal.</li>
+                    <li><strong>Cantidad:</strong> Indique cuántas personas se requieren para ese cargo.</li>
+                    <li><strong>Máquina:</strong> Opcionalmente, puede asignar el headcount a una máquina específica.</li>
+                    <li><strong>Seguimiento:</strong> El sistema comparará automáticamente con los trabajadores activos asignados.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Agregar clase form-select a los selects del formulario
+    const selects = document.querySelectorAll('#headcountForm select');
+    selects.forEach(select => {
+        select.classList.add('form-select');
+    });
+    
+    // Agregar clase form-control a los inputs
+    const inputs = document.querySelectorAll('#headcountForm input[type="number"]');
+    inputs.forEach(input => {
+        input.classList.add('form-control');
+    });
+    
+    // Estilizar checkbox
+    const checkbox = document.querySelector('#headcountForm input[type="checkbox"]');
+    if (checkbox) {
+        checkbox.classList.add('form-check-input');
+    }
+    
+    // Validación en tiempo real para cantidad
+    const cantidadInput = document.querySelector('input[name="cantidad_requerida"]');
+    if (cantidadInput) {
+        cantidadInput.addEventListener('input', function() {
+            const valor = parseInt(this.value);
+            if (valor < 1) {
+                this.setCustomValidity('La cantidad debe ser mayor a 0');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+    }
+    
+    // Confirmación antes de enviar
+    const form = document.getElementById('headcountForm');
+    form.addEventListener('submit', function(e) {
+        const cantidad = document.querySelector('input[name="cantidad_requerida"]').value;
+        
+        {% if not headcount %}
+        if (!confirm(`¿Confirma crear headcount para ${cantidad} persona(s)?`)) {
+            e.preventDefault();
+        }
+        {% endif %}
+    });
+});
+</script>
+
+<style>
+.required::after {
+    content: " *";
+    color: #dc3545;
+}
+</style>
+
+{% endblock %}
