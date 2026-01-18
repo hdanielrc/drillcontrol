@@ -74,6 +74,10 @@ def dashboard(request):
     contract = user.contrato
     hoy = timezone.now().date()
     
+    # Redireccionar usuario HEADCOUNT a su módulo específico
+    if user.role == 'HEADCOUNT':
+        return redirect('headcount-dashboard')
+    
     # Determinar quÃ© template usar segÃºn el rol
     is_admin = user.role in ['GERENCIA', 'CONTROL_PROYECTOS'] and user.is_system_admin
     is_manager = user.role == 'ADMINISTRADOR'
