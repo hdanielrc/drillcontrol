@@ -80,10 +80,16 @@ def headcount_list(request):
         return redirect('dashboard')
     
     # Obtener contrato seleccionado
-    contrato_id = request.GET.get('contrato')
-    cargo_id = request.GET.get('cargo')
-    estado_filtro = request.GET.get('estado')
-    maquina_id = request.GET.get('maquina')
+    contrato_id = request.GET.get('contrato', '').strip()
+    cargo_id = request.GET.get('cargo', '').strip()
+    estado_filtro = request.GET.get('estado', '').strip()
+    maquina_id = request.GET.get('maquina', '').strip()
+    
+    # Limpiar valores vacíos
+    contrato_id = contrato_id if contrato_id else None
+    cargo_id = cargo_id if cargo_id else None
+    estado_filtro = estado_filtro if estado_filtro else None
+    maquina_id = maquina_id if maquina_id else None
     
     if request.user.has_access_to_all_contracts():
         contratos = Contrato.objects.filter(estado='ACTIVO')
