@@ -147,19 +147,73 @@ def headcount_list(request):
     if total_headcounts > len(headcounts):
         messages.info(request, f'Hay {total_headcounts - len(headcounts)} headcount(s) inactivo(s) para este contrato')
     
+    # Obtener cargos con trabajadores activos que NO están en el headcount
+    cargos_en_headcount = set(hc.cargo_id for hc in headcounts)
+    trabajadores_sin_headcount = Trabajador.objects.filter(
+        contrato=contrato,
+        estado='ACTIVO'
+    ).exclude(
+        cargo_id__in=cargos_en_headcount
+    ).values('cargo').annotate(
+        cantidad=Count('id')
+    ).select_related('cargo')
+    
+    # Crear objetos "virtuales" de HeadCount para cargos sin planificar
+    headcounts_list = list(headcounts)
+    for item in trabajadores_sin_headcount:
+        cargo_obj = Cargo.objects.get(id_cargo=item['cargo'])
+        # Crear un objeto mock de HeadCount
+        class MockHeadCount:
+            def __init__(self, contrato, cargo, cantidad_actual):
+                self.id = None
+                self.contrato = contrato
+                self.cargo = cargo
+                self.cantidad_requerida = 0
+                self.maquina = None
+                self.activo = True
+                self.observaciones = 'Cargo no planificado en headcount'
+                self._cantidad_actual = cantidad_actual
+                self.es_no_planificado = True
+            
+            def get_cantidad_actual(self):
+                return self._cantidad_actual
+            
+            def get_diferencia(self):
+                return 0 - self._cantidad_actual  # Negativo porque sobran
+            
+            def get_porcentaje_cumplimiento(self):
+                return 0  # No hay meta
+            
+            def get_personal_actual(self):
+                return Trabajador.objects.filter(
+                    contrato=self.contrato,
+                    cargo=self.cargo,
+                    estado='ACTIVO'
+                )
+            
+            def esta_completo(self):
+                return False
+        
+        mock_hc = MockHeadCount(contrato, cargo_obj, item['cantidad'])
+        headcounts_list.append(mock_hc)
+    
+    # Ordenar incluyendo los no planificados
+    headcounts_list = sorted(headcounts_list, key=lambda x: (x.cargo.nombre, x.maquina.nombre if x.maquina else ''))
+    
     # Agregar datos calculados
     headcounts_data = []
-    for hc in headcounts:
+    for hc in headcounts_list:
         headcounts_data.append({
             'headcount': hc,
             'actual': hc.get_cantidad_actual(),
             'diferencia': hc.get_diferencia(),
             'porcentaje': hc.get_porcentaje_cumplimiento(),
             'personal': hc.get_personal_actual(),
+            'es_no_planificado': getattr(hc, 'es_no_planificado', False),
         })
     
     # Estadísticas del contrato
-    total_requerido = sum(hc.cantidad_requerida for hc in headcounts) if headcounts else 0
+    total_requerido = sum(hc.cantidad_requerida for hc in headcounts_list) if headcounts_list else 0
     total_actual = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').count()
     total_diferencia = total_requerido - total_actual
     porcentaje_general = int((total_actual / total_requerido * 100)) if total_requerido > 0 else 0
@@ -173,7 +227,7 @@ def headcount_list(request):
         'contratos': contratos,
         'cargos': cargos,
         'maquinas': maquinas,
-        'headcounts': headcounts,  # Para iterar en el template
+        'headcounts': headcounts_list,  # Para iterar en el template
         'headcounts_data': headcounts_data,
         'total_requerido': total_requerido,
         'total_actual': total_actual,
