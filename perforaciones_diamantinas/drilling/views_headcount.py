@@ -225,7 +225,7 @@ def get_maquinas_by_contrato(request):
     try:
         maquinas = Maquina.objects.filter(
             contrato_id=contrato_id,
-            estado='ACTIVO'
+            estado='OPERATIVO'
         ).values('id', 'nombre').order_by('nombre')
         
         return JsonResponse({

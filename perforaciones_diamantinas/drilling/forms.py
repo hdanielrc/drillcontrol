@@ -487,12 +487,12 @@ class HeadCountForm(forms.ModelForm):
         if self.instance and self.instance.pk and self.instance.contrato:
             self.fields['maquina'].queryset = Maquina.objects.filter(
                 contrato=self.instance.contrato,
-                estado='ACTIVO'
+                estado='OPERATIVO'
             ).order_by('nombre')
         else:
-            # Para formularios de creación, mostrar todas las máquinas activas
+            # Para formularios de creación, mostrar todas las máquinas operativas
             # (se filtrarán dinámicamente por JavaScript)
-            self.fields['maquina'].queryset = Maquina.objects.filter(estado='ACTIVO').order_by('nombre')
+            self.fields['maquina'].queryset = Maquina.objects.filter(estado='OPERATIVO').order_by('nombre')
         
         # Agregar opción vacía para máquina
         self.fields['maquina'].required = False
