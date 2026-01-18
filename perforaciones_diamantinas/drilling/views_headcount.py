@@ -111,22 +111,30 @@ def headcount_list(request):
         activo=True
     )
     
+    # Debug inicial
+    count_inicial = headcounts_query.count()
+    messages.info(request, f'Headcounts activos en {contrato.nombre_contrato}: {count_inicial}')
+    
     # Aplicar filtros adicionales
     if cargo_id:
         headcounts_query = headcounts_query.filter(cargo_id=cargo_id)
+        messages.info(request, f'Después de filtrar por cargo: {headcounts_query.count() if hasattr(headcounts_query, "count") else len(headcounts_query)}')
     
     if estado_filtro == 'completo':
         # Filtrar solo los que están completos
         headcounts_query = [hc for hc in headcounts_query if hc.esta_completo()]
+        messages.info(request, f'Después de filtrar completos: {len(headcounts_query)}')
     elif estado_filtro == 'incompleto':
         # Filtrar los que no están completos
         headcounts_query = [hc for hc in headcounts_query if not hc.esta_completo()]
+        messages.info(request, f'Después de filtrar incompletos: {len(headcounts_query)}')
     
     if maquina_id:
         if maquina_id == 'sin_asignar':
             headcounts_query = headcounts_query.filter(maquina__isnull=True) if isinstance(headcounts_query, type(HeadCount.objects.all())) else [hc for hc in headcounts_query if hc.maquina is None]
         else:
             headcounts_query = headcounts_query.filter(maquina_id=maquina_id) if isinstance(headcounts_query, type(HeadCount.objects.all())) else [hc for hc in headcounts_query if hc.maquina_id == int(maquina_id)]
+        messages.info(request, f'Después de filtrar por máquina: {headcounts_query.count() if hasattr(headcounts_query, "count") else len(headcounts_query)}')
     
     # Convertir a lista si aún es QuerySet
     if hasattr(headcounts_query, 'select_related'):
