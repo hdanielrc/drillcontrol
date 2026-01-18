@@ -173,6 +173,7 @@ def headcount_list(request):
         'contratos': contratos,
         'cargos': cargos,
         'maquinas': maquinas,
+        'headcounts': headcounts,  # Para iterar en el template
         'headcounts_data': headcounts_data,
         'total_requerido': total_requerido,
         'total_actual': total_actual,
