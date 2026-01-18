@@ -81,6 +81,9 @@ def headcount_list(request):
     
     # Obtener contrato seleccionado
     contrato_id = request.GET.get('contrato')
+    cargo_id = request.GET.get('cargo')
+    estado_filtro = request.GET.get('estado')
+    maquina_id = request.GET.get('maquina')
     
     if request.user.has_access_to_all_contracts():
         contratos = Contrato.objects.filter(estado='ACTIVO')
@@ -96,16 +99,39 @@ def headcount_list(request):
         messages.warning(request, 'No hay contratos activos disponibles')
         return redirect('headcount-dashboard')
     
-    # Obtener headcounts del contrato
-    headcounts = HeadCount.objects.filter(
+    # Construir query base
+    headcounts_query = HeadCount.objects.filter(
         contrato=contrato,
         activo=True
-    ).select_related('cargo', 'maquina').order_by('cargo__nombre', 'maquina__nombre')
+    )
+    
+    # Aplicar filtros adicionales
+    if cargo_id:
+        headcounts_query = headcounts_query.filter(cargo_id=cargo_id)
+    
+    if estado_filtro == 'completo':
+        # Filtrar solo los que están completos
+        headcounts_query = [hc for hc in headcounts_query if hc.esta_completo()]
+    elif estado_filtro == 'incompleto':
+        # Filtrar los que no están completos
+        headcounts_query = [hc for hc in headcounts_query if not hc.esta_completo()]
+    
+    if maquina_id:
+        if maquina_id == 'sin_asignar':
+            headcounts_query = headcounts_query.filter(maquina__isnull=True) if isinstance(headcounts_query, type(HeadCount.objects.all())) else [hc for hc in headcounts_query if hc.maquina is None]
+        else:
+            headcounts_query = headcounts_query.filter(maquina_id=maquina_id) if isinstance(headcounts_query, type(HeadCount.objects.all())) else [hc for hc in headcounts_query if hc.maquina_id == int(maquina_id)]
+    
+    # Convertir a lista si aún es QuerySet
+    if hasattr(headcounts_query, 'select_related'):
+        headcounts = headcounts_query.select_related('cargo', 'maquina').order_by('cargo__nombre', 'maquina__nombre')
+    else:
+        headcounts = sorted(headcounts_query, key=lambda x: (x.cargo.nombre, x.maquina.nombre if x.maquina else ''))
     
     # Debug: contar todos los headcounts del contrato (incluso inactivos)
     total_headcounts = HeadCount.objects.filter(contrato=contrato).count()
-    if total_headcounts > headcounts.count():
-        messages.info(request, f'Hay {total_headcounts - headcounts.count()} headcount(s) inactivo(s) para este contrato')
+    if total_headcounts > len(headcounts):
+        messages.info(request, f'Hay {total_headcounts - len(headcounts)} headcount(s) inactivo(s) para este contrato')
     
     # Agregar datos calculados
     headcounts_data = []
@@ -119,14 +145,20 @@ def headcount_list(request):
         })
     
     # Estadísticas del contrato
-    total_requerido = headcounts.aggregate(total=Sum('cantidad_requerida'))['total'] or 0
+    total_requerido = sum(hc.cantidad_requerida for hc in headcounts) if headcounts else 0
     total_actual = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').count()
     total_diferencia = total_requerido - total_actual
     porcentaje_general = int((total_actual / total_requerido * 100)) if total_requerido > 0 else 0
     
+    # Obtener cargos y máquinas para los filtros
+    cargos = Cargo.objects.all().order_by('nombre')
+    maquinas = Maquina.objects.filter(contrato=contrato, estado='OPERATIVO').order_by('nombre')
+    
     context = {
         'contrato': contrato,
         'contratos': contratos,
+        'cargos': cargos,
+        'maquinas': maquinas,
         'headcounts_data': headcounts_data,
         'total_requerido': total_requerido,
         'total_actual': total_actual,
