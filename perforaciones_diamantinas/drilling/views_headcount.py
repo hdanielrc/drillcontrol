@@ -46,6 +46,7 @@ def headcount_dashboard(request):
         requerido = hc_contrato.aggregate(total=Sum('cantidad_requerida'))['total'] or 0
         actual = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').count()
         diferencia = requerido - actual
+        diferencia_abs = abs(diferencia)  # Calcular valor absoluto aquí
         porcentaje = int((actual / requerido * 100)) if requerido > 0 else 0
         
         contratos_data.append({
@@ -53,6 +54,7 @@ def headcount_dashboard(request):
             'requerido': requerido,
             'actual': actual,
             'diferencia': diferencia,
+            'diferencia_abs': diferencia_abs,
             'porcentaje': porcentaje,
         })
     
