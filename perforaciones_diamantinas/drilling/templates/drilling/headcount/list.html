@@ -247,6 +247,7 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                     </tr>
                     
                     <!-- Modal de confirmación de eliminación -->
+                    {% if not headcount.es_no_planificado and headcount.id %}
                     <div class="modal fade" id="deleteModal{{ headcount.id }}" tabindex="-1">
                         <div class="modal-dialog">
                             <div class="modal-content">
@@ -279,6 +280,7 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                     {% empty %}
                     <tr>
                         <td colspan="9" class="text-center text-muted py-5">
