@@ -212,7 +212,7 @@
                             {% if item.dias_restantes is not None %}
                                 {% if item.dias_restantes < 0 %}
                                 <span class="badge bg-danger">
-                                    <i class="fas fa-exclamation-triangle"></i> {{ item.dias_restantes|abs }} días vencido
+                                    <i class="fas fa-exclamation-triangle"></i> {{ item.dias_restantes_abs }} días vencido
                                 </span>
                                 {% elif item.dias_restantes == 0 %}
                                 <span class="badge bg-danger">

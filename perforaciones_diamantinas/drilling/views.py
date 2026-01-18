@@ -488,6 +488,7 @@ def estado_emo_trabajadores(request):
             'trabajador': trabajador,
             'estado_emo_calculado': estado_emo,
             'dias_restantes': dias_restantes,
+            'dias_restantes_abs': abs(dias_restantes) if dias_restantes is not None else None,
             'clase_badge': clase_badge
         })
     
