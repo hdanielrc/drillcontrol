@@ -156,7 +156,7 @@ def headcount_list(request):
         cargo_id__in=cargos_en_headcount
     ).values('cargo').annotate(
         cantidad=Count('id')
-    ).select_related('cargo')
+    )
     
     # Crear objetos "virtuales" de HeadCount para cargos sin planificar
     headcounts_list = list(headcounts)
