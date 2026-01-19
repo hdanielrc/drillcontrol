@@ -224,14 +224,12 @@
                             <div class="text-end">
                                 <h3 class="mb-0 text-secondary">{{ metraje_periodo_anterior|floatformat:2 }}</h3>
                                 <small class="text-muted">metros</small>
-                                {% if metraje_total > 0 and metraje_periodo_anterior > 0 %}
+                                {% if diferencia_metraje != 0 %}
                                 <div class="mt-1">
-                                    {% with diferencia=metraje_total|add:metraje_periodo_anterior|multiply:-1 %}
-                                    <small class="{% if metraje_total >= metraje_periodo_anterior %}text-success{% else %}text-danger{% endif %}">
-                                        <i class="fas fa-{% if metraje_total >= metraje_periodo_anterior %}arrow-up{% else %}arrow-down{% endif %}"></i>
-                                        {% if metraje_total >= metraje_periodo_anterior %}+{% endif %}{{ diferencia|floatformat:2 }} m
+                                    <small class="{% if diferencia_metraje > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        <i class="fas fa-{% if diferencia_metraje > 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                                        {% if diferencia_metraje > 0 %}+{% endif %}{{ diferencia_metraje|floatformat:2 }} m
                                     </small>
-                                    {% endwith %}
                                 </div>
                                 {% endif %}
                             </div>

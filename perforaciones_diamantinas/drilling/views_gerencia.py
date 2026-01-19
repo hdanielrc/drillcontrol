@@ -302,6 +302,8 @@ def gerencia_dashboard(request):
         
         # KPIs principales
         'metraje_total': float(metraje_periodo),
+        'metraje_periodo_anterior': float(metraje_periodo_anterior),
+        'diferencia_metraje': float(metraje_periodo - metraje_periodo_anterior),
         'disponibilidad_global': float(disponibilidad_global),
         'eficiencia_turnos': float(eficiencia_turnos),
         'trabajadores_activos': trabajadores_activos,
@@ -324,9 +326,6 @@ def gerencia_dashboard(request):
         # Turnos
         'turnos_total': turnos_total,
         'turnos_completados': turnos_completados,
-        
-        # Comparación
-        'metraje_periodo_anterior': float(metraje_periodo_anterior),
         
         # Alertas
         'alertas': alertas,
