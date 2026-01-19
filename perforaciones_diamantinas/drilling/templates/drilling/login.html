@@ -3,83 +3,242 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Sistema de Perforaciones</title>
+    <title>Login - DrillControl</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     {% load static %}
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
     <style>
+        :root {
+            --primary-dark: #084163;
+            --primary-medium: #0a5278;
+            --accent-blue: #00a8e8;
+        }
+        
         body {
             background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-medium) 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
+            justify-content: center;
+            position: relative;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+        
+        .login-container {
+            width: 100%;
+            max-width: 450px;
+            padding: 2rem;
+        }
+        
         .login-card {
-            backdrop-filter: blur(10px);
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(8, 65, 99, 0.2);
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            border: none;
+        }
+        
+        .login-header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--accent-blue));
+            padding: 2.5rem 2rem;
+            text-align: center;
+            color: white;
+        }
+        
+        .drillcontrol-logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .drillcontrol-subtitle {
+            font-size: 0.95rem;
+            opacity: 0.95;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+        
+        .login-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .login-body {
+            padding: 2.5rem 2rem;
+        }
+        
+        .form-label {
+            color: var(--primary-dark);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 0.2rem rgba(0, 168, 232, 0.15);
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, var(--primary-dark), var(--accent-blue));
+            color: white;
+            border: none;
+            padding: 0.9rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1.05rem;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 168, 232, 0.3);
+            background: linear-gradient(135deg, var(--accent-blue), var(--primary-dark));
+        }
+        
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+        
+        .forgot-password {
+            color: var(--primary-medium);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .forgot-password:hover {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
+        
+        .rockdrill-logo {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .rockdrill-logo img {
+            height: 35px;
+            width: auto;
+        }
+        
+        .rockdrill-text {
+            font-weight: 700;
+            color: var(--primary-dark);
+            font-size: 1.1rem;
+            letter-spacing: -0.5px;
+        }
+        
+        @media (max-width: 576px) {
+            .login-container {
+                padding: 1rem;
+            }
+            
+            .rockdrill-logo {
+                bottom: 10px;
+                right: 10px;
+                padding: 10px 15px;
+            }
+            
+            .rockdrill-logo img {
+                height: 25px;
+            }
+            
+            .rockdrill-text {
+                font-size: 0.9rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="card login-card">
-                    <div class="card-body p-5">
-                        <div class="text-center mb-4">
-                            <i class="fas fa-drill fa-3x text-primary mb-3"></i>
-                            <h3 class="card-title">Sistema de Perforaciones</h3>
-                            <p class="text-muted">Acceso al sistema de gestión</p>
-                        </div>
+    <div class="login-container">
+        <div class="card login-card">
+            <div class="login-header">
+                <div class="login-icon">
+                    <i class="fas fa-hard-hat"></i>
+                </div>
+                <div class="drillcontrol-logo">DrillControl</div>
+                <div class="drillcontrol-subtitle">Sistema de Gestión de Perforaciones</div>
+            </div>
+            
+            <div class="login-body">
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>{{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+                {% endif %}
 
-                        {% if messages %}
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-triangle"></i> {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                        {% endfor %}
-                        {% endif %}
-
-                        <form method="post">
-                            {% csrf_token %}
-                            <div class="mb-3">
-                                <label for="username" class="form-label">
-                                    <i class="fas fa-user"></i> Usuario
-                                </label>
-                                <input type="text" class="form-control" id="username" name="username" required>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label for="password" class="form-label">
-                                    <i class="fas fa-lock"></i> Contraseña
-                                </label>
-                                <input type="password" class="form-control" id="password" name="password" required>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary w-100 py-2">
-                                <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
-                            </button>
-                        </form>
-                        
-                        <div class="text-center mt-3">
-                            <a href="{% url 'request_password_reset' %}" class="text-muted small">
-                                <i class="fas fa-key"></i> ¿Olvidaste tu contraseña?
-                            </a>
-                        </div>
-
-                        <div class="mt-4 text-center">
-                            <small class="text-muted">
-                                &copy; 2025 Rock Drill
-                            </small>
-                        </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user me-1"></i> Usuario
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               placeholder="Ingrese su usuario"
+                               required 
+                               autofocus>
                     </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock me-1"></i> Contraseña
+                        </label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password" 
+                               placeholder="Ingrese su contraseña"
+                               required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-login">
+                        <i class="fas fa-sign-in-alt me-2"></i> Iniciar Sesión
+                    </button>
+                </form>
+                
+                <div class="text-center mt-4">
+                    <a href="{% url 'request_password_reset' %}" class="forgot-password">
+                        <i class="fas fa-key me-1"></i> ¿Olvidaste tu contraseña?
+                    </a>
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- Logo Rockdrill en esquina inferior derecha -->
+    <div class="rockdrill-logo">
+        <img src="{% static 'images/rockdrill-logo.png' %}" alt="Rock Drill" onerror="this.style.display='none'">
+        <span class="rockdrill-text">ROCK DRILL</span>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
