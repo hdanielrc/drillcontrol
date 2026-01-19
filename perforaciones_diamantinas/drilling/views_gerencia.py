@@ -5,7 +5,7 @@ from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
 from datetime import datetime, timedelta
 from decimal import Decimal
 from .models import (
-    Turno, TurnoSondaje, Maquina, Trabajador, Contrato,
+    Turno, TurnoSondaje, TurnoAvance, Maquina, Trabajador, Contrato,
     TurnoActividad, Sondaje
 )
 
@@ -91,19 +91,19 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 1: METRAJE TOTAL AVANZADO
     # ============================================
-    metraje_periodo = TurnoSondaje.objects.filter(
+    metraje_periodo = TurnoAvance.objects.filter(
         filtro_base
     ).aggregate(
-        total=Sum('metros_turno')
+        total=Sum('metros_perforados')
     )['total'] or Decimal('0')
     
     # Metraje por día para gráfica de tendencia - MES ACTUAL
-    metraje_diario_actual = TurnoSondaje.objects.filter(
+    metraje_diario_actual = TurnoAvance.objects.filter(
         filtro_base
     ).values(
         fecha=F('turno__fecha')
     ).annotate(
-        metros=Sum('metros_turno')
+        metros=Sum('metros_perforados')
     ).order_by('fecha')
     
     # Calcular período anterior para comparación histórica
@@ -128,13 +128,13 @@ def gerencia_dashboard(request):
         fecha_inicio_anterior = fecha_fin_anterior - timedelta(days=dias_periodo)
     
     # Metraje por día para gráfica de tendencia - MES ANTERIOR
-    metraje_diario_anterior = TurnoSondaje.objects.filter(
+    metraje_diario_anterior = TurnoAvance.objects.filter(
         turno__fecha__range=[fecha_inicio_anterior, fecha_fin_anterior],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
         fecha=F('turno__fecha')
     ).annotate(
-        metros=Sum('metros_turno')
+        metros=Sum('metros_perforados')
     ).order_by('fecha')
     
     # Convertir a formato día relativo (día 1, 2, 3... del período)
@@ -152,13 +152,13 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 2: METRAJE POR CONTRATO
     # ============================================
-    metraje_por_contrato_raw = TurnoSondaje.objects.filter(
+    metraje_por_contrato_raw = TurnoAvance.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
         contrato_nombre=F('turno__contrato__nombre_contrato')
     ).annotate(
-        metros_total=Sum('metros_turno'),
+        metros_total=Sum('metros_perforados'),
         turnos_count=Count('turno', distinct=True)
     ).order_by('-metros_total')[:10]
     
@@ -214,13 +214,13 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 6: TOP MÁQUINAS POR RENDIMIENTO
     # ============================================
-    top_maquinas_raw = TurnoSondaje.objects.filter(
+    top_maquinas_raw = TurnoAvance.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
         maquina_nombre=F('turno__maquina__nombre')
     ).annotate(
-        metros_total=Sum('metros_turno'),
+        metros_total=Sum('metros_perforados'),
         dias_trabajados=Count('turno__fecha', distinct=True)
     ).annotate(
         promedio_diario=F('metros_total') / F('dias_trabajados')
@@ -270,11 +270,11 @@ def gerencia_dashboard(request):
     alertas = []
     
     # Comparar metraje con período anterior
-    metraje_periodo_anterior = TurnoSondaje.objects.filter(
+    metraje_periodo_anterior = TurnoAvance.objects.filter(
         turno__fecha__range=[fecha_inicio_anterior, fecha_fin_anterior],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).aggregate(
-        total=Sum('metros_turno')
+        total=Sum('metros_perforados')
     )['total'] or Decimal('0')
     
     if metraje_periodo < metraje_periodo_anterior * Decimal('0.8'):
@@ -299,26 +299,26 @@ def gerencia_dashboard(request):
             })
     
     # Contar turnos sin filtro de estado para debug
-    turnos_sin_filtro_estado = TurnoSondaje.objects.filter(
+    turnos_sin_filtro_estado = TurnoAvance.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin]
     )
     if contrato_id:
         turnos_sin_filtro_estado = turnos_sin_filtro_estado.filter(turno__contrato_id=contrato_id)
     
     total_turnos_periodo = turnos_sin_filtro_estado.count()
-    metraje_sin_filtro = turnos_sin_filtro_estado.aggregate(total=Sum('metros_turno'))['total'] or Decimal('0')
+    metraje_sin_filtro = turnos_sin_filtro_estado.aggregate(total=Sum('metros_perforados'))['total'] or Decimal('0')
     
     # Estados de turnos en el período
     estados_turnos = turnos_sin_filtro_estado.values('turno__estado').annotate(
         cantidad=Count('id'),
-        metraje=Sum('metros_turno')
+        metraje=Sum('metros_perforados')
     )
     
     estados_msg = ' | '.join([f"{e['turno__estado']}: {e['cantidad']} turnos ({float(e['metraje'] or 0):.2f}m)" for e in estados_turnos])
     
     alertas.append({
         'tipo': 'warning',
-        'mensaje': f'Debug Estados: {total_turnos_periodo} TurnoSondaje en período | Total sin filtro: {float(metraje_sin_filtro):.2f}m | {estados_msg}'
+        'mensaje': f'Debug Estados: {total_turnos_periodo} TurnoAvance en período | Total sin filtro: {float(metraje_sin_filtro):.2f}m | {estados_msg}'
     })
     
     # ============================================
