@@ -107,7 +107,7 @@ def gerencia_dashboard(request):
     
     # Trabajadores que trabajaron en el período
     trabajadores_periodo = Trabajador.objects.filter(
-        turno_trabajador__turno__fecha__range=[fecha_inicio, fecha_fin]
+        turnotrabajador__turno__fecha__range=[fecha_inicio, fecha_fin]
     ).distinct().count()
     
     # ============================================
