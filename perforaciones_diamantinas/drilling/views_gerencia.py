@@ -79,11 +79,17 @@ def gerencia_dashboard(request):
     if periodo == 'mes':
         # Mes operativo anterior (26 a 25)
         if fecha_inicio.month == 1:
+            # Actual: 26 dic - 25 ene | Anterior: 26 nov - 25 dic
             fecha_inicio_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=26)
-            fecha_fin_anterior = fecha_inicio.replace(day=25)
+            fecha_fin_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=25)
+        elif fecha_inicio.month == 2:
+            # Actual: 26 ene - 25 feb | Anterior: 26 dic - 25 ene
+            fecha_inicio_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=26)
+            fecha_fin_anterior = fecha_inicio.replace(month=1, day=25)
         else:
+            # Meses normales
             fecha_inicio_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=26)
-            fecha_fin_anterior = fecha_inicio.replace(day=25)
+            fecha_fin_anterior = fecha_inicio.replace(month=fecha_inicio.month, day=25)
     else:
         # Para semana y quincena, usar la misma duración hacia atrás
         dias_periodo = (fecha_fin - fecha_inicio).days
