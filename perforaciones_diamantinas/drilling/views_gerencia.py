@@ -265,6 +265,38 @@ def gerencia_dashboard(request):
         'mensaje': f'Debug Período Anterior: {fecha_inicio_anterior.strftime("%d/%m/%Y")} - {fecha_fin_anterior.strftime("%d/%m/%Y")} | Metraje: {float(metraje_periodo_anterior):.2f} m'
     })
     
+    # Debug adicional para verificar datos
+    if contrato_id:
+        contrato_nombre = Contrato.objects.filter(id=contrato_id).first()
+        if contrato_nombre:
+            alertas.append({
+                'tipo': 'info',
+                'mensaje': f'Debug Filtro: Contrato "{contrato_nombre.nombre_contrato}" (ID: {contrato_id})'
+            })
+    
+    # Contar turnos sin filtro de estado para debug
+    turnos_sin_filtro_estado = TurnoSondaje.objects.filter(
+        turno__fecha__range=[fecha_inicio, fecha_fin]
+    )
+    if contrato_id:
+        turnos_sin_filtro_estado = turnos_sin_filtro_estado.filter(turno__contrato_id=contrato_id)
+    
+    total_turnos_periodo = turnos_sin_filtro_estado.count()
+    metraje_sin_filtro = turnos_sin_filtro_estado.aggregate(total=Sum('metros_turno'))['total'] or Decimal('0')
+    
+    # Estados de turnos en el período
+    estados_turnos = turnos_sin_filtro_estado.values('turno__estado').annotate(
+        cantidad=Count('id'),
+        metraje=Sum('metros_turno')
+    )
+    
+    estados_msg = ' | '.join([f"{e['turno__estado']}: {e['cantidad']} turnos ({float(e['metraje'] or 0):.2f}m)" for e in estados_turnos])
+    
+    alertas.append({
+        'tipo': 'warning',
+        'mensaje': f'Debug Estados: {total_turnos_periodo} TurnoSondaje en período | Total sin filtro: {float(metraje_sin_filtro):.2f}m | {estados_msg}'
+    })
+    
     # ============================================
     # OBTENER LISTA DE CONTRATOS
     # ============================================
