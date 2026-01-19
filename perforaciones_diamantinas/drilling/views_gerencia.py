@@ -65,8 +65,8 @@ def gerencia_dashboard(request):
         total=Sum('metros_turno')
     )['total'] or Decimal('0')
     
-    # Metraje por día para gráfica de tendencia
-    metraje_diario = TurnoSondaje.objects.filter(
+    # Metraje por día para gráfica de tendencia - MES ACTUAL
+    metraje_diario_actual = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
@@ -74,6 +74,46 @@ def gerencia_dashboard(request):
     ).annotate(
         metros=Sum('metros_turno')
     ).order_by('fecha')
+    
+    # Calcular período anterior para comparación histórica
+    if periodo == 'mes':
+        # Mes operativo anterior (26 a 25)
+        if fecha_inicio.month == 1:
+            fecha_inicio_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=26)
+            fecha_fin_anterior = fecha_inicio.replace(day=25)
+        else:
+            fecha_inicio_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=26)
+            if fecha_inicio.month == 1:
+                fecha_fin_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=25)
+            else:
+                fecha_fin_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=25)
+    else:
+        # Para semana y quincena, usar la misma duración hacia atrás
+        dias_periodo = (fecha_fin - fecha_inicio).days
+        fecha_fin_anterior = fecha_inicio - timedelta(days=1)
+        fecha_inicio_anterior = fecha_fin_anterior - timedelta(days=dias_periodo)
+    
+    # Metraje por día para gráfica de tendencia - MES ANTERIOR
+    metraje_diario_anterior = TurnoSondaje.objects.filter(
+        turno__fecha__range=[fecha_inicio_anterior, fecha_fin_anterior],
+        turno__estado__in=['COMPLETADO', 'APROBADO']
+    ).values(
+        fecha=F('turno__fecha')
+    ).annotate(
+        metros=Sum('metros_turno')
+    ).order_by('fecha')
+    
+    # Convertir a formato día relativo (día 1, 2, 3... del período)
+    # Para facilitar comparación en la gráfica
+    metraje_diario_actual_dict = {}
+    for item in metraje_diario_actual:
+        dia_relativo = (item['fecha'] - fecha_inicio).days + 1
+        metraje_diario_actual_dict[dia_relativo] = float(item['metros'])
+    
+    metraje_diario_anterior_dict = {}
+    for item in metraje_diario_anterior:
+        dia_relativo = (item['fecha'] - fecha_inicio_anterior).days + 1
+        metraje_diario_anterior_dict[dia_relativo] = float(item['metros'])
     
     # ============================================
     # KPI 2: METRAJE POR CONTRATO
@@ -182,22 +222,20 @@ def gerencia_dashboard(request):
             fecha_inicio_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=26)
             if fecha_inicio.month == 1:
                 fecha_fin_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=25)
-            else:
-                fecha_fin_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=25)
-    else:
-        # Para semana y quincena, usar la misma duración hacia atrás
-        dias_periodo = (fecha_fin - fecha_inicio).days
-        fecha_fin_anterior = fecha_inicio - timedelta(days=1)
-        fecha_inicio_anterior = fecha_fin_anterior - timedelta(days=dias_periodo)
+    # ============================================
+    # ALERTAS AUTOMÁTICAS
+    # ============================================
+    alertas = []
     
-    metraje_mes_anterior = TurnoSondaje.objects.filter(
+    # Comparar metraje con período anterior
+    metraje_periodo_anterior = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio_anterior, fecha_fin_anterior],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).aggregate(
         total=Sum('metros_turno')
     )['total'] or Decimal('0')
     
-    if metraje_periodo < metraje_mes_anterior * Decimal('0.8'):
+    if metraje_periodo < metraje_periodo_anterior * Decimal('0.8'):
         alertas.append({
             'tipo': 'warning',
             'mensaje': f'Metraje 20% menor al período anterior'
@@ -228,6 +266,8 @@ def gerencia_dashboard(request):
         'periodo': periodo,
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
+        'fecha_inicio_anterior': fecha_inicio_anterior,
+        'fecha_fin_anterior': fecha_fin_anterior,
         
         # KPIs principales
         'metraje_total': round(metraje_periodo, 2),
@@ -238,8 +278,9 @@ def gerencia_dashboard(request):
         'sondajes_activos': sondajes_activos,
         'sondajes_completados': sondajes_completados,
         
-        # Datos para gráficas
-        'metraje_diario': list(metraje_diario),
+        # Datos para gráficas comparativas
+        'metraje_diario_actual': metraje_diario_actual_dict,
+        'metraje_diario_anterior': metraje_diario_anterior_dict,
         'metraje_por_contrato': list(metraje_por_contrato),
         'estados_maquinas': list(estados_maquinas),
         'top_maquinas': list(top_maquinas),
