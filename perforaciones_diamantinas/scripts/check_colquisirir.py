@@ -110,3 +110,29 @@ metraje_contratos = TurnoSondaje.objects.values('turno__contrato__nombre_contrat
 for item in metraje_contratos:
     metros = float(item['metraje']) if item['metraje'] else 0
     print(f"{item['turno__contrato__nombre_contrato']}: {item['cantidad']} TurnoSondaje | {metros:.2f} metros")
+
+# VERIFICAR TURNOAVANCE (modelo diferente usado en listar_turnos)
+print(f'\n=== ANÁLISIS DE TURNOAVANCE (usado en /turnos/) ===')
+from drilling.models import TurnoAvance
+
+avances_colquisirir = TurnoAvance.objects.filter(turno__contrato=colquisirir)
+print(f'Total de TurnoAvance en Colquisiri: {avances_colquisirir.count()}')
+
+metraje_avances = avances_colquisirir.aggregate(
+    total=Sum('metros_perforados'),
+    cantidad=Count('id')
+)
+metros_avances = float(metraje_avances['total']) if metraje_avances['total'] else 0
+print(f'Metraje total en TurnoAvance: {metros_avances:.2f} metros')
+
+print(f'\nDetalle TurnoAvance por fecha:')
+avances_por_fecha = TurnoAvance.objects.filter(turno__contrato=colquisirir).values(
+    'turno__fecha', 'turno__estado'
+).annotate(
+    cantidad=Count('id'),
+    metraje=Sum('metros_perforados')
+).order_by('turno__fecha')
+
+for item in avances_por_fecha:
+    metros = float(item['metraje']) if item['metraje'] else 0
+    print(f"  {item['turno__fecha']}: {item['cantidad']} avances ({item['turno__estado']}) = {metros:.2f}m")
