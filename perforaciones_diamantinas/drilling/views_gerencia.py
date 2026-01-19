@@ -42,7 +42,7 @@ def gerencia_dashboard(request):
     # ============================================
     metraje_periodo = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
-        turno__estado='APROBADO'
+        turno__estado__in=['COMPLETADO', 'APROBADO']
     ).aggregate(
         total=Sum('metros_turno')
     )['total'] or Decimal('0')
@@ -50,7 +50,7 @@ def gerencia_dashboard(request):
     # Metraje por día para gráfica de tendencia
     metraje_diario = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
-        turno__estado='APROBADO'
+        turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
         fecha=F('turno__fecha')
     ).annotate(
@@ -62,7 +62,7 @@ def gerencia_dashboard(request):
     # ============================================
     metraje_por_contrato = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
-        turno__estado='APROBADO'
+        turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
         contrato_nombre=F('turno__contrato__nombre_contrato')
     ).annotate(
@@ -115,7 +115,7 @@ def gerencia_dashboard(request):
     # ============================================
     top_maquinas = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
-        turno__estado='APROBADO'
+        turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
         maquina_nombre=F('turno__maquina__nombre')
     ).annotate(
@@ -159,7 +159,7 @@ def gerencia_dashboard(request):
             (fecha_inicio - timedelta(days=30)),
             fecha_inicio
         ],
-        turno__estado='APROBADO'
+        turno__estado__in=['COMPLETADO', 'APROBADO']
     ).aggregate(
         total=Sum('metros_turno')
     )['total'] or Decimal('0')
@@ -173,6 +173,24 @@ def gerencia_dashboard(request):
     # ============================================
     # PREPARAR CONTEXTO
     # ============================================
+    
+    # Debug temporal - ver qué hay en la BD
+    total_turno_sondaje = TurnoSondaje.objects.all().count()
+    turnos_en_rango = TurnoSondaje.objects.filter(
+        turno__fecha__range=[fecha_inicio, fecha_fin]
+    ).count()
+    turnos_completados_debug = TurnoSondaje.objects.filter(
+        turno__fecha__range=[fecha_inicio, fecha_fin],
+        turno__estado__in=['COMPLETADO', 'APROBADO']
+    ).count()
+    
+    # Agregar alerta de debug
+    if metraje_periodo == 0:
+        alertas.append({
+            'tipo': 'info',
+            'mensaje': f'Debug: {total_turno_sondaje} TurnoSondaje total | {turnos_en_rango} en rango | {turnos_completados_debug} COMPLETADO/APROBADO'
+        })
+    
     context = {
         'periodo': periodo,
         'fecha_inicio': fecha_inicio,
