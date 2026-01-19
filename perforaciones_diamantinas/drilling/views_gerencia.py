@@ -27,15 +27,33 @@ def gerencia_dashboard(request):
     
     # Obtener parámetros de filtro
     periodo = request.GET.get('periodo', 'mes')  # semana, quincena, mes
-    fecha_fin = datetime.now().date()
+    fecha_actual = datetime.now().date()
     
-    # Calcular fecha de inicio según período
+    # Calcular fecha de inicio y fin según período
+    # NOTA: Los meses operativos van del 26 de un mes al 25 del siguiente
     if periodo == 'semana':
+        fecha_fin = fecha_actual
         fecha_inicio = fecha_fin - timedelta(days=7)
     elif periodo == 'quincena':
+        fecha_fin = fecha_actual
         fecha_inicio = fecha_fin - timedelta(days=15)
-    else:  # mes
-        fecha_inicio = fecha_fin.replace(day=1)
+    else:  # mes operativo (26 al 25)
+        if fecha_actual.day >= 26:
+            # Estamos en el mes operativo actual (del 26 de este mes al 25 del siguiente)
+            fecha_inicio = fecha_actual.replace(day=26)
+            # Calcular el 25 del mes siguiente
+            if fecha_actual.month == 12:
+                fecha_fin = fecha_actual.replace(year=fecha_actual.year + 1, month=1, day=25)
+            else:
+                fecha_fin = fecha_actual.replace(month=fecha_actual.month + 1, day=25)
+        else:
+            # Estamos antes del 26, por lo que pertenecemos al mes operativo anterior
+            # Del 26 del mes pasado al 25 de este mes
+            if fecha_actual.month == 1:
+                fecha_inicio = fecha_actual.replace(year=fecha_actual.year - 1, month=12, day=26)
+            else:
+                fecha_inicio = fecha_actual.replace(month=fecha_actual.month - 1, day=26)
+            fecha_fin = fecha_actual.replace(day=25)
     
     # ============================================
     # KPI 1: METRAJE TOTAL AVANZADO
@@ -154,11 +172,26 @@ def gerencia_dashboard(request):
         })
     
     # Metraje bajo (comparar con promedio histórico)
+    # Calcular período anterior para comparación
+    if periodo == 'mes':
+        # Mes operativo anterior (26 a 25)
+        if fecha_inicio.month == 1:
+            fecha_inicio_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=26)
+            fecha_fin_anterior = fecha_inicio.replace(day=25)
+        else:
+            fecha_inicio_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=26)
+            if fecha_inicio.month == 1:
+                fecha_fin_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=25)
+            else:
+                fecha_fin_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=25)
+    else:
+        # Para semana y quincena, usar la misma duración hacia atrás
+        dias_periodo = (fecha_fin - fecha_inicio).days
+        fecha_fin_anterior = fecha_inicio - timedelta(days=1)
+        fecha_inicio_anterior = fecha_fin_anterior - timedelta(days=dias_periodo)
+    
     metraje_mes_anterior = TurnoSondaje.objects.filter(
-        turno__fecha__range=[
-            (fecha_inicio - timedelta(days=30)),
-            fecha_inicio
-        ],
+        turno__fecha__range=[fecha_inicio_anterior, fecha_fin_anterior],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).aggregate(
         total=Sum('metros_turno')
