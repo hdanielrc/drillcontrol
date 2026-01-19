@@ -149,8 +149,8 @@
 <div class="container-fluid py-4">
     <!-- Header del Dashboard -->
     <div class="dashboard-header">
-        <div class="row align-items-center">
-            <div class="col-md-8">
+        <div class="row align-items-center mb-3">
+            <div class="col-md-6">
                 <h1 class="mb-2">
                     <i class="fas fa-chart-line me-2"></i>
                     Dashboard Gerencial
@@ -159,20 +159,84 @@
                     Período: {{ fecha_inicio|date:"d/m/Y" }} - {{ fecha_fin|date:"d/m/Y" }}
                 </p>
             </div>
-            <div class="col-md-4 text-end">
-                <div class="periodo-selector">
-                    <button class="periodo-btn {% if periodo == 'semana' %}active{% endif %}" 
-                            onclick="cambiarPeriodo('semana')">
-                        Semana
-                    </button>
-                    <button class="periodo-btn {% if periodo == 'quincena' %}active{% endif %}" 
-                            onclick="cambiarPeriodo('quincena')">
-                        Quincena
-                    </button>
-                    <button class="periodo-btn {% if periodo == 'mes' %}active{% endif %}" 
-                            onclick="cambiarPeriodo('mes')">
-                        Mes
-                    </button>
+            <div class="col-md-6 text-end">
+                <div class="d-flex justify-content-end align-items-center gap-3">
+                    <!-- Filtro por Contrato -->
+                    <div style="min-width: 250px;">
+                        <select class="form-select" id="contratoFilter" onchange="filtrarPorContrato()">
+                            <option value="">Todos los contratos</option>
+                            {% for contrato in contratos %}
+                            <option value="{{ contrato.id }}" {% if contrato_seleccionado == contrato.id|stringformat:"s" %}selected{% endif %}>
+                                {{ contrato.nombre_contrato }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- Selector de Período -->
+                    <div class="periodo-selector">
+                        <button class="periodo-btn {% if periodo == 'semana' %}active{% endif %}" 
+                                onclick="cambiarPeriodo('semana')">
+                            Semana
+                        </button>
+                        <button class="periodo-btn {% if periodo == 'quincena' %}active{% endif %}" 
+                                onclick="cambiarPeriodo('quincena')">
+                            Quincena
+                        </button>
+                        <button class="periodo-btn {% if periodo == 'mes' %}active{% endif %}" 
+                                onclick="cambiarPeriodo('mes')">
+                            Mes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tarjetas Comparativas de Metraje -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">
+                                    <i class="fas fa-calendar-alt me-2"></i>Período Actual
+                                </h6>
+                                <p class="small text-muted mb-0">{{ fecha_inicio|date:"d M" }} - {{ fecha_fin|date:"d M Y" }}</p>
+                            </div>
+                            <div class="text-end">
+                                <h3 class="mb-0 text-primary">{{ metraje_total|floatformat:2 }}</h3>
+                                <small class="text-muted">metros</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">
+                                    <i class="fas fa-history me-2"></i>Período Anterior
+                                </h6>
+                                <p class="small text-muted mb-0">{{ fecha_inicio_anterior|date:"d M" }} - {{ fecha_fin_anterior|date:"d M Y" }}</p>
+                            </div>
+                            <div class="text-end">
+                                <h3 class="mb-0 text-secondary">{{ metraje_periodo_anterior|floatformat:2 }}</h3>
+                                <small class="text-muted">metros</small>
+                                {% if metraje_total > 0 and metraje_periodo_anterior > 0 %}
+                                <div class="mt-1">
+                                    {% with diferencia=metraje_total|add:metraje_periodo_anterior|multiply:-1 %}
+                                    <small class="{% if metraje_total >= metraje_periodo_anterior %}text-success{% else %}text-danger{% endif %}">
+                                        <i class="fas fa-{% if metraje_total >= metraje_periodo_anterior %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                                        {% if metraje_total >= metraje_periodo_anterior %}+{% endif %}{{ diferencia|floatformat:2 }} m
+                                    </small>
+                                    {% endwith %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -340,7 +404,23 @@
 
     // Función para cambiar período
     function cambiarPeriodo(periodo) {
-        window.location.href = '?periodo=' + periodo;
+        const contratoId = document.getElementById('contratoFilter').value;
+        let url = '?periodo=' + periodo;
+        if (contratoId) {
+            url += '&contrato=' + contratoId;
+        }
+        window.location.href = url;
+    }
+    
+    // Función para filtrar por contrato
+    function filtrarPorContrato() {
+        const contratoId = document.getElementById('contratoFilter').value;
+        const periodo = '{{ periodo }}';
+        let url = '?periodo=' + periodo;
+        if (contratoId) {
+            url += '&contrato=' + contratoId;
+        }
+        window.location.href = url;
     }
 
     // GRÁFICA 1: Metraje Diario - Comparación Período Actual vs Anterior

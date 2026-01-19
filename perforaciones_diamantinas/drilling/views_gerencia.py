@@ -27,6 +27,7 @@ def gerencia_dashboard(request):
     
     # Obtener parámetros de filtro
     periodo = request.GET.get('periodo', 'mes')  # semana, quincena, mes
+    contrato_id = request.GET.get('contrato', None)  # Filtro por contrato
     fecha_actual = datetime.now().date()
     
     # Calcular fecha de inicio y fin según período
@@ -55,20 +56,26 @@ def gerencia_dashboard(request):
                 fecha_inicio = fecha_actual.replace(month=fecha_actual.month - 1, day=26)
             fecha_fin = fecha_actual.replace(day=25)
     
+    # Construir filtro base para queries
+    filtro_base = Q(
+        turno__fecha__range=[fecha_inicio, fecha_fin],
+        turno__estado__in=['COMPLETADO', 'APROBADO']
+    )
+    if contrato_id:
+        filtro_base &= Q(turno__contrato_id=contrato_id)
+    
     # ============================================
     # KPI 1: METRAJE TOTAL AVANZADO
     # ============================================
     metraje_periodo = TurnoSondaje.objects.filter(
-        turno__fecha__range=[fecha_inicio, fecha_fin],
-        turno__estado__in=['COMPLETADO', 'APROBADO']
+        filtro_base
     ).aggregate(
         total=Sum('metros_turno')
     )['total'] or Decimal('0')
     
     # Metraje por día para gráfica de tendencia - MES ACTUAL
     metraje_diario_actual = TurnoSondaje.objects.filter(
-        turno__fecha__range=[fecha_inicio, fecha_fin],
-        turno__estado__in=['COMPLETADO', 'APROBADO']
+        filtro_base
     ).values(
         fecha=F('turno__fecha')
     ).annotate(
@@ -259,6 +266,11 @@ def gerencia_dashboard(request):
     })
     
     # ============================================
+    # OBTENER LISTA DE CONTRATOS
+    # ============================================
+    contratos = Contrato.objects.all().order_by('nombre_contrato')
+    
+    # ============================================
     # PREPARAR CONTEXTO
     # ============================================
     
@@ -281,6 +293,8 @@ def gerencia_dashboard(request):
     
     context = {
         'periodo': periodo,
+        'contrato_seleccionado': contrato_id,
+        'contratos': contratos,
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
         'fecha_inicio_anterior': fecha_inicio_anterior,
