@@ -121,7 +121,7 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 2: METRAJE POR CONTRATO
     # ============================================
-    metraje_por_contrato = TurnoSondaje.objects.filter(
+    metraje_por_contrato_raw = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
@@ -130,6 +130,15 @@ def gerencia_dashboard(request):
         metros_total=Sum('metros_turno'),
         turnos_count=Count('turno', distinct=True)
     ).order_by('-metros_total')[:10]
+    
+    # Convertir Decimals a float para JSON
+    metraje_por_contrato = []
+    for item in metraje_por_contrato_raw:
+        metraje_por_contrato.append({
+            'contrato_nombre': item['contrato_nombre'],
+            'metros_total': float(item['metros_total']) if item['metros_total'] else 0.0,
+            'turnos_count': item['turnos_count']
+        })
     
     # ============================================
     # KPI 3: DISPONIBILIDAD DE MÁQUINAS
@@ -174,7 +183,7 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 6: TOP MÁQUINAS POR RENDIMIENTO
     # ============================================
-    top_maquinas = TurnoSondaje.objects.filter(
+    top_maquinas_raw = TurnoSondaje.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).values(
@@ -185,6 +194,16 @@ def gerencia_dashboard(request):
     ).annotate(
         promedio_diario=F('metros_total') / F('dias_trabajados')
     ).order_by('-metros_total')[:10]
+    
+    # Convertir Decimals a float para JSON
+    top_maquinas = []
+    for item in top_maquinas_raw:
+        top_maquinas.append({
+            'maquina_nombre': item['maquina_nombre'],
+            'metros_total': float(item['metros_total']) if item['metros_total'] else 0.0,
+            'dias_trabajados': item['dias_trabajados'],
+            'promedio_diario': float(item['promedio_diario']) if item['promedio_diario'] else 0.0
+        })
     
     # ============================================
     # KPI 7: SONDAJES ACTIVOS
@@ -268,9 +287,9 @@ def gerencia_dashboard(request):
         'fecha_fin_anterior': fecha_fin_anterior,
         
         # KPIs principales
-        'metraje_total': round(metraje_periodo, 2),
-        'disponibilidad_global': round(disponibilidad_global, 1),
-        'eficiencia_turnos': round(eficiencia_turnos, 1),
+        'metraje_total': float(metraje_periodo),
+        'disponibilidad_global': float(disponibilidad_global),
+        'eficiencia_turnos': float(eficiencia_turnos),
         'trabajadores_activos': trabajadores_activos,
         'trabajadores_periodo': trabajadores_periodo,
         'sondajes_activos': sondajes_activos,
@@ -279,9 +298,9 @@ def gerencia_dashboard(request):
         # Datos para gráficas comparativas
         'metraje_diario_actual': metraje_diario_actual_dict,
         'metraje_diario_anterior': metraje_diario_anterior_dict,
-        'metraje_por_contrato': list(metraje_por_contrato),
+        'metraje_por_contrato': metraje_por_contrato,
         'estados_maquinas': list(estados_maquinas),
-        'top_maquinas': list(top_maquinas),
+        'top_maquinas': top_maquinas,
         
         # Máquinas
         'total_maquinas': total_maquinas,
@@ -293,7 +312,7 @@ def gerencia_dashboard(request):
         'turnos_completados': turnos_completados,
         
         # Comparación
-        'metraje_periodo_anterior': round(metraje_periodo_anterior, 2),
+        'metraje_periodo_anterior': float(metraje_periodo_anterior),
         
         # Alertas
         'alertas': alertas,
