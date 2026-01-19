@@ -78,6 +78,10 @@ def dashboard(request):
     if user.role == 'HEADCOUNT':
         return redirect('headcount-dashboard')
     
+    # Redireccionar usuario GERENTE_GENERAL a su dashboard ejecutivo
+    if user.role == 'GERENTE_GENERAL':
+        return redirect('gerencia-dashboard')
+    
     # Determinar quÃ© template usar segÃºn el rol
     is_admin = user.role in ['GERENCIA', 'CONTROL_PROYECTOS'] and user.is_system_admin
     is_manager = user.role == 'ADMINISTRADOR'

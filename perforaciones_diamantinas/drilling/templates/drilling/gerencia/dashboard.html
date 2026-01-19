@@ -1,0 +1,496 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gerencia-primary: #084163;
+        --gerencia-success: #28a745;
+        --gerencia-warning: #ffc107;
+        --gerencia-danger: #dc3545;
+        --gerencia-info: #17a2b8;
+    }
+    
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--gerencia-primary), #0a5278);
+        color: white;
+        padding: 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .kpi-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s;
+        height: 100%;
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    }
+    
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+    }
+    
+    .kpi-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .kpi-icon {
+        font-size: 2.5rem;
+        opacity: 0.2;
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+    }
+    
+    .chart-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--gerencia-primary);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .alert-item {
+        border-left: 4px solid;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 5px;
+        background: #f8f9fa;
+    }
+    
+    .alert-item.warning {
+        border-left-color: var(--gerencia-warning);
+    }
+    
+    .alert-item.danger {
+        border-left-color: var(--gerencia-danger);
+    }
+    
+    .periodo-selector {
+        background: white;
+        border-radius: 8px;
+        padding: 0.5rem;
+        display: inline-flex;
+        gap: 0.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .periodo-btn {
+        padding: 0.5rem 1.5rem;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .periodo-btn.active {
+        background: var(--gerencia-primary);
+        color: white;
+    }
+    
+    .periodo-btn:hover:not(.active) {
+        background: #e9ecef;
+    }
+    
+    .comparison-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    
+    .comparison-badge.positive {
+        background: rgba(40, 167, 69, 0.1);
+        color: var(--gerencia-success);
+    }
+    
+    .comparison-badge.negative {
+        background: rgba(220, 53, 69, 0.1);
+        color: var(--gerencia-danger);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header del Dashboard -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Dashboard Gerencial
+                </h1>
+                <p class="mb-0 opacity-75">
+                    Período: {{ fecha_inicio|date:"d/m/Y" }} - {{ fecha_fin|date:"d/m/Y" }}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="periodo-selector">
+                    <button class="periodo-btn {% if periodo == 'semana' %}active{% endif %}" 
+                            onclick="cambiarPeriodo('semana')">
+                        Semana
+                    </button>
+                    <button class="periodo-btn {% if periodo == 'quincena' %}active{% endif %}" 
+                            onclick="cambiarPeriodo('quincena')">
+                        Quincena
+                    </button>
+                    <button class="periodo-btn {% if periodo == 'mes' %}active{% endif %}" 
+                            onclick="cambiarPeriodo('mes')">
+                        Mes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    {% if alertas %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3"><i class="fas fa-exclamation-triangle me-2"></i>Alertas</h5>
+            {% for alerta in alertas %}
+            <div class="alert-item {{ alerta.tipo }}">
+                <i class="fas fa-bell me-2"></i>{{ alerta.mensaje }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- KPIs Principales -->
+    <div class="row g-4 mb-4">
+        <!-- Metraje Total -->
+        <div class="col-md-3">
+            <div class="kpi-card position-relative">
+                <i class="fas fa-ruler-vertical kpi-icon text-primary"></i>
+                <div class="kpi-label">Metraje Avanzado</div>
+                <div class="kpi-value text-primary">{{ metraje_total|floatformat:1 }}</div>
+                <div class="text-muted">metros</div>
+                {% if metraje_mes_anterior %}
+                {% with diferencia=metraje_total|add:metraje_mes_anterior|floatformat:0 %}
+                <span class="comparison-badge {% if metraje_total >= metraje_mes_anterior %}positive{% else %}negative{% endif %}">
+                    <i class="fas fa-{% if metraje_total >= metraje_mes_anterior %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                    vs período anterior
+                </span>
+                {% endwith %}
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Disponibilidad -->
+        <div class="col-md-3">
+            <div class="kpi-card position-relative">
+                <i class="fas fa-cogs kpi-icon text-success"></i>
+                <div class="kpi-label">Disponibilidad Global</div>
+                <div class="kpi-value text-success">{{ disponibilidad_global|floatformat:1 }}%</div>
+                <div class="text-muted">{{ maquinas_operativas }}/{{ total_maquinas }} operativas</div>
+            </div>
+        </div>
+
+        <!-- Eficiencia -->
+        <div class="col-md-3">
+            <div class="kpi-card position-relative">
+                <i class="fas fa-clock kpi-icon text-info"></i>
+                <div class="kpi-label">Eficiencia Operativa</div>
+                <div class="kpi-value text-info">{{ eficiencia_turnos|floatformat:1 }}%</div>
+                <div class="text-muted">{{ turnos_completados }}/{{ turnos_total }} turnos</div>
+            </div>
+        </div>
+
+        <!-- Personal -->
+        <div class="col-md-3">
+            <div class="kpi-card position-relative">
+                <i class="fas fa-users kpi-icon text-warning"></i>
+                <div class="kpi-label">Personal Activo</div>
+                <div class="kpi-value text-warning">{{ trabajadores_periodo }}</div>
+                <div class="text-muted">de {{ trabajadores_activos }} disponibles</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficas Principales -->
+    <div class="row g-4 mb-4">
+        <!-- Gráfica de Metraje Diario -->
+        <div class="col-md-8">
+            <div class="chart-container">
+                <div class="chart-title">
+                    <i class="fas fa-chart-area me-2"></i>
+                    Metraje Diario
+                </div>
+                <canvas id="chartMetrajeDiario" height="80"></canvas>
+            </div>
+        </div>
+
+        <!-- Estados de Máquinas -->
+        <div class="col-md-4">
+            <div class="chart-container">
+                <div class="chart-title">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Estado de Máquinas
+                </div>
+                <canvas id="chartEstadoMaquinas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficas Secundarias -->
+    <div class="row g-4 mb-4">
+        <!-- Metraje por Contrato -->
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Top 10 Contratos por Metraje
+                </div>
+                <canvas id="chartMetrajeContrato" height="120"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Máquinas -->
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title">
+                    <i class="fas fa-award me-2"></i>
+                    Top 10 Máquinas por Rendimiento
+                </div>
+                <canvas id="chartTopMaquinas" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sondajes -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="kpi-card">
+                <h5 class="mb-3"><i class="fas fa-crosshairs me-2"></i>Sondajes</h5>
+                <div class="row">
+                    <div class="col-6 text-center">
+                        <div class="kpi-value text-primary">{{ sondajes_activos }}</div>
+                        <div class="text-muted">Activos</div>
+                    </div>
+                    <div class="col-6 text-center">
+                        <div class="kpi-value text-success">{{ sondajes_completados }}</div>
+                        <div class="text-muted">Completados</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="kpi-card">
+                <h5 class="mb-3"><i class="fas fa-wrench me-2"></i>Mantenimiento</h5>
+                <div class="alert {% if maquinas_mantenimiento > 5 %}alert-danger{% elif maquinas_mantenimiento > 2 %}alert-warning{% else %}alert-success{% endif %}">
+                    <strong>{{ maquinas_mantenimiento }}</strong> máquina(s) en mantenimiento
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+<script>
+    // Configuración global de Chart.js
+    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+    Chart.defaults.color = '#6c757d';
+
+    // Función para cambiar período
+    function cambiarPeriodo(periodo) {
+        window.location.href = '?periodo=' + periodo;
+    }
+
+    // GRÁFICA 1: Metraje Diario
+    const metrajeDiarioData = {{ metraje_diario|safe }};
+    const ctxMetrajeDiario = document.getElementById('chartMetrajeDiario').getContext('2d');
+    new Chart(ctxMetrajeDiario, {
+        type: 'line',
+        data: {
+            labels: metrajeDiarioData.map(d => new Date(d.fecha).toLocaleDateString('es-PE', {day: '2-digit', month: 'short'})),
+            datasets: [{
+                label: 'Metros Perforados',
+                data: metrajeDiarioData.map(d => parseFloat(d.metros)),
+                borderColor: '#084163',
+                backgroundColor: 'rgba(8, 65, 99, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y.toFixed(2) + ' m';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Metros'
+                    }
+                }
+            }
+        }
+    });
+
+    // GRÁFICA 2: Estado de Máquinas
+    const estadosMaquinasData = {{ estados_maquinas|safe }};
+    const ctxEstadoMaquinas = document.getElementById('chartEstadoMaquinas').getContext('2d');
+    new Chart(ctxEstadoMaquinas, {
+        type: 'doughnut',
+        data: {
+            labels: estadosMaquinasData.map(e => e.estado),
+            datasets: [{
+                data: estadosMaquinasData.map(e => e.cantidad),
+                backgroundColor: [
+                    '#28a745',  // OPERATIVO
+                    '#ffc107',  // MANTENIMIENTO
+                    '#dc3545',  // FUERA_SERVICIO
+                    '#6c757d'   // Otros
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // GRÁFICA 3: Metraje por Contrato
+    const metrajeContratoData = {{ metraje_por_contrato|safe }};
+    const ctxMetrajeContrato = document.getElementById('chartMetrajeContrato').getContext('2d');
+    new Chart(ctxMetrajeContrato, {
+        type: 'bar',
+        data: {
+            labels: metrajeContratoData.map(c => c.contrato_nombre),
+            datasets: [{
+                label: 'Metros',
+                data: metrajeContratoData.map(c => parseFloat(c.metros_total)),
+                backgroundColor: '#0a5278',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.x.toFixed(2) + ' m';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Metros'
+                    }
+                }
+            }
+        }
+    });
+
+    // GRÁFICA 4: Top Máquinas
+    const topMaquinasData = {{ top_maquinas|safe }};
+    const ctxTopMaquinas = document.getElementById('chartTopMaquinas').getContext('2d');
+    new Chart(ctxTopMaquinas, {
+        type: 'bar',
+        data: {
+            labels: topMaquinasData.map(m => m.maquina_nombre),
+            datasets: [{
+                label: 'Metros',
+                data: topMaquinasData.map(m => parseFloat(m.metros_total)),
+                backgroundColor: '#17a2b8',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const metros = context.parsed.x.toFixed(2);
+                            const idx = context.dataIndex;
+                            const promedio = topMaquinasData[idx].promedio_diario;
+                            return [
+                                'Total: ' + metros + ' m',
+                                'Promedio: ' + parseFloat(promedio).toFixed(2) + ' m/día'
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Metros'
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

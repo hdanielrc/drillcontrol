@@ -6,6 +6,7 @@ from . import views_gestion_proyectos
 from . import views_stock
 from . import views_tareo
 from . import views_headcount
+from . import views_gerencia
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
     guardar_asignaciones_masivas, marcar_stand_by, 
@@ -222,4 +223,7 @@ urlpatterns = [
     path('headcount/<int:pk>/delete/', views_headcount.headcount_delete, name='headcount-delete'),
     path('headcount/api/maquinas/', views_headcount.get_maquinas_by_contrato, name='headcount-api-maquinas'),
     path('headcount/debug/', views_headcount.debug_headcounts, name='headcount-debug'),
+    
+    # GERENCIA - Dashboard Ejecutivo
+    path('gerencia/', views_gerencia.gerencia_dashboard, name='gerencia-dashboard'),
 ]
