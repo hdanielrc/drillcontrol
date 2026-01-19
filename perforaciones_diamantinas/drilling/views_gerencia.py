@@ -73,16 +73,15 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 3: DISPONIBILIDAD DE MÁQUINAS
     # ============================================
-    total_maquinas = Maquina.objects.filter(activo=True).count()
+    total_maquinas = Maquina.objects.all().count()
     maquinas_operativas = Maquina.objects.filter(
-        activo=True,
         estado='OPERATIVO'
     ).count()
     
     disponibilidad_global = (maquinas_operativas / total_maquinas * 100) if total_maquinas > 0 else 0
     
     # Distribución de estados de máquinas
-    estados_maquinas = Maquina.objects.filter(activo=True).values('estado').annotate(
+    estados_maquinas = Maquina.objects.all().values('estado').annotate(
         cantidad=Count('id')
     )
     
@@ -129,11 +128,8 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 7: SONDAJES ACTIVOS
     # ============================================
-    sondajes_activos = Sondaje.objects.filter(activo=True).count()
-    sondajes_completados = Sondaje.objects.filter(
-        activo=True,
-        metros_perforados__gte=F('profundidad_final')
-    ).count()
+    sondajes_activos = Sondaje.objects.filter(estado='ACTIVO').count()
+    sondajes_completados = Sondaje.objects.filter(estado='FINALIZADO').count()
     
     # ============================================
     # ALERTAS Y PROBLEMAS
@@ -142,7 +138,6 @@ def gerencia_dashboard(request):
     
     # Máquinas en mantenimiento
     maquinas_mantenimiento = Maquina.objects.filter(
-        activo=True,
         estado='MANTENIMIENTO'
     ).count()
     if maquinas_mantenimiento > 0:
