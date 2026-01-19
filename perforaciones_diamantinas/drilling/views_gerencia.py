@@ -28,7 +28,31 @@ def gerencia_dashboard(request):
     # Obtener parámetros de filtro
     periodo = request.GET.get('periodo', 'mes')  # semana, quincena, mes
     contrato_id = request.GET.get('contrato', None)  # Filtro por contrato
+    mes_offset = int(request.GET.get('mes_offset', 0))  # Offset de meses para navegación
     fecha_actual = datetime.now().date()
+    
+    # Ajustar fecha_actual según el offset de meses para navegación histórica
+    if mes_offset != 0:
+        # Calcular mes de referencia
+        mes_referencia = fecha_actual.month + mes_offset
+        anio_referencia = fecha_actual.year
+        
+        # Ajustar año si el mes se sale del rango 1-12
+        while mes_referencia < 1:
+            mes_referencia += 12
+            anio_referencia -= 1
+        while mes_referencia > 12:
+            mes_referencia -= 12
+            anio_referencia += 1
+        
+        # Usar el día actual o el último día del mes si no existe
+        try:
+            fecha_actual = fecha_actual.replace(year=anio_referencia, month=mes_referencia)
+        except ValueError:
+            # Si el día no existe en ese mes (ej: 31 en febrero), usar último día del mes
+            import calendar
+            ultimo_dia = calendar.monthrange(anio_referencia, mes_referencia)[1]
+            fecha_actual = fecha_actual.replace(year=anio_referencia, month=mes_referencia, day=ultimo_dia)
     
     # Calcular fecha de inicio y fin según período
     # NOTA: Los meses operativos van del 26 de un mes al 25 del siguiente
@@ -325,6 +349,7 @@ def gerencia_dashboard(request):
     
     context = {
         'periodo': periodo,
+        'mes_offset': mes_offset,
         'contrato_seleccionado': contrato_id,
         'contratos': contratos,
         'fecha_inicio': fecha_inicio,

@@ -161,6 +161,20 @@
             </div>
             <div class="col-md-6 text-end">
                 <div class="d-flex justify-content-end align-items-center gap-3">
+                    <!-- Navegación de Meses (solo visible cuando periodo=mes) -->
+                    {% if periodo == 'mes' %}
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navegarMes(-1)" title="Mes anterior">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navegarMes(0)" title="Mes actual" {% if mes_offset == 0 %}disabled{% endif %}>
+                            <i class="fas fa-calendar-day"></i> Actual
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navegarMes(1)" title="Mes siguiente" {% if mes_offset == 0 %}disabled{% endif %}>
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    {% endif %}
                     <!-- Filtro por Contrato -->
                     <div style="min-width: 250px;">
                         <select class="form-select" id="contratoFilter" onchange="filtrarPorContrato()">
@@ -407,6 +421,28 @@
         if (contratoId) {
             url += '&contrato=' + contratoId;
         }
+        // Al cambiar período, resetear mes_offset
+        window.location.href = url;
+    }
+    
+    // Función para navegar entre meses
+    function navegarMes(direccion) {
+        const contratoId = document.getElementById('contratoFilter').value;
+        const mesOffsetActual = {{ mes_offset }};
+        let nuevoOffset;
+        
+        if (direccion === 0) {
+            // Volver al mes actual
+            nuevoOffset = 0;
+        } else {
+            // Navegar hacia atrás (-1) o adelante (+1)
+            nuevoOffset = mesOffsetActual + direccion;
+        }
+        
+        let url = '?periodo=mes&mes_offset=' + nuevoOffset;
+        if (contratoId) {
+            url += '&contrato=' + contratoId;
+        }
         window.location.href = url;
     }
     
@@ -414,7 +450,11 @@
     function filtrarPorContrato() {
         const contratoId = document.getElementById('contratoFilter').value;
         const periodo = '{{ periodo }}';
+        const mesOffset = {{ mes_offset }};
         let url = '?periodo=' + periodo;
+        if (mesOffset !== 0) {
+            url += '&mes_offset=' + mesOffset;
+        }
         if (contratoId) {
             url += '&contrato=' + contratoId;
         }
