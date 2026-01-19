@@ -105,6 +105,7 @@ class CustomUser(AbstractUser):
         ('RESIDENTE', 'Residente'),
         ('CONTROL_PROYECTOS', 'Control de Proyectos'),
         ('GERENCIA', 'Gerencia'),
+        ('GERENTE_GENERAL', 'Gerente General'),
         ('HEADCOUNT', 'Gestión de Personal y Headcount'),
     ]
     
@@ -176,21 +177,21 @@ class CustomUser(AbstractUser):
         """
         Usuario tiene acceso a todos los contratos si:
         - Es Admin del Sistema (is_system_admin=True)
-        - Tiene rol GERENCIA, CONTROL_PROYECTOS o HEADCOUNT (independiente del contrato asignado)
+        - Tiene rol GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL o HEADCOUNT (independiente del contrato asignado)
         """
-        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']
+        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'HEADCOUNT']
     
     def can_manage_all_contracts(self):
-        """GERENCIA, CONTROL_PROYECTOS y HEADCOUNT pueden gestionar todos los contratos"""
-        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']
+        """GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL y HEADCOUNT pueden gestionar todos los contratos"""
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'HEADCOUNT']
     
     def can_manage_contract_users(self):
-        """GERENCIA, CONTROL_PROYECTOS y ADMINISTRADOR pueden gestionar usuarios"""
-        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'LOGISTICO']
+        """GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL y ADMINISTRADOR pueden gestionar usuarios"""
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'ADMINISTRADOR', 'LOGISTICO']
     
     def can_supervise_operations(self):
-        """GERENCIA, CONTROL_PROYECTOS, RESIDENTE, ADMINISTRADOR y LOGISTICO pueden supervisar operaciones"""  
-        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'RESIDENTE', 'ADMINISTRADOR', 'LOGISTICO']
+        """GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL, RESIDENTE, ADMINISTRADOR y LOGISTICO pueden supervisar operaciones"""  
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'RESIDENTE', 'ADMINISTRADOR', 'LOGISTICO']
     
     def can_create_basic_data(self):
         """Crear datos básicos (trabajadores, máquinas, sondajes)"""
