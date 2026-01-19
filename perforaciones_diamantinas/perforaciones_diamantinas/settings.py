@@ -138,6 +138,9 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR / 'drilling' / 'static',
+]
 
 # Cachear archivos estáticos con hash en producción
 if not DEBUG:
