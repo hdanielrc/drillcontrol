@@ -295,7 +295,7 @@ def gerencia_dashboard(request):
         'turnos_completados': turnos_completados,
         
         # Comparación
-        'metraje_mes_anterior': round(metraje_mes_anterior, 2),
+        'metraje_periodo_anterior': round(metraje_periodo_anterior, 2),
         
         # Alertas
         'alertas': alertas,
