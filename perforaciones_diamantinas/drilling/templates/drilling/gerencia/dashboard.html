@@ -193,10 +193,10 @@
                 <div class="kpi-label">Metraje Avanzado</div>
                 <div class="kpi-value text-primary">{{ metraje_total|floatformat:1 }}</div>
                 <div class="text-muted">metros</div>
-                {% if metraje_mes_anterior %}
-                {% with diferencia=metraje_total|add:metraje_mes_anterior|floatformat:0 %}
-                <span class="comparison-badge {% if metraje_total >= metraje_mes_anterior %}positive{% else %}negative{% endif %}">
-                    <i class="fas fa-{% if metraje_total >= metraje_mes_anterior %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                {% if metraje_periodo_anterior %}
+                {% with diferencia=metraje_total|add:metraje_periodo_anterior|floatformat:0 %}
+                <span class="comparison-badge {% if metraje_total >= metraje_periodo_anterior %}positive{% else %}negative{% endif %}">
+                    <i class="fas fa-{% if metraje_total >= metraje_periodo_anterior %}arrow-up{% else %}arrow-down{% endif %}"></i>
                     vs período anterior
                 </span>
                 {% endwith %}

@@ -83,10 +83,7 @@ def gerencia_dashboard(request):
             fecha_fin_anterior = fecha_inicio.replace(day=25)
         else:
             fecha_inicio_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=26)
-            if fecha_inicio.month == 1:
-                fecha_fin_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=25)
-            else:
-                fecha_fin_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=25)
+            fecha_fin_anterior = fecha_inicio.replace(day=25)
     else:
         # Para semana y quincena, usar la misma duración hacia atrás
         dias_periodo = (fecha_fin - fecha_inicio).days
@@ -211,17 +208,6 @@ def gerencia_dashboard(request):
             'mensaje': f'Disponibilidad crítica: {disponibilidad_global:.1f}%'
         })
     
-    # Metraje bajo (comparar con promedio histórico)
-    # Calcular período anterior para comparación
-    if periodo == 'mes':
-        # Mes operativo anterior (26 a 25)
-        if fecha_inicio.month == 1:
-            fecha_inicio_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=26)
-            fecha_fin_anterior = fecha_inicio.replace(day=25)
-        else:
-            fecha_inicio_anterior = fecha_inicio.replace(month=fecha_inicio.month - 1, day=26)
-            if fecha_inicio.month == 1:
-                fecha_fin_anterior = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=25)
     # ============================================
     # ALERTAS AUTOMÁTICAS
     # ============================================
@@ -236,10 +222,17 @@ def gerencia_dashboard(request):
     )['total'] or Decimal('0')
     
     if metraje_periodo < metraje_periodo_anterior * Decimal('0.8'):
+    if metraje_periodo < metraje_periodo_anterior * Decimal('0.8'):
         alertas.append({
             'tipo': 'warning',
             'mensaje': f'Metraje 20% menor al período anterior'
         })
+    
+    # Agregar alerta de debug con fechas del período anterior
+    alertas.append({
+        'tipo': 'info',
+        'mensaje': f'Debug Período Anterior: {fecha_inicio_anterior.strftime("%d/%m/%Y")} - {fecha_fin_anterior.strftime("%d/%m/%Y")} | Metraje: {float(metraje_periodo_anterior):.2f} m'
+    })
     
     # ============================================
     # PREPARAR CONTEXTO
