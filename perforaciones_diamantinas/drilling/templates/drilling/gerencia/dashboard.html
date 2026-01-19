@@ -487,7 +487,19 @@
 
     // GRÁFICA 3: Metraje por Contrato
     const metrajeContratoData = {{ metraje_por_contrato|safe }};
+    console.log('Metraje por Contrato:', metrajeContratoData);
+    
     const ctxMetrajeContrato = document.getElementById('chartMetrajeContrato').getContext('2d');
+    
+    if (metrajeContratoData.length === 0) {
+        // Mostrar mensaje cuando no hay datos
+        ctxMetrajeContrato.font = '16px Arial';
+        ctxMetrajeContrato.textAlign = 'center';
+        ctxMetrajeContrato.fillStyle = '#6c757d';
+        ctxMetrajeContrato.fillText('No hay datos disponibles para el período seleccionado', 
+            ctxMetrajeContrato.canvas.width / 2, 
+            ctxMetrajeContrato.canvas.height / 2);
+    } else {
     new Chart(ctxMetrajeContrato, {
         type: 'bar',
         data: {
@@ -539,10 +551,23 @@
             }
         }
     });
+    }
 
     // GRÁFICA 4: Top Máquinas
     const topMaquinasData = {{ top_maquinas|safe }};
+    console.log('Top Máquinas:', topMaquinasData);
+    
     const ctxTopMaquinas = document.getElementById('chartTopMaquinas').getContext('2d');
+    
+    if (topMaquinasData.length === 0) {
+        // Mostrar mensaje cuando no hay datos
+        ctxTopMaquinas.font = '16px Arial';
+        ctxTopMaquinas.textAlign = 'center';
+        ctxTopMaquinas.fillStyle = '#6c757d';
+        ctxTopMaquinas.fillText('No hay datos disponibles para el período seleccionado', 
+            ctxTopMaquinas.canvas.width / 2, 
+            ctxTopMaquinas.canvas.height / 2);
+    } else {
     new Chart(ctxTopMaquinas, {
         type: 'bar',
         data: {
@@ -600,5 +625,6 @@
             }
         }
     });
+    }
 </script>
 {% endblock %}
