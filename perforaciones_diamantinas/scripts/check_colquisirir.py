@@ -51,32 +51,32 @@ for item in metraje_estados:
     total_metraje += metros
 print(f'TOTAL: {total_metraje:.2f} metros')
 
-# Metraje por mes en enero 2025
+# Metraje por meses operativos
 from datetime import date
-print(f'\n=== METRAJE EN ENERO 2025 (mes natural: 1-31 ene) ===')
+print(f'\n=== DICIEMBRE 2025 (mes operativo: 26 nov - 25 dic) ===')
+metraje_diciembre = TurnoSondaje.objects.filter(
+    turno__contrato=colquisirir,
+    turno__fecha__range=[date(2025, 11, 26), date(2025, 12, 25)],
+    turno__estado__in=['COMPLETADO', 'APROBADO']
+).aggregate(
+    total=Sum('metros_turno'),
+    cantidad=Count('id')
+)
+metros_diciembre = float(metraje_diciembre['total']) if metraje_diciembre['total'] else 0
+print(f'Período: 26 noviembre 2025 - 25 diciembre 2025')
+print(f'Turnos: {metraje_diciembre["cantidad"]} TurnoSondaje')
+print(f'Metraje: {metros_diciembre:.2f} metros')
+
+print(f'\n=== ENERO 2026 (mes operativo ACTUAL: 26 dic - 25 ene) ===')
 metraje_enero = TurnoSondaje.objects.filter(
     turno__contrato=colquisirir,
-    turno__fecha__range=[date(2025, 1, 1), date(2025, 1, 31)],
+    turno__fecha__range=[date(2025, 12, 26), date(2026, 1, 25)],
     turno__estado__in=['COMPLETADO', 'APROBADO']
 ).aggregate(
     total=Sum('metros_turno'),
     cantidad=Count('id')
 )
 metros_enero = float(metraje_enero['total']) if metraje_enero['total'] else 0
-print(f'Período: 1 enero - 31 enero 2025')
+print(f'Período: 26 diciembre 2025 - 25 enero 2026')
 print(f'Turnos: {metraje_enero["cantidad"]} TurnoSondaje')
 print(f'Metraje: {metros_enero:.2f} metros')
-
-print(f'\n=== METRAJE EN DICIEMBRE 2024 (mes operativo: 26 dic - 25 ene) ===')
-metraje_mes_operativo = TurnoSondaje.objects.filter(
-    turno__contrato=colquisirir,
-    turno__fecha__range=[date(2024, 12, 26), date(2025, 1, 25)],
-    turno__estado__in=['COMPLETADO', 'APROBADO']
-).aggregate(
-    total=Sum('metros_turno'),
-    cantidad=Count('id')
-)
-metros_operativo = float(metraje_mes_operativo['total']) if metraje_mes_operativo['total'] else 0
-print(f'Período: 26 diciembre 2024 - 25 enero 2025')
-print(f'Turnos: {metraje_mes_operativo["cantidad"]} TurnoSondaje')
-print(f'Metraje: {metros_operativo:.2f} metros')
