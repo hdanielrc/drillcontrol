@@ -5,7 +5,7 @@ from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
 from datetime import datetime, timedelta
 from decimal import Decimal
 from .models import (
-    Turno, TurnoSondaje, TurnoAvance, Maquina, Trabajador, Contrato,
+    Turno, TurnoAvance, Maquina, Trabajador, Contrato,
     TurnoActividad, Sondaje
 )
 
@@ -331,11 +331,11 @@ def gerencia_dashboard(request):
     # ============================================
     
     # Debug temporal - ver qué hay en la BD
-    total_turno_sondaje = TurnoSondaje.objects.all().count()
-    turnos_en_rango = TurnoSondaje.objects.filter(
+    total_turno_avance = TurnoAvance.objects.all().count()
+    turnos_en_rango = TurnoAvance.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin]
     ).count()
-    turnos_completados_debug = TurnoSondaje.objects.filter(
+    turnos_completados_debug = TurnoAvance.objects.filter(
         turno__fecha__range=[fecha_inicio, fecha_fin],
         turno__estado__in=['COMPLETADO', 'APROBADO']
     ).count()
@@ -344,7 +344,7 @@ def gerencia_dashboard(request):
     if metraje_periodo == 0:
         alertas.append({
             'tipo': 'info',
-            'mensaje': f'Debug: {total_turno_sondaje} TurnoSondaje total | {turnos_en_rango} en rango | {turnos_completados_debug} COMPLETADO/APROBADO'
+            'mensaje': f'Debug: {total_turno_avance} TurnoAvance total | {turnos_en_rango} en rango | {turnos_completados_debug} COMPLETADO/APROBADO'
         })
     
     context = {
