@@ -80,3 +80,33 @@ metros_enero = float(metraje_enero['total']) if metraje_enero['total'] else 0
 print(f'Período: 26 diciembre 2025 - 25 enero 2026')
 print(f'Turnos: {metraje_enero["cantidad"]} TurnoSondaje')
 print(f'Metraje: {metros_enero:.2f} metros')
+
+# Verificar si hay más datos en todo el rango histórico
+print(f'\n=== ANÁLISIS COMPLETO DE TODOS LOS TURNOS ===')
+todos_turnos = TurnoSondaje.objects.filter(turno__contrato=colquisirir).select_related('turno')
+
+print(f'\nTotal de TurnoSondaje registrados: {todos_turnos.count()}')
+print(f'\nDetalle por fecha:')
+turnos_por_fecha = todos_turnos.values('turno__fecha', 'turno__estado').annotate(
+    cantidad=Count('id'),
+    metraje=Sum('metros_turno')
+).order_by('turno__fecha')
+
+total_historico = 0
+for item in turnos_por_fecha:
+    metros = float(item['metraje']) if item['metraje'] else 0
+    total_historico += metros
+    print(f"  {item['turno__fecha']}: {item['cantidad']} turnos ({item['turno__estado']}) = {metros:.2f}m")
+
+print(f'\nTOTAL HISTÓRICO: {total_historico:.2f} metros')
+
+# Verificar todos los contratos
+print(f'\n=== METRAJE POR TODOS LOS CONTRATOS ===')
+metraje_contratos = TurnoSondaje.objects.values('turno__contrato__nombre_contrato').annotate(
+    cantidad=Count('id'),
+    metraje=Sum('metros_turno')
+).order_by('-metraje')
+
+for item in metraje_contratos:
+    metros = float(item['metraje']) if item['metraje'] else 0
+    print(f"{item['turno__contrato__nombre_contrato']}: {item['cantidad']} TurnoSondaje | {metros:.2f} metros")
