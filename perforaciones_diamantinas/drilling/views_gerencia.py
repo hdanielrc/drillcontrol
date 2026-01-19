@@ -103,7 +103,7 @@ def gerencia_dashboard(request):
     # ============================================
     # KPI 5: RECURSOS HUMANOS
     # ============================================
-    trabajadores_activos = Trabajador.objects.filter(activo=True).count()
+    trabajadores_activos = Trabajador.objects.filter(estado='ACTIVO').count()
     
     # Trabajadores que trabajaron en el período
     trabajadores_periodo = Trabajador.objects.filter(
