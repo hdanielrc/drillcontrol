@@ -15,15 +15,11 @@ cd /var/www/drillcontrol/app/perforaciones_diamantinas
 echo "Actualizando repositorio..."
 git pull
 
-# Activar entorno virtual
-echo "Activando entorno virtual..."
-source venv/bin/activate
-
 # Ejecutar el script de verificación
 echo ""
 echo "Ejecutando verificación..."
 echo ""
-python scripts/check_colquisirir.py
+python3 scripts/check_colquisirir.py
 
 echo ""
 echo "====================================="
