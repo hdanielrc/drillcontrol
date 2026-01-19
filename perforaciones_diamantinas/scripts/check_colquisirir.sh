@@ -9,7 +9,7 @@ echo "====================================="
 echo ""
 
 # Ir al directorio del proyecto
-cd /root/perforaciones_diamantinas
+cd /var/www/drillcontrol/app/perforaciones_diamantinas
 
 # Hacer pull de los últimos cambios
 echo "Actualizando repositorio..."
