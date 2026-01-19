@@ -228,7 +228,6 @@ def gerencia_dashboard(request):
     )['total'] or Decimal('0')
     
     if metraje_periodo < metraje_periodo_anterior * Decimal('0.8'):
-    if metraje_periodo < metraje_periodo_anterior * Decimal('0.8'):
         alertas.append({
             'tipo': 'warning',
             'mensaje': f'Metraje 20% menor al período anterior'
