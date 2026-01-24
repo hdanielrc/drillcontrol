@@ -327,7 +327,7 @@
                         
                         <!-- Celdas de días -->
                         {% for dia in dias_rango %}
-                        {% with asist=row.asistencias|default_if_none:dict %}
+                        {% with asist=row.asistencias %}
                         {% with data=asist|get_item:dia.fecha %}
                         <td class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}">
                             <select 
