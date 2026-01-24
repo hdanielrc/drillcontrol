@@ -29,8 +29,7 @@ import json
 import logging
 
 from .models import Contrato, Trabajador, AsistenciaDiaria, CierreMensualTareo, HistorialCambioAsistencia, Maquina
-from .utils.tareo_service import TareoService
-from .utils.cierre_mensual_service import CierreMensualService
+from .utils.tareo_service import TareoService, CierreMensualService
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
@@ -600,9 +599,6 @@ def tareo_cierre_mensual(request):
     Vista para revisar y cerrar contablemente el mes.
     Muestra resumen completo antes del cierre.
     """
-    from .utils.tareo_service import CierreMensualService
-    from .models import CierreMensualTareo
-    
     # Determinar contrato
     if request.user.is_staff or request.user.is_superuser:
         contratos = Contrato.objects.all()
