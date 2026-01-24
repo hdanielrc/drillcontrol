@@ -929,6 +929,141 @@ class AsistenciaTrabajador(models.Model):
         return f"{self.trabajador.nombres} {self.trabajador.apellidos} - {self.fecha.strftime('%d/%m/%Y')} - {self.get_estado_display()}"
 
 
+# =============================================================================
+# NUEVO MODELO NORMALIZADO PARA TAREO (VERTICAL)
+# =============================================================================
+class AsistenciaDiaria(models.Model):
+    """
+    Modelo Normalizado (Vertical) para Registro de Asistencia Diaria
+    
+    Optimizado para:
+    - Alta volumetría (70+ empleados x 30 días = 2,100+ registros/mes)
+    - Consultas eficientes por fecha/trabajador/estado
+    - Cálculo de costos logísticos (refrigerios/campamento)
+    - Proyección mensual automática vs correcciones diarias
+    
+    Diseño:
+    - Normalización: 1 registro = 1 trabajador + 1 fecha + 1 estado
+    - Constraint único: trabajador + fecha (evita duplicados)
+    - Índices estratégicos para rendimiento
+    """
+    
+    # Choices de Estado - Alineados con AsistenciaTrabajador (legacy)
+    ESTADO_CHOICES = [
+        ('TRABAJO', 'Trabajo'),
+        ('DESCANSO', 'Descanso'),
+        ('FALTA', 'Falta'),
+        ('DM', 'Descanso Médico'),
+        ('VACACIONES', 'Vacaciones'),
+        ('PERMISO', 'Permiso'),
+        ('SUSPENSION', 'Suspensión'),
+        ('LICENCIA', 'Licencia'),
+        ('INDUCCION', 'Inducción'),
+        ('STAND_BY', 'Stand By'),
+        ('DIA_APOYO', 'Día de Apoyo'),
+    ]
+    
+    # Relación al trabajador
+    empleado = models.ForeignKey(
+        'Trabajador',
+        on_delete=models.PROTECT,  # PROTECT para evitar eliminaciones accidentales
+        related_name='asistencias_diarias',
+        verbose_name='Trabajador',
+        db_index=True  # Índice para FK
+    )
+    
+    # Fecha del registro
+    fecha = models.DateField(
+        verbose_name='Fecha',
+        db_index=True  # Índice para consultas por rango de fechas
+    )
+    
+    # Estado de la asistencia
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='TRABAJO',
+        verbose_name='Estado',
+        db_index=True  # Índice para filtros por estado
+    )
+    
+    # Snapshot de guardia (histórico congelado)
+    guardia_snapshot = models.CharField(
+        max_length=1,
+        blank=True,
+        null=True,
+        verbose_name='Guardia Asignada (Snapshot)',
+        help_text='Guardia del trabajador al momento del registro (A/B/C)'
+    )
+    
+    # Flag para distinguir proyección vs corrección
+    es_proyeccion = models.BooleanField(
+        default=False,
+        verbose_name='Es Proyección',
+        help_text='True = proyección automática | False = corrección manual',
+        db_index=True  # Índice para filtros
+    )
+    
+    # Observaciones
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name='Observaciones',
+        help_text='Detalles adicionales sobre la asistencia'
+    )
+    
+    # Auditoría
+    registrado_por = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='asistencias_registradas_v2',
+        verbose_name='Registrado por'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+    
+    class Meta:
+        db_table = 'asistencia_diaria'
+        verbose_name = 'Asistencia Diaria'
+        verbose_name_plural = 'Asistencias Diarias'
+        
+        # Constraint único: 1 trabajador solo puede tener 1 registro por fecha
+        constraints = [
+            models.UniqueConstraint(
+                fields=['empleado', 'fecha'],
+                name='unique_empleado_fecha'
+            )
+        ]
+        
+        # Ordenamiento por defecto
+        ordering = ['-fecha', 'empleado__apellidos', 'empleado__nombres']
+        
+        # Índices compuestos para optimización de consultas frecuentes
+        indexes = [
+            # Consultas por trabajador y fecha (más común)
+            models.Index(fields=['empleado', 'fecha'], name='idx_empleado_fecha'),
+            
+            # Consultas por rango de fechas
+            models.Index(fields=['fecha', 'estado'], name='idx_fecha_estado'),
+            
+            # Filtros por proyección
+            models.Index(fields=['es_proyeccion', 'fecha'], name='idx_proyeccion_fecha'),
+            
+            # Consultas de auditoría
+            models.Index(fields=['registrado_por', '-created_at'], name='idx_auditoria'),
+        ]
+    
+    def __str__(self):
+        tipo = "PROY" if self.es_proyeccion else "REAL"
+        return f"[{tipo}] {self.empleado.apellidos}, {self.empleado.nombres} - {self.fecha.strftime('%d/%m/%Y')} - {self.get_estado_display()}"
+    
+    def save(self, *args, **kwargs):
+        """Override save para capturar snapshot de guardia automáticamente"""
+        if not self.guardia_snapshot and self.empleado:
+            self.guardia_snapshot = self.empleado.guardia_asignada
+        super().save(*args, **kwargs)
+
+
 class ConfiguracionHoraExtra(models.Model):
     """
     Configuración de horas extras por contrato y máquina.

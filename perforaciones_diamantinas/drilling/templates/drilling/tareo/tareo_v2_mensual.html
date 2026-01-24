@@ -1,0 +1,513 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tareo V2 - {{ nombre_periodo }} - {{ contrato.nombre_contrato }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* =========================================================================
+       ESTILOS PARA MATRIZ DE TAREO - OPTIMIZADOS PARA RENDIMIENTO
+       ========================================================================= */
+    
+    .tareo-container {
+        padding: 20px;
+        background: #f8f9fa;
+    }
+    
+    .tareo-header {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .tareo-header h2 {
+        margin: 0 0 10px 0;
+        color: #2c3e50;
+    }
+    
+    .tareo-controls {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-proyeccion {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s;
+    }
+    
+    .btn-proyeccion:hover {
+        background: #2980b9;
+    }
+    
+    .btn-guardar-tareo {
+        background: #27ae60;
+        color: white;
+        border: none;
+        padding: 10px 30px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 16px;
+        transition: background 0.3s;
+    }
+    
+    .btn-guardar-tareo:hover {
+        background: #229954;
+    }
+    
+    /* Tabla principal - Scroll horizontal para muchas columnas */
+    .tareo-table-wrapper {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow-x: auto;
+        margin-bottom: 30px;
+    }
+    
+    .tareo-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 1200px; /* Ancho mínimo para scroll */
+    }
+    
+    /* Cabecera fija */
+    .tareo-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #34495e;
+        color: white;
+    }
+    
+    .tareo-table th {
+        padding: 12px 8px;
+        text-align: center;
+        font-weight: 600;
+        border: 1px solid #2c3e50;
+        white-space: nowrap;
+    }
+    
+    /* Columnas de trabajador fijas en scroll horizontal */
+    .tareo-table th.col-trabajador,
+    .tareo-table td.col-trabajador {
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        background: #ecf0f1;
+        font-weight: 600;
+        min-width: 200px;
+        max-width: 200px;
+        text-align: left;
+        padding-left: 15px;
+    }
+    
+    .tareo-table th.col-guardia,
+    .tareo-table td.col-guardia {
+        position: sticky;
+        left: 200px;
+        z-index: 5;
+        background: #ecf0f1;
+        min-width: 80px;
+        max-width: 80px;
+        text-align: center;
+    }
+    
+    /* Celdas de día */
+    .tareo-table td {
+        padding: 5px;
+        border: 1px solid #ddd;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    /* Select de estado */
+    .estado-select {
+        width: 100%;
+        padding: 6px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .estado-select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    }
+    
+    /* Colores por estado */
+    .estado-TRABAJO { background-color: #d5f4e6; color: #27ae60; }
+    .estado-DESCANSO { background-color: #fef9e7; color: #f39c12; }
+    .estado-FALTA { background-color: #fadbd8; color: #e74c3c; }
+    .estado-DM { background-color: #ebf5fb; color: #3498db; }
+    .estado-VACACIONES { background-color: #e8daef; color: #9b59b6; }
+    .estado-PERMISO { background-color: #fdeaea; color: #e67e22; }
+    
+    /* Indicador de proyección vs corrección */
+    .proyeccion-indicator {
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        display: inline-block;
+        margin-left: 5px;
+    }
+    
+    .es-proyeccion {
+        background: #d6eaf8;
+        color: #2874a6;
+    }
+    
+    .es-correccion {
+        background: #d5f5e3;
+        color: #1e8449;
+        font-weight: 600;
+    }
+    
+    /* Días especiales */
+    .dia-domingo {
+        background-color: #ffebee !important;
+    }
+    
+    .dia-sabado {
+        background-color: #fff8e1 !important;
+    }
+    
+    /* Navegación de meses */
+    .mes-navegacion {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .mes-navegacion button {
+        padding: 8px 15px;
+        background: #95a5a6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    
+    .mes-navegacion button:hover {
+        background: #7f8c8d;
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .tareo-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .tareo-table th.col-trabajador,
+        .tareo-table td.col-trabajador {
+            min-width: 150px;
+            max-width: 150px;
+        }
+    }
+    
+    /* Spinner de carga */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    
+    .loading-overlay.active {
+        display: flex;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tareo-container">
+    <!-- HEADER -->
+    <div class="tareo-header">
+        <h2>📋 Tareo Mensual V2 - {{ nombre_periodo }}</h2>
+        <p><strong>Contrato:</strong> {{ contrato.nombre_contrato }}</p>
+        
+        <div class="tareo-controls">
+            <!-- Navegación de meses -->
+            <div class="mes-navegacion">
+                <a href="?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:'-1' }}">
+                    <button type="button">◀ Mes Anterior</button>
+                </a>
+                <span style="font-weight: 600;">{{ nombre_periodo }}</span>
+                <a href="?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:'1' }}">
+                    <button type="button">Mes Siguiente ▶</button>
+                </a>
+            </div>
+            
+            <!-- Botón de proyección -->
+            <button type="button" class="btn-proyeccion" onclick="generarProyeccion()">
+                🔄 Generar Proyección Automática
+            </button>
+            
+            <!-- Selector de contrato (solo para superusers) -->
+            {% if contratos_disponibles %}
+            <select onchange="window.location.href='?contrato=' + this.value" class="form-control" style="max-width: 300px;">
+                {% for c in contratos_disponibles %}
+                <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                    {{ c.nombre_contrato }}
+                </option>
+                {% endfor %}
+            </select>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- FORMULARIO PRINCIPAL -->
+    <form method="post" id="tareoForm">
+        {% csrf_token %}
+        
+        <div class="tareo-table-wrapper">
+            <table class="tareo-table">
+                <thead>
+                    <tr>
+                        <th class="col-trabajador">Trabajador</th>
+                        <th class="col-guardia">Guardia</th>
+                        {% for dia in dias_rango %}
+                        <th class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}">
+                            <div>{{ dia.nombre_dia }}</div>
+                            <div style="font-size: 16px; font-weight: 700;">{{ dia.dia }}</div>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in matriz_tareo %}
+                    <tr>
+                        <!-- Columna Trabajador (fija) -->
+                        <td class="col-trabajador">
+                            {{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}
+                            <br>
+                            <small style="color: #7f8c8d;">{{ row.trabajador.cargo.nombre }}</small>
+                        </td>
+                        
+                        <!-- Columna Guardia (fija) -->
+                        <td class="col-guardia">
+                            <strong>{{ row.guardia }}</strong>
+                        </td>
+                        
+                        <!-- Celdas de días -->
+                        {% for dia in dias_rango %}
+                        {% with asist=row.asistencias|default_if_none:dict %}
+                        {% with data=asist|get_item:dia.fecha %}
+                        <td class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}">
+                            <select 
+                                name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
+                                class="estado-select estado-{{ data.estado|default:'TRABAJO' }}"
+                                onchange="this.className='estado-select estado-' + this.value"
+                            >
+                                {% for estado_code, estado_label in estados_choices %}
+                                <option value="{{ estado_code }}" 
+                                    {% if data.estado == estado_code %}selected{% endif %}>
+                                    {{ estado_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            
+                            {% if data.es_proyeccion %}
+                            <span class="proyeccion-indicator es-proyeccion" title="Proyección automática">P</span>
+                            {% elif data %}
+                            <span class="proyeccion-indicator es-correccion" title="Corrección manual">✓</span>
+                            {% endif %}
+                            
+                            <!-- Campo oculto para observaciones (opcional) -->
+                            <input type="hidden" 
+                                   name="observaciones_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
+                                   value="{{ data.observaciones|default:'' }}">
+                        </td>
+                        {% endwith %}
+                        {% endwith %}
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="100" style="text-align: center; padding: 40px;">
+                            No hay trabajadores activos en este contrato
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Botón de guardar flotante -->
+        <div style="position: sticky; bottom: 20px; text-align: center; margin-top: 20px;">
+            <button type="submit" class="btn-guardar-tareo">
+                💾 Guardar Tareo Completo
+            </button>
+        </div>
+    </form>
+    
+    <!-- Leyenda -->
+    <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 20px;">
+        <h4>📖 Leyenda</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+            <div><span class="proyeccion-indicator es-proyeccion">P</span> = Proyección automática</div>
+            <div><span class="proyeccion-indicator es-correccion">✓</span> = Corrección manual</div>
+            <div style="padding: 5px 10px; background: #d5f4e6; border-radius: 4px;">Verde = Trabajo</div>
+            <div style="padding: 5px 10px; background: #fef9e7; border-radius: 4px;">Amarillo = Descanso</div>
+            <div style="padding: 5px 10px; background: #fadbd8; border-radius: 4px;">Rojo = Falta</div>
+            <div style="padding: 5px 10px; background: #ebf5fb; border-radius: 4px;">Azul = DM</div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// =============================================================================
+// JAVASCRIPT PARA TAREO V2 - OPTIMIZADO PARA RENDIMIENTO
+// =============================================================================
+
+// Mostrar/ocultar loading
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.add('active');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('active');
+}
+
+// Generar proyección automática
+function generarProyeccion() {
+    if (!confirm('¿Desea generar la proyección automática para este mes? Esto calculará los días de trabajo según los regímenes laborales.')) {
+        return;
+    }
+    
+    showLoading();
+    
+    // Obtener token CSRF
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch('/tareo/v2/api/generar-proyeccion/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken
+        },
+        body: new URLSearchParams({
+            'contrato_id': '{{ contrato.id }}',
+            'anio': '{{ anio_actual }}',
+            'mes': '{{ mes_actual }}',
+            'sobrescribir': 'false'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            alert(`✅ Proyección generada exitosamente!\n\nRegistros creados: ${data.data.registros_creados}\nTrabajadores procesados: ${data.data.trabajadores_procesados}`);
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        alert('❌ Error de conexión: ' + error);
+        console.error('Error:', error);
+    });
+}
+
+// Validación antes de enviar el formulario
+document.getElementById('tareoForm').addEventListener('submit', function(e) {
+    const confirmMsg = '¿Está seguro de guardar todos los cambios del tareo?';
+    if (!confirm(confirmMsg)) {
+        e.preventDefault();
+        return false;
+    }
+    showLoading();
+});
+
+// Auto-guardar periódico (opcional - comentado por defecto)
+/*
+let autoSaveTimer;
+document.getElementById('tareoForm').addEventListener('change', function() {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+        console.log('Auto-guardando...');
+        // Implementar lógica de auto-guardado AJAX aquí
+    }, 5000); // 5 segundos después del último cambio
+});
+*/
+
+// Atajos de teclado para navegación rápida
+document.addEventListener('keydown', function(e) {
+    // Alt + ← = Mes anterior
+    if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        window.location.href = '?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:"-1" }}';
+    }
+    
+    // Alt + → = Mes siguiente
+    if (e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        window.location.href = '?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:"1" }}';
+    }
+    
+    // Ctrl + S = Guardar
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        document.getElementById('tareoForm').submit();
+    }
+});
+
+// Highlight de fila al hacer hover
+document.querySelectorAll('.tareo-table tbody tr').forEach(row => {
+    row.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = '#f8f9fa';
+    });
+    row.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = '';
+    });
+});
+
+console.log('📋 Tareo V2 cargado - Registros en matriz: {{ matriz_tareo|length }}');
+</script>
+
+<!-- Custom Template Filter para obtener items de dict -->
+{% load custom_filters %}
+{% endblock %}
