@@ -1,0 +1,377 @@
+{% extends 'drilling/base_manager.html' %}
+{% load static %}
+
+{% block title %}Cierre Mensual de Tareo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header mb-4">
+        <div class="page-header-icon" style="background: linear-gradient(135deg, #FFC248, #e0a800);">
+            <i class="fas fa-lock"></i>
+        </div>
+        <div class="page-header-content">
+            <h2>Cierre Mensual de Tareo</h2>
+            <p>Revisión y cierre contable - {{ mes }}/{{ anio }}</p>
+        </div>
+    </div>
+
+    <!-- Selector de Mes/Año -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                {% if user.is_staff %}
+                <div class="col-md-3">
+                    <label class="form-label">Contrato</label>
+                    <select name="contrato" class="form-select" onchange="this.form.submit()">
+                        {% for c in contratos %}
+                        <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                            {{ c.nombre_contrato }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-3">
+                    <label class="form-label">Mes</label>
+                    <select name="mes" class="form-select" onchange="this.form.submit()">
+                        {% for m in meses %}
+                        <option value="{{ m }}" {% if m == mes %}selected{% endif %}>
+                            {{ m|date:"F"|default:m }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Año</label>
+                    <select name="anio" class="form-select" onchange="this.form.submit()">
+                        {% for a in anios %}
+                        <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Estado del Cierre -->
+    {% if cierre %}
+    <div class="alert {% if cierre.estado == 'CERRADO' %}alert-success{% elif cierre.estado == 'EN_REVISION' %}alert-warning{% else %}alert-info{% endif %}">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-1">
+                    <i class="fas {% if cierre.estado == 'CERRADO' %}fa-lock{% else %}fa-lock-open{% endif %} me-2"></i>
+                    Estado: <strong>{{ cierre.get_estado_display }}</strong>
+                </h5>
+                {% if cierre.estado == 'CERRADO' %}
+                <small>Cerrado el {{ cierre.fecha_cierre|date:"d/m/Y H:i" }} por {{ cierre.cerrado_por }}</small>
+                {% endif %}
+            </div>
+            <div>
+                {% if cierre.estado == 'CERRADO' and user.is_staff %}
+                <button class="btn btn-danger" onclick="reabrirMes()">
+                    <i class="fas fa-unlock me-2"></i>Reabrir Mes
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Resumen General -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Resumen del Mes</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <h3 class="text-primary">{{ resumen.totales.trabajadores }}</h3>
+                    <p class="text-muted mb-0">Trabajadores</p>
+                </div>
+                <div class="col-md-3">
+                    <h3 class="text-success">{{ resumen.totales.registros_reales }}</h3>
+                    <p class="text-muted mb-0">Registros Reales</p>
+                </div>
+                <div class="col-md-3">
+                    <h3 class="{% if resumen.totales.proyecciones_pendientes > 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ resumen.totales.proyecciones_pendientes }}
+                    </h3>
+                    <p class="text-muted mb-0">Proyecciones Pendientes</p>
+                </div>
+                <div class="col-md-3">
+                    <h3 class="text-info">{{ resumen.totales.total_trabajo }}</h3>
+                    <p class="text-muted mb-0">Días de Trabajo</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle por Trabajador -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Detalle por Trabajador</h5>
+            {% if resumen.listo_para_cerrar and not cierre or cierre.estado != 'CERRADO' %}
+            <button class="btn btn-warning btn-sm" onclick="cerrarMes()">
+                <i class="fas fa-lock me-2"></i>Cerrar Mes para Nómina
+            </button>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Trabajador</th>
+                            <th>DNI</th>
+                            <th class="text-center">Proyecciones</th>
+                            <th class="text-center">Reales</th>
+                            <th class="text-center">Trabajo</th>
+                            <th class="text-center">Descanso</th>
+                            <th class="text-center">Faltas</th>
+                            <th class="text-center">Vacaciones</th>
+                            <th class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in resumen.resumen_trabajadores %}
+                        <tr class="{% if not item.completo %}table-warning{% endif %}">
+                            <td>
+                                <strong>{{ item.trabajador.apellidos }}, {{ item.trabajador.nombres }}</strong>
+                            </td>
+                            <td>{{ item.trabajador.dni }}</td>
+                            <td class="text-center">
+                                {% if item.proyecciones > 0 %}
+                                <span class="badge bg-danger">{{ item.proyecciones }}</span>
+                                {% else %}
+                                <span class="badge bg-success">0</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ item.reales }}</td>
+                            <td class="text-center">{{ item.trabajo }}</td>
+                            <td class="text-center">{{ item.descanso }}</td>
+                            <td class="text-center">
+                                {% if item.faltas > 0 %}
+                                <span class="badge bg-danger">{{ item.faltas }}</span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.vacaciones > 0 %}
+                                <span class="badge bg-info">{{ item.vacaciones }}</span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.completo %}
+                                <span class="badge bg-success"><i class="fas fa-check"></i> Completo</span>
+                                {% else %}
+                                <span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> Pendiente</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Resumen de Asistencias</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><i class="fas fa-briefcase text-success me-2"></i>Días de Trabajo</td>
+                            <td class="text-end"><strong>{{ resumen.totales.total_trabajo }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fas fa-bed text-primary me-2"></i>Días de Descanso</td>
+                            <td class="text-end"><strong>{{ resumen.totales.total_descanso }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fas fa-times-circle text-danger me-2"></i>Faltas</td>
+                            <td class="text-end"><strong>{{ resumen.totales.total_faltas }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fas fa-umbrella-beach text-warning me-2"></i>Vacaciones</td>
+                            <td class="text-end"><strong>{{ resumen.totales.total_vacaciones }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fas fa-file-alt text-secondary me-2"></i>Permisos</td>
+                            <td class="text-end"><strong>{{ resumen.totales.total_permisos }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Información del Cierre</h6>
+                </div>
+                <div class="card-body">
+                    {% if resumen.listo_para_cerrar %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Listo para cerrar</strong><br>
+                        Todos los registros están completos y validados.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>No se puede cerrar</strong><br>
+                        Hay {{ resumen.totales.proyecciones_pendientes }} proyecciones pendientes de confirmar.
+                    </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <p class="mb-1"><strong>Período:</strong> {{ mes }}/{{ anio }}</p>
+                    <p class="mb-1"><strong>Contrato:</strong> {{ contrato.nombre_contrato }}</p>
+                    <p class="mb-1"><strong>Total registros:</strong> {{ resumen.totales.registros_reales }} / {{ resumen.totales.dias_esperados }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Modal Cerrar Mes -->
+<div class="modal fade" id="modalCerrarMes" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="fas fa-lock me-2"></i>Cerrar Mes para Nómina</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>¿Está seguro de cerrar el mes {{ mes }}/{{ anio }}?</strong></p>
+                <p>Una vez cerrado, los datos quedarán congelados para el cálculo de nómina y pagos.</p>
+                
+                <div class="mb-3">
+                    <label class="form-label">Observaciones</label>
+                    <textarea id="observacionesCierre" class="form-control" rows="3" placeholder="Observaciones opcionales sobre el cierre..."></textarea>
+                </div>
+                
+                <div class="alert alert-info">
+                    <small>
+                        <i class="fas fa-info-circle me-2"></i>
+                        Solo un administrador podrá reabrir el mes en caso de ser necesario.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="confirmarCierre()">
+                    <i class="fas fa-lock me-2"></i>Confirmar Cierre
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Reabrir Mes -->
+<div class="modal fade" id="modalReabrirMes" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-unlock me-2"></i>Reabrir Mes Cerrado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>¿Está seguro de reabrir el mes {{ mes }}/{{ anio }}?</strong></p>
+                <p class="text-danger">Esta acción requiere justificación y quedará registrada en auditoría.</p>
+                
+                <div class="mb-3">
+                    <label class="form-label">Motivo de Reapertura <span class="text-danger">*</span></label>
+                    <textarea id="motivoReapertura" class="form-control" rows="3" placeholder="Motivo detallado (mínimo 10 caracteres)..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarReapertura()">
+                    <i class="fas fa-unlock me-2"></i>Confirmar Reapertura
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function cerrarMes() {
+    const modal = new bootstrap.Modal(document.getElementById('modalCerrarMes'));
+    modal.show();
+}
+
+function reabrirMes() {
+    const modal = new bootstrap.Modal(document.getElementById('modalReabrirMes'));
+    modal.show();
+}
+
+function confirmarCierre() {
+    const observaciones = document.getElementById('observacionesCierre').value;
+    
+    fetch('{% url "api_cerrar_mes" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `contrato_id={{ contrato.id }}&mes={{ mes }}&anio={{ anio }}&observaciones=${encodeURIComponent(observaciones)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✓ ' + data.mensaje);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al cerrar mes');
+    });
+}
+
+function confirmarReapertura() {
+    const motivo = document.getElementById('motivoReapertura').value;
+    
+    if (motivo.length < 10) {
+        alert('El motivo debe tener al menos 10 caracteres');
+        return;
+    }
+    
+    fetch('{% url "api_reabrir_mes" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `contrato_id={{ contrato.id }}&mes={{ mes }}&anio={{ anio }}&motivo=${encodeURIComponent(motivo)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✓ ' + data.mensaje);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al reabrir mes');
+    });
+}
+</script>
+{% endblock %}

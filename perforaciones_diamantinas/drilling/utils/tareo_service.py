@@ -422,3 +422,358 @@ def generar_proyeccion_mensual(anio, mes, contrato=None, sobrescribir=False):
         print(f"Registros creados: {resultado['registros_creados']}")
     """
     return TareoService.generar_proyeccion_mensual(anio, mes, contrato, sobrescribir)
+
+
+# =============================================================================
+# SERVICIO DE CIERRE MENSUAL Y AUDITORÍA
+# =============================================================================
+
+class CierreMensualService:
+    """
+    Servicio para gestionar cierres contables mensuales del tareo.
+    Asegura integridad de datos para nómina y pagos.
+    """
+    
+    @staticmethod
+    def obtener_o_crear_cierre(contrato, anio, mes):
+        """
+        Obtiene o crea el registro de cierre mensual para un contrato/periodo.
+        """
+        from ..models import CierreMensualTareo
+        
+        cierre, created = CierreMensualTareo.objects.get_or_create(
+            contrato=contrato,
+            anio=anio,
+            mes=mes,
+            defaults={
+                'estado': 'ABIERTO',
+                'total_trabajadores': 0,
+            }
+        )
+        
+        if created:
+            logger.info(f"Cierre mensual creado: {contrato} - {mes}/{anio}")
+        
+        return cierre
+    
+    @staticmethod
+    def puede_editar_mes(contrato, anio, mes):
+        """
+        Verifica si un mes puede ser editado (no está cerrado).
+        """
+        from ..models import CierreMensualTareo
+        
+        try:
+            cierre = CierreMensualTareo.objects.get(
+                contrato=contrato,
+                anio=anio,
+                mes=mes
+            )
+            return cierre.puede_editarse()
+        except CierreMensualTareo.DoesNotExist:
+            # Si no existe cierre, se puede editar
+            return True
+    
+    @staticmethod
+    @transaction.atomic
+    def cerrar_mes(contrato, anio, mes, usuario, observaciones=''):
+        """
+        Cierra contablemente un mes, congelando los datos para nómina.
+        
+        Proceso:
+        1. Valida que todos los días tengan registro real (no proyección)
+        2. Calcula estadísticas finales
+        3. Cambia estado a CERRADO
+        4. Registra auditoría
+        
+        Returns:
+            dict: Resultado de la operación
+        """
+        from datetime import date
+        from calendar import monthrange
+        from ..models import CierreMensualTareo, AsistenciaDiaria, Trabajador
+        
+        # Obtener o crear cierre
+        cierre = CierreMensualService.obtener_o_crear_cierre(contrato, anio, mes)
+        
+        if cierre.estado == 'CERRADO':
+            return {
+                'success': False,
+                'error': 'El mes ya está cerrado',
+                'cierre': cierre
+            }
+        
+        # Validar que no haya proyecciones sin confirmar
+        primer_dia = date(anio, mes, 1)
+        num_dias = monthrange(anio, mes)[1]
+        ultimo_dia = date(anio, mes, num_dias)
+        
+        trabajadores_activos = Trabajador.objects.filter(
+            contrato=contrato,
+            estado='ACTIVO'
+        )
+        
+        proyecciones_pendientes = AsistenciaDiaria.objects.filter(
+            empleado__in=trabajadores_activos,
+            fecha__gte=primer_dia,
+            fecha__lte=ultimo_dia,
+            es_proyeccion=True
+        ).count()
+        
+        if proyecciones_pendientes > 0:
+            return {
+                'success': False,
+                'error': f'Hay {proyecciones_pendientes} proyecciones sin confirmar. Deben convertirse a registros reales antes de cerrar.',
+                'proyecciones_pendientes': proyecciones_pendientes,
+                'cierre': cierre
+            }
+        
+        # Calcular estadísticas finales
+        cierre.calcular_estadisticas()
+        
+        # Cerrar mes
+        cierre.estado = 'CERRADO'
+        cierre.fecha_cierre = date.today()
+        cierre.cerrado_por = usuario
+        cierre.observaciones = observaciones
+        cierre.save()
+        
+        logger.info(
+            f"Mes cerrado: {contrato} - {mes}/{anio} por {usuario}. "
+            f"Trabajadores: {cierre.total_trabajadores}, "
+            f"Días trabajo: {cierre.total_dias_trabajo}"
+        )
+        
+        return {
+            'success': True,
+            'cierre': cierre,
+            'mensaje': f'Mes {mes}/{anio} cerrado exitosamente'
+        }
+    
+    @staticmethod
+    @transaction.atomic
+    def reabrir_mes(contrato, anio, mes, usuario, motivo):
+        """
+        Reabre un mes cerrado (caso excepcional, requiere justificación).
+        """
+        from ..models import CierreMensualTareo
+        
+        try:
+            cierre = CierreMensualTareo.objects.get(
+                contrato=contrato,
+                anio=anio,
+                mes=mes
+            )
+        except CierreMensualTareo.DoesNotExist:
+            return {
+                'success': False,
+                'error': 'No existe cierre para este periodo'
+            }
+        
+        if cierre.estado != 'CERRADO':
+            return {
+                'success': False,
+                'error': 'El mes no está cerrado'
+            }
+        
+        # Reapertura requiere motivo obligatorio
+        if not motivo or len(motivo.strip()) < 10:
+            return {
+                'success': False,
+                'error': 'Debe proporcionar un motivo detallado (mínimo 10 caracteres)'
+            }
+        
+        # Reabrir
+        cierre.estado = 'REABIERTO'
+        cierre.fecha_reapertura = date.today()
+        cierre.reabierto_por = usuario
+        cierre.motivo_reapertura = motivo
+        cierre.save()
+        
+        logger.warning(
+            f"Mes REABIERTO: {contrato} - {mes}/{anio} por {usuario}. "
+            f"Motivo: {motivo}"
+        )
+        
+        return {
+            'success': True,
+            'cierre': cierre,
+            'mensaje': f'Mes {mes}/{anio} reabierto'
+        }
+    
+    @staticmethod
+    def obtener_resumen_mes(contrato, anio, mes):
+        """
+        Obtiene un resumen completo del mes para revisión antes de cerrar.
+        """
+        from datetime import date
+        from calendar import monthrange
+        from ..models import AsistenciaDiaria, Trabajador
+        from django.db.models import Count, Q
+        
+        primer_dia = date(anio, mes, 1)
+        num_dias = monthrange(anio, mes)[1]
+        ultimo_dia = date(anio, mes, num_dias)
+        
+        trabajadores_activos = Trabajador.objects.filter(
+            contrato=contrato,
+            estado='ACTIVO'
+        )
+        
+        # Resumen por trabajador
+        resumen_trabajadores = []
+        
+        for trabajador in trabajadores_activos:
+            asistencias = AsistenciaDiaria.objects.filter(
+                empleado=trabajador,
+                fecha__gte=primer_dia,
+                fecha__lte=ultimo_dia
+            )
+            
+            total_dias = asistencias.count()
+            proyecciones = asistencias.filter(es_proyeccion=True).count()
+            reales = asistencias.filter(es_proyeccion=False).count()
+            
+            # Desglose por estado
+            trabajo = asistencias.filter(estado='TRABAJO', es_proyeccion=False).count()
+            descanso = asistencias.filter(estado='DESCANSO', es_proyeccion=False).count()
+            faltas = asistencias.filter(estado='FALTA').count()
+            vacaciones = asistencias.filter(estado='VACACIONES').count()
+            permisos = asistencias.filter(estado='PERMISO').count()
+            
+            resumen_trabajadores.append({
+                'trabajador': trabajador,
+                'total_dias': total_dias,
+                'proyecciones': proyecciones,
+                'reales': reales,
+                'trabajo': trabajo,
+                'descanso': descanso,
+                'faltas': faltas,
+                'vacaciones': vacaciones,
+                'permisos': permisos,
+                'completo': proyecciones == 0 and total_dias == num_dias
+            })
+        
+        # Totales generales
+        totales = {
+            'trabajadores': trabajadores_activos.count(),
+            'dias_esperados': num_dias * trabajadores_activos.count(),
+            'proyecciones_pendientes': sum(r['proyecciones'] for r in resumen_trabajadores),
+            'registros_reales': sum(r['reales'] for r in resumen_trabajadores),
+            'total_trabajo': sum(r['trabajo'] for r in resumen_trabajadores),
+            'total_descanso': sum(r['descanso'] for r in resumen_trabajadores),
+            'total_faltas': sum(r['faltas'] for r in resumen_trabajadores),
+            'total_vacaciones': sum(r['vacaciones'] for r in resumen_trabajadores),
+            'total_permisos': sum(r['permisos'] for r in resumen_trabajadores),
+        }
+        
+        # Verificar si está listo para cerrar
+        listo_para_cerrar = totales['proyecciones_pendientes'] == 0
+        
+        return {
+            'resumen_trabajadores': resumen_trabajadores,
+            'totales': totales,
+            'listo_para_cerrar': listo_para_cerrar,
+            'anio': anio,
+            'mes': mes,
+            'contrato': contrato
+        }
+
+
+class AuditoriaAsistenciaService:
+    """
+    Servicio para gestionar auditoría de cambios en asistencias.
+    """
+    
+    @staticmethod
+    def registrar_cambio(asistencia, estado_anterior, es_proyeccion_anterior, usuario, motivo='', ip_address=None):
+        """
+        Registra un cambio en el historial de auditoría.
+        """
+        from ..models import HistorialCambioAsistencia, CierreMensualTareo
+        
+        # Verificar si el mes está cerrado
+        try:
+            cierre = CierreMensualTareo.objects.get(
+                contrato=asistencia.empleado.contrato,
+                anio=asistencia.fecha.year,
+                mes=asistencia.fecha.month
+            )
+            mes_cerrado = cierre.estado == 'CERRADO'
+        except CierreMensualTareo.DoesNotExist:
+            mes_cerrado = False
+        
+        # Crear registro de auditoría
+        historial = HistorialCambioAsistencia.objects.create(
+            asistencia=asistencia,
+            estado_anterior=estado_anterior,
+            es_proyeccion_anterior=es_proyeccion_anterior,
+            estado_nuevo=asistencia.estado,
+            es_proyeccion_nuevo=asistencia.es_proyeccion,
+            usuario=usuario,
+            motivo=motivo,
+            ip_address=ip_address,
+            mes_cerrado=mes_cerrado
+        )
+        
+        logger.info(
+            f"Cambio registrado: {asistencia.empleado} - {asistencia.fecha}: "
+            f"{estado_anterior} → {asistencia.estado} por {usuario}"
+        )
+        
+        return historial
+    
+    @staticmethod
+    def obtener_historial_trabajador(trabajador, fecha_inicio=None, fecha_fin=None):
+        """
+        Obtiene el historial completo de cambios de un trabajador.
+        """
+        from ..models import HistorialCambioAsistencia
+        
+        historial = HistorialCambioAsistencia.objects.filter(
+            asistencia__empleado=trabajador
+        ).select_related('asistencia', 'usuario')
+        
+        if fecha_inicio:
+            historial = historial.filter(asistencia__fecha__gte=fecha_inicio)
+        
+        if fecha_fin:
+            historial = historial.filter(asistencia__fecha__lte=fecha_fin)
+        
+        return historial.order_by('-fecha_cambio')
+    
+    @staticmethod
+    def obtener_cambios_post_cierre(contrato, anio, mes):
+        """
+        Obtiene todos los cambios realizados después del cierre del mes.
+        Útil para auditorías y control.
+        """
+        from datetime import date
+        from ..models import HistorialCambioAsistencia, CierreMensualTareo
+        
+        try:
+            cierre = CierreMensualTareo.objects.get(
+                contrato=contrato,
+                anio=anio,
+                mes=mes,
+                estado='CERRADO'
+            )
+            
+            cambios = HistorialCambioAsistencia.objects.filter(
+                asistencia__empleado__contrato=contrato,
+                asistencia__fecha__year=anio,
+                asistencia__fecha__month=mes,
+                fecha_cambio__gt=cierre.fecha_cierre,
+                mes_cerrado=True
+            ).select_related('asistencia__empleado', 'usuario')
+            
+            return {
+                'cierre': cierre,
+                'cambios': cambios,
+                'total_cambios': cambios.count()
+            }
+            
+        except CierreMensualTareo.DoesNotExist:
+            return {
+                'error': 'No existe cierre para este periodo'
+            }

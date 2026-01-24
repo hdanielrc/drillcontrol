@@ -1064,6 +1064,195 @@ class AsistenciaDiaria(models.Model):
         super().save(*args, **kwargs)
 
 
+class CierreMensualTareo(models.Model):
+    """
+    Modelo para registrar cierres contables mensuales del tareo.
+    
+    Flujo:
+    1. Mes inicia ABIERTO (editable)
+    2. Supervisor confirma → EN_REVISION
+    3. Gerencia aprueba → CERRADO (inmutable)
+    
+    Propósito:
+    - Congelar datos para nómina/pagos
+    - Auditoría y trazabilidad
+    - Evitar cambios post-cierre contable
+    """
+    
+    ESTADO_CHOICES = [
+        ('ABIERTO', 'Abierto'),
+        ('EN_REVISION', 'En Revisión'),
+        ('CERRADO', 'Cerrado'),
+        ('REABIERTO', 'Reabierto'),
+    ]
+    
+    contrato = models.ForeignKey(
+        'Contrato',
+        on_delete=models.PROTECT,
+        related_name='cierres_tareo',
+        verbose_name='Contrato'
+    )
+    
+    anio = models.IntegerField(verbose_name='Año')
+    mes = models.IntegerField(verbose_name='Mes', help_text='1-12')
+    
+    estado = models.CharField(
+        max_length=15,
+        choices=ESTADO_CHOICES,
+        default='ABIERTO',
+        verbose_name='Estado'
+    )
+    
+    # Estadísticas del mes (snapshot)
+    total_trabajadores = models.IntegerField(default=0, verbose_name='Total Trabajadores')
+    total_dias_trabajo = models.IntegerField(default=0, verbose_name='Total Días Trabajo')
+    total_dias_descanso = models.IntegerField(default=0, verbose_name='Total Días Descanso')
+    total_faltas = models.IntegerField(default=0, verbose_name='Total Faltas')
+    total_vacaciones = models.IntegerField(default=0, verbose_name='Total Vacaciones')
+    total_permisos = models.IntegerField(default=0, verbose_name='Total Permisos')
+    
+    # Auditoría de cierre
+    fecha_cierre = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de Cierre')
+    cerrado_por = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='cierres_realizados',
+        verbose_name='Cerrado por'
+    )
+    
+    # Reapertura (casos excepcionales)
+    fecha_reapertura = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de Reapertura')
+    reabierto_por = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reaperturas_realizadas',
+        verbose_name='Reabierto por'
+    )
+    motivo_reapertura = models.TextField(blank=True, verbose_name='Motivo de Reapertura')
+    
+    observaciones = models.TextField(blank=True, verbose_name='Observaciones')
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+    
+    class Meta:
+        db_table = 'cierre_mensual_tareo'
+        verbose_name = 'Cierre Mensual de Tareo'
+        verbose_name_plural = 'Cierres Mensuales de Tareo'
+        ordering = ['-anio', '-mes']
+        
+        constraints = [
+            models.UniqueConstraint(
+                fields=['contrato', 'anio', 'mes'],
+                name='unique_cierre_contrato_mes'
+            )
+        ]
+        
+        indexes = [
+            models.Index(fields=['contrato', '-anio', '-mes'], name='idx_cierre_contrato_periodo'),
+            models.Index(fields=['estado', 'fecha_cierre'], name='idx_cierre_estado'),
+        ]
+    
+    def __str__(self):
+        return f"{self.contrato.nombre_contrato} - {self.mes:02d}/{self.anio} [{self.estado}]"
+    
+    def puede_editarse(self):
+        """Determina si el mes puede ser editado"""
+        return self.estado in ['ABIERTO', 'EN_REVISION', 'REABIERTO']
+    
+    def calcular_estadisticas(self):
+        """Calcula y actualiza las estadísticas del mes"""
+        from datetime import date
+        from calendar import monthrange
+        
+        primer_dia = date(self.anio, self.mes, 1)
+        num_dias = monthrange(self.anio, self.mes)[1]
+        ultimo_dia = date(self.anio, self.mes, num_dias)
+        
+        # Obtener asistencias reales (no proyecciones)
+        asistencias = AsistenciaDiaria.objects.filter(
+            empleado__contrato=self.contrato,
+            fecha__gte=primer_dia,
+            fecha__lte=ultimo_dia,
+            es_proyeccion=False
+        )
+        
+        self.total_trabajadores = asistencias.values('empleado').distinct().count()
+        self.total_dias_trabajo = asistencias.filter(estado='TRABAJO').count()
+        self.total_dias_descanso = asistencias.filter(estado='DESCANSO').count()
+        self.total_faltas = asistencias.filter(estado='FALTA').count()
+        self.total_vacaciones = asistencias.filter(estado='VACACIONES').count()
+        self.total_permisos = asistencias.filter(estado='PERMISO').count()
+        
+        self.save()
+
+
+class HistorialCambioAsistencia(models.Model):
+    """
+    Auditoría detallada de cambios en asistencias.
+    Registra TODOS los cambios para trazabilidad completa.
+    
+    Casos de uso:
+    - Auditoría interna/externa
+    - Resolución de disputas
+    - Reportes de nómina
+    - Análisis de patrones de cambios
+    """
+    
+    asistencia = models.ForeignKey(
+        'AsistenciaDiaria',
+        on_delete=models.CASCADE,
+        related_name='historial_cambios',
+        verbose_name='Asistencia'
+    )
+    
+    # Datos antes del cambio
+    estado_anterior = models.CharField(max_length=20, verbose_name='Estado Anterior')
+    es_proyeccion_anterior = models.BooleanField(verbose_name='Era Proyección')
+    
+    # Datos después del cambio
+    estado_nuevo = models.CharField(max_length=20, verbose_name='Estado Nuevo')
+    es_proyeccion_nuevo = models.BooleanField(verbose_name='Es Proyección')
+    
+    # Auditoría del cambio
+    fecha_cambio = models.DateTimeField(auto_now_add=True, verbose_name='Fecha del Cambio')
+    usuario = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='cambios_asistencia',
+        verbose_name='Usuario que modificó'
+    )
+    
+    motivo = models.TextField(blank=True, verbose_name='Motivo del Cambio')
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name='Dirección IP')
+    
+    # Contexto adicional
+    mes_cerrado = models.BooleanField(
+        default=False,
+        verbose_name='Mes estaba cerrado',
+        help_text='Indica si el cambio se hizo en un mes cerrado (requiere justificación)'
+    )
+    
+    class Meta:
+        db_table = 'historial_cambio_asistencia'
+        verbose_name = 'Historial de Cambio de Asistencia'
+        verbose_name_plural = 'Historial de Cambios de Asistencia'
+        ordering = ['-fecha_cambio']
+        
+        indexes = [
+            models.Index(fields=['asistencia', '-fecha_cambio'], name='idx_hist_asistencia'),
+            models.Index(fields=['usuario', '-fecha_cambio'], name='idx_hist_usuario'),
+            models.Index(fields=['-fecha_cambio'], name='idx_hist_fecha'),
+        ]
+    
+    def __str__(self):
+        return f"{self.asistencia.empleado} - {self.asistencia.fecha}: {self.estado_anterior} → {self.estado_nuevo}"
+
+
 class ConfiguracionHoraExtra(models.Model):
     """
     Configuración de horas extras por contrato y máquina.

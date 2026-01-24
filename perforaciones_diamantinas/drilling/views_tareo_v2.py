@@ -22,13 +22,16 @@ from django.contrib import messages
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
-from django.forms import modelformset_factory, ModelForm
+from django.forms import modelformset_factory, ModelForm, Textarea
 from datetime import datetime, timedelta, date
 from calendar import monthrange
 import json
+import logging
 
-from ..models import Contrato, Trabajador, AsistenciaDiaria
-from ..utils.tareo_service import TareoService
+from .models import Contrato, Trabajador, AsistenciaDiaria
+from .utils.tareo_service import TareoService
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -43,7 +46,7 @@ class AsistenciaDiariaForm(ModelForm):
         model = AsistenciaDiaria
         fields = ['empleado', 'fecha', 'estado', 'observaciones']
         widgets = {
-            'observaciones': {'attrs': {'class': 'form-control', 'rows': 1}},
+            'observaciones': Textarea(attrs={'class': 'form-control', 'rows': 1}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -418,3 +421,369 @@ def tareo_v2_estadisticas(request):
     }
     
     return render(request, 'drilling/tareo/tareo_v2_estadisticas.html', context)
+
+
+# =============================================================================
+# VISTAS DE CIERRE MENSUAL Y AUDITORÍA
+# =============================================================================
+
+@login_required
+def tareo_cierre_mensual(request):
+    """
+    Vista para revisar y cerrar contablemente el mes.
+    Muestra resumen completo antes del cierre.
+    """
+    from .utils.tareo_service import CierreMensualService
+    from .models import CierreMensualTareo
+    
+    # Determinar contrato
+    if request.user.is_staff or request.user.is_superuser:
+        contratos = Contrato.objects.all()
+        contrato_id = request.GET.get('contrato')
+        if contrato_id:
+            contrato = get_object_or_404(Contrato, id=contrato_id)
+        else:
+            contrato = contratos.first()
+    else:
+        contrato = request.user.contrato
+        contratos = Contrato.objects.filter(id=contrato.id)
+    
+    # Mes y año
+    mes = int(request.GET.get('mes', date.today().month))
+    anio = int(request.GET.get('anio', date.today().year))
+    
+    # Obtener resumen del mes
+    resumen = CierreMensualService.obtener_resumen_mes(contrato, anio, mes)
+    
+    # Obtener estado del cierre
+    try:
+        cierre = CierreMensualTareo.objects.get(contrato=contrato, anio=anio, mes=mes)
+    except CierreMensualTareo.DoesNotExist:
+        cierre = None
+    
+    context = {
+        'contrato': contrato,
+        'contratos': contratos,
+        'mes': mes,
+        'anio': anio,
+        'resumen': resumen,
+        'cierre': cierre,
+        'meses': range(1, 13),
+        'anios': range(date.today().year - 1, date.today().year + 2),
+    }
+    
+    return render(request, 'drilling/tareo/cierre_mensual.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_cerrar_mes(request):
+    """
+    API para cerrar contablemente un mes.
+    """
+    from .utils.tareo_service import CierreMensualService
+    
+    try:
+        contrato_id = request.POST.get('contrato_id')
+        mes = int(request.POST.get('mes'))
+        anio = int(request.POST.get('anio'))
+        observaciones = request.POST.get('observaciones', '')
+        
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+        
+        # Verificar permisos
+        if not (request.user.is_staff or request.user.role in ['manager', 'admin']):
+            return JsonResponse({'error': 'Permisos insuficientes'}, status=403)
+        
+        # Cerrar mes
+        resultado = CierreMensualService.cerrar_mes(
+            contrato=contrato,
+            anio=anio,
+            mes=mes,
+            usuario=request.user,
+            observaciones=observaciones
+        )
+        
+        if resultado['success']:
+            return JsonResponse({
+                'success': True,
+                'mensaje': resultado['mensaje'],
+                'cierre': {
+                    'id': resultado['cierre'].id,
+                    'estado': resultado['cierre'].estado,
+                    'fecha_cierre': resultado['cierre'].fecha_cierre.strftime('%Y-%m-%d %H:%M'),
+                    'total_trabajadores': resultado['cierre'].total_trabajadores,
+                    'total_dias_trabajo': resultado['cierre'].total_dias_trabajo,
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': resultado['error']
+            }, status=400)
+            
+    except Exception as e:
+        logger.error(f"Error cerrando mes: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_reabrir_mes(request):
+    """
+    API para reabrir un mes cerrado (caso excepcional).
+    """
+    from .utils.tareo_service import CierreMensualService
+    
+    try:
+        contrato_id = request.POST.get('contrato_id')
+        mes = int(request.POST.get('mes'))
+        anio = int(request.POST.get('anio'))
+        motivo = request.POST.get('motivo', '')
+        
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+        
+        # Solo admin puede reabrir
+        if not request.user.is_staff:
+            return JsonResponse({'error': 'Solo administradores pueden reabrir meses'}, status=403)
+        
+        resultado = CierreMensualService.reabrir_mes(
+            contrato=contrato,
+            anio=anio,
+            mes=mes,
+            usuario=request.user,
+            motivo=motivo
+        )
+        
+        if resultado['success']:
+            return JsonResponse({
+                'success': True,
+                'mensaje': resultado['mensaje']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': resultado['error']
+            }, status=400)
+            
+    except Exception as e:
+        logger.error(f"Error reabriendo mes: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def tareo_historial_trabajador(request, trabajador_id):
+    """
+    Vista de historial completo de cambios de un trabajador.
+    Útil para auditorías y resolución de disputas.
+    """
+    from .utils.tareo_service import AuditoriaAsistenciaService
+    from .models import HistorialCambioAsistencia
+    
+    trabajador = get_object_or_404(Trabajador, id=trabajador_id)
+    
+    # Verificar permisos
+    if not (request.user.is_staff or request.user.contrato == trabajador.contrato):
+        messages.error(request, 'No tiene permisos para ver este historial')
+        return redirect('dashboard')
+    
+    # Filtros opcionales
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    
+    if fecha_inicio:
+        fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+    if fecha_fin:
+        fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+    
+    # Obtener historial
+    historial = AuditoriaAsistenciaService.obtener_historial_trabajador(
+        trabajador=trabajador,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin
+    )
+    
+    # Paginación
+    from django.core.paginator import Paginator
+    paginator = Paginator(historial, 50)  # 50 cambios por página
+    page_number = request.GET.get('page')
+    historial_paginado = paginator.get_page(page_number)
+    
+    context = {
+        'trabajador': trabajador,
+        'historial': historial_paginado,
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+        'total_cambios': historial.count(),
+    }
+    
+    return render(request, 'drilling/tareo/historial_trabajador.html', context)
+
+
+@login_required
+def tareo_reporte_nomina(request):
+    """
+    Vista para generar reporte de nómina del mes cerrado.
+    Solo muestra meses cerrados para garantizar integridad.
+    """
+    from .models import CierreMensualTareo, AsistenciaDiaria
+    from calendar import monthrange
+    
+    # Determinar contrato
+    if request.user.is_staff or request.user.is_superuser:
+        contratos = Contrato.objects.all()
+        contrato_id = request.GET.get('contrato')
+        if contrato_id:
+            contrato = get_object_or_404(Contrato, id=contrato_id)
+        else:
+            contrato = contratos.first()
+    else:
+        contrato = request.user.contrato
+        contratos = Contrato.objects.filter(id=contrato.id)
+    
+    # Obtener meses cerrados
+    cierres_disponibles = CierreMensualTareo.objects.filter(
+        contrato=contrato,
+        estado='CERRADO'
+    ).order_by('-anio', '-mes')
+    
+    # Seleccionar cierre
+    cierre_id = request.GET.get('cierre_id')
+    if cierre_id:
+        cierre = get_object_or_404(CierreMensualTareo, id=cierre_id)
+    elif cierres_disponibles.exists():
+        cierre = cierres_disponibles.first()
+    else:
+        cierre = None
+    
+    # Generar reporte si hay cierre seleccionado
+    reporte_trabajadores = []
+    if cierre:
+        primer_dia = date(cierre.anio, cierre.mes, 1)
+        num_dias = monthrange(cierre.anio, cierre.mes)[1]
+        ultimo_dia = date(cierre.anio, cierre.mes, num_dias)
+        
+        trabajadores = Trabajador.objects.filter(
+            contrato=contrato,
+            estado='ACTIVO'
+        ).order_by('apellidos', 'nombres')
+        
+        for trabajador in trabajadores:
+            asistencias = AsistenciaDiaria.objects.filter(
+                empleado=trabajador,
+                fecha__gte=primer_dia,
+                fecha__lte=ultimo_dia,
+                es_proyeccion=False  # Solo registros reales
+            )
+            
+            dias_trabajo = asistencias.filter(estado='TRABAJO').count()
+            dias_descanso = asistencias.filter(estado='DESCANSO').count()
+            faltas = asistencias.filter(estado='FALTA').count()
+            vacaciones = asistencias.filter(estado='VACACIONES').count()
+            permisos = asistencias.filter(estado='PERMISO').count()
+            dm = asistencias.filter(estado='DM').count()
+            
+            reporte_trabajadores.append({
+                'trabajador': trabajador,
+                'dias_trabajo': dias_trabajo,
+                'dias_descanso': dias_descanso,
+                'faltas': faltas,
+                'vacaciones': vacaciones,
+                'permisos': permisos,
+                'descanso_medico': dm,
+                'total_dias': asistencias.count(),
+            })
+    
+    context = {
+        'contrato': contrato,
+        'contratos': contratos,
+        'cierres_disponibles': cierres_disponibles,
+        'cierre': cierre,
+        'reporte_trabajadores': reporte_trabajadores,
+    }
+    
+    return render(request, 'drilling/tareo/reporte_nomina.html', context)
+
+
+@login_required
+def api_exportar_nomina_excel(request, cierre_id):
+    """
+    Exporta el reporte de nómina a Excel.
+    """
+    from .models import CierreMensualTareo, AsistenciaDiaria
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from calendar import monthrange
+    import io
+    
+    cierre = get_object_or_404(CierreMensualTareo, id=cierre_id)
+    
+    # Verificar permisos
+    if not (request.user.is_staff or request.user.contrato == cierre.contrato):
+        return JsonResponse({'error': 'Sin permisos'}, status=403)
+    
+    # Crear workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Nómina {cierre.mes}-{cierre.anio}"
+    
+    # Encabezados
+    headers = [
+        'DNI', 'Apellidos', 'Nombres', 'Cargo', 'Régimen',
+        'Días Trabajo', 'Días Descanso', 'Faltas', 'Vacaciones',
+        'Permisos', 'DM', 'Total Días'
+    ]
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="0470AC", end_color="0470AC", fill_type="solid")
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Datos
+    primer_dia = date(cierre.anio, cierre.mes, 1)
+    num_dias = monthrange(cierre.anio, cierre.mes)[1]
+    ultimo_dia = date(cierre.anio, cierre.mes, num_dias)
+    
+    trabajadores = Trabajador.objects.filter(
+        contrato=cierre.contrato,
+        estado='ACTIVO'
+    ).order_by('apellidos', 'nombres')
+    
+    row_num = 2
+    for trabajador in trabajadores:
+        asistencias = AsistenciaDiaria.objects.filter(
+            empleado=trabajador,
+            fecha__gte=primer_dia,
+            fecha__lte=ultimo_dia,
+            es_proyeccion=False
+        )
+        
+        ws.cell(row=row_num, column=1, value=trabajador.dni)
+        ws.cell(row=row_num, column=2, value=trabajador.apellidos)
+        ws.cell(row=row_num, column=3, value=trabajador.nombres)
+        ws.cell(row=row_num, column=4, value=trabajador.cargo.nombre if trabajador.cargo else '')
+        ws.cell(row=row_num, column=5, value=trabajador.regimen_laboral or '')
+        ws.cell(row=row_num, column=6, value=asistencias.filter(estado='TRABAJO').count())
+        ws.cell(row=row_num, column=7, value=asistencias.filter(estado='DESCANSO').count())
+        ws.cell(row=row_num, column=8, value=asistencias.filter(estado='FALTA').count())
+        ws.cell(row=row_num, column=9, value=asistencias.filter(estado='VACACIONES').count())
+        ws.cell(row=row_num, column=10, value=asistencias.filter(estado='PERMISO').count())
+        ws.cell(row=row_num, column=11, value=asistencias.filter(estado='DM').count())
+        ws.cell(row=row_num, column=12, value=asistencias.count())
+        
+        row_num += 1
+    
+    # Guardar en memoria
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Respuesta HTTP
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="nomina_{cierre.contrato.nombre_contrato}_{cierre.mes}_{cierre.anio}.xlsx"'
+    
+    return response

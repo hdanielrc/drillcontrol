@@ -5,6 +5,7 @@ from . import auth_views
 from . import views_gestion_proyectos
 from . import views_stock
 from . import views_tareo
+from . import views_tareo_v2
 from . import views_headcount
 from . import views_gerencia
 from .views_organigrama import organigrama_view
@@ -18,6 +19,18 @@ from .views_tareo import (
     guardar_asistencias_masivas as guardar_asistencias_masivas_tareo, 
     exportar_asistencias_excel, auto_rellenar_asistencia,
     actualizar_grupos_trabajadores, debug_trabajadores
+)
+from .views_tareo_v2 import (
+    tareo_v2_mensual_view,
+    api_generar_proyeccion,
+    api_corregir_asistencia,
+    tareo_v2_estadisticas,
+    tareo_cierre_mensual,
+    tareo_historial_trabajador,
+    tareo_reporte_nomina,
+    api_cerrar_mes,
+    api_reabrir_mes,
+    api_exportar_nomina_excel,
 )
 
 urlpatterns = [
@@ -42,7 +55,7 @@ urlpatterns = [
     path('api/organigrama/guardar-asignaciones-equipos/', guardar_asignaciones_equipos, name='api-guardar-asignaciones-equipos'),
     path('api/organigrama/eliminar-asignacion/', eliminar_asignacion, name='api-eliminar-asignacion'),
     
-    # Tareo de Asistencia
+    # Tareo de Asistencia (V1 - Legacy)
     path('tareo/', tareo_mensual_view, name='tareo-mensual'),
     path('tareo/guardar-asistencia/', guardar_asistencia, name='tareo-guardar-asistencia'),
     path('tareo/guardar-asistencias-masivas/', guardar_asistencias_masivas_tareo, name='tareo-guardar-masivas'),
@@ -54,6 +67,31 @@ urlpatterns = [
     path('tareo/exportar-excel/', exportar_asistencias_excel, name='tareo-exportar-excel'),
     path('tareo/generar-guardias/', views_tareo.generar_guardias_automaticas, name='tareo-generar-guardias'),
     path('tareo/autocompletar-regimen/', views_tareo.autocompletar_tareo_por_regimen, name='tareo-autocompletar-regimen'),
+    
+    # =========================================================================
+    # TAREO V2 - Sistema Normalizado con Proyección Automática
+    # =========================================================================
+    # Vista principal - Matriz tipo Excel con datos normalizados
+    path('tareo/v2/', tareo_v2_mensual_view, name='tareo-v2-mensual'),
+    
+    # API para proyección mensual automática (AJAX)
+    path('tareo/v2/api/generar-proyeccion/', api_generar_proyeccion, name='api-generar-proyeccion'),
+    
+    # API para corrección individual de asistencia (AJAX)
+    path('tareo/v2/api/corregir/', api_corregir_asistencia, name='api-corregir-asistencia'),
+    
+    # Dashboard de estadísticas del tareo
+    path('tareo/v2/estadisticas/', tareo_v2_estadisticas, name='tareo-v2-estadisticas'),
+    
+    # Cierre Mensual y Auditoría
+    path('tareo/v2/cierre-mensual/', tareo_cierre_mensual, name='tareo_cierre_mensual'),
+    path('tareo/v2/historial/<int:trabajador_id>/', tareo_historial_trabajador, name='tareo_historial_trabajador'),
+    path('tareo/v2/reporte-nomina/', tareo_reporte_nomina, name='tareo_reporte_nomina'),
+    
+    # APIs de Cierre
+    path('tareo/v2/api/cerrar-mes/', api_cerrar_mes, name='api_cerrar_mes'),
+    path('tareo/v2/api/reabrir-mes/', api_reabrir_mes, name='api_reabrir_mes'),
+    path('tareo/v2/exportar-nomina/<int:cierre_id>/', api_exportar_nomina_excel, name='api_exportar_nomina_excel'),
     
     # Trabajadores - Hub y CRUD
     path('trabajadores/hub/', views.trabajadores_hub, name='trabajadores-hub'),

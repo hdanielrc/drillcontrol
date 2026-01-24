@@ -1,0 +1,281 @@
+{% extends 'drilling/base_manager.html' %}
+{% load static %}
+
+{% block title %}Historial de Cambios - {{ trabajador.nombres }} {{ trabajador.apellidos }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header mb-4">
+        <div class="page-header-icon" style="background: linear-gradient(135deg, #06AAFF, #0470AC);">
+            <i class="fas fa-history"></i>
+        </div>
+        <div class="page-header-content">
+            <h2>Historial de Cambios de Asistencia</h2>
+            <p>{{ trabajador.apellidos }}, {{ trabajador.nombres }} - DNI: {{ trabajador.dni }}</p>
+        </div>
+        <div class="page-header-actions">
+            <a href="{% url 'trabajador-detail' trabajador.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-user me-2"></i>Ver Perfil
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Fecha Fin</label>
+                    <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-filter me-2"></i>Filtrar
+                    </button>
+                    <a href="{% url 'tareo_historial_trabajador' trabajador.id %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3>{{ total_cambios }}</h3>
+                    <p class="mb-0">Total de Cambios</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h3>{{ trabajador.regimen_laboral }}</h3>
+                    <p class="mb-0">Régimen Laboral</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ trabajador.cargo.nombre|truncatewords:2 }}</h3>
+                    <p class="mb-0">Cargo</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h3>{{ trabajador.get_estado_display }}</h3>
+                    <p class="mb-0">Estado Actual</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline de Cambios -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Línea de Tiempo de Cambios</h5>
+        </div>
+        <div class="card-body">
+            {% if historial %}
+            <div class="timeline">
+                {% for cambio in historial %}
+                <div class="timeline-item {% cycle 'timeline-left' 'timeline-right' %}">
+                    <div class="timeline-marker {% if cambio.mes_cerrado %}bg-danger{% else %}bg-primary{% endif %}">
+                        <i class="fas {% if cambio.mes_cerrado %}fa-exclamation-triangle{% else %}fa-edit{% endif %}"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="card mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ cambio.asistencia.fecha|date:"d/m/Y" }}</strong>
+                                    <span class="badge {% if cambio.mes_cerrado %}bg-danger{% else %}bg-info{% endif %} ms-2">
+                                        {% if cambio.mes_cerrado %}Cambio Post-Cierre{% else %}Normal{% endif %}
+                                    </span>
+                                </div>
+                                <small class="text-muted">{{ cambio.fecha_cambio|date:"d/m/Y H:i" }}</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Estado Anterior</h6>
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge bg-secondary me-2">{{ cambio.estado_anterior }}</span>
+                                            {% if cambio.es_proyeccion_anterior %}
+                                            <small class="text-muted">(Proyección)</small>
+                                            {% else %}
+                                            <small class="text-success">(Real)</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Estado Nuevo</h6>
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge 
+                                                {% if cambio.estado_nuevo == 'TRABAJO' %}bg-success
+                                                {% elif cambio.estado_nuevo == 'DESCANSO' %}bg-primary
+                                                {% elif cambio.estado_nuevo == 'FALTA' %}bg-danger
+                                                {% elif cambio.estado_nuevo == 'VACACIONES' %}bg-warning
+                                                {% else %}bg-secondary{% endif %} me-2">
+                                                {{ cambio.estado_nuevo }}
+                                            </span>
+                                            {% if cambio.es_proyeccion_nuevo %}
+                                            <small class="text-muted">(Proyección)</small>
+                                            {% else %}
+                                            <small class="text-success">(Real)</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <hr>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>
+                                            <strong>Modificado por:</strong> {{ cambio.usuario.get_full_name|default:cambio.usuario.username }}
+                                        </small>
+                                    </div>
+                                    {% if cambio.ip_address %}
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <i class="fas fa-network-wired me-1"></i>
+                                            <strong>IP:</strong> {{ cambio.ip_address }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if cambio.motivo %}
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-comment me-1"></i>
+                                        <strong>Motivo:</strong> {{ cambio.motivo }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Paginación -->
+            {% if historial.has_other_pages %}
+            <nav aria-label="Paginación">
+                <ul class="pagination justify-content-center">
+                    {% if historial.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ historial.previous_page_number }}{% if fecha_inicio %}&fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}{% endif %}{% if fecha_fin %}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}{% endif %}">
+                            Anterior
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">Página {{ historial.number }} de {{ historial.paginator.num_pages }}</span>
+                    </li>
+                    
+                    {% if historial.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ historial.next_page_number }}{% if fecha_inicio %}&fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}{% endif %}{% if fecha_fin %}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}{% endif %}">
+                            Siguiente
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="empty-state text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <h5>No hay cambios registrados</h5>
+                <p class="text-muted">No se encontraron cambios en el historial para los filtros aplicados.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+    transform: translateX(-50%);
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transform: translateX(-50%);
+    z-index: 1;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.timeline-left .timeline-content {
+    width: 48%;
+    margin-right: auto;
+    padding-right: 30px;
+}
+
+.timeline-right .timeline-content {
+    width: 48%;
+    margin-left: auto;
+    padding-left: 30px;
+}
+
+@media (max-width: 768px) {
+    .timeline::before {
+        left: 30px;
+    }
+    
+    .timeline-marker {
+        left: 30px;
+    }
+    
+    .timeline-left .timeline-content,
+    .timeline-right .timeline-content {
+        width: calc(100% - 70px);
+        margin-left: auto;
+        padding-left: 30px;
+        padding-right: 0;
+    }
+}
+</style>
+{% endblock %}

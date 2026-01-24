@@ -1,0 +1,299 @@
+{% extends 'drilling/base_manager.html' %}
+{% load static %}
+
+{% block title %}Reporte de Nómina{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header mb-4">
+        <div class="page-header-icon" style="background: linear-gradient(135deg, #28a745, #20873a);">
+            <i class="fas fa-file-invoice-dollar"></i>
+        </div>
+        <div class="page-header-content">
+            <h2>Reporte de Nómina</h2>
+            <p>Reportes de asistencia para procesamiento de pagos (solo meses cerrados)</p>
+        </div>
+        {% if cierre_seleccionado %}
+        <div class="page-header-actions">
+            <a href="{% url 'api_exportar_nomina_excel' cierre_seleccionado.id %}" class="btn btn-success">
+                <i class="fas fa-file-excel me-2"></i>Exportar a Excel
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Selector de Cierre -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" id="formSelector">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Contrato</label>
+                        <select name="contrato_id" class="form-select" onchange="document.getElementById('formSelector').submit()">
+                            <option value="">-- Seleccionar Contrato --</option>
+                            {% for contrato in contratos %}
+                            <option value="{{ contrato.id }}" {% if contrato_id == contrato.id|stringformat:"s" %}selected{% endif %}>
+                                {{ contrato.nombre }} - {{ contrato.cliente.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Mes Cerrado</label>
+                        <select name="cierre_id" class="form-select" onchange="document.getElementById('formSelector').submit()">
+                            <option value="">-- Seleccionar Mes Cerrado --</option>
+                            {% for cierre in cierres_disponibles %}
+                            <option value="{{ cierre.id }}" {% if cierre_seleccionado.id == cierre.id %}selected{% endif %}>
+                                {{ cierre.get_mes_display }} {{ cierre.anio }} - 
+                                Cerrado el {{ cierre.fecha_cierre|date:"d/m/Y H:i" }} por {{ cierre.cerrado_por.get_full_name|default:cierre.cerrado_por.username }}
+                                {% if cierre.estado == 'REABIERTO' %}(REABIERTO){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if cierre_seleccionado %}
+    <!-- Información del Cierre -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ datos_nomina|length }}</h4>
+                    <p class="text-muted mb-0">Trabajadores</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ totales.total_dias_trabajo }}</h4>
+                    <p class="text-muted mb-0">Días de Trabajo</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ totales.total_dias_descanso }}</h4>
+                    <p class="text-muted mb-0">Días de Descanso</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ totales.total_faltas }}</h4>
+                    <p class="text-muted mb-0">Total Faltas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta de Estado -->
+    {% if cierre_seleccionado.estado == 'REABIERTO' %}
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+        <div>
+            <h5 class="alert-heading mb-1">Mes Reabierto</h5>
+            <p class="mb-0">Este mes fue reabierto el {{ cierre_seleccionado.fecha_reapertura|date:"d/m/Y H:i" }} por {{ cierre_seleccionado.reabierto_por.get_full_name|default:cierre_seleccionado.reabierto_por.username }}.</p>
+            {% if cierre_seleccionado.motivo_reapertura %}
+            <small>Motivo: {{ cierre_seleccionado.motivo_reapertura }}</small>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de Nómina -->
+    <div class="card">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-table me-2"></i>Detalle de Nómina - {{ cierre_seleccionado.get_mes_display }} {{ cierre_seleccionado.anio }}
+            </h5>
+            <span class="badge bg-light text-dark">{{ cierre_seleccionado.get_estado_display }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0" id="tablaNomina">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>DNI</th>
+                            <th>Apellidos</th>
+                            <th>Nombres</th>
+                            <th>Cargo</th>
+                            <th>Régimen</th>
+                            <th class="text-center">Días Trabajo</th>
+                            <th class="text-center">Días Descanso</th>
+                            <th class="text-center">Faltas</th>
+                            <th class="text-center">Vacaciones</th>
+                            <th class="text-center">Permisos</th>
+                            <th class="text-center">D.M.</th>
+                            <th class="text-center bg-primary text-white">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dato in datos_nomina %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'tareo_historial_trabajador' dato.trabajador_id %}" class="text-decoration-none">
+                                    {{ dato.dni }}
+                                </a>
+                            </td>
+                            <td>{{ dato.apellidos }}</td>
+                            <td>{{ dato.nombres }}</td>
+                            <td><small>{{ dato.cargo }}</small></td>
+                            <td><span class="badge bg-info">{{ dato.regimen }}</span></td>
+                            <td class="text-center">
+                                <span class="badge bg-success">{{ dato.dias_trabajo }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ dato.dias_descanso }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if dato.faltas > 0 %}
+                                <span class="badge bg-danger">{{ dato.faltas }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if dato.vacaciones > 0 %}
+                                <span class="badge bg-warning text-dark">{{ dato.vacaciones }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if dato.permisos > 0 %}
+                                <span class="badge bg-secondary">{{ dato.permisos }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if dato.descanso_medico > 0 %}
+                                <span class="badge bg-info">{{ dato.descanso_medico }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center bg-light">
+                                <strong>{{ dato.total_dias }}</strong>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-secondary">
+                        <tr>
+                            <th colspan="6" class="text-end">TOTALES:</th>
+                            <th class="text-center">{{ totales.total_dias_trabajo }}</th>
+                            <th class="text-center">{{ totales.total_dias_descanso }}</th>
+                            <th class="text-center">{{ totales.total_faltas }}</th>
+                            <th class="text-center">{{ totales.total_vacaciones }}</th>
+                            <th class="text-center">{{ totales.total_permisos }}</th>
+                            <th class="text-center">{{ totales.total_descanso_medico }}</th>
+                            <th class="text-center bg-primary text-white">{{ totales.total_general }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted">
+            <div class="row">
+                <div class="col-md-6">
+                    <small>
+                        <i class="fas fa-lock me-1"></i>
+                        <strong>Cerrado:</strong> {{ cierre_seleccionado.fecha_cierre|date:"d/m/Y H:i" }} por {{ cierre_seleccionado.cerrado_por.get_full_name|default:cierre_seleccionado.cerrado_por.username }}
+                    </small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small>
+                        <i class="fas fa-users me-1"></i>
+                        <strong>Total trabajadores:</strong> {{ cierre_seleccionado.total_trabajadores }}
+                    </small>
+                </div>
+            </div>
+            {% if cierre_seleccionado.observaciones %}
+            <hr>
+            <small>
+                <i class="fas fa-comment me-1"></i>
+                <strong>Observaciones:</strong> {{ cierre_seleccionado.observaciones }}
+            </small>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Instrucciones -->
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Instrucciones</h6>
+        </div>
+        <div class="card-body">
+            <ol class="mb-0">
+                <li>Seleccione el contrato y el mes cerrado que desea revisar</li>
+                <li>Verifique que los datos mostrados sean correctos</li>
+                <li>Use el botón "Exportar a Excel" para descargar el archivo para el sistema de pagos</li>
+                <li>El archivo Excel incluirá todos los datos con formato para importación directa</li>
+                <li>Haga clic en el DNI de un trabajador para ver su historial detallado de cambios</li>
+            </ol>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Estado vacío -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-search fa-4x text-muted mb-3"></i>
+            <h4>Seleccione un mes cerrado</h4>
+            <p class="text-muted">Use los filtros superiores para seleccionar el contrato y el mes cerrado que desea revisar.</p>
+            {% if not cierres_disponibles %}
+            <div class="alert alert-warning mt-3 d-inline-block">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                No hay meses cerrados disponibles. Debe cerrar un mes desde el módulo de cierre mensual.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+#tablaNomina {
+    font-size: 0.9rem;
+}
+
+#tablaNomina th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+}
+
+#tablaNomina tbody tr:hover {
+    background-color: #f8f9fa !important;
+}
+
+.table-responsive {
+    max-height: 600px;
+    overflow-y: auto;
+}
+</style>
+
+<script>
+// Destacar fila al pasar el mouse
+document.querySelectorAll('#tablaNomina tbody tr').forEach(row => {
+    row.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = '#e3f2fd';
+    });
+    row.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = '';
+    });
+});
+</script>
+{% endblock %}
