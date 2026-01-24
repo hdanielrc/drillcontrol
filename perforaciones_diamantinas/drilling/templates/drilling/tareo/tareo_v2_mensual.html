@@ -393,11 +393,18 @@
                             </select>
                             {% endif %}
                             
-                            {% if data.es_proyeccion %}
-                            <span class="proyeccion-indicator es-proyeccion" title="Proyección automática">P</span>
-                            {% elif data %}
-                            <span class="proyeccion-indicator es-correccion" title="Corrección manual">✓</span>
-                            {% endif %}
+                            <!-- Indicadores de estado del registro -->
+                            <div style="margin-top: 3px; font-size: 10px;">
+                                {% if data %}
+                                    {% if data.es_proyeccion %}
+                                        <span class="proyeccion-indicator es-proyeccion" title="Proyección automática - Click en generar proyección para crear registros">P</span>
+                                    {% else %}
+                                        <span class="proyeccion-indicator es-correccion" title="Registro manual confirmado">✓</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="background: #fff3cd; color: #856404; padding: 2px 4px; border-radius: 3px; font-size: 9px;" title="Sin registro - Usar 'Generar Proyección' o guardar manualmente">⚠️ Sin reg</span>
+                                {% endif %}
+                            </div>
                             
                             <!-- Campo oculto para observaciones (opcional) -->
                             <input type="hidden" 
