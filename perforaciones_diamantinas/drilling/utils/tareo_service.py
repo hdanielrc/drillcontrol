@@ -623,6 +623,7 @@ class CierreMensualService:
         
         primer_dia = date(anio_anterior, mes_anterior, 26)
         ultimo_dia = date(anio, mes, 25)
+        num_dias = (ultimo_dia - primer_dia).days + 1  # Total días en el mes operativo
         
         trabajadores_activos = Trabajador.objects.filter(
             contrato=contrato,
