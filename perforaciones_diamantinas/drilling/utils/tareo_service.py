@@ -122,10 +122,13 @@ class TareoService:
             stats['errores'].append(error_msg)
             return stats
         
-        # Calcular primer y último día del mes
-        primer_dia = date(anio, mes, 1)
-        num_dias = monthrange(anio, mes)[1]
-        ultimo_dia = date(anio, mes, num_dias)
+        # Calcular mes operativo: del 26 del mes anterior al 25 del mes actual
+        # Enero 2026 operativo = 26/12/2025 al 25/01/2026
+        mes_anterior = mes - 1 if mes > 1 else 12
+        anio_anterior = anio if mes > 1 else anio - 1
+        
+        primer_dia = date(anio_anterior, mes_anterior, 26)
+        ultimo_dia = date(anio, mes, 25)
         
         # Filtrar trabajadores activos
         trabajadores_query = Trabajador.objects.filter(estado='ACTIVO')
@@ -504,9 +507,12 @@ class CierreMensualService:
             }
         
         # Validar que no haya proyecciones sin confirmar
-        primer_dia = date(anio, mes, 1)
-        num_dias = monthrange(anio, mes)[1]
-        ultimo_dia = date(anio, mes, num_dias)
+        # Mes operativo: del 26 del mes anterior al 25 del mes actual
+        mes_anterior = mes - 1 if mes > 1 else 12
+        anio_anterior = anio if mes > 1 else anio - 1
+        
+        primer_dia = date(anio_anterior, mes_anterior, 26)
+        ultimo_dia = date(anio, mes, 25)
         
         trabajadores_activos = Trabajador.objects.filter(
             contrato=contrato,
@@ -611,9 +617,12 @@ class CierreMensualService:
         from ..models import AsistenciaDiaria, Trabajador
         from django.db.models import Count, Q
         
-        primer_dia = date(anio, mes, 1)
-        num_dias = monthrange(anio, mes)[1]
-        ultimo_dia = date(anio, mes, num_dias)
+        # Mes operativo: del 26 del mes anterior al 25 del mes actual
+        mes_anterior = mes - 1 if mes > 1 else 12
+        anio_anterior = anio if mes > 1 else anio - 1
+        
+        primer_dia = date(anio_anterior, mes_anterior, 26)
+        ultimo_dia = date(anio, mes, 25)
         
         trabajadores_activos = Trabajador.objects.filter(
             contrato=contrato,

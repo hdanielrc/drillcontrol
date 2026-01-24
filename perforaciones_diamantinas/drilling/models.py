@@ -1163,14 +1163,38 @@ class CierreMensualTareo(models.Model):
         """Determina si el mes puede ser editado"""
         return self.estado in ['ABIERTO', 'EN_REVISION', 'REABIERTO']
     
-    def calcular_estadisticas(self):
-        """Calcula y actualiza las estadísticas del mes"""
+    def get_fecha_inicio_periodo(self):
+        """Obtiene la fecha de inicio del mes operativo (día 26 del mes anterior)"""
         from datetime import date
-        from calendar import monthrange
+        mes_anterior = self.mes - 1 if self.mes > 1 else 12
+        anio_anterior = self.anio if self.mes > 1 else self.anio - 1
+        return date(anio_anterior, mes_anterior, 26)
+    
+    def get_fecha_fin_periodo(self):
+        """Obtiene la fecha de fin del mes operativo (día 25 del mes actual)"""
+        from datetime import date
+        return date(self.anio, self.mes, 25)
+    
+    def get_mes_display(self):
+        """Retorna el nombre del mes"""
+        meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+        return meses[self.mes]
+    
+    def get_periodo_completo(self):
+        """Retorna descripción completa del período"""
+        return f"{self.get_fecha_inicio_periodo().strftime('%d/%m/%Y')} - {self.get_fecha_fin_periodo().strftime('%d/%m/%Y')}"
+    
+    def calcular_estadisticas(self):
+        """Calcula y actualiza las estadísticas del mes operativo"""
+        from datetime import date
         
-        primer_dia = date(self.anio, self.mes, 1)
-        num_dias = monthrange(self.anio, self.mes)[1]
-        ultimo_dia = date(self.anio, self.mes, num_dias)
+        # Mes operativo: del 26 del mes anterior al 25 del mes actual
+        mes_anterior = self.mes - 1 if self.mes > 1 else 12
+        anio_anterior = self.anio if self.mes > 1 else self.anio - 1
+        
+        primer_dia = date(anio_anterior, mes_anterior, 26)
+        ultimo_dia = date(self.anio, self.mes, 25)
         
         # Obtener asistencias reales (no proyecciones)
         asistencias = AsistenciaDiaria.objects.filter(

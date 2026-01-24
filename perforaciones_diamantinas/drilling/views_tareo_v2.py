@@ -126,10 +126,13 @@ def tareo_v2_mensual_view(request):
                 else:
                     fecha_base = fecha_base.replace(month=fecha_base.month - 1, day=1)
     
-    # Primer y último día del mes
-    fecha_inicio = fecha_base.replace(day=1)
-    num_dias = monthrange(fecha_inicio.year, fecha_inicio.month)[1]
-    fecha_fin = date(fecha_inicio.year, fecha_inicio.month, num_dias)
+    # Mes operativo: del 26 del mes anterior al 25 del mes actual
+    # Enero 2026 operativo = 26/12/2025 al 25/01/2026
+    mes_anterior = fecha_base.month - 1 if fecha_base.month > 1 else 12
+    anio_anterior = fecha_base.year if fecha_base.month > 1 else fecha_base.year - 1
+    
+    fecha_inicio = date(anio_anterior, mes_anterior, 26)
+    fecha_fin = date(fecha_base.year, fecha_base.month, 25)
     
     # Nombre del período para mostrar
     meses_es = {
@@ -659,9 +662,9 @@ def tareo_reporte_nomina(request):
     # Generar reporte si hay cierre seleccionado
     reporte_trabajadores = []
     if cierre:
-        primer_dia = date(cierre.anio, cierre.mes, 1)
-        num_dias = monthrange(cierre.anio, cierre.mes)[1]
-        ultimo_dia = date(cierre.anio, cierre.mes, num_dias)
+        # Usar fechas del mes operativo
+        primer_dia = cierre.get_fecha_inicio_periodo()
+        ultimo_dia = cierre.get_fecha_fin_periodo()
         
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
@@ -740,10 +743,9 @@ def api_exportar_nomina_excel(request, cierre_id):
         cell.fill = PatternFill(start_color="0470AC", end_color="0470AC", fill_type="solid")
         cell.alignment = Alignment(horizontal="center")
     
-    # Datos
-    primer_dia = date(cierre.anio, cierre.mes, 1)
-    num_dias = monthrange(cierre.anio, cierre.mes)[1]
-    ultimo_dia = date(cierre.anio, cierre.mes, num_dias)
+    # Datos - usar mes operativo
+    primer_dia = cierre.get_fecha_inicio_periodo()
+    ultimo_dia = cierre.get_fecha_fin_periodo()
     
     trabajadores = Trabajador.objects.filter(
         contrato=cierre.contrato,
