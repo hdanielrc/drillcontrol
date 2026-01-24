@@ -90,19 +90,21 @@ def tareo_mensual_view(request):
                 else:
                     fecha_base = fecha_base.replace(month=fecha_base.month - 1, day=1)
     
-    # Calcular primer y último día del mes
-    fecha_inicio = fecha_base.replace(day=1)
-    num_dias = monthrange(fecha_inicio.year, fecha_inicio.month)[1]
-    fecha_fin = fecha_inicio + timedelta(days=num_dias - 1)
-    dias_a_mostrar = num_dias
+    # Calcular primer y último día del mes operativo (26 al 25)
+    mes_anterior = fecha_base.month - 1 if fecha_base.month > 1 else 12
+    anio_anterior = fecha_base.year if fecha_base.month > 1 else fecha_base.year - 1
     
-    # Nombre del período
+    fecha_inicio = date(anio_anterior, mes_anterior, 26)
+    fecha_fin = date(fecha_base.year, fecha_base.month, 25)
+    dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
+    
+    # Nombre del período (usar el mes operativo objetivo)
     meses_es = {
         1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
         5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
         9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
     }
-    nombre_periodo = f"{meses_es[fecha_inicio.month]} {fecha_inicio.year}"
+    nombre_periodo = f"{meses_es[fecha_base.month]} {fecha_base.year}"
     
     # Generar lista de días del rango
     dias_rango = []

@@ -134,13 +134,13 @@ def tareo_v2_mensual_view(request):
     fecha_inicio = date(anio_anterior, mes_anterior, 26)
     fecha_fin = date(fecha_base.year, fecha_base.month, 25)
     
-    # Nombre del período para mostrar
+    # Nombre del período para mostrar (mes operativo)
     meses_es = {
         1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
         5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
         9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
     }
-    nombre_periodo = f"{meses_es[fecha_inicio.month]} {fecha_inicio.year}"
+    nombre_periodo = f"{meses_es[fecha_base.month]} {fecha_base.year}"
     
     # =========================================================================
     # 4. GENERAR LISTA DE DÍAS DEL MES
