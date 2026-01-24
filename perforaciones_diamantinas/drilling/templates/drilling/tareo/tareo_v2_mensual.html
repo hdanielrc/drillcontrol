@@ -135,12 +135,23 @@
     /* Select de estado */
     .estado-select {
         width: 100%;
-        padding: 6px;
-        border: 1px solid #bdc3c7;
+        padding: 8px 4px;
+        border: 2px solid #bdc3c7;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
         cursor: pointer;
         transition: all 0.2s;
+        appearance: auto;
+        -webkit-appearance: menulist;
+        -moz-appearance: menulist;
+    }
+    
+    .estado-select option {
+        padding: 8px;
+        font-weight: 600;
+        font-size: 13px;
     }
     
     .estado-select:focus {
@@ -349,13 +360,19 @@
                                 class="estado-select estado-{{ data.estado|default:'TRABAJO' }}"
                                 data-tipo="estado"
                                 onchange="this.className='estado-select estado-' + this.value"
+                                title="{{ data.estado|default:'TRABAJO' }}"
                             >
-                                {% for estado_code, estado_label in estados_choices %}
-                                <option value="{{ estado_code }}" 
-                                    {% if data.estado == estado_code %}selected{% endif %}>
-                                    {{ estado_label }}
-                                </option>
-                                {% endfor %}
+                                <option value="TRABAJO" {% if data.estado == 'TRABAJO' or not data.estado %}selected{% endif %}>T</option>
+                                <option value="DESCANSO" {% if data.estado == 'DESCANSO' %}selected{% endif %}>D</option>
+                                <option value="FALTA" {% if data.estado == 'FALTA' %}selected{% endif %}>F</option>
+                                <option value="DM" {% if data.estado == 'DM' %}selected{% endif %}>DM</option>
+                                <option value="VACACIONES" {% if data.estado == 'VACACIONES' %}selected{% endif %}>V</option>
+                                <option value="PERMISO" {% if data.estado == 'PERMISO' %}selected{% endif %}>P</option>
+                                <option value="SUSPENSION" {% if data.estado == 'SUSPENSION' %}selected{% endif %}>S</option>
+                                <option value="LICENCIA" {% if data.estado == 'LICENCIA' %}selected{% endif %}>L</option>
+                                <option value="INDUCCION" {% if data.estado == 'INDUCCION' %}selected{% endif %}>I</option>
+                                <option value="STAND_BY" {% if data.estado == 'STAND_BY' %}selected{% endif %}>SB</option>
+                                <option value="DIA_APOYO" {% if data.estado == 'DIA_APOYO' %}selected{% endif %}>DA</option>
                             </select>
                             
                             <!-- Select de Máquina (mostrar solo si hay máquinas disponibles) -->
@@ -364,12 +381,13 @@
                                 name="maquina_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
                                 class="maquina-select"
                                 data-tipo="maquina"
-                                style="margin-top: 3px; font-size: 11px; padding: 2px; width: 100%;">
-                                <option value="">Sin máquina</option>
+                                style="margin-top: 4px; font-size: 10px; padding: 3px; width: 100%; border: 1px solid #95a5a6; border-radius: 3px; background: white;"
+                                title="Máquina asignada">
+                                <option value="">🚜 Sin máq.</option>
                                 {% for maq in maquinas_disponibles %}
                                 <option value="{{ maq.id }}" 
                                     {% if data.maquina_id == maq.id %}selected{% elif not data and row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}selected{% endif %}>
-                                    {{ maq.nombre }}
+                                    {{ maq.codigo|default:maq.nombre }}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -411,15 +429,25 @@
     </form>
     
     <!-- Leyenda -->
-    <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 20px;">
-        <h4>📖 Leyenda</h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h4 style="margin-bottom: 15px;">📖 Leyenda de Estados</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 15px;">
+            <div style="padding: 8px; background: #d5f4e6; border-radius: 4px; font-weight: 600;"><strong>T</strong> = Trabajo</div>
+            <div style="padding: 8px; background: #fef9e7; border-radius: 4px; font-weight: 600;"><strong>D</strong> = Descanso</div>
+            <div style="padding: 8px; background: #fadbd8; border-radius: 4px; font-weight: 600;"><strong>F</strong> = Falta</div>
+            <div style="padding: 8px; background: #ebf5fb; border-radius: 4px; font-weight: 600;"><strong>DM</strong> = Descanso Médico</div>
+            <div style="padding: 8px; background: #e8daef; border-radius: 4px; font-weight: 600;"><strong>V</strong> = Vacaciones</div>
+            <div style="padding: 8px; background: #fdeaea; border-radius: 4px; font-weight: 600;"><strong>P</strong> = Permiso</div>
+            <div style="padding: 8px; background: #e0e0e0; border-radius: 4px; font-weight: 600;"><strong>S</strong> = Suspensión</div>
+            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px; font-weight: 600;"><strong>L</strong> = Licencia</div>
+            <div style="padding: 8px; background: #fff3cd; border-radius: 4px; font-weight: 600;"><strong>I</strong> = Inducción</div>
+            <div style="padding: 8px; background: #cfe2ff; border-radius: 4px; font-weight: 600;"><strong>SB</strong> = Stand By</div>
+            <div style="padding: 8px; background: #d1e7dd; border-radius: 4px; font-weight: 600;"><strong>DA</strong> = Día de Apoyo</div>
+        </div>
+        <div style="display: flex; gap: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
             <div><span class="proyeccion-indicator es-proyeccion">P</span> = Proyección automática</div>
             <div><span class="proyeccion-indicator es-correccion">✓</span> = Corrección manual</div>
-            <div style="padding: 5px 10px; background: #d5f4e6; border-radius: 4px;">Verde = Trabajo</div>
-            <div style="padding: 5px 10px; background: #fef9e7; border-radius: 4px;">Amarillo = Descanso</div>
-            <div style="padding: 5px 10px; background: #fadbd8; border-radius: 4px;">Rojo = Falta</div>
-            <div style="padding: 5px 10px; background: #ebf5fb; border-radius: 4px;">Azul = DM</div>
+            <div>💾 = Guardar día específico</div>
         </div>
     </div>
 </div>
