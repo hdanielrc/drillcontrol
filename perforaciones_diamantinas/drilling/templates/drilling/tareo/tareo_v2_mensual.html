@@ -491,27 +491,37 @@ function generarProyeccion() {
     // Obtener token CSRF
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
+    const params = {
+        'contrato_id': '{{ contrato.id }}',
+        'anio': '{{ anio_operativo }}',
+        'mes': '{{ mes_operativo }}',
+        'sobrescribir': 'false'
+    };
+    
+    console.log('Generando proyección con parámetros:', params);
+    
     fetch('/tareo/v2/api/generar-proyeccion/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': csrftoken
         },
-        body: new URLSearchParams({
-            'contrato_id': '{{ contrato.id }}',
-            'anio': '{{ anio_actual }}',
-            'mes': '{{ mes_actual }}',
-            'sobrescribir': 'false'
-        })
+        body: new URLSearchParams(params)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
     .then(data => {
         hideLoading();
+        console.log('Response data:', data);
         if (data.success) {
-            alert(`✅ Proyección generada exitosamente!\n\nRegistros creados: ${data.data.registros_creados}\nTrabajadores procesados: ${data.data.trabajadores_procesados}`);
+            const msg = `✅ Proyección generada exitosamente!\n\nRegistros creados: ${data.data.registros_creados}\nTrabajadores procesados: ${data.data.trabajadores_procesados}\nRegistros existentes respetados: ${data.data.registros_existentes_respetados}`;
+            alert(msg);
             location.reload();
         } else {
             alert('❌ Error: ' + data.error);
+            console.error('Error en respuesta:', data);
         }
     })
     .catch(error => {

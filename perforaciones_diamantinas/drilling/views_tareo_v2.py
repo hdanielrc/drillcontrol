@@ -246,8 +246,8 @@ def tareo_v2_mensual_view(request):
         'mes_offset': mes_offset,
         'estados_choices': AsistenciaDiaria.ESTADO_CHOICES,
         'maquinas_disponibles': maquinas_disponibles,
-        'mes_actual': fecha_inicio.month,
-        'anio_actual': fecha_inicio.year,
+        'mes_operativo': fecha_base.month,  # Mes del período mostrado (ej: Enero = 1)
+        'anio_operativo': fecha_base.year,  # Año del período mostrado
     }
     
     return render(request, 'drilling/tareo/tareo_v2_mensual.html', context)
