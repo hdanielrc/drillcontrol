@@ -28,8 +28,11 @@ from calendar import monthrange
 import json
 import logging
 
-from .models import Contrato, Trabajador, AsistenciaDiaria
+from .models import Contrato, Trabajador, AsistenciaDiaria, CierreMensualTareo, HistorialCambioAsistencia, Maquina
 from .utils.tareo_service import TareoService
+from .utils.cierre_mensual_service import CierreMensualService
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +227,12 @@ def tareo_v2_mensual_view(request):
     # Usar el servicio para obtener matriz pivoteada
     matriz_tareo = TareoService.obtener_matriz_tareo(contrato, fecha_inicio, fecha_fin)
     
+    # Obtener máquinas activas del contrato para los selects
+    maquinas_disponibles = Maquina.objects.filter(
+        contrato=contrato,
+        estado='ACTIVO'
+    ).order_by('nombre')
+    
     # =========================================================================
     # 7. CONTEXTO PARA EL TEMPLATE
     # =========================================================================
@@ -237,6 +246,7 @@ def tareo_v2_mensual_view(request):
         'matriz_tareo': matriz_tareo,
         'mes_offset': mes_offset,
         'estados_choices': AsistenciaDiaria.ESTADO_CHOICES,
+        'maquinas_disponibles': maquinas_disponibles,
         'mes_actual': fecha_inicio.month,
         'anio_actual': fecha_inicio.year,
     }
@@ -352,6 +362,160 @@ def api_corregir_asistencia(request):
                 'estado_display': asistencia.get_estado_display(),
                 'es_proyeccion': asistencia.es_proyeccion
             }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# =============================================================================
+# API PARA GUARDAR ASISTENCIA POR DÍA (AJAX)
+# =============================================================================
+@login_required
+@require_http_methods(["POST"])
+def api_guardar_dia_tareo(request):
+    """
+    Endpoint AJAX para guardar la asistencia completa de un día específico.
+    
+    POST params (JSON):
+        - fecha: Fecha en formato YYYY-MM-DD
+        - contrato_id: ID del contrato
+        - asistencias: Lista de objetos con:
+            - empleado_id: ID del trabajador
+            - estado: Estado de asistencia
+            - maquina_id: ID de máquina asignada (opcional)
+            - observaciones: Observaciones opcionales
+    
+    Returns:
+        JSON con estadísticas de la operación
+    """
+    try:
+        # Validar permisos
+        if not request.user.can_manage_contract_users():
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permisos para esta operación'
+            }, status=403)
+        
+        # Parsear datos JSON
+        data = json.loads(request.body)
+        fecha_str = data.get('fecha')
+        contrato_id = data.get('contrato_id')
+        asistencias_data = data.get('asistencias', [])
+        
+        # Validar fecha
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        
+        # Validar contrato
+        contrato = get_object_or_404(Contrato, id=contrato_id, estado='ACTIVO')
+        
+        stats = {
+            'actualizados': 0,
+            'creados': 0,
+            'errores': []
+        }
+        
+        # Procesar cada asistencia
+        with transaction.atomic():
+            for asist_data in asistencias_data:
+                try:
+                    empleado_id = asist_data.get('empleado_id')
+                    estado = asist_data.get('estado')
+                    maquina_id = asist_data.get('maquina_id')
+                    observaciones = asist_data.get('observaciones', '')
+                    
+                    if not empleado_id or not estado:
+                        continue
+                    
+                    # Obtener trabajador
+                    trabajador = Trabajador.objects.get(id=empleado_id, contrato=contrato)
+                    
+                    # Obtener máquina si se especificó
+                    maquina = None
+                    if maquina_id and maquina_id != '':
+                        try:
+                            maquina = Maquina.objects.get(id=maquina_id)
+                        except Maquina.DoesNotExist:
+                            pass
+                    
+                    # Actualizar o crear asistencia
+                    asistencia, created = AsistenciaDiaria.objects.update_or_create(
+                        empleado=trabajador,
+                        fecha=fecha,
+                        defaults={
+                            'estado': estado,
+                            'maquina_snapshot': maquina,
+                            'observaciones': observaciones,
+                            'es_proyeccion': False,
+                            'registrado_por': request.user,
+                            'guardia_snapshot': trabajador.guardia_asignada
+                        }
+                    )
+                    
+                    if created:
+                        stats['creados'] += 1
+                    else:
+                        stats['actualizados'] += 1
+                    
+                except Exception as e:
+                    stats['errores'].append(f"Error procesando empleado {empleado_id}: {str(e)}")
+                    logger.error(f"Error guardando asistencia: {str(e)}")
+        
+        return JsonResponse({
+            'success': True,
+            'data': stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error en api_guardar_dia_tareo: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# =============================================================================
+# API PARA OBTENER MÁQUINAS DEL CONTRATO
+# =============================================================================
+@login_required
+@require_http_methods(["GET"])
+def api_obtener_maquinas(request):
+    """
+    Endpoint AJAX para obtener las máquinas activas de un contrato.
+    
+    GET params:
+        - contrato_id: ID del contrato (opcional)
+    
+    Returns:
+        JSON con lista de máquinas
+    """
+    try:
+        contrato_id = request.GET.get('contrato_id')
+        
+        # Filtrar máquinas
+        maquinas_query = Maquina.objects.filter(estado='ACTIVO')
+        
+        if contrato_id:
+            contrato = get_object_or_404(Contrato, id=contrato_id)
+            maquinas_query = maquinas_query.filter(contrato=contrato)
+        
+        # Serializar máquinas
+        maquinas_data = [
+            {
+                'id': maq.id,
+                'nombre': maq.nombre,
+                'codigo': maq.codigo,
+                'tipo': maq.tipo_maquina
+            }
+            for maq in maquinas_query.order_by('nombre')
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'data': maquinas_data
         })
         
     except Exception as e:

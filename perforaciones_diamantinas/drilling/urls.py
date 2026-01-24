@@ -24,6 +24,8 @@ from .views_tareo_v2 import (
     tareo_v2_mensual_view,
     api_generar_proyeccion,
     api_corregir_asistencia,
+    api_guardar_dia_tareo,
+    api_obtener_maquinas,
     tareo_v2_estadisticas,
     tareo_cierre_mensual,
     tareo_historial_trabajador,
@@ -79,6 +81,12 @@ urlpatterns = [
     
     # API para corrección individual de asistencia (AJAX)
     path('tareo/v2/api/corregir/', api_corregir_asistencia, name='api-corregir-asistencia'),
+    
+    # API para guardar asistencia por día (AJAX)
+    path('tareo/v2/api/guardar-dia/', api_guardar_dia_tareo, name='api-guardar-dia-tareo'),
+    
+    # API para obtener máquinas del contrato
+    path('tareo/v2/api/maquinas/', api_obtener_maquinas, name='api-obtener-maquinas'),
     
     # Dashboard de estadísticas del tareo
     path('tareo/v2/estadisticas/', tareo_v2_estadisticas, name='tareo-v2-estadisticas'),

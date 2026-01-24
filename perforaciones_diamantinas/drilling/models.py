@@ -996,6 +996,17 @@ class AsistenciaDiaria(models.Model):
         help_text='Guardia del trabajador al momento del registro (A/B/C)'
     )
     
+    # Snapshot de máquina asignada ese día específico
+    maquina_snapshot = models.ForeignKey(
+        'Maquina',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='asistencias_diarias',
+        verbose_name='Máquina Asignada',
+        help_text='Máquina específica asignada para este día'
+    )
+    
     # Flag para distinguir proyección vs corrección
     es_proyeccion = models.BooleanField(
         default=False,
@@ -1058,9 +1069,11 @@ class AsistenciaDiaria(models.Model):
         return f"[{tipo}] {self.empleado.apellidos}, {self.empleado.nombres} - {self.fecha.strftime('%d/%m/%Y')} - {self.get_estado_display()}"
     
     def save(self, *args, **kwargs):
-        """Override save para capturar snapshot de guardia automáticamente"""
+        """Override save para capturar snapshots automáticamente"""
         if not self.guardia_snapshot and self.empleado:
             self.guardia_snapshot = self.empleado.guardia_asignada
+        if not self.maquina_snapshot and self.empleado and self.empleado.maquina_asignada:
+            self.maquina_snapshot = self.empleado.maquina_asignada
         super().save(*args, **kwargs)
 
 

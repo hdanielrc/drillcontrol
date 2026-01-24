@@ -306,6 +306,13 @@
                         <th class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}">
                             <div>{{ dia.nombre_dia }}</div>
                             <div style="font-size: 16px; font-weight: 700;">{{ dia.dia }}</div>
+                            <button type="button" 
+                                    class="btn-guardar-dia" 
+                                    data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
+                                    style="margin-top: 5px; font-size: 11px; padding: 3px 6px; background: #27ae60; color: white; border: none; border-radius: 3px; cursor: pointer;"
+                                    title="Guardar solo este día">
+                                💾
+                            </button>
                         </th>
                         {% endfor %}
                     </tr>
@@ -318,6 +325,10 @@
                             {{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}
                             <br>
                             <small style="color: #7f8c8d;">{{ row.trabajador.cargo.nombre }}</small>
+                            {% if row.trabajador.maquina_asignada %}
+                            <br>
+                            <small style="color: #3498db;">🚜 {{ row.trabajador.maquina_asignada.nombre }}</small>
+                            {% endif %}
                         </td>
                         
                         <!-- Columna Guardia (fija) -->
@@ -329,10 +340,14 @@
                         {% for dia in dias_rango %}
                         {% with asist=row.asistencias %}
                         {% with data=asist|get_item:dia.fecha %}
-                        <td class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}">
+                        <td class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}" 
+                            data-trabajador-id="{{ row.trabajador.id }}" 
+                            data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
+                            <!-- Select de Estado -->
                             <select 
                                 name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
                                 class="estado-select estado-{{ data.estado|default:'TRABAJO' }}"
+                                data-tipo="estado"
                                 onchange="this.className='estado-select estado-' + this.value"
                             >
                                 {% for estado_code, estado_label in estados_choices %}
@@ -343,6 +358,23 @@
                                 {% endfor %}
                             </select>
                             
+                            <!-- Select de Máquina (mostrar solo si hay máquinas disponibles) -->
+                            {% if maquinas_disponibles %}
+                            <select 
+                                name="maquina_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
+                                class="maquina-select"
+                                data-tipo="maquina"
+                                style="margin-top: 3px; font-size: 11px; padding: 2px; width: 100%;">
+                                <option value="">Sin máquina</option>
+                                {% for maq in maquinas_disponibles %}
+                                <option value="{{ maq.id }}" 
+                                    {% if data.maquina_id == maq.id %}selected{% elif not data and row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}selected{% endif %}>
+                                    {{ maq.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% endif %}
+                            
                             {% if data.es_proyeccion %}
                             <span class="proyeccion-indicator es-proyeccion" title="Proyección automática">P</span>
                             {% elif data %}
@@ -352,6 +384,7 @@
                             <!-- Campo oculto para observaciones (opcional) -->
                             <input type="hidden" 
                                    name="observaciones_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
+                                   data-tipo="observaciones"
                                    value="{{ data.observaciones|default:'' }}">
                         </td>
                         {% endwith %}
@@ -452,6 +485,78 @@ function generarProyeccion() {
         console.error('Error:', error);
     });
 }
+
+// Guardar asistencia de un día específico
+function guardarDia(fecha) {
+    if (!confirm(`¿Guardar la asistencia del día ${fecha}?`)) {
+        return;
+    }
+    
+    showLoading();
+    
+    // Obtener token CSRF
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Recolectar datos de todas las celdas de ese día
+    const celdas = document.querySelectorAll(`td[data-fecha="${fecha}"]`);
+    const asistencias = [];
+    
+    celdas.forEach(celda => {
+        const trabajadorId = celda.getAttribute('data-trabajador-id');
+        const estadoSelect = celda.querySelector('select[data-tipo="estado"]');
+        const maquinaSelect = celda.querySelector('select[data-tipo="maquina"]');
+        const observacionesInput = celda.querySelector('input[data-tipo="observaciones"]');
+        
+        if (estadoSelect) {
+            asistencias.push({
+                empleado_id: parseInt(trabajadorId),
+                estado: estadoSelect.value,
+                maquina_id: maquinaSelect ? (maquinaSelect.value || null) : null,
+                observaciones: observacionesInput ? observacionesInput.value : ''
+            });
+        }
+    });
+    
+    // Enviar al servidor
+    fetch('/tareo/v2/api/guardar-dia/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            fecha: fecha,
+            contrato_id: {{ contrato.id }},
+            asistencias: asistencias
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            alert(`✅ Día guardado exitosamente!\n\nActualizados: ${data.data.actualizados}\nCreados: ${data.data.creados}`);
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        alert('❌ Error de conexión: ' + error);
+        console.error('Error:', error);
+    });
+}
+
+// Eventos para botones de guardar por día
+document.addEventListener('DOMContentLoaded', function() {
+    const botonesGuardarDia = document.querySelectorAll('.btn-guardar-dia');
+    botonesGuardarDia.forEach(boton => {
+        boton.addEventListener('click', function() {
+            const fecha = this.getAttribute('data-fecha');
+            guardarDia(fecha);
+        });
+    });
+});
 
 // Validación antes de enviar el formulario
 document.getElementById('tareoForm').addEventListener('submit', function(e) {

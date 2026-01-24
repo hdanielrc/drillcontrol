@@ -300,7 +300,7 @@ class TareoService:
             empleado__contrato=contrato,
             fecha__gte=fecha_inicio,
             fecha__lte=fecha_fin
-        ).select_related('empleado')
+        ).select_related('empleado', 'maquina_snapshot')
         
         # Crear diccionario de asistencias: {trabajador_id: {fecha: datos}}
         asistencias_dict = {}
@@ -313,7 +313,9 @@ class TareoService:
                 'estado_display': asist.get_estado_display(),
                 'es_proyeccion': asist.es_proyeccion,
                 'observaciones': asist.observaciones,
-                'id': asist.id
+                'id': asist.id,
+                'maquina_id': asist.maquina_snapshot_id,
+                'maquina_nombre': asist.maquina_snapshot.nombre if asist.maquina_snapshot else None
             }
         
         # Construir matriz
@@ -356,9 +358,19 @@ class TareoService:
                 fecha = dato.get('fecha')
                 estado = dato.get('estado')
                 observaciones = dato.get('observaciones', '')
+                maquina_id = dato.get('maquina_id')
                 
                 if not all([empleado_id, fecha, estado]):
                     continue
+                
+                # Obtener máquina si existe
+                from ..models import Maquina
+                maquina = None
+                if maquina_id:
+                    try:
+                        maquina = Maquina.objects.get(id=maquina_id)
+                    except Maquina.DoesNotExist:
+                        pass
                 
                 # Buscar si existe
                 try:
@@ -369,6 +381,7 @@ class TareoService:
                     # Actualizar campos
                     asistencia.estado = estado
                     asistencia.observaciones = observaciones
+                    asistencia.maquina_snapshot = maquina
                     asistencia.es_proyeccion = False
                     asistencia.registrado_por = usuario
                     registros_actualizar.append(asistencia)
@@ -381,6 +394,7 @@ class TareoService:
                         fecha=fecha,
                         estado=estado,
                         observaciones=observaciones,
+                        maquina_snapshot=maquina,
                         es_proyeccion=False,
                         registrado_por=usuario,
                         guardia_snapshot=trabajador.guardia_asignada
@@ -395,7 +409,7 @@ class TareoService:
             if registros_actualizar:
                 AsistenciaDiaria.objects.bulk_update(
                     registros_actualizar,
-                    ['estado', 'observaciones', 'es_proyeccion', 'registrado_por'],
+                    ['estado', 'observaciones', 'maquina_snapshot', 'es_proyeccion', 'registrado_por'],
                     batch_size=500
                 )
                 stats['actualizados'] = len(registros_actualizar)
