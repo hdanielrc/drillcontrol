@@ -55,7 +55,16 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header">Registros</h6></li>
                             <li><a class="dropdown-item" href="{% url 'tareo-mensual' %}">
-                                <i class="fas fa-calendar-check"></i> Asistencias
+                                <i class="fas fa-calendar-check"></i> Asistencias (V1)
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'tareo-v2-mensual' %}">
+                                <i class="fas fa-calendar-plus"></i> Asistencias V2
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'tareo_cierre_mensual' %}">
+                                <i class="fas fa-lock"></i> Cierre Mensual
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'tareo_reporte_nomina' %}">
+                                <i class="fas fa-file-invoice-dollar"></i> Reporte Nómina
                             </a></li>
                         </ul>
                     </li>

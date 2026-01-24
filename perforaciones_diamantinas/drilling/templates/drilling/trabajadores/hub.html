@@ -114,8 +114,34 @@
                         <span class="badge bg-success">Pagable/No Pagable</span>
                         <span class="badge bg-info">Por Semana/Mes</span>
                     </div>
-                    <a href="{% url 'tareo-mensual' %}" class="btn btn-warning">
-                        <i class="fas fa-calendar-check"></i> Abrir Tareo
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{% url 'tareo-mensual' %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-calendar-check"></i> Tareo V1
+                        </a>
+                        <a href="{% url 'tareo-v2-mensual' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-calendar-plus"></i> Tareo V2
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm hover-card border-primary">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-lock fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Cierre Mensual Auditable</h5>
+                    <p class="card-text text-muted">
+                        Sistema de cierre contable para nómina con auditoría completa
+                    </p>
+                    <div class="mb-2">
+                        <span class="badge bg-primary">Nuevo</span>
+                        <span class="badge bg-success">Mes Operativo</span>
+                    </div>
+                    <a href="{% url 'tareo_cierre_mensual' %}" class="btn btn-primary">
+                        <i class="fas fa-file-invoice-dollar"></i> Abrir Cierre
                     </a>
                 </div>
             </div>
