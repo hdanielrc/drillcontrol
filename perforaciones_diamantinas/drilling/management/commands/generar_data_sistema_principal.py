@@ -10,7 +10,9 @@ import random
 
 from drilling.models import (
     Contrato, Trabajador, Maquina, Sondaje, Turno,
-    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador, Cliente, Cargo, TurnoAvance
+    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador, Cliente, Cargo, TurnoAvance,
+    TurnoSondaje, TurnoMaquina, TurnoComplemento, TurnoAditivo, TurnoCorrida,
+    TipoComplemento, TipoAditivo, UnidadMedida, HistorialBroca
 )
 
 # Datos realistas
@@ -260,7 +262,29 @@ class Command(BaseCommand):
                         # Agregar sondaje al turno (M2M)
                         turno.sondajes.add(sondaje)
                         
-                        # Crear trabajadores del turno
+                        # ===== 1. TurnoSondaje (M2M con metros) =====
+                        metros_perforados = Decimal(str(random.uniform(5.0, 25.0)))  # Entre 5 y 25 metros
+                        TurnoSondaje.objects.update_or_create(
+                            turno=turno,
+                            sondaje=sondaje,
+                            defaults={'metros_turno': metros_perforados}
+                        )
+                        
+                        # ===== 2. TurnoMaquina (estado de máquina y horas) =====
+                        hora_inicio_maq = time(7, 0) if guardia_nombre == 'DIA' else time(19, 0)
+                        hora_fin_maq = time(19, 0) if guardia_nombre == 'DIA' else time(7, 0)
+                        
+                        TurnoMaquina.objects.create(
+                            turno=turno,
+                            hora_inicio=hora_inicio_maq,
+                            hora_fin=hora_fin_maq,
+                            estado_bomba=random.choice(['OPERATIVO', 'OPERATIVO', 'OPERATIVO', 'CON_FALLA']),
+                            estado_unidad=random.choice(['OPERATIVO', 'OPERATIVO', 'OPERATIVO', 'CON_FALLA']),
+                            estado_rotacion=random.choice(['OPERATIVO', 'OPERATIVO', 'OPERATIVO', 'CON_FALLA']),
+                            comentarios_mantenimiento='Turno generado automáticamente'
+                        )
+                        
+                        # ===== 3. TurnoTrabajador (personal asignado) =====
                         TurnoTrabajador.objects.create(
                             turno=turno,
                             trabajador=perforista,
@@ -272,16 +296,93 @@ class Command(BaseCommand):
                             funcion='AYUDANTE'
                         )
                         
-                        # Crear TurnoAvance (metros perforados) - modelo solo tiene metros_perforados
-                        metros_perforados = Decimal(str(random.uniform(5.0, 25.0)))  # Entre 5 y 25 metros
+                        # ===== 4. TurnoComplemento (brocas con series) =====
+                        try:
+                            tipos_broca = TipoComplemento.objects.filter(categoria='BROCA')[:5]
+                            if tipos_broca.exists():
+                                tipo_broca = random.choice(list(tipos_broca))
+                                serie_broca = f"BROCA-{random.randint(1000, 9999)}"
+                                metros_inicio_broca = Decimal(str(random.randint(0, 200)))
+                                metros_fin_broca = metros_inicio_broca + metros_perforados
+                                
+                                complemento = TurnoComplemento.objects.create(
+                                    turno=turno,
+                                    sondaje=sondaje,
+                                    tipo_complemento=tipo_broca,
+                                    codigo_serie=serie_broca,
+                                    metros_inicio=metros_inicio_broca,
+                                    metros_fin=metros_fin_broca,
+                                    metros_turno_calc=metros_perforados
+                                )
+                                
+                                # Actualizar HistorialBroca
+                                historial, created_hist = HistorialBroca.objects.get_or_create(
+                                    serie=serie_broca,
+                                    defaults={
+                                        'tipo_complemento': tipo_broca,
+                                        'contrato_actual': contrato,
+                                        'fecha_primer_uso': current_date,
+                                        'estado': 'EN_USO'
+                                    }
+                                )
+                                if not created_hist:
+                                    historial.metraje_acumulado += metros_perforados
+                                    historial.numero_usos += 1
+                                    historial.fecha_ultimo_uso = current_date
+                                    historial.save()
+                        except Exception:
+                            pass  # Si no hay tipos de complemento, continuar
                         
+                        # ===== 5. TurnoAditivo (aditivos usados) =====
+                        try:
+                            tipos_aditivo = TipoAditivo.objects.all()[:5]
+                            unidades = UnidadMedida.objects.all()[:3]
+                            if tipos_aditivo.exists() and unidades.exists():
+                                tipo_adit = random.choice(list(tipos_aditivo))
+                                unidad = random.choice(list(unidades))
+                                cantidad = random.uniform(10.0, 50.0)
+                                
+                                TurnoAditivo.objects.create(
+                                    turno=turno,
+                                    sondaje=sondaje,
+                                    tipo_aditivo=tipo_adit,
+                                    cantidad_usada=cantidad,
+                                    unidad_medida=unidad
+                                )
+                        except Exception:
+                            pass  # Si no hay aditivos, continuar
+                        
+                        # ===== 6. TurnoCorrida (corridas de testigos) =====
+                        num_corridas = random.randint(2, 4)
+                        desde_metros = Decimal('0')
+                        for corrida_num in range(1, num_corridas + 1):
+                            longitud = Decimal(str(random.uniform(3.0, 10.0)))
+                            hasta_metros = desde_metros + longitud
+                            testigo = Decimal(str(random.uniform(float(longitud) * 0.7, float(longitud) * 0.95)))
+                            recuperacion = (testigo / longitud * 100) if longitud > 0 else Decimal('0')
+                            
+                            TurnoCorrida.objects.create(
+                                turno=turno,
+                                corrida_numero=corrida_num,
+                                desde=desde_metros,
+                                hasta=hasta_metros,
+                                longitud_testigo=testigo,
+                                pct_recuperacion=recuperacion,
+                                pct_retorno_agua=Decimal(str(random.uniform(70.0, 95.0))),
+                                litologia=random.choice([
+                                    'Andesita', 'Diorita', 'Granito', 'Caliza', 'Arenisca',
+                                    'Cuarcita', 'Pizarra', 'Lutita', 'Basalto'
+                                ])
+                            )
+                            desde_metros = hasta_metros
+                        
+                        # ===== 7. TurnoAvance (metros totales) =====
                         TurnoAvance.objects.create(
                             turno=turno,
                             metros_perforados=metros_perforados
                         )
                         
-                        turnos_creados += 1
-                        
+                        # ===== 8. TurnoActividad (actividades con horas) =====
                         # Crear 3-5 actividades por turno
                         num_actividades = random.randint(3, 5)
                         hora_actual = time(7, 0) if guardia_nombre == 'DIA' else time(19, 0)
@@ -307,6 +408,8 @@ class Command(BaseCommand):
                             
                             actividades_creadas += 1
                             hora_actual = hora_fin_actividad
+                        
+                        turnos_creados += 1
                     
                     except Exception as e:
                         # Mostrar error para debugging
