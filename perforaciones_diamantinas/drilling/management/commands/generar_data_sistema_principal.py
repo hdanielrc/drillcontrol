@@ -75,10 +75,9 @@ class Command(BaseCommand):
         
         # Obtener o crear cliente
         cliente, _ = Cliente.objects.get_or_create(
-            nombre_cliente="CLIENTE DEMO",
+            nombre="CLIENTE DEMO",
             defaults={
-                'contacto': 'Contacto Demo',
-                'email': 'demo@cliente.com'
+                'is_active': True
             }
         )
         
