@@ -16,29 +16,35 @@
     <link href="{% static 'css/style.css' %}?v=20260114" rel="stylesheet">
     
     <style>
-        /* Fix z-index para dropdowns - deben estar encima de TODO */
-        .navbar {
-            position: relative;
-            z-index: 999999 !important;
+        /* Fix z-index para dropdowns - ULTRA ALTA PRIORIDAD */
+        nav.navbar {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 2147483647 !important;
         }
         
-        .dropdown-menu {
-            z-index: 999999 !important;
+        .dropdown-menu,
+        .dropdown-menu.show,
+        [data-bs-popper] {
+            z-index: 2147483647 !important;
+            position: fixed !important;
         }
         
         .navbar-collapse {
-            z-index: 999999 !important;
+            z-index: 2147483646 !important;
         }
         
-        /* Asegurar que los dropdowns aparezcan encima de elementos sticky */
-        .navbar-nav .dropdown-menu {
-            position: absolute !important;
-            z-index: 999999 !important;
+        /* Asegurar que TODOS los dropdowns aparezcan encima */
+        .navbar-nav .dropdown-menu,
+        .navbar-nav .nav-item.dropdown .dropdown-menu,
+        li.nav-item.dropdown > .dropdown-menu {
+            z-index: 2147483647 !important;
+            position: fixed !important;
         }
         
-        /* Usuario dropdown específicamente */
-        .navbar-nav .nav-item.dropdown .dropdown-menu {
-            z-index: 999999 !important;
+        /* Contenedor del body */
+        body {
+            position: relative !important;
         }
     </style>
     
