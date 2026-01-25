@@ -16,7 +16,11 @@
     <link href="{% static 'css/style.css' %}?v=20260114" rel="stylesheet">
     
     <style>
-        /* Fix z-index para dropdowns - ULTRA ALTA PRIORIDAD */
+        /* Fix z-index para dropdowns - Sobreescribir variable de Bootstrap */
+        :root {
+            --bs-dropdown-zindex: 2147483647 !important;
+        }
+        
         nav.navbar {
             position: relative !important;
             z-index: 2147483647 !important;
