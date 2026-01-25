@@ -172,19 +172,51 @@ def gerencia_dashboard(request):
         })
     
     # ============================================
-    # KPI 3: DISPONIBILIDAD DE MÁQUINAS
+    # KPI 3: DISPONIBILIDAD GLOBAL (Basada en Actividades)
     # ============================================
-    total_maquinas = Maquina.objects.all().count()
-    maquinas_operativas = Maquina.objects.filter(
-        estado='OPERATIVO'
-    ).count()
+    # Calcular horas por tipo de actividad
+    from django.db.models import Sum as DbSum
     
-    disponibilidad_global = (maquinas_operativas / total_maquinas * 100) if total_maquinas > 0 else 0
-    
-    # Distribución de estados de máquinas
-    estados_maquinas = Maquina.objects.all().values('estado').annotate(
-        cantidad=Count('id')
+    actividades_periodo = TurnoActividad.objects.filter(
+        turno__fecha__range=[fecha_inicio, fecha_fin],
+        turno__estado__in=['COMPLETADO', 'APROBADO']
     )
+    
+    if contrato_id:
+        actividades_periodo = actividades_periodo.filter(turno__contrato_id=contrato_id)
+    
+    # Agrupar por tipo de actividad
+    horas_por_tipo = actividades_periodo.values(
+        tipo=F('actividad__tipo_actividad')
+    ).annotate(
+        total_horas=DbSum('tiempo_calc')
+    )
+    
+    # Convertir a diccionario
+    horas_dict = {}
+    total_horas = Decimal('0')
+    for item in horas_por_tipo:
+        tipo = item['tipo']
+        horas = item['total_horas'] or Decimal('0')
+        horas_dict[tipo] = float(horas)
+        total_horas += horas
+    
+    # Calcular disponibilidad: horas OPERATIVO / total de horas
+    horas_operativo = horas_dict.get('OPERATIVO', 0.0)
+    disponibilidad_global = (horas_operativo / float(total_horas) * 100) if total_horas > 0 else 0
+    
+    # Preparar datos para gráfica de distribución de actividades
+    distribucion_actividades = [
+        {'tipo': 'Operativo', 'horas': horas_dict.get('OPERATIVO', 0.0), 'porcentaje': (horas_dict.get('OPERATIVO', 0.0) / float(total_horas) * 100) if total_horas > 0 else 0},
+        {'tipo': 'Inoperativo', 'horas': horas_dict.get('INOPERATIVO', 0.0), 'porcentaje': (horas_dict.get('INOPERATIVO', 0.0) / float(total_horas) * 100) if total_horas > 0 else 0},
+        {'tipo': 'Stand By Cliente', 'horas': horas_dict.get('STAND_BY_CLIENTE', 0.0), 'porcentaje': (horas_dict.get('STAND_BY_CLIENTE', 0.0) / float(total_horas) * 100) if total_horas > 0 else 0},
+        {'tipo': 'Stand By RockDrill', 'horas': horas_dict.get('STAND_BY_ROCKDRILL', 0.0), 'porcentaje': (horas_dict.get('STAND_BY_ROCKDRILL', 0.0) / float(total_horas) * 100) if total_horas > 0 else 0},
+        {'tipo': 'Otros', 'horas': horas_dict.get('OTROS', 0.0), 'porcentaje': (horas_dict.get('OTROS', 0.0) / float(total_horas) * 100) if total_horas > 0 else 0},
+    ]
+    
+    # Total de máquinas para otras métricas
+    total_maquinas = Maquina.objects.all().count()
+    maquinas_operativas = Maquina.objects.filter(estado='OPERATIVO').count()
     
     # ============================================
     # KPI 4: EFICIENCIA OPERATIVA
@@ -372,7 +404,8 @@ def gerencia_dashboard(request):
         'metraje_diario_actual': metraje_diario_actual_dict,
         'metraje_diario_anterior': metraje_diario_anterior_dict,
         'metraje_por_contrato': metraje_por_contrato,
-        'estados_maquinas': list(estados_maquinas),
+        'distribucion_actividades': distribucion_actividades,
+        'total_horas_periodo': float(total_horas),
         'top_maquinas': top_maquinas,
         
         # Máquinas

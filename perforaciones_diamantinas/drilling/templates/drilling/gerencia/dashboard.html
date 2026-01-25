@@ -334,15 +334,18 @@
             </div>
         </div>
 
-        <!-- Estados de Máquinas -->
+        <!-- Distribución de Actividades (Disponibilidad) -->
         <div class="col-md-4">
             <div class="chart-container">
                 <div class="chart-title">
                     <i class="fas fa-chart-pie me-2"></i>
-                    Estado de Máquinas
+                    Disponibilidad Global por Actividades
+                </div>
+                <div class="chart-subtitle text-muted mb-3">
+                    Total: {{ total_horas_periodo|floatformat:1 }} horas
                 </div>
                 <div class="chart-wrapper" style="max-width: 350px; margin: 0 auto;">
-                    <canvas id="chartEstadoMaquinas"></canvas>
+                    <canvas id="chartDistribucionActividades"></canvas>
                 </div>
             </div>
         </div>
@@ -566,20 +569,25 @@
         }
     });
 
-    // GRÁFICA 2: Estado de Máquinas
-    const estadosMaquinasData = {{ estados_maquinas|safe }};
-    const ctxEstadoMaquinas = document.getElementById('chartEstadoMaquinas').getContext('2d');
-    new Chart(ctxEstadoMaquinas, {
+    // GRÁFICA 2: Distribución de Actividades (Disponibilidad)
+    const distribucionActividadesData = {{ distribucion_actividades|safe }};
+    const ctxDistribucionActividades = document.getElementById('chartDistribucionActividades').getContext('2d');
+    
+    // Filtrar solo actividades con horas > 0
+    const actividadesConDatos = distribucionActividadesData.filter(a => a.horas > 0);
+    
+    new Chart(ctxDistribucionActividades, {
         type: 'doughnut',
         data: {
-            labels: estadosMaquinasData.map(e => e.estado),
+            labels: actividadesConDatos.map(e => e.tipo),
             datasets: [{
-                data: estadosMaquinasData.map(e => e.cantidad),
+                data: actividadesConDatos.map(e => e.horas),
                 backgroundColor: [
-                    '#28a745',  // OPERATIVO
-                    '#ffc107',  // MANTENIMIENTO
-                    '#dc3545',  // FUERA_SERVICIO
-                    '#6c757d'   // Otros
+                    '#28a745',  // Operativo - Verde
+                    '#dc3545',  // Inoperativo - Rojo
+                    '#ffc107',  // Stand By Cliente - Amarillo
+                    '#fd7e14',  // Stand By RockDrill - Naranja
+                    '#6c757d'   // Otros - Gris
                 ],
                 borderWidth: 2,
                 borderColor: '#fff'
@@ -596,6 +604,34 @@
                         padding: 15,
                         font: {
                             size: 11
+                        },
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            if (data.labels.length && data.datasets.length) {
+                                return data.labels.map((label, i) => {
+                                    const value = data.datasets[0].data[i];
+                                    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return {
+                                        text: `${label}: ${value.toFixed(1)}h (${percentage}%)`,
+                                        fillStyle: data.datasets[0].backgroundColor[i],
+                                        hidden: false,
+                                        index: i
+                                    };
+                                });
+                            }
+                            return [];
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value.toFixed(1)} horas (${percentage}%)`;
                         }
                     }
                 }
