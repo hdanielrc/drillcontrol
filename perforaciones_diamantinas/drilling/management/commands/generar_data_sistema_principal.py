@@ -3,13 +3,14 @@ Management command para generar data masiva de prueba para el contrato SISTEMA P
 Genera: trabajadores, máquinas, turnos y actividades de 3 meses
 """
 from django.core.management.base import BaseCommand
+from django.db import models
 from datetime import datetime, timedelta, time
 from decimal import Decimal
 import random
 
 from drilling.models import (
     Contrato, Trabajador, Maquina, Sondaje, Turno,
-    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador, Cliente
+    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador, Cliente, Cargo
 )
 
 # Datos realistas
@@ -93,12 +94,41 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS(f"✓ Contrato encontrado: {contrato.nombre_contrato}"))
         
-        # 2. Crear trabajadores
-        self.stdout.write("\n[2/4] Generando trabajadores...")
+        # 2. Crear/obtener cargos necesarios
+        self.stdout.write("\n[2/5] Creando cargos necesarios...")
+        cargos_map = {}
+        
+        try:
+            for cargo_nombre, _ in CARGOS_OPERATIVOS:
+                # Obtener ID único para el cargo
+                max_id = Cargo.objects.aggregate(models.Max('id_cargo'))['id_cargo__max'] or 0
+                
+                cargo_obj, created = Cargo.objects.get_or_create(
+                    nombre=cargo_nombre,
+                    defaults={
+                        'id_cargo': max_id + 1,
+                        'descripcion': f'Cargo operativo: {cargo_nombre}',
+                        'is_active': True,
+                        'nivel_jerarquico': 50  # Nivel medio en la jerarquía
+                    }
+                )
+                cargos_map[cargo_nombre] = cargo_obj
+                if created:
+                    self.stdout.write(self.style.SUCCESS(f"  ✓ Cargo creado: {cargo_nombre}"))
+            
+            self.stdout.write(self.style.SUCCESS(f"✓ {len(cargos_map)} cargos listos"))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"✗ Error al crear cargos: {e}"))
+            return
+        
+        # 3. Crear trabajadores
+        self.stdout.write("\n[3/5] Generando trabajadores...")
         trabajadores_creados = 0
         trabajadores = []
         
-        for cargo, cantidad in CARGOS_OPERATIVOS:
+        for cargo_nombre, cantidad in CARGOS_OPERATIVOS:
+            cargo_obj = cargos_map[cargo_nombre]
+            
             for i in range(cantidad):
                 nombre = random.choice(NOMBRES)
                 apellido = random.choice(APELLIDOS)
@@ -117,7 +147,7 @@ class Command(BaseCommand):
                     nombres=nombre,
                     apellidos=apellido,
                     dni=dni,
-                    cargo=cargo,
+                    cargo=cargo_obj,  # Usar el objeto Cargo, no el string
                     regimen_laboral=regimen,
                     estado='ACTIVO',
                     fecha_ingreso=datetime.now().date() - timedelta(days=random.randint(90, 365))
@@ -127,8 +157,8 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS(f"✓ {trabajadores_creados} trabajadores creados"))
         
-        # 3. Crear máquinas
-        self.stdout.write("\n[3/4] Generando máquinas...")
+        # 4. Crear máquinas
+        self.stdout.write("\n[4/5] Generando máquinas...")
         maquinas_creadas = 0
         maquinas = []
         
@@ -156,8 +186,8 @@ class Command(BaseCommand):
             perforista.maquina_asignada = maquina
             perforista.save()
         
-        # 4. Crear sondajes
-        self.stdout.write("\n[4/4] Generando sondajes y turnos (3 meses)...")
+        # 5. Crear sondajes y turnos
+        self.stdout.write("\n[5/5] Generando sondajes y turnos (3 meses)...")
         sondajes = []
         for i in range(30):
             codigo = f"DDH-{2025}-{i+1:04d}"
