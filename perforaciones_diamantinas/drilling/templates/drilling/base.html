@@ -15,6 +15,28 @@
     {% load static %}
     <link href="{% static 'css/style.css' %}?v=20260114" rel="stylesheet">
     
+    <style>
+        /* Fix z-index para dropdowns - deben estar encima de todo */
+        .navbar {
+            position: relative;
+            z-index: 1030 !important;
+        }
+        
+        .dropdown-menu {
+            z-index: 1050 !important;
+        }
+        
+        .navbar-collapse {
+            z-index: 1040 !important;
+        }
+        
+        /* Asegurar que los dropdowns aparezcan encima de elementos sticky */
+        .navbar-nav .dropdown-menu {
+            position: absolute !important;
+            z-index: 1050 !important;
+        }
+    </style>
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
