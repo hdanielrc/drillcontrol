@@ -3,27 +3,6 @@
 {% block title %}Dashboard - {{ contract.nombre_contrato }}{% endblock %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="page-header animate-fade-in">
-    <div class="page-header-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
-        <i class="fas fa-tachometer-alt"></i>
-    </div>
-    <div class="page-header-content">
-        <h2>Dashboard Operativo</h2>
-        <p>{{ contract.nombre_contrato }}</p>
-    </div>
-    <div class="page-header-actions">
-        {% if is_system_admin %}
-        <span class="badge" style="background: var(--secondary-yellow); color: var(--primary-dark);">
-            <i class="fas fa-shield-alt me-1"></i> Administrador
-        </span>
-        {% endif %}
-        <span class="badge bg-light text-dark" style="font-size: 0.85rem;">
-            <i class="fas fa-calendar me-1"></i> {{ "now"|date:"d/m/Y H:i" }}
-        </span>
-    </div>
-</div>
-
 <!-- Métricas principales -->
 <div class="stats-grid mb-4 animate-fade-in">
     <div class="stat-card">
