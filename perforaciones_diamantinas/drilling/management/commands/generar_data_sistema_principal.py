@@ -241,15 +241,21 @@ class Command(BaseCommand):
                     ayudante = random.choice([t for t in trabajadores if t.cargo.nombre == 'AYUDANTE PERFORISTA'])
                     
                     try:
-                        turno = Turno.objects.create(
+                        # Usar get_or_create para evitar duplicados (unique_together en contrato+maquina+fecha+tipo_turno)
+                        turno, created = Turno.objects.get_or_create(
                             contrato=contrato,
                             maquina=maquina,
                             tipo_turno=tipo_turno,
                             fecha=current_date,
-                            estado=random.choice(['COMPLETADO', 'APROBADO', 'COMPLETADO', 'COMPLETADO']),
-                            comentarios_perforistas=f"Turno generado - {guardia_nombre}",
-                            litologia_general="Andesita con vetas de cuarzo"
+                            defaults={
+                                'estado': random.choice(['COMPLETADO', 'APROBADO', 'COMPLETADO', 'COMPLETADO']),
+                                'comentarios_perforistas': f"Turno generado - {guardia_nombre}",
+                                'litologia_general': "Andesita con vetas de cuarzo"
+                            }
                         )
+                        
+                        if not created:
+                            continue  # Ya existe, saltar a siguiente iteración
                         
                         # Agregar sondaje al turno (M2M)
                         turno.sondajes.add(sondaje)
