@@ -16,24 +16,29 @@
     <link href="{% static 'css/style.css' %}?v=20260114" rel="stylesheet">
     
     <style>
-        /* Fix z-index para dropdowns - deben estar encima de todo */
+        /* Fix z-index para dropdowns - deben estar encima de TODO */
         .navbar {
             position: relative;
-            z-index: 1030 !important;
+            z-index: 999999 !important;
         }
         
         .dropdown-menu {
-            z-index: 1050 !important;
+            z-index: 999999 !important;
         }
         
         .navbar-collapse {
-            z-index: 1040 !important;
+            z-index: 999999 !important;
         }
         
         /* Asegurar que los dropdowns aparezcan encima de elementos sticky */
         .navbar-nav .dropdown-menu {
             position: absolute !important;
-            z-index: 1050 !important;
+            z-index: 999999 !important;
+        }
+        
+        /* Usuario dropdown específicamente */
+        .navbar-nav .nav-item.dropdown .dropdown-menu {
+            z-index: 999999 !important;
         }
     </style>
     
