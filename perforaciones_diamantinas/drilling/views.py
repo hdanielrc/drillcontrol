@@ -4419,13 +4419,8 @@ def historial_broca_detalle(request, serie):
         )
     
     # Obtener historial detallado (todos los usos de TurnoComplemento)
-    historial_detallado = broca.obtener_historial_detallado().select_related(
-        'turno',
-        'tipo_complemento'
-    ).prefetch_related(
-        'turno__turnomaquina_set__maquina',
-        'turno__turnosondaje_set__sondaje'
-    ).order_by('turno__fecha', 'turno__turno')
+    # El método obtener_historial_detallado() ya incluye select_related y order_by
+    historial_detallado = broca.obtener_historial_detallado()
     
     context = {
         'broca': broca,
