@@ -4333,3 +4333,124 @@ def metas_maquina_dividir(request, pk):
     }
     
     return render(request, 'drilling/metas/dividir.html', context)
+
+
+# ===============================
+# HISTORIAL DE BROCAS
+# ===============================
+
+@login_required
+def historial_brocas_lista(request):
+    '''
+    Vista para listar todas las brocas con su historial acumulado.
+    Incluye filtros por estado, contrato y búsqueda por serie.
+    '''
+    # Filtro de contratos según permisos
+    if request.user.can_manage_all_contracts():
+        brocas_qs = HistorialBroca.objects.select_related('tipo_complemento', 'contrato_actual')
+        contratos = Contrato.objects.all()
+    else:
+        contrato_usuario = request.user.contrato
+        brocas_qs = HistorialBroca.objects.filter(contrato_actual=contrato_usuario).select_related('tipo_complemento', 'contrato_actual')
+        contratos = [contrato_usuario]
+    
+    # Filtros
+    query = request.GET.get('q', '').strip()
+    filtro_estado = request.GET.get('estado', '')
+    filtro_contrato = request.GET.get('contrato', '')
+    
+    if query:
+        brocas_qs = brocas_qs.filter(serie__icontains=query)
+    
+    if filtro_estado:
+        brocas_qs = brocas_qs.filter(estado=filtro_estado)
+    
+    if filtro_contrato:
+        brocas_qs = brocas_qs.filter(contrato_actual_id=filtro_contrato)
+    
+    # Ordenar por metraje acumulado descendente
+    brocas_qs = brocas_qs.order_by('-metraje_acumulado')
+    
+    # Métricas globales
+    total_brocas = brocas_qs.count()
+    brocas_activas = brocas_qs.filter(estado='EN_USO').count()
+    metraje_total = brocas_qs.aggregate(total=Sum('metraje_acumulado'))['total'] or Decimal('0')
+    promedio_metraje = metraje_total / total_brocas if total_brocas > 0 else Decimal('0')
+    
+    # Paginación
+    paginator = Paginator(brocas_qs, 30)  # 30 brocas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'brocas': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+        'contratos': contratos,
+        'query': query,
+        'filtro_estado': filtro_estado,
+        'filtro_contrato': filtro_contrato,
+        'total_brocas': total_brocas,
+        'brocas_activas': brocas_activas,
+        'metraje_total': metraje_total,
+        'promedio_metraje': promedio_metraje,
+    }
+    
+    return render(request, 'drilling/historial_brocas/lista.html', context)
+
+
+@login_required
+def historial_broca_detalle(request, serie):
+    '''
+    Vista detallada de una broca específica mostrando su historial completo de usos.
+    '''
+    # Obtener la broca
+    if request.user.can_manage_all_contracts():
+        broca = get_object_or_404(HistorialBroca.objects.select_related('tipo_complemento', 'contrato_actual'), serie=serie)
+    else:
+        broca = get_object_or_404(
+            HistorialBroca.objects.select_related('tipo_complemento', 'contrato_actual'),
+            serie=serie,
+            contrato_actual=request.user.contrato
+        )
+    
+    # Obtener historial detallado (todos los usos de TurnoComplemento)
+    historial_detallado = broca.obtener_historial_detallado().select_related(
+        'turno',
+        'tipo_complemento'
+    ).prefetch_related(
+        'turno__turnomaquina_set__maquina',
+        'turno__turnosondaje_set__sondaje'
+    ).order_by('turno__fecha', 'turno__turno')
+    
+    context = {
+        'broca': broca,
+        'historial_detallado': historial_detallado,
+    }
+    
+    return render(request, 'drilling/historial_brocas/detalle.html', context)
+
+
+@login_required
+@require_http_methods(['POST'])
+def historial_broca_marcar_quemada(request, serie):
+    '''
+    Marca una broca como quemada (fuera de servicio).
+    '''
+    # Verificar permisos
+    if not request.user.groups.filter(name__in=['GERENTE_GENERAL', 'ADMINISTRADOR', 'SUPERVISOR']).exists():
+        messages.error(request, 'No tienes permisos para realizar esta acción.')
+        return redirect('historial-broca-detalle', serie=serie)
+    
+    # Obtener la broca
+    if request.user.can_manage_all_contracts():
+        broca = get_object_or_404(HistorialBroca, serie=serie)
+    else:
+        broca = get_object_or_404(HistorialBroca, serie=serie, contrato_actual=request.user.contrato)
+    
+    # Marcar como quemada
+    observaciones = request.POST.get('observaciones', '').strip()
+    broca.marcar_como_quemada(observaciones=observaciones)
+    
+    messages.success(request, f'La broca {serie} ha sido marcada como quemada.')
+    return redirect('historial-broca-detalle', serie=serie)

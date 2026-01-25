@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Broca {{ broca.serie }} - Historial Detallado{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-card {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .estado-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    
+    .estado-NUEVA { background: #d1f2eb; color: #0e6655; }
+    .estado-EN_USO { background: #d4edda; color: #155724; }
+    .estado-DESGASTADA { background: #fff3cd; color: #856404; }
+    .estado-QUEMADA { background: #f8d7da; color: #721c24; }
+    .estado-FUERA_SERVICIO { background: #e2e3e5; color: #383d41; }
+    .estado-PERDIDA { background: #f5c6cb; color: #721c24; }
+    
+    .stat-box {
+        text-align: center;
+        padding: 20px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin-bottom: 20px;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 30px;
+        padding-bottom: 20px;
+        border-left: 2px solid #e9ecef;
+    }
+    
+    .timeline-item:last-child {
+        border-left-color: transparent;
+    }
+    
+    .timeline-dot {
+        position: absolute;
+        left: -7px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0a5278;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 20px;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .info-value {
+        color: #212529;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="fas fa-tools me-2"></i>Broca {{ broca.serie }}
+            </h2>
+            <p class="text-muted mb-0">{{ broca.tipo_complemento.nombre }} - {{ broca.contrato_actual.nombre_contrato }}</p>
+        </div>
+        <div>
+            <a href="{% url 'historial-brocas-lista' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-2"></i>Volver a Lista
+            </a>
+            {% if perms.drilling.change_historialbroca and broca.estado == 'EN_USO' %}
+            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#marcarQuemadaModal">
+                <i class="fas fa-fire me-2"></i>Marcar como Quemada
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información General -->
+        <div class="col-lg-8">
+            <div class="info-card">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <h4 class="fw-bold mb-0">Información General</h4>
+                    <span class="estado-badge estado-{{ broca.estado }}">
+                        {{ broca.get_estado_display }}
+                    </span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Serie:</span>
+                    <span class="info-value">{{ broca.serie }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Tipo de Complemento:</span>
+                    <span class="info-value">{{ broca.tipo_complemento.nombre }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Contrato Actual:</span>
+                    <span class="info-value">{{ broca.contrato_actual.nombre_contrato }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Fecha Primer Uso:</span>
+                    <span class="info-value">
+                        {% if broca.fecha_primer_uso %}
+                            {{ broca.fecha_primer_uso|date:"d/m/Y" }}
+                            <small class="text-muted">({{ broca.dias_desde_primer_uso }} días)</small>
+                        {% else %}
+                            <span class="text-muted">Sin usar</span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Fecha Último Uso:</span>
+                    <span class="info-value">
+                        {% if broca.fecha_ultimo_uso %}
+                            {{ broca.fecha_ultimo_uso|date:"d/m/Y" }}
+                            {% if broca.dias_sin_uso %}
+                            <small class="text-warning">({{ broca.dias_sin_uso }} días sin usar)</small>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">Sin usar</span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                {% if broca.fecha_baja %}
+                <div class="info-row">
+                    <span class="info-label">Fecha de Baja:</span>
+                    <span class="info-value text-danger">{{ broca.fecha_baja|date:"d/m/Y" }}</span>
+                </div>
+                {% endif %}
+                
+                {% if broca.observaciones %}
+                <div class="mt-3">
+                    <strong class="info-label d-block mb-2">Observaciones:</strong>
+                    <p class="mb-0">{{ broca.observaciones }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="col-lg-4">
+            <div class="stat-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="stat-value">{{ broca.metraje_acumulado|floatformat:2 }} m</div>
+                <div class="stat-label">Metraje Acumulado</div>
+            </div>
+            
+            <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stat-value">{{ broca.numero_usos }}</div>
+                <div class="stat-label">Número de Usos</div>
+            </div>
+            
+            <div class="stat-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="stat-value">{{ broca.metraje_promedio_por_uso|floatformat:2 }} m</div>
+                <div class="stat-label">Promedio por Uso</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Uso -->
+    {% if historial_detallado %}
+    <div class="info-card">
+        <h4 class="fw-bold mb-3">Evolución de Metraje</h4>
+        <div class="chart-container">
+            <canvas id="metrajChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Historial Detallado -->
+    <div class="info-card">
+        <h4 class="fw-bold mb-3">Historial de Usos ({{ historial_detallado|length }} registros)</h4>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Turno</th>
+                        <th>Máquina</th>
+                        <th>Sondaje</th>
+                        <th>Metros Inicio</th>
+                        <th>Metros Fin</th>
+                        <th class="text-end">Metros Turno</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for uso in historial_detallado %}
+                    <tr>
+                        <td>{{ uso.turno.fecha|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ uso.turno.get_turno_display }}</span>
+                        </td>
+                        <td>
+                            {% if uso.turno.turnomaquina_set.first %}
+                            {{ uso.turno.turnomaquina_set.first.maquina.nombre }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if uso.turno.turnosondaje_set.first %}
+                            {{ uso.turno.turnosondaje_set.first.sondaje.codigo }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ uso.metros_inicio|floatformat:2 }} m</td>
+                        <td>{{ uso.metros_fin|floatformat:2 }} m</td>
+                        <td class="text-end">
+                            <strong class="text-primary">{{ uso.metros_turno_calc|floatformat:2 }} m</strong>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="6" class="text-end"><strong>Total Acumulado:</strong></td>
+                        <td class="text-end"><strong class="text-primary fs-5">{{ broca.metraje_acumulado|floatformat:2 }} m</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        Esta broca aún no ha sido utilizada en ningún turno.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Marcar como Quemada -->
+{% if perms.drilling.change_historialbroca and broca.estado == 'EN_USO' %}
+<div class="modal fade" id="marcarQuemadaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="fas fa-fire me-2"></i>Marcar Broca como Quemada
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'historial-broca-marcar-quemada' broca.serie %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>¿Está seguro de marcar la broca <strong>{{ broca.serie }}</strong> como quemada?</p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta acción actualizará el estado a "QUEMADA" y registrará la fecha de baja.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones (opcional):</label>
+                        <textarea name="observaciones" class="form-control" rows="3" placeholder="Ej: Desgaste excesivo, fractura..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-fire me-2"></i>Confirmar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    {% if historial_detallado %}
+    // Datos para el gráfico
+    const fechas = [
+        {% for uso in historial_detallado %}
+        '{{ uso.turno.fecha|date:"d/m/Y" }}'{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    let metrosAcumulados = 0;
+    const metrajAcumulado = [
+        {% for uso in historial_detallado %}
+        {% if forloop.first %}
+        {{ uso.metros_turno_calc|floatformat:2 }}
+        {% else %}
+        metrosAcumulados += {{ uso.metros_turno_calc|floatformat:2 }}
+        {% endif %}
+        {% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    // Recalcular acumulado correctamente
+    const metrajAcumuladoCalculado = [];
+    let acum = 0;
+    {% for uso in historial_detallado %}
+    acum += parseFloat({{ uso.metros_turno_calc|floatformat:2 }});
+    metrajAcumuladoCalculado.push(acum);
+    {% endfor %}
+    
+    const ctx = document.getElementById('metrajChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: fechas,
+            datasets: [{
+                label: 'Metraje Acumulado (m)',
+                data: metrajAcumuladoCalculado,
+                borderColor: 'rgb(10, 82, 120)',
+                backgroundColor: 'rgba(10, 82, 120, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Acumulado: ' + context.parsed.y.toFixed(2) + ' m';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Metros'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Fecha'
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}

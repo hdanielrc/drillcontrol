@@ -272,4 +272,9 @@ urlpatterns = [
     
     # GERENCIA - Dashboard Ejecutivo
     path('gerencia/', views_gerencia.gerencia_dashboard, name='gerencia-dashboard'),
+    
+    # HISTORIAL DE BROCAS - Trazabilidad y Seguimiento
+    path('historial-brocas/', views.historial_brocas_lista, name='historial-brocas-lista'),
+    path('historial-brocas/<str:serie>/', views.historial_broca_detalle, name='historial-broca-detalle'),
+    path('historial-brocas/<str:serie>/marcar-quemada/', views.historial_broca_marcar_quemada, name='historial-broca-marcar-quemada'),
 ]

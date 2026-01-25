@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Historial de Brocas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .broca-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        transition: transform 0.2s;
+    }
+    
+    .broca-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .estado-badge {
+        padding: 5px 12px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .estado-NUEVA { background: #d1f2eb; color: #0e6655; }
+    .estado-EN_USO { background: #d4edda; color: #155724; }
+    .estado-DESGASTADA { background: #fff3cd; color: #856404; }
+    .estado-QUEMADA { background: #f8d7da; color: #721c24; }
+    .estado-FUERA_SERVICIO { background: #e2e3e5; color: #383d41; }
+    .estado-PERDIDA { background: #f5c6cb; color: #721c24; }
+    
+    .metric-box {
+        text-align: center;
+        padding: 15px;
+        border-radius: 8px;
+        background: #f8f9fa;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0a5278;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .search-box {
+        max-width: 500px;
+        margin: 0 auto 30px;
+    }
+    
+    .detalle-uso {
+        font-size: 0.85rem;
+        padding: 8px;
+        background: #f8f9fa;
+        border-left: 3px solid #0a5278;
+        margin: 5px 0;
+    }
+    
+    .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .filtros-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0"><i class="fas fa-tools me-2"></i>Historial de Brocas</h2>
+            <p class="text-muted mb-0">Seguimiento y trazabilidad completa por serie</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver al Dashboard
+        </a>
+    </div>
+
+    <!-- Filtros y Búsqueda -->
+    <div class="filtros-container">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Buscar por Serie</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Ej: 409381" value="{{ query }}">
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="NUEVA" {% if filtro_estado == 'NUEVA' %}selected{% endif %}>Nueva</option>
+                    <option value="EN_USO" {% if filtro_estado == 'EN_USO' %}selected{% endif %}>En Uso</option>
+                    <option value="DESGASTADA" {% if filtro_estado == 'DESGASTADA' %}selected{% endif %}>Desgastada</option>
+                    <option value="QUEMADA" {% if filtro_estado == 'QUEMADA' %}selected{% endif %}>Quemada</option>
+                    <option value="FUERA_SERVICIO" {% if filtro_estado == 'FUERA_SERVICIO' %}selected{% endif %}>Fuera de Servicio</option>
+                    <option value="PERDIDA" {% if filtro_estado == 'PERDIDA' %}selected{% endif %}>Perdida</option>
+                </select>
+            </div>
+            
+            {% if user.can_manage_all_contracts %}
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Contrato</label>
+                <select name="contrato" class="form-select">
+                    <option value="">Todos</option>
+                    {% for c in contratos %}
+                    <option value="{{ c.id }}" {% if filtro_contrato == c.id|stringformat:"s" %}selected{% endif %}>
+                        {{ c.nombre_contrato }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Métricas Globales -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="metric-box">
+                <div class="metric-value">{{ total_brocas }}</div>
+                <div class="metric-label">Total Brocas</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-box">
+                <div class="metric-value">{{ brocas_activas }}</div>
+                <div class="metric-label">Activas (En Uso)</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-box">
+                <div class="metric-value">{{ metraje_total|floatformat:0 }} m</div>
+                <div class="metric-label">Metraje Total Acumulado</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-box">
+                <div class="metric-value">{{ promedio_metraje|floatformat:1 }} m</div>
+                <div class="metric-label">Promedio por Broca</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Brocas -->
+    {% if brocas %}
+    <div class="row">
+        {% for broca in brocas %}
+        <div class="col-md-6 col-lg-4">
+            <div class="broca-card">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="mb-1 fw-bold">{{ broca.serie }}</h5>
+                        <small class="text-muted">{{ broca.tipo_complemento.nombre }}</small>
+                    </div>
+                    <span class="estado-badge estado-{{ broca.estado }}">
+                        {{ broca.get_estado_display }}
+                    </span>
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <small class="text-muted d-block">Metraje Acumulado</small>
+                        <strong class="fs-5 text-primary">{{ broca.metraje_acumulado|floatformat:2 }} m</strong>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Número de Usos</small>
+                        <strong class="fs-5">{{ broca.numero_usos }}</strong>
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <small class="text-muted">Promedio por Uso:</small>
+                    <strong>{{ broca.metraje_promedio_por_uso|floatformat:2 }} m</strong>
+                </div>
+                
+                <div class="mb-2">
+                    <small class="text-muted">Contrato:</small>
+                    <strong>{{ broca.contrato_actual.nombre_contrato }}</strong>
+                </div>
+                
+                {% if broca.fecha_ultimo_uso %}
+                <div class="mb-2">
+                    <small class="text-muted">Último Uso:</small>
+                    <strong>{{ broca.fecha_ultimo_uso|date:"d/m/Y" }}</strong>
+                    {% if broca.dias_sin_uso %}
+                    <small class="text-warning">({{ broca.dias_sin_uso }} días sin usar)</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <a href="{% url 'historial-broca-detalle' broca.serie %}" class="btn btn-sm btn-outline-primary w-100 mt-2">
+                    <i class="fas fa-eye me-2"></i>Ver Detalle Completo
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Paginación -->
+    {% if is_paginated %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filtro_estado %}&estado={{ filtro_estado }}{% endif %}{% if filtro_contrato %}&contrato={{ filtro_contrato }}{% endif %}">Anterior</a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if filtro_estado %}&estado={{ filtro_estado }}{% endif %}{% if filtro_contrato %}&contrato={{ filtro_contrato }}{% endif %}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filtro_estado %}&estado={{ filtro_estado }}{% endif %}{% if filtro_contrato %}&contrato={{ filtro_contrato }}{% endif %}">Siguiente</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+    {% else %}
+    <div class="alert alert-info text-center">
+        <i class="fas fa-info-circle fa-3x mb-3"></i>
+        <h5>No se encontraron brocas con los criterios seleccionados</h5>
+        <p class="mb-0">Intenta ajustar los filtros o realizar una búsqueda diferente</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
