@@ -17,16 +17,17 @@
     
     <style>
         /* Fix z-index para dropdowns - Sobreescribir variable de Bootstrap */
-        :root {
-            --bs-dropdown-zindex: 2147483647 !important;
-        }
-        
         nav.navbar {
             position: relative !important;
             z-index: 2147483647 !important;
         }
         
-        .dropdown-menu,
+        .dropdown-menu {
+            --bs-dropdown-zindex: 2147483647 !important;
+            z-index: 2147483647 !important;
+            position: absolute !important;
+        }
+        
         .dropdown-menu.show,
         [data-bs-popper] {
             z-index: 2147483647 !important;
@@ -41,6 +42,7 @@
         .navbar-nav .dropdown-menu,
         .navbar-nav .nav-item.dropdown .dropdown-menu,
         li.nav-item.dropdown > .dropdown-menu {
+            --bs-dropdown-zindex: 2147483647 !important;
             z-index: 2147483647 !important;
             position: absolute !important;
         }
