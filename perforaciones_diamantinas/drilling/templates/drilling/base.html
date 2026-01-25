@@ -18,8 +18,7 @@
     <style>
         /* Fix z-index para dropdowns - ULTRA ALTA PRIORIDAD */
         nav.navbar {
-            position: sticky !important;
-            top: 0 !important;
+            position: relative !important;
             z-index: 2147483647 !important;
         }
         
@@ -27,7 +26,7 @@
         .dropdown-menu.show,
         [data-bs-popper] {
             z-index: 2147483647 !important;
-            position: fixed !important;
+            position: absolute !important;
         }
         
         .navbar-collapse {
@@ -39,12 +38,12 @@
         .navbar-nav .nav-item.dropdown .dropdown-menu,
         li.nav-item.dropdown > .dropdown-menu {
             z-index: 2147483647 !important;
-            position: fixed !important;
+            position: absolute !important;
         }
         
-        /* Contenedor del body */
-        body {
-            position: relative !important;
+        /* Remover restricciones de overflow */
+        body, html, .container-fluid {
+            overflow: visible !important;
         }
     </style>
     
@@ -287,6 +286,25 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- Fix dropdowns z-index dinámicamente -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Forzar z-index en dropdowns cuando se abren
+            const dropdowns = document.querySelectorAll('.dropdown');
+            dropdowns.forEach(dropdown => {
+                dropdown.addEventListener('show.bs.dropdown', function() {
+                    setTimeout(() => {
+                        const menu = this.querySelector('.dropdown-menu');
+                        if (menu) {
+                            menu.style.zIndex = '2147483647';
+                            menu.style.position = 'absolute';
+                        }
+                    }, 10);
+                });
+            });
+        });
+    </script>
     
     <!-- Auto-hide alerts after 5 seconds -->
     <script>
