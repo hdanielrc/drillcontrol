@@ -104,39 +104,37 @@ def dashboard(request):
         # MÃ©tricas por contrato - OPTIMIZADO con annotate para evitar N+1 queries
         from django.db.models import Q, Count, Sum, F
         
-        # Calcular metros usando subconsulta para evitar duplicación por ManyToMany
-        # Subconsulta para metros perforados del mes actual
-        metros_subquery = TurnoAvance.objects.filter(
-            turno__contrato=OuterRef('pk'),
-            turno__fecha__month=hoy.month,
-            turno__fecha__year=hoy.year
-        ).values('turno__contrato').annotate(
-            total=Sum('metros_perforados')
-        ).values('total')
-        
-        metricas_por_contrato_qs = Contrato.objects.filter(
+        # Optimización: Evitar subconsultas complejas que causan timeouts
+        # Calcular métricas por contrato de forma simple y directa
+        contratos_activos_qs = Contrato.objects.filter(
             estado='ACTIVO'
-        ).select_related('cliente').annotate(
-            sondajes_activos_count=Count('sondajes', filter=Q(sondajes__estado='ACTIVO'), distinct=True),
-            trabajadores_activos_count=Count('trabajadores', filter=Q(trabajadores__estado='ACTIVO'), distinct=True),
-            turnos_mes_count=Count(
-                'turnos',
-                filter=Q(turnos__fecha__month=hoy.month, turnos__fecha__year=hoy.year),
-                distinct=True
-            ),
-            metros_mes_total=Subquery(metros_subquery)
-        ).order_by('nombre_contrato')
+        ).select_related('cliente').order_by('nombre_contrato')
         
         # Convertir a lista de diccionarios para el template
         metricas_por_contrato = []
-        for contrato in metricas_por_contrato_qs:
+        for contrato in contratos_activos_qs:
+            # Consultas simples por contrato (más rápidas que annotate con distincts)
+            sondajes_activos = contrato.sondajes.filter(estado='ACTIVO').count()
+            trabajadores_activos = contrato.trabajadores.filter(estado='ACTIVO').count()
+            turnos_mes = contrato.turnos.filter(
+                fecha__month=hoy.month,
+                fecha__year=hoy.year
+            ).count()
+            
+            # Metros del mes - consulta directa por contrato
+            metros_mes = TurnoAvance.objects.filter(
+                turno__contrato=contrato,
+                turno__fecha__month=hoy.month,
+                turno__fecha__year=hoy.year
+            ).aggregate(total=Sum('metros_perforados'))['total'] or 0
+            
             metricas_por_contrato.append({
                 'nombre_contrato': contrato.nombre_contrato,
                 'cliente': contrato.cliente.nombre,
-                'sondajes_activos': contrato.sondajes_activos_count,
-                'trabajadores_activos': contrato.trabajadores_activos_count,
-                'turnos_mes': contrato.turnos_mes_count,
-                'metros_mes': contrato.metros_mes_total or 0,
+                'sondajes_activos': sondajes_activos,
+                'trabajadores_activos': trabajadores_activos,
+                'turnos_mes': turnos_mes,
+                'metros_mes': metros_mes,
                 'estado': contrato.estado,
             })
         
