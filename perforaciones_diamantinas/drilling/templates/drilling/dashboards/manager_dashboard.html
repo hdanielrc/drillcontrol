@@ -3,22 +3,6 @@
 {% block title %}Dashboard - {{ user.contrato.nombre_contrato }}{% endblock %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="page-header mb-4">
-    <div class="page-header-icon" style="background: linear-gradient(135deg, #0470AC, #084163);">
-        <i class="fas fa-chart-line"></i>
-    </div>
-    <div class="page-header-content">
-        <h2>Dashboard Operativo</h2>
-        <p>{{ user.contrato.nombre_contrato }}</p>
-    </div>
-    <div class="page-header-actions">
-        <span class="badge bg-light text-dark" style="font-size: 0.9rem;">
-            <i class="fas fa-calendar me-1"></i> {{ "now"|date:"d/m/Y H:i" }}
-        </span>
-    </div>
-</div>
-
 <!-- KPIs Operativos -->
 <div class="stats-grid mb-4">
     <div class="stat-card">
