@@ -73,29 +73,15 @@
 {% endblock %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="page-header mb-4">
-    <div class="page-header-icon" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
-        <i class="fas fa-warehouse"></i>
-    </div>
-    <div class="page-header-content">
-        <h2>Dashboard de Stock</h2>
-        <p>Stock histórico, proyecciones y alertas automáticas</p>
-    </div>
-    <div class="page-header-actions">
-        <!-- Selector de Contrato -->
-        <select class="form-select form-select-sm" id="contratoSelector" style="min-width: 200px;">
-            {% for contrato in contratos %}
-            <option value="{{ contrato.id }}" {% if contrato.id == contrato_seleccionado.id %}selected{% endif %}>
-                {{ contrato.nombre_contrato }}
-            </option>
-            {% endfor %}
-        </select>
-        
-        <button type="button" class="btn btn-outline-light btn-sm sync-btn" id="btnSincronizar" title="Sincronizar ahora">
-            <i class="fas fa-sync-alt"></i> Sincronizar
-        </button>
-    </div>
+<!-- Selector de Contrato -->
+<div class="mb-3">
+    <select class="form-select" id="contratoSelector" style="max-width: 300px;">
+        {% for contrato in contratos %}
+        <option value="{{ contrato.id }}" {% if contrato.id == contrato_seleccionado.id %}selected{% endif %}>
+            {{ contrato.nombre_contrato }}
+        </option>
+        {% endfor %}
+    </select>
 </div>
 
 <!-- KPIs Resumen -->
