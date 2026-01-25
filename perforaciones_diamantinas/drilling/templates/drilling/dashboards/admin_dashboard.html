@@ -2,6 +2,47 @@
 
 {% block title %}Dashboard Administrativo{% endblock %}
 
+{% block extra_css %}
+<style>
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 180px;
+    }
+    .empty-state i {
+        font-size: 2.5rem;
+        color: #cbd5e1;
+        margin-bottom: 0.75rem;
+    }
+    
+    /* Botones de acceso rápido */
+    .btn-outline-primary:hover,
+    .btn-outline-success:hover,
+    .btn-outline-warning:hover,
+    .btn-outline-info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-primary i,
+    .btn-outline-success i,
+    .btn-outline-warning i,
+    .btn-outline-info i {
+        opacity: 0.7;
+    }
+    
+    .btn-outline-primary:hover i,
+    .btn-outline-success:hover i,
+    .btn-outline-warning:hover i,
+    .btn-outline-info:hover i {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- KPIs Consolidados -->
 <div class="stats-grid mb-4">
@@ -46,6 +87,49 @@
     </div>
 </div>
 
+<!-- Accesos Rápidos -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="list-section">
+            <div class="list-header">
+                <i class="fas fa-rocket me-2"></i> Accesos Rápidos
+            </div>
+            <div class="list-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="{% url 'historial-brocas-lista' %}" class="btn btn-outline-primary w-100 py-3" style="border-radius: 10px;">
+                            <i class="fas fa-history fa-2x mb-2 d-block"></i>
+                            <strong>Historial de Brocas</strong>
+                            <small class="d-block text-muted">Trazabilidad completa</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'gestion-proyectos-stock-turnos' %}" class="btn btn-outline-success w-100 py-3" style="border-radius: 10px;">
+                            <i class="fas fa-project-diagram fa-2x mb-2 d-block"></i>
+                            <strong>Control de Proyectos</strong>
+                            <small class="d-block text-muted">Vista consolidada</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'stock-disponible' %}" class="btn btn-outline-warning w-100 py-3" style="border-radius: 10px;">
+                            <i class="fas fa-warehouse fa-2x mb-2 d-block"></i>
+                            <strong>Stock Disponible</strong>
+                            <small class="d-block text-muted">Inventario actual</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'reporte-horas-extras' %}" class="btn btn-outline-info w-100 py-3" style="border-radius: 10px;">
+                            <i class="fas fa-user-clock fa-2x mb-2 d-block"></i>
+                            <strong>Horas Extras</strong>
+                            <small class="d-block text-muted">Reporte de HHEE</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Gráficas de Análisis -->
 <div class="row mb-4">
     <div class="col-lg-8">
@@ -64,8 +148,12 @@
             <div class="list-header">
                 <i class="fas fa-trophy me-2"></i> Top 5 Trabajadores (Mes)
             </div>
-            <div class="list-body">
+            <div class="list-body" id="topTrabajadoresContainer">
                 <canvas id="topTrabajadoresChart" height="200"></canvas>
+                <div id="topTrabajadoresEmpty" class="empty-state py-4" style="display: none;">
+                    <i class="fas fa-users"></i>
+                    <p class="text-muted small mb-0">Sin datos de trabajadores este mes</p>
+                </div>
             </div>
         </div>
     </div>
@@ -244,13 +332,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     y: {
                         beginAtZero: true,
                         grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
+                            color: 'rgba(0, 0, 0, 0.08)',
+                            drawBorder: true,
+                            borderColor: 'rgba(0, 0, 0, 0.1)'
                         },
                         ticks: {
                             callback: function(value) {
-                                return value + 'm';
+                                // Formato con separador de miles y 'm'
+                                return value.toLocaleString('es-ES') + 'm';
                             },
-                            font: { family: 'Inter', size: 11 }
+                            font: { family: 'Inter', size: 11, weight: '500' },
+                            color: '#495057',
+                            padding: 8,
+                            maxTicksLimit: 8,
+                            precision: 0
+                        },
+                        title: {
+                            display: true,
+                            text: 'Metros Perforados',
+                            font: { family: 'Inter', size: 12, weight: '600' },
+                            color: '#212529',
+                            padding: { top: 0, bottom: 10 }
                         }
                     },
                     x: {
@@ -258,7 +360,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             display: false
                         },
                         ticks: {
-                            font: { family: 'Inter', size: 11 }
+                            font: { family: 'Inter', size: 11 },
+                            color: '#495057'
                         }
                     }
                 }
@@ -268,6 +371,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Gráfico 2: Top Trabajadores (Barras horizontales)
     if (topTrabajadoresData && topTrabajadoresData.length > 0) {
+        document.getElementById('topTrabajadoresChart').style.display = 'block';
+        document.getElementById('topTrabajadoresEmpty').style.display = 'none';
+        
         const ctx2 = document.getElementById('topTrabajadoresChart');
         const colorsBar = [
             'rgba(4, 112, 172, 0.8)',
@@ -322,13 +428,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     x: {
                         beginAtZero: true,
                         grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
+                            color: 'rgba(0, 0, 0, 0.08)',
+                            drawBorder: true
                         },
                         ticks: {
                             callback: function(value) {
-                                return value + 'm';
+                                return value.toLocaleString('es-ES') + 'm';
                             },
-                            font: { family: 'Inter', size: 11 }
+                            font: { family: 'Inter', size: 11, weight: '500' },
+                            color: '#495057'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Metros Perforados',
+                            font: { family: 'Inter', size: 11, weight: '600' },
+                            color: '#212529'
                         }
                     },
                     y: {
@@ -336,12 +450,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             display: false
                         },
                         ticks: {
-                            font: { family: 'Inter', size: 11 }
+                            font: { family: 'Inter', size: 11, weight: '500' },
+                            color: '#212529'
                         }
                     }
                 }
             }
         });
+    } else {
+        document.getElementById('topTrabajadoresChart').style.display = 'none';
+        document.getElementById('topTrabajadoresEmpty').style.display = 'flex';
     }
 });
 </script>

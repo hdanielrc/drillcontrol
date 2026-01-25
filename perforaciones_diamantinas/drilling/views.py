@@ -218,11 +218,14 @@ def dashboard(request):
             })
         
         # Top 5 trabajadores por metraje del mes
-        from django.db.models import Sum as DbSum
+        from django.db.models import Sum as DbSum, Q
         top_trabajadores = TurnoTrabajador.objects.filter(
             turno__fecha__month=hoy.month,
-            turno__fecha__year=hoy.year
+            turno__fecha__year=hoy.year,
+            turno__avance__isnull=False,
+            turno__avance__metros_perforados__gt=0
         ).values(
+            'trabajador__id',
             'trabajador__nombres',
             'trabajador__apellidos'
         ).annotate(
@@ -231,12 +234,13 @@ def dashboard(request):
         
         top_trabajadores_data = []
         for item in top_trabajadores:
-            nombre_completo = f"{item['trabajador__nombres']} {item['trabajador__apellidos']}"
-            metros = item['total_metros'] or 0
-            top_trabajadores_data.append({
-                'nombre': nombre_completo,
-                'metros': float(metros) if metros else 0
-            })
+            if item['total_metros'] and item['total_metros'] > 0:
+                nombre_completo = f"{item['trabajador__nombres']} {item['trabajador__apellidos']}"
+                metros = item['total_metros'] or 0
+                top_trabajadores_data.append({
+                    'nombre': nombre_completo,
+                    'metros': float(metros)
+                })
         
         context = {
             'contratos_activos': contratos_activos,
