@@ -375,14 +375,13 @@
                                 <option value="DIA_APOYO" {% if data.estado == 'DIA_APOYO' %}selected{% endif %}>DA</option>
                             </select>
                             
-                            <!-- Select de Máquina (mostrar solo si hay máquinas disponibles) -->
-                            {% if maquinas_disponibles %}
+                            <!-- Select de Máquina (siempre visible) -->
                             <select 
                                 name="maquina_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
                                 class="maquina-select"
                                 data-tipo="maquina"
-                                style="margin-top: 4px; font-size: 10px; padding: 3px; width: 100%; border: 1px solid #95a5a6; border-radius: 3px; background: white;"
-                                title="Máquina asignada">
+                                style="margin-top: 4px; font-size: 10px; padding: 3px; width: 100%; border: 1px solid #95a5a6; border-radius: 3px; background: #f8f9fa; font-weight: 600;"
+                                title="Máquina asignada para este día específico">
                                 <option value="">🚜 Sin máq.</option>
                                 {% for maq in maquinas_disponibles %}
                                 <option value="{{ maq.id }}" 
@@ -391,7 +390,6 @@
                                 </option>
                                 {% endfor %}
                             </select>
-                            {% endif %}
                             
                             <!-- Indicadores de estado del registro -->
                             <div style="margin-top: 3px; font-size: 10px;">
