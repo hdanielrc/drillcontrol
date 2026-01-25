@@ -237,8 +237,8 @@ class Command(BaseCommand):
                     maquina = random.choice(maquinas)
                     
                     # Seleccionar perforista y ayudante
-                    perforista = random.choice([t for t in trabajadores if t.cargo == 'PERFORISTA'])
-                    ayudante = random.choice([t for t in trabajadores if t.cargo == 'AYUDANTE PERFORISTA'])
+                    perforista = random.choice([t for t in trabajadores if t.cargo.nombre == 'PERFORISTA'])
+                    ayudante = random.choice([t for t in trabajadores if t.cargo.nombre == 'AYUDANTE PERFORISTA'])
                     
                     try:
                         turno = Turno.objects.create(
