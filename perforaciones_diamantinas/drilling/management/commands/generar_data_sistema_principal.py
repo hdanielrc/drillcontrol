@@ -10,7 +10,7 @@ import random
 
 from drilling.models import (
     Contrato, Trabajador, Maquina, Sondaje, Turno,
-    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador, Cliente, Cargo
+    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador, Cliente, Cargo, TurnoAvance
 )
 
 # Datos realistas
@@ -267,7 +267,6 @@ class Command(BaseCommand):
                         )
                         
                         # Crear TurnoAvance (metros perforados) para el sondaje
-                        from drilling.models import TurnoAvance
                         metros_perforados = Decimal(str(random.uniform(5.0, 25.0)))  # Entre 5 y 25 metros
                         metros_inicio = Decimal(str(random.randint(0, 500)))
                         metros_fin = metros_inicio + metros_perforados
@@ -309,7 +308,10 @@ class Command(BaseCommand):
                             hora_actual = hora_fin_actividad
                     
                     except Exception as e:
-                        # Si hay error (turno duplicado), continuar
+                        # Mostrar error para debugging
+                        self.stdout.write(self.style.ERROR(f"✗ Error creando turno: {e}"))
+                        import traceback
+                        traceback.print_exc()
                         pass
             
             current_date += timedelta(days=1)
