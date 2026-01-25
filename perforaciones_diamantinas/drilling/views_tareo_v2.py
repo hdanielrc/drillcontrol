@@ -229,7 +229,7 @@ def tareo_v2_mensual_view(request):
     # Obtener máquinas activas del contrato para los selects
     maquinas_disponibles = Maquina.objects.filter(
         contrato=contrato,
-        estado='ACTIVO'
+        estado='OPERATIVO'  # Estado correcto según modelo Maquina
     ).order_by('nombre')
     
     # =========================================================================
