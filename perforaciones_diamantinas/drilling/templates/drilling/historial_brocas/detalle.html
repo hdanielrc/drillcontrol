@@ -188,17 +188,17 @@
 
         <!-- Estadísticas -->
         <div class="col-lg-4">
-            <div class="stat-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="stat-box" style="background: linear-gradient(135deg, #0470AC 0%, #084163 100%);">
                 <div class="stat-value">{{ broca.metraje_acumulado|floatformat:2 }} m</div>
                 <div class="stat-label">Metraje Acumulado</div>
             </div>
             
-            <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <div class="stat-box" style="background: linear-gradient(135deg, #7AD57C 0%, #5cb85c 100%);">
                 <div class="stat-value">{{ broca.numero_usos }}</div>
                 <div class="stat-label">Número de Usos</div>
             </div>
             
-            <div class="stat-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <div class="stat-box" style="background: linear-gradient(135deg, #FFC248 0%, #e0a800 100%);">
                 <div class="stat-value">{{ broca.metraje_promedio_por_uso|floatformat:2 }} m</div>
                 <div class="stat-label">Promedio por Uso</div>
             </div>
@@ -352,10 +352,19 @@
             datasets: [{
                 label: 'Metraje Acumulado (m)',
                 data: metrajAcumuladoCalculado,
-                borderColor: 'rgb(10, 82, 120)',
-                backgroundColor: 'rgba(10, 82, 120, 0.1)',
-                tension: 0.1,
-                fill: true
+                borderColor: '#0470AC',
+                backgroundColor: 'rgba(4, 112, 172, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 5,
+                pointBackgroundColor: '#0470AC',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 7,
+                pointHoverBackgroundColor: '#0470AC',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 3
             }]
         },
         options: {
@@ -364,9 +373,20 @@
             plugins: {
                 legend: {
                     display: true,
-                    position: 'top'
+                    position: 'top',
+                    labels: {
+                        font: { family: 'Inter', size: 12, weight: '600' },
+                        color: '#212529',
+                        usePointStyle: true,
+                        padding: 15
+                    }
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { family: 'Inter', size: 13, weight: '600' },
+                    bodyFont: { family: 'Inter', size: 12 },
                     callbacks: {
                         label: function(context) {
                             return 'Acumulado: ' + context.parsed.y.toFixed(2) + ' m';
@@ -377,15 +397,38 @@
             scales: {
                 y: {
                     beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.08)',
+                        drawBorder: true,
+                        borderColor: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('es-ES') + 'm';
+                        },
+                        font: { family: 'Inter', size: 11, weight: '500' },
+                        color: '#495057'
+                    },
                     title: {
                         display: true,
-                        text: 'Metros'
+                        text: 'Metros Acumulados',
+                        font: { family: 'Inter', size: 12, weight: '600' },
+                        color: '#212529'
                     }
                 },
                 x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: { family: 'Inter', size: 11 },
+                        color: '#495057'
+                    },
                     title: {
                         display: true,
-                        text: 'Fecha'
+                        text: 'Fecha de Uso',
+                        font: { family: 'Inter', size: 12, weight: '600' },
+                        color: '#212529'
                     }
                 }
             }
