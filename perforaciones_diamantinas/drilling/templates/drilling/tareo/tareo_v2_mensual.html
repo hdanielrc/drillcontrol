@@ -385,11 +385,9 @@
                                 <option value="">Sin máquina</option>
                                 {% for maq in maquinas_disponibles %}
                                 <option value="{{ maq.id }}" 
-                                    {% if data.maquina_id == maq.id %}
+                                    {% if data and data.maquina_id and data.maquina_id == maq.id %}
                                         selected
-                                    {% elif not data.maquina_id and row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}
-                                        selected
-                                    {% elif not data.maquina_id and not row.trabajador.maquina_asignada and forloop.first %}
+                                    {% elif not data and row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}
                                         selected
                                     {% endif %}>
                                     🚜 {{ maq.codigo|default:maq.nombre }}
