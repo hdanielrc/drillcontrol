@@ -266,6 +266,20 @@ class Command(BaseCommand):
                             funcion='AYUDANTE'
                         )
                         
+                        # Crear TurnoAvance (metros perforados) para el sondaje
+                        from drilling.models import TurnoAvance
+                        metros_perforados = Decimal(str(random.uniform(5.0, 25.0)))  # Entre 5 y 25 metros
+                        metros_inicio = Decimal(str(random.randint(0, 500)))
+                        metros_fin = metros_inicio + metros_perforados
+                        
+                        TurnoAvance.objects.create(
+                            turno=turno,
+                            sondaje=sondaje,
+                            metros_inicio=metros_inicio,
+                            metros_fin=metros_fin,
+                            metros_perforados=metros_perforados
+                        )
+                        
                         turnos_creados += 1
                         
                         # Crear 3-5 actividades por turno
