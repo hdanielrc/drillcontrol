@@ -263,7 +263,7 @@ class Command(BaseCommand):
                         turno.sondajes.add(sondaje)
                         
                         # ===== 1. TurnoSondaje (M2M con metros) =====
-                        metros_perforados = Decimal(str(random.uniform(5.0, 25.0)))  # Entre 5 y 25 metros
+                        metros_perforados = Decimal(str(round(random.uniform(5.0, 25.0), 2)))  # Redondear a 2 decimales
                         TurnoSondaje.objects.update_or_create(
                             turno=turno,
                             sondaje=sondaje,
@@ -302,7 +302,7 @@ class Command(BaseCommand):
                             if tipos_broca.exists():
                                 tipo_broca = random.choice(list(tipos_broca))
                                 serie_broca = f"BROCA-{random.randint(1000, 9999)}"
-                                metros_inicio_broca = Decimal(str(random.randint(0, 200)))
+                                metros_inicio_broca = Decimal(str(round(random.randint(0, 200), 2)))
                                 metros_fin_broca = metros_inicio_broca + metros_perforados
                                 
                                 complemento = TurnoComplemento.objects.create(
@@ -356,10 +356,10 @@ class Command(BaseCommand):
                         num_corridas = random.randint(2, 4)
                         desde_metros = Decimal('0')
                         for corrida_num in range(1, num_corridas + 1):
-                            longitud = Decimal(str(random.uniform(3.0, 10.0)))
+                            longitud = Decimal(str(round(random.uniform(3.0, 10.0), 2)))
                             hasta_metros = desde_metros + longitud
-                            testigo = Decimal(str(random.uniform(float(longitud) * 0.7, float(longitud) * 0.95)))
-                            recuperacion = (testigo / longitud * 100) if longitud > 0 else Decimal('0')
+                            testigo = Decimal(str(round(random.uniform(float(longitud) * 0.7, float(longitud) * 0.95), 2)))
+                            recuperacion = round((testigo / longitud * 100) if longitud > 0 else Decimal('0'), 2)
                             
                             TurnoCorrida.objects.create(
                                 turno=turno,
@@ -367,8 +367,8 @@ class Command(BaseCommand):
                                 desde=desde_metros,
                                 hasta=hasta_metros,
                                 longitud_testigo=testigo,
-                                pct_recuperacion=recuperacion,
-                                pct_retorno_agua=Decimal(str(random.uniform(70.0, 95.0))),
+                                pct_recuperacion=Decimal(str(recuperacion)),
+                                pct_retorno_agua=Decimal(str(round(random.uniform(70.0, 95.0), 2))),
                                 litologia=random.choice([
                                     'Andesita', 'Diorita', 'Granito', 'Caliza', 'Arenisca',
                                     'Cuarcita', 'Pizarra', 'Lutita', 'Basalto'
