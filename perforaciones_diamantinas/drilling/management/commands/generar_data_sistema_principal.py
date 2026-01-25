@@ -75,7 +75,7 @@ class Command(BaseCommand):
         contrato, created = Contrato.objects.get_or_create(
             nombre_contrato="SISTEMA PRINCIPAL",
             defaults={
-                'activo': True,
+                'estado': 'ACTIVO',
             }
         )
         if created:
