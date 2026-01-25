@@ -9,7 +9,7 @@ import random
 
 from drilling.models import (
     Contrato, Trabajador, Maquina, Sondaje, Turno,
-    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador
+    TurnoActividad, TipoActividad, TipoTurno, TurnoTrabajador, Cliente
 )
 
 # Datos realistas
@@ -72,9 +72,20 @@ class Command(BaseCommand):
         
         # 1. Buscar o crear contrato
         self.stdout.write("\n[1/4] Buscando contrato SISTEMA PRINCIPAL...")
+        
+        # Obtener o crear cliente
+        cliente, _ = Cliente.objects.get_or_create(
+            nombre_cliente="CLIENTE DEMO",
+            defaults={
+                'contacto': 'Contacto Demo',
+                'email': 'demo@cliente.com'
+            }
+        )
+        
         contrato, created = Contrato.objects.get_or_create(
             nombre_contrato="SISTEMA PRINCIPAL",
             defaults={
+                'cliente': cliente,
                 'estado': 'ACTIVO',
             }
         )
