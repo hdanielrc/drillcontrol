@@ -44,9 +44,9 @@ TIPOS_MAQUINA = [
 ]
 
 TIPOS_TRABAJO = [
-    'DDH SUPERFICIE', 'DDH SUBTERRANEO', 'EXPLORACIÓN', 'GEOTECNIA',
-    'DDH SUPERFICIE', 'DDH SUBTERRANEO', 'EXPLORACIÓN', 'HIDROGEOLOGÍA',
-    'DDH SUPERFICIE', 'CONTROL DE CALIDAD'
+    'SUPERFICIAL', 'SUBTERRANEA', 'SUPERFICIAL', 'SUPERFICIAL',
+    'SUPERFICIAL', 'SUBTERRANEA', 'SUPERFICIAL', 'SUBTERRANEA',
+    'SUPERFICIAL', 'SUPERFICIAL'
 ]
 
 ACTIVIDADES = [
@@ -163,12 +163,10 @@ class Command(BaseCommand):
         maquinas = []
         
         for i, (tipo, tipo_trabajo) in enumerate(zip(TIPOS_MAQUINA, TIPOS_TRABAJO), 1):
-            codigo = f"MQ-{i:03d}"
-            nombre = f"MÁQUINA {i:02d}"
+            nombre = f"MÁQUINA-{i:02d}"
             
             maquina = Maquina.objects.create(
                 contrato=contrato,
-                codigo=codigo,
                 nombre=nombre,
                 tipo=tipo,
                 tipo_trabajo=tipo_trabajo,
@@ -181,7 +179,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"✓ {maquinas_creadas} máquinas creadas"))
         
         # Asignar máquinas a perforistas
-        perforistas = [t for t in trabajadores if t.cargo == 'PERFORISTA']
+        perforistas = [t for t in trabajadores if t.cargo.nombre == 'PERFORISTA']
         for perforista, maquina in zip(perforistas[:len(maquinas)], maquinas):
             perforista.maquina_asignada = maquina
             perforista.save()
