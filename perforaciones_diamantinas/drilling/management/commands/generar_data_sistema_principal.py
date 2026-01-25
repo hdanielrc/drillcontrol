@@ -187,15 +187,26 @@ class Command(BaseCommand):
         # 5. Crear sondajes y turnos
         self.stdout.write("\n[5/5] Generando sondajes y turnos (3 meses)...")
         sondajes = []
+        fecha_base = datetime.now().date() - timedelta(days=90)
+        
+        # Necesitamos un usuario para created_by - usar el primer superusuario o crear uno temporal
+        from drilling.models import CustomUser
+        usuario_sistema = CustomUser.objects.filter(is_superuser=True).first()
+        if not usuario_sistema:
+            self.stdout.write(self.style.WARNING("⚠ No hay superusuarios, usando el primer usuario disponible"))
+            usuario_sistema = CustomUser.objects.first()
+        
         for i in range(30):
-            codigo = f"DDH-{2025}-{i+1:04d}"
+            codigo = f"DDH-2026-{i+1:04d}"
             sondaje = Sondaje.objects.create(
                 contrato=contrato,
                 nombre_sondaje=codigo,
-                proyecto=f"PROYECTO {random.choice(['A', 'B', 'C', 'D'])}",
-                tipo='DDH',
-                profundidad_programada=Decimal(str(random.randint(200, 800))),
-                estado='EN_PROCESO'
+                fecha_inicio=fecha_base + timedelta(days=random.randint(0, 30)),
+                profundidad=Decimal(str(random.randint(200, 800))),
+                inclinacion=Decimal(str(random.randint(-45, 45))),
+                cota_collar=Decimal(str(random.randint(2000, 4500))),
+                estado='ACTIVO',
+                created_by=usuario_sistema
             )
             sondajes.append(sondaje)
         
