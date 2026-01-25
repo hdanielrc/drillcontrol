@@ -176,12 +176,13 @@ class TareoService:
                     # Calcular estado esperado según régimen laboral
                     estado_esperado = TareoService.calcular_estado_dia(trabajador, fecha_actual)
                     
-                    # Crear registro de proyección
+                    # Crear registro de proyección con máquina asignada
                     registro = AsistenciaDiaria(
                         empleado=trabajador,
                         fecha=fecha_actual,
                         estado=estado_esperado,
                         guardia_snapshot=trabajador.guardia_asignada,
+                        maquina_snapshot=trabajador.maquina_asignada,  # Copiar máquina asignada
                         es_proyeccion=True,
                         registrado_por=None  # Sistema automático
                     )

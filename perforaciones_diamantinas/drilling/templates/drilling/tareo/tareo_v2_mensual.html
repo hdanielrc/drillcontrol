@@ -440,21 +440,6 @@
     <!-- Leyenda -->
     <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <h4 style="margin-bottom: 15px;">📖 Leyenda de Estados</h4>
-        
-        <!-- DEBUG: Mostrar cantidad de máquinas -->
-        <div style="background: #fff3cd; padding: 10px; margin-bottom: 15px; border-radius: 4px;">
-            <strong>🔧 Debug:</strong> Máquinas disponibles: {{ maquinas_disponibles|length }}
-            {% if maquinas_disponibles %}
-            <ul style="margin: 5px 0 0 20px;">
-                {% for maq in maquinas_disponibles %}
-                <li>{{ maq.id }} - {{ maq.nombre }} ({{ maq.codigo }}) - Estado: {{ maq.estado }}</li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p style="color: red;">⚠️ No hay máquinas disponibles para este contrato</p>
-            {% endif %}
-        </div>
-        
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 15px;">
             <div style="padding: 8px; background: #d5f4e6; border-radius: 4px; font-weight: 600;"><strong>T</strong> = Trabajo</div>
             <div style="padding: 8px; background: #fef9e7; border-radius: 4px; font-weight: 600;"><strong>D</strong> = Descanso</div>
