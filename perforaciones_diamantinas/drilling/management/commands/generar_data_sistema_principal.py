@@ -189,13 +189,6 @@ class Command(BaseCommand):
         sondajes = []
         fecha_base = datetime.now().date() - timedelta(days=90)
         
-        # Necesitamos un usuario para created_by - usar el primer superusuario o crear uno temporal
-        from drilling.models import CustomUser
-        usuario_sistema = CustomUser.objects.filter(is_superuser=True).first()
-        if not usuario_sistema:
-            self.stdout.write(self.style.WARNING("⚠ No hay superusuarios, usando el primer usuario disponible"))
-            usuario_sistema = CustomUser.objects.first()
-        
         for i in range(30):
             codigo = f"DDH-2026-{i+1:04d}"
             sondaje = Sondaje.objects.create(
@@ -205,8 +198,7 @@ class Command(BaseCommand):
                 profundidad=Decimal(str(random.randint(200, 800))),
                 inclinacion=Decimal(str(random.randint(-45, 45))),
                 cota_collar=Decimal(str(random.randint(2000, 4500))),
-                estado='ACTIVO',
-                created_by=usuario_sistema
+                estado='ACTIVO'
             )
             sondajes.append(sondaje)
         
