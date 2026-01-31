@@ -1,6 +1,7 @@
 """
 Script de sincronización diaria de stock desde APIs de Vilbragroup
 Sincroniza PDD (Productos Diamantados) y ADIT (Aditivos) para todos los contratos
+También sincroniza brocas pendientes (guardadas sin datos del API)
 
 Ejecutar manualmente: python sync_stock_diario.py
 """
@@ -15,8 +16,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings')
 django.setup()
 
-from drilling.models import CustomUser, Contrato
+from drilling.models import CustomUser, Contrato, TurnoComplemento, TipoComplemento, HistorialBroca
 from drilling.api_client import get_api_client
+from django.db import transaction
 
 # Configurar logging
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
@@ -88,10 +90,89 @@ def sync_adit(centro_costo, nombre_contrato):
         logger.error(f"❌ Error sincronizando ADIT para {nombre_contrato}: {str(e)}", exc_info=True)
         return False
 
+def sync_brocas_pendientes():
+    """Sincroniza brocas que fueron guardadas sin datos del API"""
+    logger.info(f"\n{'='*80}")
+    logger.info("SINCRONIZACIÓN DE BROCAS PENDIENTES")
+    logger.info(f"{'='*80}")
+    
+    try:
+        # Buscar TurnoComplemento sin tipo_complemento (guardadas sin API)
+        pendientes = TurnoComplemento.objects.filter(
+            tipo_complemento__isnull=True
+        ).select_related('turno')
+        
+        if not pendientes.exists():
+            logger.info("✅ No hay brocas pendientes de sincronizar")
+            return {'sincronizadas': 0, 'no_encontradas': 0, 'errores': 0}
+        
+        logger.info(f"📊 Total de registros pendientes: {pendientes.count()}")
+        
+        # Agrupar por serie
+        series_pendientes = {}
+        for tc in pendientes:
+            serie = tc.codigo_serie
+            if serie not in series_pendientes:
+                series_pendientes[serie] = []
+            series_pendientes[serie].append(tc)
+        
+        logger.info(f"📦 Series únicas pendientes: {len(series_pendientes)}")
+        
+        resultados = {
+            'sincronizadas': 0,
+            'no_encontradas': 0,
+            'errores': 0
+        }
+        
+        # Procesar cada serie
+        for serie, turnos_complementos in series_pendientes.items():
+            try:
+                # Buscar el producto en TipoComplemento por serie
+                producto = TipoComplemento.objects.filter(serie=serie).first()
+                
+                if not producto:
+                    logger.warning(f"⚠️ Serie {serie} ({len(turnos_complementos)} usos): Producto no encontrado en API")
+                    resultados['no_encontradas'] += 1
+                    continue
+                
+                # Producto encontrado - actualizar
+                with transaction.atomic():
+                    actualizados = TurnoComplemento.objects.filter(
+                        id__in=[tc.id for tc in turnos_complementos]
+                    ).update(tipo_complemento=producto)
+                    
+                    # Actualizar o crear HistorialBroca
+                    historial, created = HistorialBroca.objects.get_or_create(
+                        serie=serie,
+                        defaults={
+                            'tipo_complemento': producto,
+                            'contrato_actual': turnos_complementos[0].turno.contrato,
+                            'fecha_primer_uso': min(tc.turno.fecha for tc in turnos_complementos),
+                            'estado': 'EN_USO'
+                        }
+                    )
+                    
+                    if not created:
+                        historial.tipo_complemento = producto
+                        historial.save(update_fields=['tipo_complemento'])
+                    
+                    logger.info(f"✅ Serie {serie}: {actualizados} registros actualizados - {producto.nombre}")
+                    resultados['sincronizadas'] += 1
+                    
+            except Exception as e:
+                logger.error(f"❌ Error sincronizando serie {serie}: {str(e)}", exc_info=True)
+                resultados['errores'] += 1
+        
+        return resultados
+        
+    except Exception as e:
+        logger.error(f"❌ Error en sincronización de brocas pendientes: {str(e)}", exc_info=True)
+        return {'sincronizadas': 0, 'no_encontradas': 0, 'errores': 1}
+
 def main():
     """Función principal de sincronización"""
     logger.info("="*80)
-    logger.info("INICIO DE SINCRONIZACIÓN DIARIA DE STOCK")
+    logger.info("INICIO DE SINCRONIZACIÓN DIARIA DE STOCK Y BROCAS")
     logger.info(f"Fecha y hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("="*80)
     
@@ -152,15 +233,27 @@ def main():
             logger.error(f"❌ Error crítico procesando contrato {contrato.nombre_contrato}: {str(e)}", exc_info=True)
             # Continuar con el siguiente contrato
     
+    # Sincronizar brocas pendientes después del stock
+    logger.info("\n" + "="*80)
+    logger.info("FASE 2: SINCRONIZACIÓN DE BROCAS PENDIENTES")
+    logger.info("="*80)
+    
+    resultados_brocas = sync_brocas_pendientes()
+    
     # Resumen final
     logger.info("\n" + "="*80)
     logger.info("RESUMEN DE SINCRONIZACIÓN")
     logger.info("="*80)
-    logger.info(f"PDD exitosos: {resultados['pdd_exitosos']}")
-    logger.info(f"PDD fallidos: {resultados['pdd_fallidos']}")
-    logger.info(f"ADIT exitosos: {resultados['adit_exitosos']}")
-    logger.info(f"ADIT fallidos: {resultados['adit_fallidos']}")
-    logger.info("="*80)
+    logger.info("\n📦 STOCK:")
+    logger.info(f"  PDD exitosos: {resultados['pdd_exitosos']}")
+    logger.info(f"  PDD fallidos: {resultados['pdd_fallidos']}")
+    logger.info(f"  ADIT exitosos: {resultados['adit_exitosos']}")
+    logger.info(f"  ADIT fallidos: {resultados['adit_fallidos']}")
+    logger.info("\n🔧 BROCAS PENDIENTES:")
+    logger.info(f"  Sincronizadas: {resultados_brocas['sincronizadas']}")
+    logger.info(f"  No encontradas: {resultados_brocas['no_encontradas']}")
+    logger.info(f"  Errores: {resultados_brocas['errores']}")
+    logger.info("\n" + "="*80)
     logger.info("FIN DE SINCRONIZACIÓN")
     logger.info("="*80)
 

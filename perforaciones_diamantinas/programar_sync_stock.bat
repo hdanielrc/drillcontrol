@@ -1,14 +1,14 @@
 @echo off
-REM Script para programar la sincronizacion diaria de stock a las 2 AM
+REM Script para programar la sincronizacion diaria de stock y brocas a las 2 AM
 
 echo ========================================
 echo CONFIGURACION DE TAREA PROGRAMADA
-echo Sincronizacion de Stock API - 2:00 AM
+echo Sincronizacion de Stock API y Brocas - 2:00 AM
 echo ========================================
 echo.
 
-set TASK_NAME=DrillControl_Sync_Stock_API
-set SCRIPT_PATH=%~dp0sync_stock_diario.py
+set TASK_NAME=DrillControl_Sync_Stock_Brocas_API
+set SCRIPT_PATH=%~dp0scripts\sync\sync_stock_diario.py
 set PYTHON_PATH=%~dp0venv\Scripts\python.exe
 
 REM Verificar que existe Python en el venv
@@ -52,6 +52,10 @@ if %ERRORLEVEL% EQU 0 (
     echo   - Horario: Diario a las 2:00 AM
     echo   - Script: %SCRIPT_PATH%
     echo   - Python: %PYTHON_PATH%
+    echo.
+    echo La tarea ejecutara:
+    echo   1. Sincronizacion de Stock (PDD y ADIT)
+    echo   2. Sincronizacion de Brocas Pendientes
     echo.
     echo Para ejecutar manualmente:
     echo   schtasks /Run /TN "%TASK_NAME%"

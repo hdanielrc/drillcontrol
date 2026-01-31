@@ -1,16 +1,16 @@
-# Script para programar la sincronizacion diaria de stock a las 2 AM
+# Script para programar la sincronizacion diaria de stock y brocas a las 2 AM
 # Ejecutar como administrador
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "CONFIGURACION DE TAREA PROGRAMADA" -ForegroundColor Cyan
-Write-Host "Sincronizacion de Stock API - 2:00 AM" -ForegroundColor Cyan
+Write-Host "Sincronizacion de Stock API y Brocas - 2:00 AM" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # Configuracion
-$TaskName = "DrillControl_Sync_Stock_API"
-$ScriptPath = Join-Path $PSScriptRoot "sync_stock_diario.py"
+$TaskName = "DrillControl_Sync_Stock_Brocas_API"
+$ScriptPath = Join-Path $PSScriptRoot "scripts\sync\sync_stock_diario.py"
 $WorkingDir = $PSScriptRoot
 $LogDir = Join-Path $WorkingDir "logs"
 
@@ -82,7 +82,7 @@ try {
         -Trigger $Trigger `
         -Principal $Principal `
         -Settings $Settings `
-        -Description "Sincronizacion diaria de stock de PDD y Aditivos desde API Vilbragroup" `
+        -Description "Sincronizacion diaria de stock (PDD/Aditivos) y brocas pendientes desde API Vilbragroup" `
         -Force | Out-Null
     
     Write-Host ""
@@ -94,6 +94,10 @@ try {
     Write-Host "  - Script: $ScriptPath" -ForegroundColor White
     Write-Host "  - Python: $PythonPath" -ForegroundColor White
     Write-Host "  - Logs: $LogDir" -ForegroundColor White
+    Write-Host ""
+    Write-Host "La tarea ejecutara:" -ForegroundColor Yellow
+    Write-Host "  1. Sincronizacion de Stock (PDD y ADIT)" -ForegroundColor White
+    Write-Host "  2. Sincronizacion de Brocas Pendientes" -ForegroundColor White
     Write-Host ""
     
     # Preguntar si desea ejecutar ahora

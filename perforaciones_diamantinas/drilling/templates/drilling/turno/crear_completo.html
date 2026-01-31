@@ -487,6 +487,17 @@
     display: block;
     opacity: 0.5;
 }
+
+/* Estilo para productos no sincronizados (advertencia) */
+.is-warning {
+    border-color: #ffc107 !important;
+    background-color: #fff9e6 !important;
+}
+
+.text-warning {
+    color: #ff9800 !important;
+    font-style: italic;
+}
 </style>
 {% endblock %}
 
@@ -1158,13 +1169,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     recalcularMetrajeSondaje(subsection.dataset.sondajeId);
                 }
             } else {
+                // Producto NO encontrado en API - Asumir que es BROCA por defecto
                 hiddenId.value = '';
-                descripcionInput.value = '';
+                descripcionInput.value = 'Producto no sincronizado (se asume BROCA)';
                 if (serieIngresada) {
-                    event.target.classList.add('is-invalid');
-                    event.target.classList.remove('is-valid');
+                    // Asignar categoría BROCA por defecto para productos no sincronizados
+                    row.setAttribute('data-categoria', 'BROCA');
+                    event.target.classList.remove('is-invalid');
+                    event.target.classList.add('is-warning');
+                    descripcionInput.classList.add('text-warning');
+                    
+                    // Recalcular metraje incluso para productos no sincronizados
+                    const subsection = row.closest('.complemento-subsection');
+                    if (subsection) {
+                        recalcularMetrajeSondaje(subsection.dataset.sondajeId);
+                    }
                 } else {
-                    event.target.classList.remove('is-invalid', 'is-valid');
+                    event.target.classList.remove('is-invalid', 'is-valid', 'is-warning');
+                    descripcionInput.value = '';
+                    descripcionInput.classList.remove('text-warning');
                 }
             }
         }
@@ -2042,6 +2065,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Establecer categoría para el cálculo de metraje
                             row.setAttribute('data-categoria', productoEncontrado.categoria || '');
                             serieInput.classList.add('is-valid');
+                        } else {
+                            // Producto no encontrado - asumir BROCA por defecto
+                            var descripcionInput = row.querySelector('.descripcion-complemento');
+                            if (descripcionInput) {
+                                descripcionInput.value = 'Producto no sincronizado (se asume BROCA)';
+                                descripcionInput.classList.add('text-warning');
+                            }
+                            row.setAttribute('data-categoria', 'BROCA');
+                            serieInput.classList.add('is-warning');
                         }
                     }
                     
