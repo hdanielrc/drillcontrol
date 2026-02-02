@@ -1379,13 +1379,10 @@ def debug_trabajadores(request):
 @require_http_methods(["POST"])
 def generar_guardias_automaticas(request):
     """
-    Genera y asigna guardias A, B, C automáticamente a:
-    - Operadores (perforistas y ayudantes)
-    - Personal auxiliar
-    - Conductores
-    
-    Distribución equitativa entre las 3 guardias.
-    Línea de mando no recibe guardias (trabajan independiente).
+    Genera y asigna guardias A, B, C automáticamente respetando:
+    - REGLA PRINCIPAL: Cada guardia debe tener 1 PERFORISTA + 2 AYUDANTES
+    - Personal auxiliar y conductores se distribuyen equitativamente
+    - Línea de mando no recibe guardias (trabajan independiente)
     """
     user = request.user
     
@@ -1407,14 +1404,17 @@ def generar_guardias_automaticas(request):
             return JsonResponse({'success': False, 'error': 'Usuario sin contrato asignado'}, status=400)
     
     try:
-        # Obtener trabajadores activos del contrato que necesitan guardia
+        # Separar trabajadores por tipo de cargo
+        perforistas = []
+        ayudantes = []
+        otros_operadores = []
+        
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
         ).exclude(
-            # Excluir línea de mando
             grupo='LINEA_MANDO'
-        ).order_by('cargo__nombre', 'apellidos', 'nombres')
+        ).select_related('cargo').order_by('cargo__nombre', 'apellidos', 'nombres')
         
         if not trabajadores.exists():
             return JsonResponse({
@@ -1422,31 +1422,89 @@ def generar_guardias_automaticas(request):
                 'error': 'No hay trabajadores para asignar guardias'
             }, status=400)
         
-        # Distribuir en guardias A, B, C de forma equitativa
+        # Clasificar trabajadores según cargo
+        for trabajador in trabajadores:
+            cargo_upper = trabajador.cargo.nombre.upper()
+            
+            # Identificar PERFORISTAS
+            if 'PERFORISTA' in cargo_upper and 'AYUDANTE' not in cargo_upper:
+                perforistas.append(trabajador)
+            # Identificar AYUDANTES
+            elif 'AYUDANTE' in cargo_upper:
+                ayudantes.append(trabajador)
+            # Otros (auxiliares, conductores, etc.)
+            else:
+                otros_operadores.append(trabajador)
+        
+        # Validar composición mínima
+        num_perforistas = len(perforistas)
+        num_ayudantes = len(ayudantes)
+        
+        if num_perforistas < 3:
+            return JsonResponse({
+                'success': False,
+                'error': f'Se requieren al menos 3 perforistas (1 por guardia). Actualmente hay {num_perforistas}.',
+                'perforistas_encontrados': num_perforistas
+            }, status=400)
+        
+        if num_ayudantes < 6:
+            return JsonResponse({
+                'success': False,
+                'error': f'Se requieren al menos 6 ayudantes (2 por guardia). Actualmente hay {num_ayudantes}.',
+                'ayudantes_encontrados': num_ayudantes
+            }, status=400)
+        
+        # Asignar guardias respetando la regla: 1 perforista + 2 ayudantes por guardia
         guardias = ['A', 'B', 'C']
-        total = trabajadores.count()
         asignados = 0
+        distribucion = {'A': 0, 'B': 0, 'C': 0}
+        detalles = {'perforistas': {'A': 0, 'B': 0, 'C': 0}, 'ayudantes': {'A': 0, 'B': 0, 'C': 0}, 'otros': {'A': 0, 'B': 0, 'C': 0}}
         
         with transaction.atomic():
-            for i, trabajador in enumerate(trabajadores):
-                # Asignar guardia de forma cíclica
+            # 1. Asignar PERFORISTAS (1 por guardia de forma cíclica)
+            for i, perforista in enumerate(perforistas):
+                guardia = guardias[i % 3]
+                perforista.guardia_asignada = guardia
+                perforista.save(update_fields=['guardia_asignada'])
+                asignados += 1
+                distribucion[guardia] += 1
+                detalles['perforistas'][guardia] += 1
+            
+            # 2. Asignar AYUDANTES (2 por guardia, de forma intercalada)
+            for i, ayudante in enumerate(ayudantes):
+                # Calcular guardia: primer ayudante va a A, segundo a A, tercero a B, cuarto a B, etc.
+                guardia = guardias[(i // 2) % 3]
+                ayudante.guardia_asignada = guardia
+                ayudante.save(update_fields=['guardia_asignada'])
+                asignados += 1
+                distribucion[guardia] += 1
+                detalles['ayudantes'][guardia] += 1
+            
+            # 3. Asignar OTROS (auxiliares, conductores, etc.) de forma equitativa
+            for i, trabajador in enumerate(otros_operadores):
                 guardia = guardias[i % 3]
                 trabajador.guardia_asignada = guardia
                 trabajador.save(update_fields=['guardia_asignada'])
                 asignados += 1
+                distribucion[guardia] += 1
+                detalles['otros'][guardia] += 1
         
         return JsonResponse({
             'success': True,
-            'message': f'Guardias asignadas exitosamente',
+            'message': f'✅ Guardias asignadas exitosamente respetando composición 1 Perforista + 2 Ayudantes',
             'asignados': asignados,
-            'distribucion': {
-                'A': asignados // 3 + (1 if asignados % 3 > 0 else 0),
-                'B': asignados // 3 + (1 if asignados % 3 > 1 else 0),
-                'C': asignados // 3
+            'distribucion_total': distribucion,
+            'detalles': detalles,
+            'resumen': {
+                'perforistas_totales': num_perforistas,
+                'ayudantes_totales': num_ayudantes,
+                'otros_totales': len(otros_operadores)
             }
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
             'error': f'Error al generar guardias: {str(e)}'
