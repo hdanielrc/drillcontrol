@@ -158,11 +158,18 @@ class ContratoAdmin(admin.ModelAdmin):
 
 @admin.register(Trabajador)
 class TrabajadorAdmin(admin.ModelAdmin):
-    list_display = ['apellidos', 'nombres', 'cargo', 'contrato', 'dni', 'estado']
-    list_filter = ['cargo', 'estado', 'contrato']
+    list_display = ['apellidos', 'nombres', 'cargo', 'contrato', 'dni', 'estado', 'es_standby_display', 'guardia_asignada']
+    list_filter = ['cargo', 'estado', 'contrato', 'es_standby', 'guardia_asignada']
     search_fields = ['nombres', 'apellidos', 'dni']
     ordering = ['apellidos', 'nombres']
     raw_id_fields = ['contrato', 'cargo']
+    
+    def es_standby_display(self, obj):
+        """Mostrar si es personal STANDBY"""
+        if obj.es_standby:
+            return '🔄 STANDBY'
+        return '-'
+    es_standby_display.short_description = 'Tipo'
 
 @admin.register(Maquina)
 class MaquinaAdmin(admin.ModelAdmin):

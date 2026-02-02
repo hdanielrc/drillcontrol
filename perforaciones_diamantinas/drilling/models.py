@@ -1487,6 +1487,13 @@ class Trabajador(models.Model):
         verbose_name='Guardia (Organigrama)',
         help_text='⚠️ SOLO PARA ORGANIGRAMA - Guardia A, B o C para visualización'
     )
+    
+    # Personal de reserva / standby
+    es_standby = models.BooleanField(
+        default=False,
+        verbose_name='Personal STANDBY',
+        help_text='Marca este trabajador como personal de reserva para cubrir ausencias. No se asigna a guardia fija.'
+    )
 
     # Régimen Laboral
     REGIMEN_CHOICES = [

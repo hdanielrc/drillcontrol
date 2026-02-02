@@ -1379,10 +1379,14 @@ def debug_trabajadores(request):
 @require_http_methods(["POST"])
 def generar_guardias_automaticas(request):
     """
-    Genera y asigna guardias A, B, C automáticamente respetando:
-    - REGLA PRINCIPAL: Cada guardia debe tener 1 PERFORISTA + 2 AYUDANTES
-    - Personal auxiliar y conductores se distribuyen equitativamente
+    Genera y asigna guardias A, B, C automáticamente con lógica flexible:
+    - EXCLUYE personal marcado como STANDBY (personal de reserva)
+    - Distribuye perforistas y ayudantes proporcionalmente según disponibilidad
+    - Si no hay suficiente para 3 guardias completas, forma las que sean posibles
     - Línea de mando no recibe guardias (trabajan independiente)
+    
+    Composición ideal por guardia: 1 perforista + 2 ayudantes
+    Pero se adapta al personal disponible
     """
     user = request.user
     
@@ -1408,6 +1412,7 @@ def generar_guardias_automaticas(request):
         perforistas = []
         ayudantes = []
         otros_operadores = []
+        personal_standby = []
         
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
@@ -1422,8 +1427,13 @@ def generar_guardias_automaticas(request):
                 'error': 'No hay trabajadores para asignar guardias'
             }, status=400)
         
-        # Clasificar trabajadores según cargo
+        # Clasificar trabajadores según cargo y si son STANDBY
         for trabajador in trabajadores:
+            # Separar personal STANDBY
+            if trabajador.es_standby:
+                personal_standby.append(trabajador)
+                continue
+            
             cargo_upper = trabajador.cargo.nombre.upper()
             
             # Identificar PERFORISTAS
@@ -1436,70 +1446,112 @@ def generar_guardias_automaticas(request):
             else:
                 otros_operadores.append(trabajador)
         
-        # Validar composición mínima
         num_perforistas = len(perforistas)
         num_ayudantes = len(ayudantes)
+        num_otros = len(otros_operadores)
+        num_standby = len(personal_standby)
         
-        if num_perforistas < 3:
+        # Validar que haya al menos algo para asignar
+        if num_perforistas == 0 and num_ayudantes == 0:
             return JsonResponse({
                 'success': False,
-                'error': f'Se requieren al menos 3 perforistas (1 por guardia). Actualmente hay {num_perforistas}.',
-                'perforistas_encontrados': num_perforistas
+                'error': 'No hay perforistas ni ayudantes activos para asignar guardias (excluidos STANDBY).',
+                'personal_standby': num_standby
             }, status=400)
         
-        if num_ayudantes < 6:
-            return JsonResponse({
-                'success': False,
-                'error': f'Se requieren al menos 6 ayudantes (2 por guardia). Actualmente hay {num_ayudantes}.',
-                'ayudantes_encontrados': num_ayudantes
-            }, status=400)
+        # Calcular cuántas guardias podemos formar
+        # Idealmente: 1 perforista + 2 ayudantes por guardia
+        guardias_posibles_por_perforistas = num_perforistas
+        guardias_posibles_por_ayudantes = num_ayudantes // 2 if num_ayudantes >= 2 else 0
         
-        # Asignar guardias respetando la regla: 1 perforista + 2 ayudantes por guardia
-        guardias = ['A', 'B', 'C']
+        # El número de guardias es el mínimo entre ambos, máximo 3
+        num_guardias = min(guardias_posibles_por_perforistas, guardias_posibles_por_ayudantes, 3)
+        
+        # Si no podemos formar ni 1 guardia completa, advertir pero continuar
+        if num_guardias < 1:
+            num_guardias = min(3, max(1, num_perforistas))  # Al menos intentar con lo que hay
+        
+        guardias = ['A', 'B', 'C'][:num_guardias]  # Solo las guardias que podemos formar
+        
         asignados = 0
-        distribucion = {'A': 0, 'B': 0, 'C': 0}
-        detalles = {'perforistas': {'A': 0, 'B': 0, 'C': 0}, 'ayudantes': {'A': 0, 'B': 0, 'C': 0}, 'otros': {'A': 0, 'B': 0, 'C': 0}}
+        distribucion = {g: 0 for g in guardias}
+        detalles = {
+            'perforistas': {g: 0 for g in guardias}, 
+            'ayudantes': {g: 0 for g in guardias}, 
+            'otros': {g: 0 for g in guardias}
+        }
         
         with transaction.atomic():
-            # 1. Asignar PERFORISTAS (1 por guardia de forma cíclica)
+            # 1. Asignar PERFORISTAS de forma cíclica
             for i, perforista in enumerate(perforistas):
-                guardia = guardias[i % 3]
+                guardia = guardias[i % len(guardias)]
                 perforista.guardia_asignada = guardia
                 perforista.save(update_fields=['guardia_asignada'])
                 asignados += 1
                 distribucion[guardia] += 1
                 detalles['perforistas'][guardia] += 1
             
-            # 2. Asignar AYUDANTES (2 por guardia, de forma intercalada)
+            # 2. Asignar AYUDANTES intentando 2 por guardia
             for i, ayudante in enumerate(ayudantes):
-                # Calcular guardia: primer ayudante va a A, segundo a A, tercero a B, cuarto a B, etc.
-                guardia = guardias[(i // 2) % 3]
+                # Distribuir 2 por guardia: A, A, B, B, C, C, A, A...
+                guardia = guardias[(i // 2) % len(guardias)]
                 ayudante.guardia_asignada = guardia
                 ayudante.save(update_fields=['guardia_asignada'])
                 asignados += 1
                 distribucion[guardia] += 1
                 detalles['ayudantes'][guardia] += 1
             
-            # 3. Asignar OTROS (auxiliares, conductores, etc.) de forma equitativa
+            # 3. Asignar OTROS de forma equitativa
             for i, trabajador in enumerate(otros_operadores):
-                guardia = guardias[i % 3]
+                guardia = guardias[i % len(guardias)]
                 trabajador.guardia_asignada = guardia
                 trabajador.save(update_fields=['guardia_asignada'])
                 asignados += 1
                 distribucion[guardia] += 1
                 detalles['otros'][guardia] += 1
+            
+            # 4. Limpiar guardias del personal STANDBY (no tienen guardia fija)
+            for trabajador in personal_standby:
+                if trabajador.guardia_asignada:
+                    trabajador.guardia_asignada = None
+                    trabajador.save(update_fields=['guardia_asignada'])
+        
+        # Preparar mensaje informativo
+        mensaje = f'✅ Guardias asignadas exitosamente'
+        advertencias = []
+        
+        if num_guardias < 3:
+            advertencias.append(f'⚠️ Solo se formaron {num_guardias} guardia(s) por personal limitado')
+        
+        if num_standby > 0:
+            advertencias.append(f'ℹ️ {num_standby} trabajador(es) STANDBY excluidos (sin guardia fija)')
+        
+        # Verificar composición
+        for g in guardias:
+            perf = detalles['perforistas'][g]
+            ayud = detalles['ayudantes'][g]
+            if perf == 0:
+                advertencias.append(f'⚠️ Guardia {g} sin perforistas')
+            if ayud < 2:
+                advertencias.append(f'⚠️ Guardia {g} con solo {ayud} ayudante(s)')
+        
+        if advertencias:
+            mensaje += '\n\n' + '\n'.join(advertencias)
         
         return JsonResponse({
             'success': True,
-            'message': f'✅ Guardias asignadas exitosamente respetando composición 1 Perforista + 2 Ayudantes',
+            'message': mensaje,
             'asignados': asignados,
+            'guardias_formadas': num_guardias,
             'distribucion_total': distribucion,
             'detalles': detalles,
             'resumen': {
                 'perforistas_totales': num_perforistas,
                 'ayudantes_totales': num_ayudantes,
-                'otros_totales': len(otros_operadores)
-            }
+                'otros_totales': num_otros,
+                'personal_standby': num_standby
+            },
+            'advertencias': advertencias
         })
         
     except Exception as e:
