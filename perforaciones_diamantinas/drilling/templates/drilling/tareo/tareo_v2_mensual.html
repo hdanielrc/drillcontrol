@@ -573,7 +573,7 @@ function guardarDia(fecha) {
         },
         body: JSON.stringify({
             fecha: fecha,
-            contrato_id: {{ contrato.id }},
+            contrato_id: {{ contrato.id }}, // jshint ignore:line
             asistencias: asistencias
         })
     })

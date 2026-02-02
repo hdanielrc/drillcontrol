@@ -316,6 +316,7 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    /* jshint ignore:start */
     {% if historial_detallado %}
     // Datos para el gráfico
     const fechas = [
@@ -343,6 +344,7 @@
     acum += parseFloat({{ uso.metros_turno_calc|floatformat:2 }});
     metrajAcumuladoCalculado.push(acum);
     {% endfor %}
+    /* jshint ignore:end */
     
     const ctx = document.getElementById('metrajChart').getContext('2d');
     new Chart(ctx, {

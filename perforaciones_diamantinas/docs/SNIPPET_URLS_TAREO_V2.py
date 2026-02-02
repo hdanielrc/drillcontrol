@@ -4,10 +4,12 @@ SNIPPET DE CONFIGURACIÓN: URLs para Tareo V2
 =============================================================================
 
 Agregar estas rutas al archivo drilling/urls.py
+
+NOTA: Este es un archivo de documentación, no se ejecuta directamente.
 """
 
 from django.urls import path
-from .views_tareo_v2 import (
+from .views_tareo_v2 import (  # type: ignore # noqa: F401
     tareo_v2_mensual_view,
     api_generar_proyeccion,
     api_corregir_asistencia,
