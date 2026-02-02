@@ -21,7 +21,7 @@ class TrabajadorForm(forms.ModelForm):
             'contrato', 'nombres', 'apellidos', 'cargo', 'area', 'maquina_asignada', 'guardia_asignada', 
             'vehiculo_asignado', 'tipo_trabajo', 'regimen_laboral', 'fecha_inicio_ciclo',
             'dni', 'telefono', 'email', 'fecha_ingreso', 
-            'estado', 'subestado',
+            'estado', 'subestado', 'es_standby',
             'fotocheck_fecha_emision', 'fotocheck_fecha_caducidad',
             'emo_fecha_realizado', 'emo_fecha_vencimiento', 'emo_programacion', 'emo_estado'
         ]
@@ -51,6 +51,10 @@ class TrabajadorForm(forms.ModelForm):
             }),
             'estado': forms.Select(attrs={'class': 'form-select'}),
             'subestado': forms.Select(attrs={'class': 'form-select'}),
+            'es_standby': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'id': 'id_es_standby'
+            }),
             'fotocheck_fecha_emision': forms.DateInput(attrs={
                 'class': 'form-control', 
                 'type': 'date',

@@ -202,26 +202,56 @@
                         </div>
                         
                         <div class="row">
-                            <div class="col-md-4 form-group-compact">
+                            <div class="col-md-3 form-group-compact">
                                 <label class="form-label">{{ form.maquina_asignada.label }}</label>
                                 {{ form.maquina_asignada }}
                                 {% if form.maquina_asignada.errors %}<div class="text-danger small">{{ form.maquina_asignada.errors.0 }}</div>{% endif %}
                             </div>
-                            <div class="col-md-4 form-group-compact">
+                            <div class="col-md-3 form-group-compact">
                                 <label class="form-label">{{ form.guardia_asignada.label }}</label>
                                 {{ form.guardia_asignada }}
                                 {% if form.guardia_asignada.errors %}<div class="text-danger small">{{ form.guardia_asignada.errors.0 }}</div>{% endif %}
                             </div>
-                            <div class="col-md-4 form-group-compact">
+                            <div class="col-md-3 form-group-compact">
                                 <label class="form-label">{{ form.vehiculo_asignado.label }}</label>
                                 {{ form.vehiculo_asignado }}
                                 {% if form.vehiculo_asignado.errors %}<div class="text-danger small">{{ form.vehiculo_asignado.errors.0 }}</div>{% endif %}
                             </div>
+                            <div class="col-md-3 form-group-compact">
+                                <label class="form-label d-block">{{ form.es_standby.label }}</label>
+                                <div class="form-check form-switch">
+                                    {{ form.es_standby }}
+                                    <label class="form-check-label ms-2" for="id_es_standby">
+                                        <span class="badge bg-warning text-dark">🔄 Personal de Reserva</span>
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted">Personal flotante para cubrir ausencias. No se asigna a guardia fija.</small>
+                                {% if form.es_standby.errors %}<div class="text-danger small">{{ form.es_standby.errors.0 }}</div>{% endif %}
+                            </div>
                         </div>
 
-                        <!-- Estados (hidden con valores por defecto) -->
-                        {{ form.estado }}
-                        {{ form.subestado }}
+                        <!-- SECCIÓN: ESTADO Y TIPO DE TRABAJO -->
+                        <div class="section-header">
+                            <h6 class="mb-0"><i class="fas fa-clipboard-check"></i> Estado y Tipo de Trabajo</h6>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 form-group-compact">
+                                <label class="form-label">{{ form.tipo_trabajo.label }}</label>
+                                {{ form.tipo_trabajo }}
+                                {% if form.tipo_trabajo.errors %}<div class="text-danger small">{{ form.tipo_trabajo.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3 form-group-compact">
+                                <label class="form-label">{{ form.estado.label }}</label>
+                                {{ form.estado }}
+                                {% if form.estado.errors %}<div class="text-danger small">{{ form.estado.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3 form-group-compact">
+                                <label class="form-label">{{ form.subestado.label }}</label>
+                                {{ form.subestado }}
+                                {% if form.subestado.errors %}<div class="text-danger small">{{ form.subestado.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
                     
                         {% if form.non_field_errors %}
                             <div class="alert alert-danger mt-3">
