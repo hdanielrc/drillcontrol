@@ -51,9 +51,18 @@ class TareoService:
         regimen = trabajador.regimen_laboral
         fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
         
-        # Si no tiene régimen o fecha de inicio, asumir trabajo
-        if not regimen or not fecha_inicio_ciclo:
+        # Si no tiene régimen, asumir trabajo
+        if not regimen:
             return 'TRABAJO'
+            
+        # Si no tiene fecha de inicio, intentar usar un default razonable 
+        # para permitir que patrones como 14x7 funcionen
+        if not fecha_inicio_ciclo:
+            if trabajador.fecha_ingreso:
+                fecha_inicio_ciclo = trabajador.fecha_ingreso
+            else:
+                # Fallback: 1 de Enero de 2024 como ancla
+                fecha_inicio_ciclo = date(2024, 1, 1)
         
         # Si la fecha de consulta es anterior al inicio del ciclo, no aplica
         if fecha_consulta < fecha_inicio_ciclo:
