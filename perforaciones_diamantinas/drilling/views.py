@@ -2070,6 +2070,41 @@ def crear_turno_completo(request, pk=None):
             'edit_comentarios_perforistas': turno.comentarios_perforistas or '',
             'edit_litologia_general': turno.litologia_general or '',
         })
+    else:
+        # LÓGICA DE PRE-LLENADO AUTOMÁTICO (SOLO PARA CREACIÓN)
+        # 1. Si hay una sola máquina, pre-seleccionarla
+        if len(maquinas_contrato) == 1:
+            default_maquina = maquinas_contrato[0]
+            context['default_maquina_id'] = default_maquina.id
+            
+            # Buscar el último turno DE ESA MÁQUINA para predecir el siguiente
+            ultimo_turno = Turno.objects.filter(
+                maquina=default_maquina, 
+                contrato=contrato_qs
+            ).order_by('-fecha', '-id').first()
+            
+            if ultimo_turno:
+                # LÓGICA DE TURNOS: Asumimos "DIA" y "NOCHE" como nombres estándar
+                try:
+                    tipo_dia = TipoTurno.objects.filter(nombre__icontains='IA').first() # DIA
+                    tipo_noche = TipoTurno.objects.filter(nombre__icontains='OCH').first() # NOCHE
+                    
+                    if tipo_dia and tipo_noche:
+                        # Si el último fue DIA -> Sugerir NOCHE (misma fecha)
+                        if ultimo_turno.tipo_turno_id == tipo_dia.id:
+                            context['default_tipo_turno_id'] = tipo_noche.id
+                            context['default_fecha'] = ultimo_turno.fecha.isoformat()
+                        
+                        # Si el último fue NOCHE -> Sugerir DIA (fecha + 1)
+                        elif ultimo_turno.tipo_turno_id == tipo_noche.id:
+                            context['default_tipo_turno_id'] = tipo_dia.id
+                            context['default_fecha'] = (ultimo_turno.fecha + timedelta(days=1)).isoformat()
+                except Exception:
+                     pass # Fallback silencioso si no encuentra los tipos de turno
+        else:
+             # Si hay varias máquinas, podríamos intentar buscar el último turno global del contrato
+             # pero es arriesgado mezclar máquinas. Dejamos comportamiento standard.
+             pass
 
     return render(request, 'drilling/turno/crear_completo.html', context)
 

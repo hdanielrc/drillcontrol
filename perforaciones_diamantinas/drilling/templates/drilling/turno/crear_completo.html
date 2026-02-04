@@ -650,7 +650,7 @@
                         <select id="maquina" name="maquina" class="form-select" required>
                             <option value="">Seleccionar</option>
                             {% for maquina in maquinas %}
-                            <option value="{{ maquina.id }}">{{ maquina.nombre }}</option>
+                            <option value="{{ maquina.id }}" {% if edit_mode and edit_maquina_id == maquina.id %}selected{% elif not edit_mode and default_maquina_id == maquina.id %}selected{% endif %}>{{ maquina.nombre }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -661,7 +661,7 @@
                         <select id="tipo_turno" name="tipo_turno" class="form-select" required>
                             <option value="">Seleccionar</option>
                             {% for tipo in tipos_turno %}
-                            <option value="{{ tipo.id }}">{{ tipo.nombre }}</option>
+                            <option value="{{ tipo.id }}" {% if edit_mode and edit_tipo_turno_id == tipo.id %}selected{% elif not edit_mode and default_tipo_turno_id == tipo.id %}selected{% endif %}>{{ tipo.nombre }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -669,7 +669,7 @@
                 <div class="col-lg-2 col-md-4">
                     <div class="mb-3">
                         <label for="fecha" class="form-label fw-bold">Fecha *</label>
-                        <input type="date" id="fecha" name="fecha" class="form-control" required value="{{ today|date:'Y-m-d' }}">
+                        <input type="date" id="fecha" name="fecha" class="form-control" required value="{% if edit_mode %}{{ edit_fecha }}{% elif default_fecha %}{{ default_fecha }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}">
                     </div>
                 </div>
             </div>
