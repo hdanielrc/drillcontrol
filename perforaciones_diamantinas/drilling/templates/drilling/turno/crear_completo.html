@@ -2525,61 +2525,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('hora_inicio_maq').addEventListener('change', mostrarHorasTrabajadas);
     document.getElementById('hora_fin_maq').addEventListener('change', mostrarHorasTrabajadas);
 
-    // Mejorar función de crear actividad con autocompletado de horas
-    function crearActividadRowMejorada() {
-        const actividadCount = document.querySelectorAll('.actividad-row').length;
+    // [ELIMINADO] Antigua funcion crearActividadRowMejorada y su override. 
+    // Ahora se usa la funcion crearActividadRow principal definida anteriormente 
+    // que incluye la logica de Duración.
 
-        // Calcular hora de inicio basada en la última actividad
-        let horaInicioSugerida = '';
-        const ultimaActividad = document.querySelector('.actividad-row:last-child input[name*="hora_fin_act"]');
-        if (ultimaActividad && ultimaActividad.value) {
-            horaInicioSugerida = ultimaActividad.value;
-        } else {
-            // Si es la primera actividad, usar hora de inicio de máquina
-            const horaInicioMaq = document.getElementById('hora_inicio_maq').value;
-            horaInicioSugerida = horaInicioMaq || '06:00';
-        }
-
-        return `
-        <div class="actividad-row border rounded p-3 mb-3 bg-light position-relative">
-            <div class="row">
-                <div class="col-md-4">
-                    <label class="form-label">Actividad</label>
-                    <select name="actividad_${actividadCount}" class="form-select" required>
-                        <option value="">Seleccionar actividad</option>
-                        {% for actividad in tipos_actividad %}
-                        <option value="{{ actividad.id }}">{{ actividad.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Hora Inicio</label>
-                    <input type="time" name="hora_inicio_act_${actividadCount}" class="form-control hora-inicio-actividad" value="${horaInicioSugerida}" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Hora Fin</label>
-                    <input type="time" name="hora_fin_act_${actividadCount}" class="form-control hora-fin-actividad" required>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Observaciones</label>
-                    <input type="text" name="obs_act_${actividadCount}" class="form-control" placeholder="Observaciones opcionales">
-                </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-actividad" title="Eliminar actividad">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="duracion-actividad mt-2 text-muted small d-none">
-                <i class="fas fa-clock"></i> <span></span>
-            </div>
-        </div>`;
-    }
-
-    // Reemplazar la función original con la mejorada
-    function crearActividadRow() {
-        return crearActividadRowMejorada();
-    }
 
     // Mejorar función de crear corrida con autocompletado de metros
     function crearCorridaRowMejorada() {
