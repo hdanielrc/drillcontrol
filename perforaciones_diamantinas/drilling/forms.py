@@ -40,11 +40,11 @@ class TrabajadorForm(forms.ModelForm):
             'vehiculo_asignado': forms.Select(attrs={'class': 'form-select'}),
             'tipo_trabajo': forms.Select(attrs={'class': 'form-select'}),
             'regimen_laboral': forms.Select(attrs={'class': 'form-select'}),
-            'fecha_inicio_ciclo': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fecha_inicio_ciclo': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
             'dni': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'DNI o documento de identidad'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '+56 9 1234 5678'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'correo@ejemplo.com'}),
-            'fecha_ingreso': forms.DateInput(attrs={
+            'fecha_ingreso': forms.DateInput(format='%Y-%m-%d', attrs={
                 'class': 'form-control', 
                 'type': 'date',
                 'id': 'id_fecha_ingreso'
@@ -55,29 +55,29 @@ class TrabajadorForm(forms.ModelForm):
                 'class': 'form-check-input',
                 'id': 'id_es_standby'
             }),
-            'fotocheck_fecha_emision': forms.DateInput(attrs={
+            'fotocheck_fecha_emision': forms.DateInput(format='%Y-%m-%d', attrs={
                 'class': 'form-control', 
                 'type': 'date',
                 'id': 'id_fotocheck_fecha_emision'
             }),
-            'fotocheck_fecha_caducidad': forms.DateInput(attrs={
+            'fotocheck_fecha_caducidad': forms.DateInput(format='%Y-%m-%d', attrs={
                 'class': 'form-control', 
                 'type': 'date',
                 'id': 'id_fotocheck_fecha_caducidad',
                 'readonly': True
             }),
-            'emo_fecha_realizado': forms.DateInput(attrs={
+            'emo_fecha_realizado': forms.DateInput(format='%Y-%m-%d', attrs={
                 'class': 'form-control', 
                 'type': 'date',
                 'id': 'id_emo_fecha_realizado'
             }),
-            'emo_fecha_vencimiento': forms.DateInput(attrs={
+            'emo_fecha_vencimiento': forms.DateInput(format='%Y-%m-%d', attrs={
                 'class': 'form-control', 
                 'type': 'date',
                 'id': 'id_emo_fecha_vencimiento',
                 'readonly': True
             }),
-            'emo_programacion': forms.DateInput(attrs={
+            'emo_programacion': forms.DateInput(format='%Y-%m-%d', attrs={
                 'class': 'form-control', 
                 'type': 'date',
                 'id': 'id_emo_programacion',
