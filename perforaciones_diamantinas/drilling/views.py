@@ -2073,14 +2073,16 @@ def crear_turno_completo(request, pk=None):
     else:
         # LÓGICA DE PRE-LLENADO AUTOMÁTICO (SOLO PARA CREACIÓN)
         # 1. Si hay una sola máquina, pre-seleccionarla
-        if len(maquinas_contrato) == 1:
-            default_maquina = maquinas_contrato[0]
+        maquinas_list = context.get('maquinas', [])
+        if len(maquinas_list) == 1:
+            default_maquina = maquinas_list[0]
             context['default_maquina_id'] = default_maquina.id
             
             # Buscar el último turno DE ESA MÁQUINA para predecir el siguiente
+            # Usar default_maquina.contrato para filtrar, asumiendo que el objeto tiene el campo cargado o accesible
             ultimo_turno = Turno.objects.filter(
                 maquina=default_maquina, 
-                contrato=contrato_qs
+                contrato=default_maquina.contrato
             ).order_by('-fecha', '-id').first()
             
             if ultimo_turno:
