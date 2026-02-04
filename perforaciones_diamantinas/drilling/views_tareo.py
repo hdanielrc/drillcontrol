@@ -1665,15 +1665,16 @@ def autocompletar_tareo_por_regimen(request):
                 
                 # Para cada trabajador, determinar su estado ese día
                 for trabajador in trabajadores:
-                    # Calcular estado según régimen
-                    if trabajador.grupo == 'LINEA_MANDO':
-                        # Línea de mando trabaja todos los días hábiles (lunes a viernes)
-                        estado = 'TRABAJADO' if fecha_actual.weekday() < 5 else 'DIA_LIBRE'
-                    else:
-                        # Operadores, auxiliares y conductores: según régimen configurado
-                        estado = trabajador.calcular_estado_regimen(fecha_actual)
-                        if not estado:
-                            # Fallback si aún no se pudo calcular
+                    # Intenta calcular según régimen configurado (para TODOS, incluida Línea de Mando)
+                    estado = trabajador.calcular_estado_regimen(fecha_actual)
+                    
+                    # Si no tiene régimen configurado (return None), aplicar defaults por grupo
+                    if not estado:
+                        if trabajador.grupo == 'LINEA_MANDO':
+                            # Default para oficina: Lunes a Viernes
+                            estado = 'TRABAJADO' if fecha_actual.weekday() < 5 else 'DIA_LIBRE'
+                        else:
+                            # Default para operativos: Siempre Trabajo
                             estado = 'TRABAJADO'
                     
                     # Verificar si ya existe registro
