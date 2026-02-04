@@ -1460,18 +1460,32 @@ def generar_guardias_automaticas(request):
             }, status=400)
         
         # Calcular cuántas guardias podemos formar
-        # Idealmente: 1 perforista + 2 ayudantes por guardia
-        guardias_posibles_por_perforistas = num_perforistas
-        guardias_posibles_por_ayudantes = num_ayudantes // 2 if num_ayudantes >= 2 else 0
+        # Idealmente: 1 perforista + 2 ayudantes por guardia (maqueta completa)
+        # Pero flexible: Aceptamos formar con menos si falta gente (priorizar A, B, C)
         
-        # El número de guardias es el mínimo entre ambos, máximo 3
-        num_guardias = min(guardias_posibles_por_perforistas, guardias_posibles_por_ayudantes, 3)
+        # Siempre intentamos formar 3 guardias si hay suficiente personal mínimo
+        num_guardias = 3
         
-        # Si no podemos formar ni 1 guardia completa, advertir pero continuar
-        if num_guardias < 1:
-            num_guardias = min(3, max(1, num_perforistas))  # Al menos intentar con lo que hay
+        # Validar si realmente tenemos CERO capacidad para 3
+        if num_perforistas < 1 and num_ayudantes < 1:
+            num_guardias = 0
+        elif num_perforistas < 3 and num_ayudantes < 3:
+             # Si hay muy poco personal total, reducir guardias (solo si es extremo)
+             # Ej: 1 Perforista total -> 1 Guardia
+             # Ej: 2 Perforistas total -> 2 Guardias
+             # Pero si hay 3 perforistas, o 2P + 3A, intentamos estirar a 3
+             if num_perforistas > 0:
+                 num_guardias = min(3, num_perforistas) 
+             else:
+                 # Solo ayudantes
+                 num_guardias = min(3, max(1, num_ayudantes // 2))
         
-        guardias = ['A', 'B', 'C'][:num_guardias]  # Solo las guardias que podemos formar
+        # Forzar 3 guardias si el usuario lo pide implícitamente (lógica de negocio habitual)
+        # Salvo que sea absurdo (ej: 1 sola persona)
+        if (num_perforistas + num_ayudantes) >= 3:
+             num_guardias = 3
+
+        guardias = ['A', 'B', 'C'][:num_guardias]  # Guardias activas
         
         asignados = 0
         distribucion = {g: 0 for g in guardias}
@@ -1482,7 +1496,7 @@ def generar_guardias_automaticas(request):
         }
         
         with transaction.atomic():
-            # 1. Asignar PERFORISTAS de forma cíclica
+            # 1. Asignar PERFORISTAS de forma cíclica (A, B, C, A, B...)
             for i, perforista in enumerate(perforistas):
                 guardia = guardias[i % len(guardias)]
                 perforista.guardia_asignada = guardia
@@ -1491,10 +1505,11 @@ def generar_guardias_automaticas(request):
                 distribucion[guardia] += 1
                 detalles['perforistas'][guardia] += 1
             
-            # 2. Asignar AYUDANTES intentando 2 por guardia
+            # 2. Asignar AYUDANTES de forma cíclica (repartir equitativamente)
+            # Antes: 2xA, 2xB... (llenado agresivo)
+            # Ahora: A, B, C, A, B, C... (reparto equilibrado para cubrir mínimos)
             for i, ayudante in enumerate(ayudantes):
-                # Distribuir 2 por guardia: A, A, B, B, C, C, A, A...
-                guardia = guardias[(i // 2) % len(guardias)]
+                guardia = guardias[i % len(guardias)]
                 ayudante.guardia_asignada = guardia
                 ayudante.save(update_fields=['guardia_asignada'])
                 asignados += 1
