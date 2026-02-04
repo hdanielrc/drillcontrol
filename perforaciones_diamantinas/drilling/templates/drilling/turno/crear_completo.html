@@ -1011,6 +1011,14 @@
 
 {% block extra_js %}
 <script>
+    // Inicializar lista global de sondajes para actualización dinámica
+    window.listaSondajes = [
+        {% for sondaje in sondajes %}
+        { id: "{{ sondaje.id }}", text: "{{ sondaje.nombre_sondaje }}" },
+        {% endfor %}
+    ];
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     // NOTE: Select2, client-side date default and inline activity creation were removed to
     // keep `crear_completo.html` focused on serializing dynamic rows. The master list of
@@ -1329,14 +1337,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function crearSondajeRow() {
         const idx = document.querySelectorAll('.sondaje-row').length;
+        
+        // Construir opciones desde la variable global actualizada
+        let optionsHtml = '<option value="">Seleccionar sondaje</option>';
+        if (window.listaSondajes && window.listaSondajes.length > 0) {
+            window.listaSondajes.forEach(s => {
+                optionsHtml += `<option value="${s.id}">${s.text}</option>`;
+            });
+        }
+
         return `
         <div class="sondaje-row border rounded p-2 mb-2 bg-light d-flex align-items-center">
             <div class="flex-grow-1">
                 <select name="sondajes" class="form-select form-select-sm">
-                    <option value="">Seleccionar sondaje</option>
-                    {% for sondaje in sondajes %}
-                    <option value="{{ sondaje.id }}">{{ sondaje.nombre_sondaje }}</option>
-                    {% endfor %}
+                    ${optionsHtml}
                 </select>
             </div>
             <div class="ms-2" style="width:160px;">
@@ -2986,9 +3000,17 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Agregar el nuevo sondaje a todos los selectores
                 const nuevoSondaje = data.sondaje;
-                document.querySelectorAll('select[name^="sondaje_"]').forEach(function(select) {
+
+                // 1. Agregar a la lista global para futuros selectores
+                if (window.listaSondajes) {
+                    window.listaSondajes.push({ id: nuevoSondaje.id, text: nuevoSondaje.nombre_sondaje });
+                }
+
+                // 2. Agregar el nuevo sondaje a todos los selectores YA existentes en pantalla
+                // Buscamos 'sondajes' (lista dinámica) y cualquier otro selector legacy
+                const selectores = document.querySelectorAll('select[name="sondajes"], select[name^="sondaje_"]');
+                selectores.forEach(function(select) {
                     const option = document.createElement('option');
                     option.value = nuevoSondaje.id;
                     option.textContent = nuevoSondaje.nombre_sondaje;
@@ -2996,20 +3018,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
 
                 // Cerrar modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearSondaje'));
-                modal.hide();
+                const modalElement = document.getElementById('modalCrearSondaje');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) modal.hide();
 
                 // Limpiar formulario
                 form.reset();
-                document.getElementById('nuevo_fecha_inicio').value = '{{ today|date:"Y-m-d" }}';
+                const fechaInput = document.getElementById('nuevo_fecha_inicio');
+                if (fechaInput) fechaInput.value = '{{ today|date:"Y-m-d" }}';
 
                 // Mostrar mensaje de éxito
                 alert('✓ Sondaje "' + nuevoSondaje.nombre_sondaje + '" creado exitosamente');
 
                 // Si hay un selector de sondaje vacío, autoseleccionar el nuevo
-                const firstEmpty = document.querySelector('select[name^="sondaje_"]');
+                // Priorizar el primer selector disponible
+                const firstEmpty = document.querySelector('select[name="sondajes"] option[value=""]:checked')?.parentElement || document.querySelector('select[name="sondajes"]');
                 if (firstEmpty && firstEmpty.value === '') {
                     firstEmpty.value = nuevoSondaje.id;
+                    // Disparar evento change si es necesario
+                    firstEmpty.dispatchEvent(new Event('change'));
                 }
             } else {
                 alert('Error: ' + (data.error || 'No se pudo crear el sondaje'));
