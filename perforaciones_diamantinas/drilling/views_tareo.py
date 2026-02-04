@@ -183,6 +183,10 @@ def tareo_mensual_view(request):
              
         # Prioridad 4: Grupo Funcional por defecto
         else:
+            # Corrección visual: Personal Standby se agrupa con Auxiliares
+            if trabajador.es_standby:
+                trabajador.grupo = trabajador.asignar_grupo_automatico()
+
             grupo_raw = trabajador.grupo
             if not grupo_raw:
                 grupo_raw = trabajador.asignar_grupo_automatico() or 'SIN_GRUPO'

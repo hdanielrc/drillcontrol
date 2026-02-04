@@ -1741,6 +1741,10 @@ class Trabajador(models.Model):
             
         suffix = '_INTERIOR_MINA' if es_subterranea else '_SUPERFICIE'
         
+        # PERSONAL STANDBY: Se agrupa con Personal Auxiliar
+        if self.es_standby:
+            return f'PERSONAL_AUXILIAR{suffix}'
+        
         cargo_nombre = self.cargo.nombre.upper().strip()
         
         # OPERADORES: Perforistas, Ayudantes DDH y Ayudante Perforista
@@ -1804,6 +1808,10 @@ class Trabajador(models.Model):
                         # Si NO hay cupo en ninguna máquina, se marca como STANDBY automáticamente
                         if not self.maquina_asignada:
                             self.es_standby = True
+                            # Actualizar grupo a Personal Auxiliar
+                            nuevo_grupo = self.asignar_grupo_automatico()
+                            if nuevo_grupo:
+                                self.grupo = nuevo_grupo
             except Exception:
                 pass # Evitar errores bloqueantes en save()
         
