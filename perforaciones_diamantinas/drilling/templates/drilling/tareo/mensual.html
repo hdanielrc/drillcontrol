@@ -618,47 +618,134 @@
     .badge-estado[data-estado="LICENCIA_CON_GOCE"] { background: #d4edda; color: #155724; }
     .badge-estado[data-estado=""] { background: #e9ecef; color: #6c757d; }
     
-    /* Floating Shortcut Help */
+    /* Floating Shortcut Help - Optimizado Minimizado */
     .shortcut-help {
         position: fixed;
         bottom: 20px;
         right: 20px;
         background: white;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-radius: 50%; /* Circular cuando minimizado */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
         z-index: 2000;
         font-size: 0.8rem;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        width: 50px;
+        height: 50px;
+        overflow: hidden;
+        cursor: pointer;
+        display: flex !important; /* Forzar flex para centrar icono */
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #3498db;
+    }
+
+    /* Estado oculto inicialmente por lógica JS, pero visible minimizado una vez cargado */
+    
+    .shortcut-help:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    }
+
+    .shortcut-help.expanded {
+        border-radius: 12px;
+        width: 300px;
+        height: auto;
+        padding: 15px;
+        cursor: default;
+        transform: none !important;
+        display: block !important;
+        border: none;
+    }
+
+    .shortcut-minimized-icon {
+        font-size: 1.5rem;
+        color: #3498db;
+        display: block;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+    .shortcut-help.expanded .shortcut-minimized-icon {
         display: none;
     }
+
+    .shortcut-full-content {
+        display: none;
+        opacity: 0;
+    }
+
+    .shortcut-help.expanded .shortcut-full-content {
+        display: block;
+        opacity: 1;
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
     .shortcut-key {
         display: inline-block;
-        background: #eee;
-        border: 1px solid #ccc;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
         border-radius: 4px;
         padding: 2px 6px;
         font-family: monospace;
         font-weight: bold;
         margin-right: 5px;
+        min-width: 22px;
+        text-align: center;
+        color: #2c3e50;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 </style>
 
-<div class="shortcut-help" id="shortcutHelp">
-    <h6 class="mb-2 border-bottom pb-1"><i class="fas fa-keyboard"></i> Atajos de Teclado</h6>
-    <div class="mb-1"><span class="shortcut-key">T</span> Trabajado</div>
-    <div class="mb-1"><span class="shortcut-key">F</span> Falta</div>
-    <div class="mb-1"><span class="shortcut-key">D</span> Día Libre (DL)</div>
-    <div class="mb-1"><span class="shortcut-key">V</span> Vacaciones</div>
-    <div class="mb-1"><span class="shortcut-key">S</span> Stand By</div>
-    <div class="mb-1"><span class="shortcut-key">M</span> Descanso Médico</div>
-    <div class="mb-1"><span class="shortcut-key">Del</span> Borrar</div>
-    <div class="mt-2 pt-2 border-top">
-        <div class="mb-1 text-primary"><i class="fas fa-mouse-pointer"></i> <strong>Selección múltiple:</strong></div>
-        <div class="mb-1 small"><span class="shortcut-key">Shift</span> + Clic = Rango</div>
-        <div class="mb-1 small"><span class="shortcut-key">Ctrl</span> + Clic = Individual</div>
-        <div class="small text-muted">Luego seleccione estado/turno y clic en "Aplicar"</div>
+<div class="shortcut-help" id="shortcutHelp" onclick="this.classList.toggle('expanded')" title="Clic para ver atajos de teclado" style="display: none;">
+    <!-- Icono estado minimizado -->
+    <div class="shortcut-minimized-icon">
+        <i class="fas fa-keyboard"></i>
     </div>
-    <div class="mt-2 text-muted small"><i class="fas fa-arrows-alt"></i> Use flechas para navegar</div>
+    
+    <!-- Contenido estado expandido -->
+    <div class="shortcut-full-content">
+        <h6 class="mb-3 border-bottom pb-2 d-flex justify-content-between align-items-center text-primary">
+            <span><i class="fas fa-keyboard"></i> Atajos de Teclado</span>
+            <button type="button" class="btn btn-sm btn-link text-muted p-0" onclick="event.stopPropagation(); document.getElementById('shortcutHelp').classList.remove('expanded')">
+                <i class="fas fa-times"></i>
+            </button>
+        </h6>
+        
+        <div class="d-flex flex-wrap">
+            <div class="w-50 mb-2"><span class="shortcut-key">T</span> Trabajado</div>
+            <div class="w-50 mb-2"><span class="shortcut-key">F</span> <span class="text-danger">Falta</span></div>
+            <div class="w-50 mb-2"><span class="shortcut-key">D</span> Día Libre</div>
+            <div class="w-50 mb-2"><span class="shortcut-key">V</span> Vacaciones</div>
+            <div class="w-50 mb-2"><span class="shortcut-key">S</span> Stand By</div>
+            <div class="w-50 mb-2"><span class="shortcut-key">M</span> Médico</div>
+            <div class="w-100 mb-2"><span class="shortcut-key">Del</span> Borrar estado</div>
+        </div>
+
+        <div class="mt-2 pt-2 border-top bg-light p-2 rounded">
+            <div class="mb-1 text-dark" style="font-size: 0.85em;"><i class="fas fa-mouse-pointer"></i> <strong>Selección múltiple:</strong></div>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small"><span class="shortcut-key">Shift</span> + Clic</span>
+                <span class="badge badge-light border">Rango</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="small"><span class="shortcut-key">Ctrl</span> + Clic</span>
+                <span class="badge badge-light border">Individual</span>
+            </div>
+            <div class="mt-1 text-center small text-muted" style="font-size: 0.75em;">
+                (Seleccione celdas <i class="fas fa-arrow-right"></i> elija estado <i class="fas fa-arrow-right"></i> Aplicar)
+            </div>
+        </div>
+        <div class="mt-2 text-center text-muted small">
+            <i class="fas fa-arrows-alt"></i> Navegar con flechas
+        </div>
+    </div>
 </div>
 
 <script>
