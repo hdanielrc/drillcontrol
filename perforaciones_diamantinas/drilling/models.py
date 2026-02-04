@@ -1657,32 +1657,57 @@ class Trabajador(models.Model):
              guardias_a_revisar = [self.guardia_asignada]
 
         # Iterar máquinas y guardias buscando cupo
-        for maquina in maquinas:
-            for guardia in guardias_a_revisar:
-                # Contar ocupación actual en esa ranura (maquina + guardia)
-                # Excluimos al propio trabajador si ya está guardado
-                ocupantes = self.__class__.objects.filter(
-                    maquina_asignada=maquina,
-                    guardia_asignada=guardia,
-                    estado='ACTIVO'
-                )
-                if self.pk:
-                     ocupantes = ocupantes.exclude(pk=self.pk)
-                
-                cant_perforistas = ocupantes.filter(cargo__nombre__icontains='PERFORISTA').count()
-                cant_ayudantes = ocupantes.filter(cargo__nombre__icontains='AYUDANTE').count()
-                
-                # Verificar disponibilidad según rol
-                if is_perforista:
-                    if cant_perforistas < 1: # Máximo 1 perforista
-                        if not self.guardia_asignada:
-                            self.guardia_asignada = guardia
+        # ESTRATEGIA:
+        # Perforistas: Llenado simple (si falta 1 -> entra)
+        # Ayudantes: Balanceo de carga (primero asegurar 1 ayudante en todas, luego completar el 2do)
+
+        if is_perforista:
+            for maquina in maquinas:
+                for guardia in guardias_a_revisar:
+                    ocupantes = self.__class__.objects.filter(
+                        maquina_asignada=maquina,
+                        guardia_asignada=guardia,
+                        estado='ACTIVO'
+                    )
+                    if self.pk: ocupantes = ocupantes.exclude(pk=self.pk)
+                    
+                    cant_perforistas = ocupantes.filter(cargo__nombre__icontains='PERFORISTA').count()
+                    
+                    if cant_perforistas < 1:
+                        if not self.guardia_asignada: self.guardia_asignada = guardia
                         return maquina
-                
-                elif is_ayudante:
-                    if cant_ayudantes < 2: # Máximo 2 ayudantes
-                        if not self.guardia_asignada:
-                            self.guardia_asignada = guardia
+        
+        elif is_ayudante:
+            # Fase 1: Buscar huecos donde NO HAY ayudantes (prioridad operativa)
+            for maquina in maquinas:
+                for guardia in guardias_a_revisar:
+                    ocupantes = self.__class__.objects.filter(
+                        maquina_asignada=maquina,
+                        guardia_asignada=guardia,
+                        estado='ACTIVO'
+                    )
+                    if self.pk: ocupantes = ocupantes.exclude(pk=self.pk)
+                    
+                    cant_ayudantes = ocupantes.filter(cargo__nombre__icontains='AYUDANTE').count()
+                    
+                    if cant_ayudantes < 1: # Prioridad: Asegurar al menos 1
+                        if not self.guardia_asignada: self.guardia_asignada = guardia
+                        return maquina
+            
+            # Fase 2: Si todos tienen al menos 1, buscar huecos para el 2do ayudante
+            for maquina in maquinas:
+                for guardia in guardias_a_revisar:
+                    ocupantes = self.__class__.objects.filter(
+                        maquina_asignada=maquina,
+                        guardia_asignada=guardia,
+                        estado='ACTIVO'
+                    )
+                    if self.pk: ocupantes = ocupantes.exclude(pk=self.pk)
+                    
+                    cant_ayudantes = ocupantes.filter(cargo__nombre__icontains='AYUDANTE').count()
+                    
+                    if cant_ayudantes < 2: # Completar dotación ideal
+                        if not self.guardia_asignada: self.guardia_asignada = guardia
                         return maquina
         
         return None
