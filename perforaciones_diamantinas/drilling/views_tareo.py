@@ -169,8 +169,8 @@ def tareo_mensual_view(request):
             primary_name = 'LÍNEA DE MANDO'
             order_weight = 0
             
-        # Prioridad 2: Máquina Asignada (si existe)
-        elif trabajador.maquina_asignada:
+        # Prioridad 2: Máquina Asignada (si existe) - EXCEPTO STANDBY
+        elif trabajador.maquina_asignada and not trabajador.es_standby:
             primary_key = f'10_MAQ_{trabajador.maquina_asignada.id}'
             primary_name = trabajador.maquina_asignada.nombre
             order_weight = 10
