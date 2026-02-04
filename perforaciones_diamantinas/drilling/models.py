@@ -1625,35 +1625,65 @@ class Trabajador(models.Model):
 
     def asignar_maquina_por_defecto(self):
         """
-        Asigna una máquina por defecto al trabajador según su cargo y disponibilidad.
-        Solo asigna si el cargo es perforista o ayudante.
+        Asigna una máquina y guardia por defecto cumpliendo la maqueta:
+        - 3 Guardias (A, B, C)
+        - 1 Perforista por guardia
+        - 2 Ayudantes por guardia
         
-        Prioridad:
-        1. Máquinas del contrato que no tienen trabajadores asignados
-        2. Máquinas con menos trabajadores asignados
+        Si ya tiene guardia asignada, busca máquina con cupo en esa guardia.
+        Si no tiene guardia, busca el primer cupo disponible.
         """
         if not self.cargo:
             return None
         
         cargo_nombre = self.cargo.nombre.upper()
         
-        # Solo asignar a perforistas y ayudantes
-        if not any(keyword in cargo_nombre for keyword in ['PERFORISTA', 'AYUDANTE']):
+        # Identificar rol
+        is_perforista = 'PERFORISTA' in cargo_nombre
+        is_ayudante = 'AYUDANTE' in cargo_nombre
+        
+        if not (is_perforista or is_ayudante):
             return None
-        
-        # Buscar máquinas disponibles del mismo contrato
-        from django.db.models import Count
-        
-        maquinas_disponibles = Maquina.objects.filter(
+            
+        # Obtener máquinas operativas del contrato
+        maquinas = Maquina.objects.filter(
             contrato=self.contrato,
             estado='OPERATIVO'
-        ).annotate(
-            num_trabajadores=Count('trabajadores_asignados')
-        ).order_by('num_trabajadores', 'nombre')
+        ).order_by('nombre')
         
-        # Retornar la máquina con menos trabajadores asignados
-        if maquinas_disponibles.exists():
-            return maquinas_disponibles.first()
+        # Guardias a revisar (preferir la asignada si existe)
+        guardias_a_revisar = ['A', 'B', 'C']
+        if self.guardia_asignada and self.guardia_asignada in guardias_a_revisar:
+             guardias_a_revisar = [self.guardia_asignada]
+
+        # Iterar máquinas y guardias buscando cupo
+        for maquina in maquinas:
+            for guardia in guardias_a_revisar:
+                # Contar ocupación actual en esa ranura (maquina + guardia)
+                # Excluimos al propio trabajador si ya está guardado
+                ocupantes = self.__class__.objects.filter(
+                    maquina_asignada=maquina,
+                    guardia_asignada=guardia,
+                    estado='ACTIVO'
+                )
+                if self.pk:
+                     ocupantes = ocupantes.exclude(pk=self.pk)
+                
+                cant_perforistas = ocupantes.filter(cargo__nombre__icontains='PERFORISTA').count()
+                cant_ayudantes = ocupantes.filter(cargo__nombre__icontains='AYUDANTE').count()
+                
+                # Verificar disponibilidad según rol
+                if is_perforista:
+                    if cant_perforistas < 1: # Máximo 1 perforista
+                        if not self.guardia_asignada:
+                            self.guardia_asignada = guardia
+                        return maquina
+                
+                elif is_ayudante:
+                    if cant_ayudantes < 2: # Máximo 2 ayudantes
+                        if not self.guardia_asignada:
+                            self.guardia_asignada = guardia
+                        return maquina
         
         return None
 
@@ -1733,9 +1763,24 @@ class Trabajador(models.Model):
         # Asignar máquina por defecto si no tiene una asignada
         # y es perforista o ayudante
         if not self.maquina_asignada and self.cargo:
-            maquina_sugerida = self.asignar_maquina_por_defecto()
-            if maquina_sugerida:
-                self.maquina_asignada = maquina_sugerida
+            try:
+                # Verificar si es personal operativo
+                cargo_upper = self.cargo.nombre.upper()
+                es_operativo = 'PERFORISTA' in cargo_upper or 'AYUDANTE' in cargo_upper
+                
+                if es_operativo:
+                    maquina_sugerida = self.asignar_maquina_por_defecto()
+                    if maquina_sugerida:
+                        self.maquina_asignada = maquina_sugerida
+                        # Si se asignó máquina, ya no es standby (salvo que sea explícito)
+                        if self.es_standby and not self.pk: # Solo al crear
+                             self.es_standby = False
+                    else:
+                        # Si NO hay cupo en ninguna máquina, se marca como STANDBY automáticamente
+                        if not self.maquina_asignada:
+                            self.es_standby = True
+            except Exception:
+                pass # Evitar errores bloqueantes en save()
         
         super().save(*args, **kwargs)
 
