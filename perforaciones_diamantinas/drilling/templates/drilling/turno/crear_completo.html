@@ -2131,6 +2131,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (hf && act.hora_fin) hf.value = act.hora_fin;
                 var obs = row.querySelector('input[name^="obs_act_"]');
                 if (obs) obs.value = act.observaciones || '';
+
+                // Calcular y asignar duración para el nuevo input
+                if (act.hora_inicio && act.hora_fin) {
+                    var h1_parts = act.hora_inicio.split(':');
+                    var h2_parts = act.hora_fin.split(':');
+                    var h1 = parseInt(h1_parts[0]);
+                    var m1 = parseInt(h1_parts[1]);
+                    var h2 = parseInt(h2_parts[0]);
+                    var m2 = parseInt(h2_parts[1]);
+                    
+                    if (!isNaN(h1) && !isNaN(h2)) {
+                        var min1 = h1 * 60 + m1;
+                        var min2 = h2 * 60 + m2;
+                        if (min2 < min1) min2 += 1440; // Next day
+                        var diffHours = (min2 - min1) / 60;
+                        var durInput = row.querySelector('.duracion-actividad-input');
+                        if (durInput) durInput.value = parseFloat(diffHours.toFixed(2));
+                    }
+                }
             });
 
             (editData.corridas || []).forEach(function(cr) {
@@ -2210,6 +2229,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Determinar hora de inicio automática
         let horaInicio = '';
         const ultimaHoraFin = obtenerUltimaHoraFin();
+        let isFirst = false;
         
         if (ultimaHoraFin) {
             // Si hay actividades previas, usar la hora fin de la última
@@ -2217,12 +2237,16 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Si es la primera actividad, usar hora según tipo de turno
             horaInicio = obtenerHoraInicioPorDefecto();
+            isFirst = true;
         }
+
+        // La primera fila es editable, las siguientes son readonly (dependen de la anterior)
+        const readonlyAttr = isFirst ? '' : 'readonly';
         
         return `
         <div class="actividad-row border rounded p-3 mb-3 bg-light">
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Actividad</label>
                     <select name="actividad_${actividadCount}" class="form-select" required>
                         <option value="">Seleccionar actividad</option>
@@ -2233,13 +2257,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Hora Inicio</label>
-                    <input type="time" name="hora_inicio_act_${actividadCount}" class="form-control" value="${horaInicio}" required>
+                    <input type="time" name="hora_inicio_act_${actividadCount}" class="form-control hora-inicio-actividad" value="${horaInicio}" required ${readonlyAttr}>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Duración (h)</label>
+                    <input type="number" step="0.1" class="form-control duracion-actividad-input" placeholder="0.0" min="0">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Hora Fin</label>
-                    <input type="time" name="hora_fin_act_${actividadCount}" class="form-control" required>
+                    <input type="time" name="hora_fin_act_${actividadCount}" class="form-control hora-fin-actividad" readonly tabindex="-1" style="background-color: #e9ecef;">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Observaciones</label>
                     <input type="text" name="obs_act_${actividadCount}" class="form-control" placeholder="Observaciones">
                 </div>
@@ -2249,37 +2277,106 @@ document.addEventListener('DOMContentLoaded', function() {
                     </button>
                 </div>
             </div>
+            <!-- Hidden div for duration display if needed, but we have input now -->
+            <div class="duracion-actividad mt-1 small text-info fw-bold d-none">
+                <i class="fas fa-clock"></i> <span></span>
+            </div>
         </div>`;
     }
+
+    // Helper: Calcular Hora Fin basada en Inicio + Duración
+    function calcularHoraFin(horaInicio, duracionHoras) {
+        if (!horaInicio || duracionHoras === '' || duracionHoras === null) return '';
+        const [h, m] = horaInicio.split(':').map(Number);
+        if (isNaN(h) || isNaN(m)) return '';
+        
+        const dur = parseFloat(duracionHoras);
+        if (isNaN(dur)) return '';
+        
+        const totalMinutes = (h * 60) + m + Math.round(dur * 60);
+        
+        // Handle day overflow (simple modulo 24h)
+        let newH = Math.floor(totalMinutes / 60) % 24;
+        let newM = Math.round(totalMinutes % 60);
+        
+        return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+    }
+
+    // Helper: Propagar cambios en cascada
+    function actualizarCascadaActividades(startIndex) {
+        const rows = Array.from(document.querySelectorAll('.actividad-row'));
+        
+        // Empezar desde la fila modificada
+        for (let i = startIndex; i < rows.length; i++) {
+            const currentRow = rows[i];
+            const nextRow = rows[i + 1]; // Puede ser undefined
+            
+            const horaInicioInput = currentRow.querySelector('.hora-inicio-actividad');
+            const duracionInput = currentRow.querySelector('.duracion-actividad-input');
+            const horaFinInput = currentRow.querySelector('.hora-fin-actividad');
+            
+            // 1. Recalcular Fin actual (Inicio + Duracion)
+            if (horaInicioInput.value && duracionInput.value) {
+                const nuevaHoraFin = calcularHoraFin(horaInicioInput.value, duracionInput.value);
+                horaFinInput.value = nuevaHoraFin;
+                
+                // 2. Si hay siguiente fila, establecer su Inicio = Fin actual
+                if (nextRow && nuevaHoraFin) {
+                    const nextInicioInput = nextRow.querySelector('.hora-inicio-actividad');
+                    nextInicioInput.value = nuevaHoraFin;
+                    // Al cambiar el inicio de la siguiente, el bucle continuará y recalculará el fin de la siguiente
+                    // en la próxima iteración (i+1) if duration is present.
+                }
+            } else if (!duracionInput.value) {
+                horaFinInput.value = '';
+                // Si no hay fin, no podemos predecir el inicio del siguiente
+                // pero quizás deberíamos limpiar el siguiente?
+                // if (nextRow) nextRow.querySelector('.hora-inicio-actividad').value = '';
+            }
+        }
+    }
     
+    // Helper: Validar y actualizar visualización del empty state
+    function actualizarEmptyStateActividades() {
+        const emptyState = document.getElementById('empty-actividades');
+        const rows = document.querySelectorAll('.actividad-row');
+        if (emptyState) {
+            if (rows.length > 0) {
+                emptyState.classList.add('d-none');
+            } else {
+                emptyState.classList.remove('d-none');
+            }
+        }
+    }
+
     document.getElementById('agregar-actividad-btn').addEventListener('click', function() {
         document.getElementById('actividades-seccion').insertAdjacentHTML('beforeend', crearActividadRow());
+        actualizarEmptyStateActividades();
     });
     
     document.getElementById('actividades-seccion').addEventListener('click', function(event) {
         if (event.target.closest('.btn-remove-actividad')) {
             event.target.closest('.actividad-row').remove();
-        }
-    });
-    
-    // Auto-actualizar hora inicio de actividades cuando cambia la hora fin de la anterior
-    document.getElementById('actividades-seccion').addEventListener('change', function(event) {
-        if (event.target.name && event.target.name.includes('hora_fin_act')) {
-            const actividadRows = Array.from(document.querySelectorAll('.actividad-row'));
-            const currentRow = event.target.closest('.actividad-row');
-            const currentIndex = actividadRows.indexOf(currentRow);
             
-            // Si hay una actividad siguiente, actualizar su hora inicio
-            if (currentIndex >= 0 && currentIndex < actividadRows.length - 1) {
-                const siguienteActividad = actividadRows[currentIndex + 1];
-                const horaInicioSiguiente = siguienteActividad.querySelector('input[name*="hora_inicio_act"]');
-                
-                if (horaInicioSiguiente && event.target.value) {
-                    horaInicioSiguiente.value = event.target.value;
-                }
+            actualizarEmptyStateActividades();
+            // Si quedan filas, recalcular cascada
+            if (document.querySelectorAll('.actividad-row').length > 0) {
+                actualizarCascadaActividades(0);
             }
         }
     });
+
+    // Event Delegation para cambios en inputs de actividades
+    document.getElementById('actividades-seccion').addEventListener('input', function(event) {
+        if (event.target.matches('.duracion-actividad-input') || event.target.matches('.hora-inicio-actividad')) {
+            const row = event.target.closest('.actividad-row');
+            const rows = Array.from(document.querySelectorAll('.actividad-row'));
+            const index = rows.indexOf(row);
+            
+            actualizarCascadaActividades(index);
+        }
+    });
+
     // =============================================
     // FUNCIONES PARA CORRIDAS
     // =============================================
