@@ -671,6 +671,9 @@ def lista_abastecimientos(request):
         brocas_con_serie=Count('id', filter=Q(familia='PDD', serie__isnull=False))
     )
     
+    # Obtener todas las familias disponibles para el filtro
+    familias_disponibles = AbastecimientoArticulo.objects.values_list('familia', flat=True).distinct().order_by('familia')
+    
     context = {
         'contratos': contratos,
         'contrato': contrato,
@@ -680,6 +683,7 @@ def lista_abastecimientos(request):
         'busqueda': busqueda,
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
+        'familias_disponibles': familias_disponibles,
     }
     
     return render(request, 'drilling/abastecimientos/lista.html', context)

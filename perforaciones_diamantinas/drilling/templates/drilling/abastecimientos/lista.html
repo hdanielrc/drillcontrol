@@ -147,8 +147,11 @@
                 <label class="form-label fw-bold">Familia</label>
                 <select name="familia" class="form-select">
                     <option value="">Todas</option>
-                    <option value="PDD" {% if familia == 'PDD' %}selected{% endif %}>PDD - Brocas</option>
-                    <option value="ADIT" {% if familia == 'ADIT' %}selected{% endif %}>ADIT - Aditivos</option>
+                    {% for f in familias_disponibles %}
+                        <option value="{{ f }}" {% if familia == f %}selected{% endif %}>
+                            {% if f == 'PDD' %}PDD - Brocas{% elif f == 'ADIT' %}ADIT - Aditivos{% else %}{{ f }}{% endif %}
+                        </option>
+                    {% endfor %}
                 </select>
             </div>
             
