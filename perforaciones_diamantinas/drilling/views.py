@@ -2195,7 +2195,7 @@ def get_context_data(request):
         'tipos_actividad': tipos_actividad_qs,
         'tipos_complemento': TipoComplemento.objects.filter(
             contrato=contract,
-            estado='NUEVO'
+            estado__in=['NUEVO', 'EN_USO']
         ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato'),
         'tipos_aditivo': TipoAditivo.objects.filter(
             contrato=contract
