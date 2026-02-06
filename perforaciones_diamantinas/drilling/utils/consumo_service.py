@@ -70,40 +70,45 @@ class ConsumoService:
             'detalles_errores': []
         }
 
-        # 1. Determinar lista de Centros de Costo
-        centros_map = {} # codigo -> Objeto Contrato
+        # 1. Determinar lista de Centros de Costo (Usando codigo_almacen si existe, o fallback a lógica antigua)
+        # centros_map: codigo_almacen_para_api -> Objeto Contrato
+        centros_map = {} 
+        
         if centro_costo:
-            contratos = Contrato.objects.filter(
-                codigo_centro_costo=centro_costo,
-                estado='ACTIVO'
-            )
-            if not contratos.exists():
-                logger.warning(f"No se encontró contrato activo para CC {centro_costo}")
-                # Intentamos buscar aunque no esté activo, por si es histórico
-                contratos = Contrato.objects.filter(codigo_centro_costo=centro_costo)
+            # Buscar contrato por codigo_centro_costo (entrada del usuario)
+            contratos = Contrato.objects.filter(codigo_centro_costo=centro_costo)
             
             if contratos.exists():
-                centros_map[centro_costo] = contratos.first()
+                contrato = contratos.first()
+                # Usar el nuevo campo codigo_almacen para la API
+                codigo_api = contrato.codigo_almacen
+                if codigo_api:
+                    centros_map[codigo_api] = contrato
+                else:
+                    logger.warning(f"Contrato {contrato.nombre_contrato} no tiene codigo_almacen configurado.")
+            else:
+                logger.warning(f"No se encontró contrato para CC {centro_costo}")
+
         else:
-            # Todos los activos con CC
+            # Todos los activos con codigo_almacen configurado
             contratos = Contrato.objects.filter(
                 estado='ACTIVO'
-            ).exclude(codigo_centro_costo__isnull=True).exclude(codigo_centro_costo='')
+            ).exclude(codigo_almacen__isnull=True).exclude(codigo_almacen='')
             
             for c in contratos:
-                centros_map[c.codigo_centro_costo] = c
+                centros_map[c.codigo_almacen] = c
 
         if not centros_map:
-            logger.warning("No hay contratos configurados para sincronizar")
+            logger.warning("No hay contratos con codigo_almacen configurado para sincronizar")
             return resultado
 
         # 2. Iterar
-        for cc_codigo, contrato_obj in centros_map.items():
+        for codigo_api, contrato_obj in centros_map.items():
             try:
                 # Formatear el código (API requiere 2 dígitos: '01', '03', '24'...)
-                codigo_formatted = self._formatear_codigo_almacen(cc_codigo)
+                codigo_formatted = self._formatear_codigo_almacen(codigo_api)
                 
-                logger.info(f"Sincronizando CC {cc_codigo} -> API:{codigo_formatted} ({contrato_obj.nombre_contrato})")
+                logger.info(f"Sincronizando {contrato_obj.nombre_contrato} (CC:{contrato_obj.codigo_centro_costo}) -> API Almacen:{codigo_formatted}")
                 
                 consumos = self.api_client.obtener_consumos(
                     fecha_inicio=fecha_inicio,
@@ -112,7 +117,7 @@ class ConsumoService:
                 )
                 
                 if not consumos:
-                    logger.info(f"Sin consumos para CC {cc_codigo}")
+                    logger.info(f"Sin consumos para Almacen {codigo_formatted}")
                     continue
                     
                 resultado['total_api'] += len(consumos)
@@ -120,9 +125,10 @@ class ConsumoService:
                 with transaction.atomic():
                     for item in consumos:
                         try:
-                            self._procesar_item_consumo(item, cc_codigo, contrato_obj, resultado)
+                            # Pasamos codigo_api (almacen) pero el contrato ya está resuelto
+                            self._procesar_item_consumo(item, codigo_api, contrato_obj, resultado)
                         except Exception as e:
-                            msg = f"Error pesistiendo item {item.get('codigo')} en CC {cc_codigo}: {str(e)}"
+                            msg = f"Error pesistiendo item {item.get('codigo')} en Almacen {codigo_api}: {str(e)}"
                             logger.error(msg)
                             resultado['errores'] += 1
                             resultado['detalles_errores'].append(msg)

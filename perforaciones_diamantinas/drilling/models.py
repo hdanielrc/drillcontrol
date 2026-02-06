@@ -65,7 +65,14 @@ class Contrato(models.Model):
         blank=True, 
         null=True,
         verbose_name='Código Centro de Costo',
-        help_text='Código del centro de costo para APIs de Vilbragroup (ej: 000003)'
+        help_text='Código del centro de costo (ej: 000035)'
+    )
+    codigo_almacen = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True,
+        verbose_name='Código Almacén API',
+        help_text='Código utilizado en la API de Consumos (ej: 15)'
     )
     duracion_turno = models.PositiveIntegerField(default=8)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ACTIVO')
