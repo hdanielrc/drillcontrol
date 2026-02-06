@@ -239,21 +239,37 @@ class VilbragroupAPIClient:
         
         # Validar formato del periodo y convertir si es necesario
         periodo_api = periodo
-        if periodo.isdigit() and len(periodo) == 6:
-            # Convertir YYYYMM a YYYYMM01 (Primer día del mes, formato numérico para SQL)
-            periodo_api = f"{periodo}01"
-        elif '-' in periodo:
-            # Asumir que ya viene en formato fecha YYYY-MM-DD
-            # Extraer año y mes para forzar siempre al día 01 (Sincronización mensual)
-            parts = periodo.split('-')
-            if len(parts) == 3:
-                # parts[0]=YYYY, parts[1]=MM
-                periodo_api = f"{parts[0]}{parts[1]}01"
+        
+        # Lógica actualizada: La API espera SOLO EL AÑO (4 dígitos)
+        # Si recibimos YYYYMM (6 dígitos) o fecha completa, extraemos solo el año
+        
+        if periodo.isdigit():
+            if len(periodo) == 4:
+                # Ya es un año (ej: 2025)
+                periodo_api = periodo
+            elif len(periodo) == 6:
+                # Es YYYYMM (ej: 202601) -> Extraemos 2026
+                periodo_api = periodo[:4]
+            elif len(periodo) == 8:
+                # Es YYYYMMDD (ej: 20260101) -> Extraemos 2026
+                periodo_api = periodo[:4]
             else:
-                periodo_api = periodo.replace('-', '')
+                # Caso por defecto si es numérico pero longitud extraña
+                periodo_api = periodo[:4]
+        elif '-' in periodo:
+            # Es fecha con guiones (ej: 2026-01-01) -> Extraemos el año
+            parts = periodo.split('-')
+            if len(parts) >= 1 and len(parts[0]) == 4:
+                periodo_api = parts[0]
+            else:
+                 # Fallback: intentar limpiar todo lo no numérico
+                 nums = "".join(filter(str.isdigit, periodo))
+                 periodo_api = nums[:4] if nums else periodo
         else:
-            logger.error(f"Formato de periodo inválido: {periodo}. Debe ser YYYYMM (ej: 202601) o YYYY-MM-DD")
-            return []
+            # Último intento: tomar los primeros 4 caracteres
+            periodo_api = periodo[:4]
+            
+        logger.info(f"API Client v2: Periodo original '{periodo}' transformado a año '{periodo_api}'")
         
         params = {
             'token': self.token,

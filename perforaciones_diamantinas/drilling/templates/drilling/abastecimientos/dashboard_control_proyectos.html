@@ -277,9 +277,13 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Fecha de Periodo</label>
-                        <input type="date" name="periodo" class="form-control" required>
-                        <div class="form-text">Seleccione cualquier día del mes a sincronizar (se procesará el mes completo).</div>
+                        <label class="form-label fw-bold">Año a Sincronizar</label>
+                        <select name="periodo" class="form-select" required>
+                            <option value="2026" selected>2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                        </select>
+                        <div class="form-text">La sincronización traerá toda la información del año seleccionado.</div>
                     </div>
                     
                     <div class="mb-3">
