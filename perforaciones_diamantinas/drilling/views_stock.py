@@ -484,3 +484,319 @@ def historial_sincronizaciones(request):
     }
     
     return render(request, 'drilling/stock/historial_sincronizaciones.html', context)
+
+
+# ==================== VISTAS DE ABASTECIMIENTOS ====================
+
+@login_required
+def dashboard_control_proyectos_abastecimientos(request):
+    """
+    Dashboard consolidado multi-contrato para Control de Proyectos
+    Muestra resumen de todos los contratos con sus abastecimientos y brocas
+    """
+    from .models import AbastecimientoArticulo, HistorialBroca
+    from django.db.models import Count, Sum
+    from datetime import datetime
+    
+    user = request.user
+    
+    # Verificar que es Control de Proyectos, Gerencia o Superuser
+    if not (user.is_superuser or user.role in ['GERENCIA', 'CONTROL_PROYECTOS']):
+        messages.error(request, "No tienes acceso a este dashboard.")
+        return redirect('dashboard')
+    
+    # Obtener todos los contratos activos
+    contratos = Contrato.objects.filter(activo=True)
+    
+    # Preparar datos por contrato
+    contratos_data = []
+    for contrato in contratos:
+        stats_abast = AbastecimientoArticulo.objects.filter(contrato=contrato).aggregate(
+            total=Count('id'),
+            valor_total=Sum('precio_total')
+        )
+        
+        brocas_nuevas = HistorialBroca.objects.filter(
+            contrato_actual=contrato,
+            estado='NUEVA'
+        ).count()
+        
+        brocas_en_uso = HistorialBroca.objects.filter(
+            contrato_actual=contrato,
+            estado='EN_USO'
+        ).count()
+        
+        contratos_data.append({
+            'id': contrato.id,
+            'nombre': contrato.nombre_contrato,
+            'centro_costo': contrato.codigo_centro_costo or 'N/A',
+            'stats': {
+                'total_abastecimientos': stats_abast['total'] or 0,
+                'valor_total': stats_abast['valor_total'] or 0,
+                'brocas_disponibles': brocas_nuevas + brocas_en_uso,
+                'brocas_nuevas': brocas_nuevas,
+                'brocas_en_uso': brocas_en_uso,
+            }
+        })
+    
+    # Totales generales
+    totales = {
+        'total_abastecimientos': sum(c['stats']['total_abastecimientos'] for c in contratos_data),
+        'total_brocas': sum(c['stats']['brocas_disponibles'] for c in contratos_data),
+        'valor_total': sum(c['stats']['valor_total'] for c in contratos_data),
+        'periodo_actual': datetime.now().strftime('%Y%m'),
+    }
+    
+    context = {
+        'contratos': contratos,
+        'contratos_data': contratos_data,
+        'totales': totales,
+        'periodo_actual': datetime.now().strftime('%Y%m'),
+    }
+    
+    return render(request, 'drilling/abastecimientos/dashboard_control_proyectos.html', context)
+
+
+@login_required
+def lista_abastecimientos(request):
+    """
+    Lista de abastecimientos sincronizados desde API externa
+    """
+    from .models import AbastecimientoArticulo
+    from django.db.models import Q
+    
+    user = request.user
+    
+    # Determinar contratos accesibles
+    if user.is_superuser or user.role in ['GERENCIA', 'CONTROL_PROYECTOS']:
+        contratos = Contrato.objects.filter(activo=True)
+    elif hasattr(user, 'contrato') and user.contrato:
+        contratos = Contrato.objects.filter(id=user.contrato.id)
+    else:
+        messages.error(request, "No tienes acceso a ningún contrato.")
+        return redirect('dashboard')
+    
+    # Contrato seleccionado
+    contrato_id = request.GET.get('contrato')
+    if contrato_id:
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+    else:
+        contrato = contratos.first()
+    
+    if not contrato:
+        messages.warning(request, "No hay contratos disponibles.")
+        return redirect('dashboard')
+    
+    # Filtros
+    familia = request.GET.get('familia', '')
+    busqueda = request.GET.get('busqueda', '')
+    fecha_inicio = request.GET.get('fecha_inicio', '')
+    fecha_fin = request.GET.get('fecha_fin', '')
+    
+    # Queryset base
+    abastecimientos = AbastecimientoArticulo.objects.filter(
+        contrato=contrato
+    ).select_related('contrato', 'historial_broca')
+    
+    # Aplicar filtros
+    if familia:
+        abastecimientos = abastecimientos.filter(familia=familia)
+    
+    if busqueda:
+        abastecimientos = abastecimientos.filter(
+            Q(codigo__icontains=busqueda) |
+            Q(descripcion__icontains=busqueda) |
+            Q(serie__icontains=busqueda) |
+            Q(documento__icontains=busqueda)
+        )
+    
+    if fecha_inicio:
+        abastecimientos = abastecimientos.filter(fecha__gte=fecha_inicio)
+    
+    if fecha_fin:
+        abastecimientos = abastecimientos.filter(fecha__lte=fecha_fin)
+    
+    # Ordenar
+    abastecimientos = abastecimientos.order_by('-fecha', '-fecha_sincronizacion')
+    
+    # Paginación
+    from django.core.paginator import Paginator
+    paginator = Paginator(abastecimientos, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Estadísticas
+    stats = abastecimientos.aggregate(
+        total_registros=Count('id'),
+        total_cantidad=Sum('cantidad'),
+        total_valor=Sum('precio_total'),
+        brocas_con_serie=Count('id', filter=Q(familia='PDD', serie__isnull=False))
+    )
+    
+    context = {
+        'contratos': contratos,
+        'contrato': contrato,
+        'page_obj': page_obj,
+        'stats': stats,
+        'familia': familia,
+        'busqueda': busqueda,
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+    }
+    
+    return render(request, 'drilling/abastecimientos/lista.html', context)
+
+
+@login_required
+def detalle_abastecimiento(request, abastecimiento_id):
+    """
+    Detalle de un abastecimiento específico
+    """
+    from .models import AbastecimientoArticulo
+    
+    abastecimiento = get_object_or_404(
+        AbastecimientoArticulo.objects.select_related(
+            'contrato', 'historial_broca', 'historial_broca__tipo_complemento'
+        ),
+        id=abastecimiento_id
+    )
+    
+    # Verificar permisos
+    user = request.user
+    if not (user.is_superuser or 
+            user.role in ['GERENCIA', 'CONTROL_PROYECTOS'] or
+            (hasattr(user, 'contrato') and user.contrato == abastecimiento.contrato)):
+        messages.error(request, "No tienes permiso para ver este abastecimiento.")
+        return redirect('lista-abastecimientos')
+    
+    # Si es una broca con serie, obtener información adicional
+    broca_info = None
+    if abastecimiento.historial_broca:
+        broca = abastecimiento.historial_broca
+        
+        # Obtener historial de usos
+        from .models import TurnoComplemento
+        usos = TurnoComplemento.objects.filter(
+            serie_broca=broca.serie
+        ).select_related('turno').order_by('-turno__fecha')[:20]
+        
+        broca_info = {
+            'broca': broca,
+            'usos_recientes': usos,
+            'metraje_total': broca.metraje_acumulado,
+            'numero_usos': broca.numero_usos,
+        }
+    
+    context = {
+        'abastecimiento': abastecimiento,
+        'broca_info': broca_info,
+    }
+    
+    return render(request, 'drilling/abastecimientos/detalle.html', context)
+
+
+@login_required
+@require_POST
+def sincronizar_abastecimientos_manual(request):
+    """
+    Endpoint para ejecutar sincronización manual desde la interfaz
+    """
+    from .utils.abastecimiento_service import abastecimiento_service
+    
+    periodo = request.POST.get('periodo')
+    centro_costo = request.POST.get('centro_costo', '')
+    familia = request.POST.get('familia', '')
+    
+    if not periodo:
+        messages.error(request, "Debe especificar un periodo (formato YYYYMM)")
+        return redirect('lista-abastecimientos')
+    
+    try:
+        resultado = abastecimiento_service.sincronizar_periodo(
+            periodo=periodo,
+            centro_costo=centro_costo if centro_costo else None,
+            solo_familia=familia if familia else None
+        )
+        
+        if resultado['errores'] == 0:
+            messages.success(
+                request,
+                f"Sincronización exitosa: {resultado['importados']} importados, "
+                f"{resultado['actualizados']} actualizados, "
+                f"{resultado['brocas_creadas']} brocas nuevas"
+            )
+        else:
+            messages.warning(
+                request,
+                f"Sincronización con errores: {resultado['errores']} registros fallidos. "
+                f"{resultado['importados']} importados correctamente."
+            )
+            
+    except Exception as e:
+        messages.error(request, f"Error en sincronización: {str(e)}")
+    
+    return redirect('lista-abastecimientos')
+
+
+@login_required
+def dashboard_brocas_disponibles(request):
+    """
+    Dashboard de brocas disponibles (NUEVA o EN_USO) por contrato
+    """
+    from .models import HistorialBroca
+    
+    user = request.user
+    
+    # Determinar contratos accesibles
+    if user.is_superuser or user.role in ['GERENCIA', 'CONTROL_PROYECTOS']:
+        contratos = Contrato.objects.filter(activo=True)
+    elif hasattr(user, 'contrato') and user.contrato:
+        contratos = Contrato.objects.filter(id=user.contrato.id)
+    else:
+        messages.error(request, "No tienes acceso a ningún contrato.")
+        return redirect('dashboard')
+    
+    # Contrato seleccionado
+    contrato_id = request.GET.get('contrato')
+    if contrato_id:
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+    else:
+        contrato = contratos.first()
+    
+    if not contrato:
+        messages.warning(request, "No hay contratos disponibles.")
+        return redirect('dashboard')
+    
+    # Obtener brocas disponibles
+    brocas_nuevas = HistorialBroca.objects.filter(
+        contrato_actual=contrato,
+        estado='NUEVA'
+    ).select_related('tipo_complemento').order_by('serie')
+    
+    brocas_en_uso = HistorialBroca.objects.filter(
+        contrato_actual=contrato,
+        estado='EN_USO'
+    ).select_related('tipo_complemento').order_by('serie')
+    
+    # Estadísticas
+    from django.db.models import Avg
+    
+    stats = {
+        'total_nuevas': brocas_nuevas.count(),
+        'total_en_uso': brocas_en_uso.count(),
+        'total_disponibles': brocas_nuevas.count() + brocas_en_uso.count(),
+        'metraje_promedio': brocas_en_uso.aggregate(
+            promedio=Avg('metraje_acumulado')
+        )['promedio'] or 0,
+    }
+    
+    context = {
+        'contratos': contratos,
+        'contrato': contrato,
+        'brocas_nuevas': brocas_nuevas,
+        'brocas_en_uso': brocas_en_uso,
+        'stats': stats,
+    }
+    
+    return render(request, 'drilling/abastecimientos/dashboard_brocas.html', context)
+

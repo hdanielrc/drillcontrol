@@ -258,6 +258,21 @@ urlpatterns = [
     path('api/stock/v2/alertas/', views_stock.api_alertas_activas, name='api-alertas-activas'),
     path('api/stock/v2/sincronizar/<int:contrato_id>/', views_stock.sincronizar_stock_contrato, name='api-sincronizar-stock'),
     
+    # =========================================================================
+    # ABASTECIMIENTOS - Integración con API Externa
+    # =========================================================================
+    
+    # Dashboard Control de Proyectos (Multi-Contrato)
+    path('abastecimientos/control-proyectos/', views_stock.dashboard_control_proyectos_abastecimientos, name='dashboard-control-proyectos-abastecimientos'),
+    
+    # Lista y gestión de abastecimientos
+    path('abastecimientos/', views_stock.lista_abastecimientos, name='lista-abastecimientos'),
+    path('abastecimientos/<int:abastecimiento_id>/', views_stock.detalle_abastecimiento, name='detalle-abastecimiento'),
+    path('abastecimientos/sincronizar/', views_stock.sincronizar_abastecimientos_manual, name='sincronizar-abastecimientos'),
+    
+    # Dashboard de brocas disponibles
+    path('abastecimientos/brocas-disponibles/', views_stock.dashboard_brocas_disponibles, name='dashboard-brocas-disponibles'),
+    
     # APIs
     path('api/abastecimiento/<int:pk>/', views.api_abastecimiento_detalle, name='api-abastecimiento-detalle'),
     

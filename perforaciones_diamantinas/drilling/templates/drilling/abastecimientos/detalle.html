@@ -1,0 +1,278 @@
+{% extends 'drilling/base_admin.html' %}
+{% load static %}
+
+{% block title %}Detalle Abastecimiento - {{ abastecimiento.codigo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .info-value {
+        color: #212529;
+        text-align: right;
+    }
+    
+    .badge-familia {
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    .badge-PDD {
+        background: #d1f2eb;
+        color: #0e6655;
+    }
+    
+    .badge-ADIT {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .serie-display {
+        background: #e3f2fd;
+        color: #1565c0;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 1.2rem;
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+        display: inline-block;
+    }
+    
+    .broca-info-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+    }
+    
+    .uso-item {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        border-left: 4px solid #0470AC;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="fas fa-box me-2"></i>Detalle de Abastecimiento
+            </h2>
+            <p class="text-muted mb-0">{{ abastecimiento.descripcion }}</p>
+        </div>
+        <div>
+            <a href="{% url 'lista-abastecimientos' %}?contrato={{ abastecimiento.contrato.id }}" 
+               class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver a Lista
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información del Artículo -->
+        <div class="col-lg-8">
+            <div class="detail-card">
+                <h4 class="fw-bold mb-4">Información del Artículo</h4>
+                
+                <div class="info-row">
+                    <span class="info-label">Código:</span>
+                    <span class="info-value"><code class="text-primary">{{ abastecimiento.codigo }}</code></span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Descripción:</span>
+                    <span class="info-value">{{ abastecimiento.descripcion }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Familia:</span>
+                    <span class="info-value">
+                        <span class="badge-familia badge-{{ abastecimiento.familia }}">
+                            {{ abastecimiento.familia }}
+                        </span>
+                    </span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Serie:</span>
+                    <span class="info-value">
+                        {% if abastecimiento.serie %}
+                            <span class="serie-display">{{ abastecimiento.serie }}</span>
+                        {% else %}
+                            <span class="text-muted">Sin serie</span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Fecha:</span>
+                    <span class="info-value">{{ abastecimiento.fecha|date:"d/m/Y" }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Contrato:</span>
+                    <span class="info-value">{{ abastecimiento.contrato.nombre_contrato }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Centro de Costo:</span>
+                    <span class="info-value">{{ abastecimiento.centro_costo }}</span>
+                </div>
+            </div>
+
+            <!-- Información Documental -->
+            <div class="detail-card">
+                <h4 class="fw-bold mb-4">Información Documental</h4>
+                
+                <div class="info-row">
+                    <span class="info-label">Documento:</span>
+                    <span class="info-value"><strong>{{ abastecimiento.documento }}</strong></span>
+                </div>
+                
+                {% if abastecimiento.documento_referencia %}
+                <div class="info-row">
+                    <span class="info-label">Documento Referencia:</span>
+                    <span class="info-value">{{ abastecimiento.documento_referencia }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="info-row">
+                    <span class="info-label">Código Movimiento:</span>
+                    <span class="info-value">{{ abastecimiento.codigo_movimiento }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Fecha Sincronización:</span>
+                    <span class="info-value">{{ abastecimiento.fecha_sincronizacion|date:"d/m/Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valores y Cantidades -->
+        <div class="col-lg-4">
+            <div class="detail-card">
+                <h4 class="fw-bold mb-4">Cantidades y Valores</h4>
+                
+                <div class="text-center mb-4">
+                    <h2 class="text-primary fw-bold mb-0">{{ abastecimiento.cantidad|floatformat:2 }}</h2>
+                    <p class="text-muted">{{ abastecimiento.unidad }}</p>
+                </div>
+                
+                <hr>
+                
+                <div class="info-row">
+                    <span class="info-label">Precio Unitario:</span>
+                    <span class="info-value">S/ {{ abastecimiento.precio_unitario|floatformat:2 }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Precio Total:</span>
+                    <span class="info-value">
+                        <strong class="text-success fs-5">S/ {{ abastecimiento.precio_total|floatformat:2 }}</strong>
+                    </span>
+                </div>
+            </div>
+
+            {% if broca_info %}
+            <!-- Información de la Broca -->
+            <div class="broca-info-card">
+                <h4 class="fw-bold mb-3">
+                    <i class="fas fa-tools me-2"></i>Información de Broca
+                </h4>
+                
+                <div class="mb-3">
+                    <small class="opacity-75">Estado Actual</small>
+                    <h5 class="fw-bold">{{ broca_info.broca.get_estado_display }}</h5>
+                </div>
+                
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <h4 class="fw-bold mb-0">{{ broca_info.metraje_total|floatformat:2 }}m</h4>
+                        <small class="opacity-75">Metraje Total</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="fw-bold mb-0">{{ broca_info.numero_usos }}</h4>
+                        <small class="opacity-75">Usos Registrados</small>
+                    </div>
+                </div>
+                
+                <a href="{% url 'historial-broca-detalle' abastecimiento.serie %}" 
+                   class="btn btn-light btn-sm w-100 mt-2">
+                    <i class="fas fa-history me-2"></i>Ver Historial Completo
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if broca_info and broca_info.usos_recientes %}
+    <!-- Usos Recientes -->
+    <div class="detail-card">
+        <h4 class="fw-bold mb-4">
+            <i class="fas fa-clock me-2"></i>Usos Recientes
+        </h4>
+        
+        {% for uso in broca_info.usos_recientes %}
+        <div class="uso-item">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <strong>{{ uso.turno.fecha|date:"d/m/Y" }}</strong>
+                    <span class="badge bg-secondary ms-2">{{ uso.turno.get_turno_display }}</span>
+                </div>
+                <div class="col-md-3">
+                    {% if uso.turno.turnomaquina_set.first %}
+                    <i class="fas fa-cog me-1"></i>{{ uso.turno.turnomaquina_set.first.maquina.nombre }}
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    {% if uso.turno.turnosondaje_set.first %}
+                    <i class="fas fa-map-marker-alt me-1"></i>{{ uso.turno.turnosondaje_set.first.sondaje.codigo }}
+                    {% endif %}
+                </div>
+                <div class="col-md-3 text-end">
+                    <strong class="text-primary">{{ uso.metros_turno_calc|floatformat:2 }} m</strong>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if broca_info.numero_usos > broca_info.usos_recientes|length %}
+        <div class="text-center mt-3">
+            <a href="{% url 'historial-broca-detalle' abastecimiento.serie %}" class="btn btn-outline-primary">
+                Ver todos los {{ broca_info.numero_usos }} usos
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

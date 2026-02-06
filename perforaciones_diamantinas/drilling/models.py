@@ -2514,6 +2514,209 @@ class ConsumoStock(models.Model):
         super().save(*args, **kwargs)
 
 
+class AbastecimientoArticulo(models.Model):
+    """
+    Registro de artículos abastecidos desde la API externa.
+    Almacena el historial de todos los abastecimientos recibidos con su información completa.
+    Se sincroniza periódicamente con el endpoint de abastecidos.
+    """
+    
+    # Identificación y fecha
+    fecha = models.DateField(
+        db_index=True,
+        verbose_name='Fecha de Abastecimiento'
+    )
+    
+    centro_costo = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name='Centro de Costo'
+    )
+    
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.PROTECT,
+        related_name='abastecimientos_api',
+        verbose_name='Contrato',
+        help_text='Contrato asociado al centro de costo'
+    )
+    
+    # Documentación
+    documento = models.CharField(
+        max_length=100,
+        db_index=True,
+        verbose_name='Número de Documento',
+        help_text='Número de documento del abastecimiento'
+    )
+    
+    documento_referencia = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Documento de Referencia',
+        help_text='Documento de referencia asociado'
+    )
+    
+    # Artículo
+    codigo = models.CharField(
+        max_length=100,
+        db_index=True,
+        verbose_name='Código de Artículo'
+    )
+    
+    serie = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name='Serie',
+        help_text='Serie individual del artículo (especialmente importante para brocas)'
+    )
+    
+    descripcion = models.TextField(
+        verbose_name='Descripción'
+    )
+    
+    codigo_movimiento = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name='Código de Movimiento'
+    )
+    
+    # Cantidades y medidas
+    cantidad = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name='Cantidad'
+    )
+    
+    unidad = models.CharField(
+        max_length=20,
+        verbose_name='Unidad de Medida'
+    )
+    
+    familia = models.CharField(
+        max_length=20,
+        db_index=True,
+        verbose_name='Familia',
+        help_text='Familia del artículo (PDD, ADIT, etc.)'
+    )
+    
+    # Precios
+    precio_unitario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name='Precio Unitario'
+    )
+    
+    precio_total = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name='Precio Total'
+    )
+    
+    # Relación con HistorialBroca (si es una broca con serie)
+    historial_broca = models.ForeignKey(
+        'HistorialBroca',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='abastecimientos',
+        verbose_name='Historial de Broca',
+        help_text='Referencia al historial de la broca (si aplica)'
+    )
+    
+    # Timestamps
+    fecha_sincronizacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de Sincronización',
+        help_text='Fecha en que se sincronizó este registro desde la API'
+    )
+    
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Última Actualización'
+    )
+    
+    class Meta:
+        db_table = 'abastecimiento_articulo'
+        verbose_name = 'Abastecimiento de Artículo'
+        verbose_name_plural = 'Abastecimientos de Artículos'
+        ordering = ['-fecha', '-fecha_sincronizacion']
+        unique_together = [
+            ('documento', 'codigo', 'serie'),  # Un documento no puede tener el mismo artículo+serie duplicado
+        ]
+        indexes = [
+            models.Index(fields=['fecha', 'centro_costo']),
+            models.Index(fields=['familia', 'codigo']),
+            models.Index(fields=['serie'], name='idx_abastec_serie'),
+            models.Index(fields=['contrato', 'fecha']),
+        ]
+    
+    def __str__(self):
+        serie_info = f" - Serie: {self.serie}" if self.serie else ""
+        return f"{self.codigo} ({self.descripcion[:30]}){serie_info} - {self.fecha}"
+    
+    def save(self, *args, **kwargs):
+        """
+        Al guardar, si es una broca con serie (familia PDD y tiene serie),
+        crea o actualiza automáticamente el registro en HistorialBroca
+        """
+        super().save(*args, **kwargs)
+        
+        # Si es una broca con serie, sincronizar con HistorialBroca
+        if self.familia == 'PDD' and self.serie:
+            self._sincronizar_historial_broca()
+    
+    def _sincronizar_historial_broca(self):
+        """
+        Crea o actualiza el registro en HistorialBroca para esta broca
+        """
+        from django.utils import timezone
+        
+        try:
+            # Buscar o crear el tipo de complemento basado en la descripción
+            tipo_complemento, _ = TipoComplemento.objects.get_or_create(
+                nombre=self.descripcion[:100],
+                defaults={
+                    'unidad_medida': self.unidad,
+                    'es_broca': True
+                }
+            )
+            
+            # Buscar o crear el historial de broca
+            historial, created = HistorialBroca.objects.get_or_create(
+                serie=self.serie,
+                defaults={
+                    'tipo_complemento': tipo_complemento,
+                    'contrato_actual': self.contrato,
+                    'estado': 'NUEVA',
+                    'metraje_acumulado': 0,
+                    'numero_usos': 0,
+                }
+            )
+            
+            # Actualizar la referencia
+            if self.historial_broca != historial:
+                self.historial_broca = historial
+                # Usar update para evitar recursión infinita
+                AbastecimientoArticulo.objects.filter(pk=self.pk).update(
+                    historial_broca=historial
+                )
+            
+            # Si se creó el historial, registrar en observaciones
+            if created:
+                historial.observaciones = (
+                    f"Abastecido el {self.fecha.strftime('%d/%m/%Y')} - "
+                    f"Documento: {self.documento} - "
+                    f"Precio: S/ {self.precio_unitario}"
+                )
+                historial.save(update_fields=['observaciones'])
+                
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error al sincronizar historial de broca {self.serie}: {e}")
+
+
 class PrecioUnitarioServicio(models.Model):
     """
     Precios unitarios de servicios por contrato.

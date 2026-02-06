@@ -1154,3 +1154,100 @@ class ConfiguracionAlertaStockAdmin(admin.ModelAdmin):
         }),
     )
 
+
+@admin.register(AbastecimientoArticulo)
+class AbastecimientoArticuloAdmin(admin.ModelAdmin):
+    """Admin para gestionar abastecimientos sincronizados desde API externa"""
+    
+    list_display = [
+        'fecha', 'codigo', 'serie', 'descripcion_corta', 'familia',
+        'cantidad', 'precio_total', 'contrato', 'documento', 
+        'tiene_historial_broca', 'fecha_sincronizacion'
+    ]
+    
+    list_filter = [
+        'familia', 
+        'contrato',
+        'fecha',
+        ('serie', admin.EmptyFieldListFilter),
+        'fecha_sincronizacion'
+    ]
+    
+    search_fields = [
+        'codigo', 'serie', 'descripcion', 'documento', 
+        'documento_referencia', 'centro_costo'
+    ]
+    
+    readonly_fields = [
+        'fecha_sincronizacion', 'actualizado_en', 'historial_broca'
+    ]
+    
+    date_hierarchy = 'fecha'
+    
+    fieldsets = (
+        ('Información General', {
+            'fields': ('fecha', 'contrato', 'centro_costo')
+        }),
+        ('Documentación', {
+            'fields': ('documento', 'documento_referencia', 'codigo_movimiento')
+        }),
+        ('Artículo', {
+            'fields': (
+                'codigo', 'serie', 'descripcion', 'familia',
+                'cantidad', 'unidad'
+            )
+        }),
+        ('Precios', {
+            'fields': ('precio_unitario', 'precio_total')
+        }),
+        ('Relación con Historial', {
+            'fields': ('historial_broca',),
+            'classes': ('collapse',),
+            'description': 'Se establece automáticamente para brocas con serie (familia PDD)'
+        }),
+        ('Metadatos', {
+            'fields': ('fecha_sincronizacion', 'actualizado_en'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    list_per_page = 50
+    
+    def descripcion_corta(self, obj):
+        """Mostrar descripción truncada"""
+        if len(obj.descripcion) > 50:
+            return obj.descripcion[:50] + '...'
+        return obj.descripcion
+    descripcion_corta.short_description = 'Descripción'
+    
+    def tiene_historial_broca(self, obj):
+        """Indicador visual si tiene historial de broca"""
+        if obj.historial_broca:
+            return '✓'
+        return '-'
+    tiene_historial_broca.short_description = 'Broca'
+    tiene_historial_broca.boolean = True
+    
+    actions = ['resincronizar_historial_brocas']
+    
+    @admin.action(description='Re-sincronizar con Historial de Brocas')
+    def resincronizar_historial_brocas(self, request, queryset):
+        """Acción para re-sincronizar abastecimientos con HistorialBroca"""
+        queryset = queryset.filter(familia='PDD', serie__isnull=False)
+        
+        sincronizados = 0
+        for abastecimiento in queryset:
+            try:
+                abastecimiento._sincronizar_historial_broca()
+                sincronizados += 1
+            except Exception as e:
+                messages.error(
+                    request,
+                    f'Error sincronizando {abastecimiento.serie}: {str(e)}'
+                )
+        
+        if sincronizados > 0:
+            messages.success(
+                request,
+                f'{sincronizados} abastecimientos re-sincronizados con Historial de Brocas'
+            )

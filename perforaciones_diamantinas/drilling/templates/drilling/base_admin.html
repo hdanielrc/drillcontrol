@@ -222,6 +222,12 @@
                             <i class="fas fa-boxes"></i> Inventario
                         </a>
                         <ul class="dropdown-menu">
+                            {% if user.role == 'CONTROL_PROYECTOS' or user.is_superuser %}
+                            <li><a class="dropdown-item bg-primary text-white" href="{% url 'dashboard-control-proyectos-abastecimientos' %}">
+                                <i class="fas fa-project-diagram"></i> Dashboard Multi-Contrato
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{% url 'abastecimiento-list' %}">
                                 <i class="fas fa-truck"></i> Abastecimiento
                             </a></li>
@@ -234,6 +240,13 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'vista-stock-almacen' %}">
                                 <i class="fas fa-cloud"></i> Stock Almacén (API)
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'lista-abastecimientos' %}">
+                                <i class="fas fa-box-open"></i> Abastecimientos API v2
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'dashboard-brocas-disponibles' %}">
+                                <i class="fas fa-tools"></i> Brocas Disponibles
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'historial-brocas-lista' %}">

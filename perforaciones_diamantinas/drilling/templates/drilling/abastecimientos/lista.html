@@ -1,0 +1,355 @@
+{% extends 'drilling/base_admin.html' %}
+{% load static %}
+
+{% block title %}Abastecimientos - Sistema de Trazabilidad{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .stats-card h3 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .stats-card p {
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    .filter-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .table-responsive {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .badge-familia {
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .badge-PDD {
+        background: #d1f2eb;
+        color: #0e6655;
+    }
+    
+    .badge-ADIT {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .serie-badge {
+        background: #e3f2fd;
+        color: #1565c0;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .sync-btn {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: transform 0.2s;
+    }
+    
+    .sync-btn:hover {
+        transform: translateY(-2px);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="fas fa-box-open me-2"></i>Abastecimientos
+            </h2>
+            <p class="text-muted mb-0">Registro de artículos sincronizados desde API externa</p>
+        </div>
+        <div>
+            {% if perms.drilling.add_abastecimientoarticulo %}
+            <button class="btn sync-btn" data-bs-toggle="modal" data-bs-target="#modalSincronizar">
+                <i class="fas fa-sync-alt me-2"></i>Sincronizar Ahora
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #0470AC 0%, #084163 100%);">
+                <h3>{{ stats.total_registros|default:0 }}</h3>
+                <p>Total Registros</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #7AD57C 0%, #5cb85c 100%);">
+                <h3>{{ stats.total_cantidad|floatformat:0|default:0 }}</h3>
+                <p>Cantidad Total</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #FFC248 0%, #e0a800 100%);">
+                <h3>S/ {{ stats.total_valor|floatformat:2|default:0 }}</h3>
+                <p>Valor Total</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <h3>{{ stats.brocas_con_serie|default:0 }}</h3>
+                <p>Brocas con Serie</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filter-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Contrato</label>
+                <select name="contrato" class="form-select" onchange="this.form.submit()">
+                    {% for c in contratos %}
+                    <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                        {{ c.nombre_contrato }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Familia</label>
+                <select name="familia" class="form-select">
+                    <option value="">Todas</option>
+                    <option value="PDD" {% if familia == 'PDD' %}selected{% endif %}>PDD - Brocas</option>
+                    <option value="ADIT" {% if familia == 'ADIT' %}selected{% endif %}>ADIT - Aditivos</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Buscar</label>
+                <input type="text" name="busqueda" class="form-control" 
+                       placeholder="Código, serie, descripción..." value="{{ busqueda }}">
+            </div>
+            
+            <div class="col-md-12 text-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-2"></i>Filtrar
+                </button>
+                <a href="{% url 'lista-abastecimientos' %}?contrato={{ contrato.id }}" class="btn btn-secondary">
+                    <i class="fas fa-times me-2"></i>Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de Abastecimientos -->
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Código</th>
+                    <th>Serie</th>
+                    <th>Descripción</th>
+                    <th>Familia</th>
+                    <th class="text-end">Cantidad</th>
+                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-end">Total</th>
+                    <th>Documento</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in page_obj %}
+                <tr>
+                    <td>
+                        <strong>{{ item.fecha|date:"d/m/Y" }}</strong>
+                    </td>
+                    <td>
+                        <code class="text-primary">{{ item.codigo }}</code>
+                    </td>
+                    <td>
+                        {% if item.serie %}
+                        <span class="serie-badge">{{ item.serie }}</span>
+                        {% if item.historial_broca %}
+                        <a href="{% url 'historial-broca-detalle' item.serie %}" 
+                           class="ms-1" title="Ver historial de broca">
+                            <i class="fas fa-history text-info"></i>
+                        </a>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="text-truncate" style="max-width: 250px;" title="{{ item.descripcion }}">
+                            {{ item.descripcion }}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge-familia badge-{{ item.familia }}">
+                            {{ item.familia }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <strong>{{ item.cantidad|floatformat:2 }}</strong>
+                        <small class="text-muted d-block">{{ item.unidad }}</small>
+                    </td>
+                    <td class="text-end">
+                        S/ {{ item.precio_unitario|floatformat:2 }}
+                    </td>
+                    <td class="text-end">
+                        <strong class="text-success">S/ {{ item.precio_total|floatformat:2 }}</strong>
+                    </td>
+                    <td>
+                        <small class="text-muted">{{ item.documento }}</small>
+                    </td>
+                    <td>
+                        <a href="{% url 'detalle-abastecimiento' item.id %}" 
+                           class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No se encontraron abastecimientos con los filtros aplicados.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Paginación -->
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Paginación">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1&contrato={{ contrato.id }}&familia={{ familia }}&busqueda={{ busqueda }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                        Primera
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&contrato={{ contrato.id }}&familia={{ familia }}&busqueda={{ busqueda }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                        Anterior
+                    </a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">
+                        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&contrato={{ contrato.id }}&familia={{ familia }}&busqueda={{ busqueda }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                        Siguiente
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&contrato={{ contrato.id }}&familia={{ familia }}&busqueda={{ busqueda }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                        Última
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Sincronizar -->
+<div class="modal fade" id="modalSincronizar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-sync-alt me-2"></i>Sincronizar Abastecimientos
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'sincronizar-abastecimientos' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Periodo (YYYYMM)</label>
+                        <input type="text" name="periodo" class="form-control" 
+                               placeholder="202602" required pattern="[0-9]{6}"
+                               value="{{ request.GET.periodo }}">
+                        <small class="form-text text-muted">Formato: YYYYMM (ej: 202602 para Febrero 2026)</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Centro de Costo (opcional)</label>
+                        <input type="text" name="centro_costo" class="form-control" 
+                               placeholder="Dejar vacío para usar el configurado">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Familia</label>
+                        <select name="familia" class="form-select">
+                            <option value="">Todas</option>
+                            <option value="PDD" selected>PDD - Brocas</option>
+                            <option value="ADIT">ADIT - Aditivos</option>
+                        </select>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Nota:</strong> La sincronización puede tardar varios minutos dependiendo 
+                        de la cantidad de registros.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-play me-2"></i>Iniciar Sincronización
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

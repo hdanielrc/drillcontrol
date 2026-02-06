@@ -206,6 +206,29 @@ ACTIVATION_TOKEN_EXPIRY_HOURS = 24
 VILBRAGROUP_API_TOKEN = env('VILBRAGROUP_API_TOKEN', default='cff25a36-682a-4570-ad84-aaaabffc89bf')
 CENTRO_COSTO_DEFAULT = env('CENTRO_COSTO_DEFAULT', default='000003')
 
+# Centros de costo DDH (Diamond Drill Holes) para sincronización automática
+CENTROS_COSTO_DDH = [
+    '000002',  # CTR AMERICANA - DDH
+    '000003',  # CTR CONDESTABLE - DDH
+    '000004',  # CTR CHUNGAR - DDH
+    '000023',  # CTR MOROCOCHA - DDH
+    '000029',  # CTR TICLIO - DDH
+    '000032',  # CTR CERRO - DDH
+    '000033',  # CTR ANDAYCHAGUA - DDH
+    '000035',  # CTR SAN CRISTÓBAL - DDH
+    '000036',  # CTR CATALINA H. - DDH
+    '000037',  # CTR COLQUISIRI - DDH
+    '000038',  # CTR COBRIZA - DDH
+    '000044',  # CTR LA ESTRELLA - DDH
+    '000049',  # CTR BATEAS - DDH
+    '000051',  # CTR RAURA - DDH
+    '000053',  # CTR YAULIYACU - DDH
+    '000055',  # CTR YUMPAG - DDH
+    '000056',  # CTR INMACULADA - DDH
+    '000057',  # CTR ROMINA - DDH
+    '000058',  # CTR CUCULI - DDH
+]
+
 # Logging para APIs
 LOGGING = {
     'version': 1,

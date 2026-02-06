@@ -184,6 +184,97 @@ class VilbragroupAPIClient:
             Lista de aditivos con stock
         """
         return self.obtener_articulos_almacen('ADIT', centro_costo)
+    
+    def obtener_articulos_abastecidos(
+        self,
+        periodo: str,
+        centro_costo: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Obtiene artículos abastecidos para un periodo específico desde API v2
+        
+        Args:
+            periodo: Periodo en formato YYYYMM (ej: '202601' para Enero 2026)
+            centro_costo: Centro de costo específico (opcional)
+            
+        Returns:
+            Lista de artículos abastecidos con estructura:
+            [
+                {
+                    'fecha': '2026-01-15',
+                    'centro_costo': 'CC001',
+                    'contrato': 'CONTRATO_EJEMPLO',
+                    'documento': 'DOC-001',
+                    'documento_referencia': 'REF-001',
+                    'codigo': 'ART001',
+                    'serie': 'BRC-2024-001',  # Puede ser null
+                    'descripcion': 'Broca Diamantada 3"',
+                    'codigo_movimiento': 'MOV001',
+                    'cantidad': 5,
+                    'unidad': 'UND',
+                    'familia': 'PDD',
+                    'precio_unitario': 1500.00,
+                    'precio_total': 7500.00
+                }
+            ]
+        """
+        cc = centro_costo or self.centro_costo
+        
+        logger.info(f"Obteniendo artículos abastecidos (API v2) - Periodo: {periodo}, Centro costo: {cc}")
+        print(f"[API DEBUG] Usando API v2: articulos_v2")
+        
+        if not self.token:
+            logger.error("Token de API no configurado")
+            return []
+        
+        if not cc:
+            logger.error("Centro de costo no especificado")
+            return []
+        
+        if not periodo:
+            logger.error("Periodo no especificado")
+            return []
+        
+        # Validar formato del periodo (debe ser YYYYMM)
+        if not (periodo.isdigit() and len(periodo) == 6):
+            logger.error(f"Formato de periodo inválido: {periodo}. Debe ser YYYYMM (ej: 202601)")
+            return []
+        
+        params = {
+            'token': self.token,
+            'centro_costo': cc,
+            'periodo': periodo
+        }
+        
+        print(f"[API DEBUG] Parametros: {params}")
+        
+        # Usar el endpoint v2
+        data = self._make_request('articulos_v2', params)
+        
+        if data is None:
+            logger.warning("No se recibieron datos de la API v2")
+            return []
+        
+        # La API puede retornar un diccionario con clave 'data' o directamente una lista
+        if isinstance(data, dict):
+            if 'data' in data:
+                logger.info(f"Obtenidos {len(data['data'])} registros de API v2")
+                return data['data']
+            elif 'abastecimientos' in data:
+                logger.info(f"Obtenidos {len(data['abastecimientos'])} registros de API v2")
+                return data['abastecimientos']
+            elif 'articulos' in data:
+                logger.info(f"Obtenidos {len(data['articulos'])} registros de API v2")
+                return data['articulos']
+            else:
+                logger.warning(f"Formato de respuesta inesperado. Keys: {data.keys()}")
+                return []
+        elif isinstance(data, list):
+            logger.info(f"Obtenidos {len(data)} registros de API v2 (lista directa)")
+            return data
+        else:
+            logger.warning(f"Formato de respuesta inesperado: {type(data)}")
+            return []
 
 
 # Instancia global del cliente (opcional, para uso simple)

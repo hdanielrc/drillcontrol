@@ -1,0 +1,282 @@
+{% extends 'drilling/base_admin.html' %}
+{% load static %}
+
+{% block title %}Dashboard Control de Proyectos - Abastecimientos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .contract-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s;
+        border-left: 5px solid;
+    }
+    
+    .contract-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    
+    .contract-card.color-1 { border-left-color: #0470AC; }
+    .contract-card.color-2 { border-left-color: #7AD57C; }
+    .contract-card.color-3 { border-left-color: #FFC248; }
+    .contract-card.color-4 { border-left-color: #f093fb; }
+    
+    .metric-box {
+        text-align: center;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .metric-box h4 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+        color: #0470AC;
+    }
+    
+    .metric-box p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .quick-action-btn {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .quick-action-btn:hover {
+        transform: translateX(5px);
+    }
+    
+    .summary-stat {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    
+    .summary-stat h2 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header Dashboard -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="fw-bold mb-2">
+                    <i class="fas fa-project-diagram me-3"></i>Dashboard Control de Proyectos
+                </h1>
+                <p class="mb-0 fs-5">Gestión Multi-Contrato de Abastecimientos y Brocas</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="bg-white bg-opacity-25 rounded p-3">
+                    <h4 class="mb-0">{{ contratos|length }}</h4>
+                    <small>Contratos Activos</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen General -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="summary-stat" style="border-top: 4px solid #0470AC;">
+                <i class="fas fa-box-open fa-2x text-primary mb-2"></i>
+                <h2 class="text-primary">{{ totales.total_abastecimientos }}</h2>
+                <p class="text-muted mb-0">Total Abastecimientos</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-stat" style="border-top: 4px solid #7AD57C;">
+                <i class="fas fa-tools fa-2x text-success mb-2"></i>
+                <h2 class="text-success">{{ totales.total_brocas }}</h2>
+                <p class="text-muted mb-0">Brocas con Serie</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-stat" style="border-top: 4px solid #FFC248;">
+                <i class="fas fa-dollar-sign fa-2x text-warning mb-2"></i>
+                <h2 class="text-warning">S/ {{ totales.valor_total|floatformat:0 }}</h2>
+                <p class="text-muted mb-0">Valor Total</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-stat" style="border-top: 4px solid #f093fb;">
+                <i class="fas fa-calendar-alt fa-2x text-info mb-2"></i>
+                <h2 class="text-info">{{ totales.periodo_actual }}</h2>
+                <p class="text-muted mb-0">Periodo Actual</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas por Contrato -->
+    <div class="row">
+        {% for contrato in contratos_data %}
+        <div class="col-md-6 col-lg-4">
+            <div class="contract-card color-{{ forloop.counter|divisibleby:4|yesno:'4,3' }}{{ forloop.counter|divisibleby:2|yesno:',2' }}">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="fw-bold mb-1">{{ contrato.nombre }}</h5>
+                        <small class="text-muted">{{ contrato.centro_costo }}</small>
+                    </div>
+                    <span class="badge bg-success">Activo</span>
+                </div>
+
+                <!-- Métricas del Contrato -->
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="metric-box">
+                            <h4>{{ contrato.stats.total_abastecimientos }}</h4>
+                            <p>Abastecimientos</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-box">
+                            <h4>{{ contrato.stats.brocas_disponibles }}</h4>
+                            <p>Brocas Disponibles</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-box">
+                            <h4 style="color: #7AD57C;">{{ contrato.stats.brocas_nuevas }}</h4>
+                            <p>Nuevas</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-box">
+                            <h4 style="color: #FFC248;">{{ contrato.stats.brocas_en_uso }}</h4>
+                            <p>En Uso</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-box mb-3">
+                    <h4 style="color: #28a745;">S/ {{ contrato.stats.valor_total|floatformat:2 }}</h4>
+                    <p>Valor Total Abastecido</p>
+                </div>
+
+                <!-- Acciones Rápidas -->
+                <div class="row g-2">
+                    <div class="col-6">
+                        <a href="{% url 'lista-abastecimientos' %}?contrato={{ contrato.id }}" 
+                           class="btn btn-primary btn-sm quick-action-btn">
+                            <i class="fas fa-list me-1"></i>Ver Abastecimientos
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{% url 'dashboard-brocas-disponibles' %}?contrato={{ contrato.id }}" 
+                           class="btn btn-success btn-sm quick-action-btn">
+                            <i class="fas fa-tools me-1"></i>Ver Brocas
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Acciones Globales -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>Acciones Globales
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <button class="btn btn-success btn-lg w-100" data-bs-toggle="modal" data-bs-target="#modalSincronizar">
+                                <i class="fas fa-sync-alt me-2"></i>Sincronizar Periodo
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="{% url 'historial-brocas-lista' %}" class="btn btn-info btn-lg w-100">
+                                <i class="fas fa-history me-2"></i>Historial Completo Brocas
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="/admin/drilling/abastecimientoarticulo/" class="btn btn-secondary btn-lg w-100" target="_blank">
+                                <i class="fas fa-database me-2"></i>Admin Django
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sincronizar -->
+<div class="modal fade" id="modalSincronizar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-sync-alt me-2"></i>Sincronizar Abastecimientos
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'sincronizar-abastecimientos' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Periodo (YYYYMM)</label>
+                        <input type="text" name="periodo" class="form-control" 
+                               placeholder="202602" required pattern="[0-9]{6}"
+                               value="{{ periodo_actual }}">
+                        <small class="form-text text-muted">Formato: YYYYMM (ej: 202602 para Febrero 2026)</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Familia</label>
+                        <select name="familia" class="form-select">
+                            <option value="">Todas</option>
+                            <option value="PDD" selected>PDD - Brocas</option>
+                            <option value="ADIT">ADIT - Aditivos</option>
+                        </select>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Nota:</strong> Se sincronizarán todos los contratos activos.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-play me-2"></i>Iniciar Sincronización
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

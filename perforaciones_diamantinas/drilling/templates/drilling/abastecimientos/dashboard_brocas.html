@@ -1,0 +1,246 @@
+{% extends 'drilling/base_admin.html' %}
+{% load static %}
+
+{% block title %}Brocas Disponibles - {{ contrato.nombre_contrato }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        border-left: 4px solid;
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-card.nuevas {
+        border-left-color: #28a745;
+    }
+    
+    .stat-card.en-uso {
+        border-left-color: #007bff;
+    }
+    
+    .stat-card h3 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .broca-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+        transition: all 0.2s;
+    }
+    
+    .broca-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateX(5px);
+    }
+    
+    .serie-badge {
+        background: #e3f2fd;
+        color: #1565c0;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+    }
+    
+    .estado-badge {
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .estado-NUEVA {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .estado-EN_USO {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .section-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="fas fa-tools me-2"></i>Brocas Disponibles
+            </h2>
+            <p class="text-muted mb-0">{{ contrato.nombre_contrato }}</p>
+        </div>
+        <div>
+            <a href="{% url 'lista-abastecimientos' %}?contrato={{ contrato.id }}" 
+               class="btn btn-outline-secondary me-2">
+                <i class="fas fa-box-open me-2"></i>Ver Abastecimientos
+            </a>
+            <select class="form-select d-inline-block w-auto" onchange="window.location.href='?contrato=' + this.value">
+                {% for c in contratos %}
+                <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                    {{ c.nombre_contrato }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card nuevas">
+                <h3 class="text-success">{{ stats.total_nuevas }}</h3>
+                <p class="text-muted mb-0">Brocas Nuevas</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card en-uso">
+                <h3 class="text-primary">{{ stats.total_en_uso }}</h3>
+                <p class="text-muted mb-0">Brocas en Uso</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="border-left-color: #FFC248;">
+                <h3 class="text-warning">{{ stats.total_disponibles }}</h3>
+                <p class="text-muted mb-0">Total Disponibles</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="border-left-color: #764ba2;">
+                <h3 class="text-info">{{ stats.metraje_promedio|floatformat:1 }}m</h3>
+                <p class="text-muted mb-0">Metraje Promedio</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Brocas Nuevas -->
+        <div class="col-lg-6">
+            <div class="section-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-star me-2"></i>Brocas Nuevas ({{ stats.total_nuevas }})
+                </h4>
+            </div>
+
+            {% if brocas_nuevas %}
+                {% for broca in brocas_nuevas %}
+                <div class="broca-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <span class="serie-badge">{{ broca.serie }}</span>
+                        </div>
+                        <span class="estado-badge estado-NUEVA">Nueva</span>
+                    </div>
+                    
+                    <h5 class="fw-bold mb-2">{{ broca.tipo_complemento.nombre }}</h5>
+                    
+                    <div class="row text-center mt-3">
+                        <div class="col-4">
+                            <small class="text-muted d-block">Metraje</small>
+                            <strong>{{ broca.metraje_acumulado|floatformat:2 }}m</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Usos</small>
+                            <strong>{{ broca.numero_usos }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Acción</small>
+                            <a href="{% url 'historial-broca-detalle' broca.serie %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay brocas nuevas disponibles en este contrato.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Brocas en Uso -->
+        <div class="col-lg-6">
+            <div class="section-header" style="background: linear-gradient(135deg, #0470AC 0%, #084163 100%);">
+                <h4 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>Brocas en Uso ({{ stats.total_en_uso }})
+                </h4>
+            </div>
+
+            {% if brocas_en_uso %}
+                {% for broca in brocas_en_uso %}
+                <div class="broca-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <span class="serie-badge">{{ broca.serie }}</span>
+                        </div>
+                        <span class="estado-badge estado-EN_USO">En Uso</span>
+                    </div>
+                    
+                    <h5 class="fw-bold mb-2">{{ broca.tipo_complemento.nombre }}</h5>
+                    
+                    {% if broca.fecha_ultimo_uso %}
+                    <div class="mb-2">
+                        <small class="text-muted">Último uso: {{ broca.fecha_ultimo_uso|date:"d/m/Y" }}</small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row text-center mt-3">
+                        <div class="col-3">
+                            <small class="text-muted d-block">Metraje</small>
+                            <strong class="text-primary">{{ broca.metraje_acumulado|floatformat:2 }}m</strong>
+                        </div>
+                        <div class="col-3">
+                            <small class="text-muted d-block">Usos</small>
+                            <strong>{{ broca.numero_usos }}</strong>
+                        </div>
+                        <div class="col-3">
+                            <small class="text-muted d-block">Promedio</small>
+                            <strong>{{ broca.metraje_promedio_por_uso|floatformat:1 }}m</strong>
+                        </div>
+                        <div class="col-3">
+                            <small class="text-muted d-block">Acción</small>
+                            <a href="{% url 'historial-broca-detalle' broca.serie %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay brocas en uso en este contrato.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
