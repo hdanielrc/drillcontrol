@@ -505,17 +505,31 @@ def dashboard_control_proyectos_abastecimientos(request):
         messages.error(request, "No tienes acceso a este dashboard.")
         return redirect('dashboard')
     
+    # Obtener periodo de filtro (YYYYMM)
+    periodo_filtro = request.GET.get('periodo', '').strip()
+    
     # Obtener todos los contratos activos
     contratos = Contrato.objects.filter(estado='ACTIVO')
     
     # Preparar datos por contrato
     contratos_data = []
     for contrato in contratos:
-        stats_abast = AbastecimientoArticulo.objects.filter(contrato=contrato).aggregate(
+        # Base QuerySet para abastecimientos
+        qs_abast = AbastecimientoArticulo.objects.filter(contrato=contrato)
+        
+        # Aplicar filtro de periodo si existe
+        if periodo_filtro and len(periodo_filtro) == 6 and periodo_filtro.isdigit():
+            anio = int(periodo_filtro[:4])
+            mes = int(periodo_filtro[4:6])
+            qs_abast = qs_abast.filter(fecha__year=anio, fecha__month=mes)
+        
+        stats_abast = qs_abast.aggregate(
             total=Count('id'),
             valor_total=Sum('precio_total')
         )
         
+        # Las métricas de brocas (estado actual) se mantienen globales
+        # a menos que se quiera ver "brocas compradas en ese periodo"
         brocas_nuevas = HistorialBroca.objects.filter(
             contrato_actual=contrato,
             estado='NUEVA'
@@ -544,14 +558,15 @@ def dashboard_control_proyectos_abastecimientos(request):
         'total_abastecimientos': sum(c['stats']['total_abastecimientos'] for c in contratos_data),
         'total_brocas': sum(c['stats']['brocas_disponibles'] for c in contratos_data),
         'valor_total': sum(c['stats']['valor_total'] for c in contratos_data),
-        'periodo_actual': datetime.now().strftime('%Y%m'),
+        'periodo_actual': periodo_filtro if periodo_filtro else datetime.now().strftime('%Y%m'),
     }
     
     context = {
         'contratos': contratos,
         'contratos_data': contratos_data,
         'totales': totales,
-        'periodo_actual': datetime.now().strftime('%Y%m'),
+        'periodo_actual': periodo_filtro if periodo_filtro else datetime.now().strftime('%Y%m'),
+        'periodo_filtro': periodo_filtro,
     }
     
     return render(request, 'drilling/abastecimientos/dashboard_control_proyectos.html', context)

@@ -185,6 +185,7 @@ class VilbragroupAPIClient:
         """
         return self.obtener_articulos_almacen('ADIT', centro_costo)
     
+
     def obtener_articulos_abastecidos(
         self,
         periodo: str,
@@ -194,7 +195,8 @@ class VilbragroupAPIClient:
         Obtiene artículos abastecidos para un periodo específico desde API v2
         
         Args:
-            periodo: Periodo en formato YYYYMM (ej: '202601' para Enero 2026)
+            periodo: Periodo en formato YYYYMM (ej: '202601' para Enero 2026).
+                        Internamente se convierte al primer día del mes (YYYY-MM-01).
             centro_costo: Centro de costo específico (opcional)
             
         Returns:
@@ -235,21 +237,35 @@ class VilbragroupAPIClient:
             logger.error("Periodo no especificado")
             return []
         
-        # Validar formato del periodo (debe ser YYYYMM)
-        if not (periodo.isdigit() and len(periodo) == 6):
-            logger.error(f"Formato de periodo inválido: {periodo}. Debe ser YYYYMM (ej: 202601)")
+        # Validar formato del periodo y convertir si es necesario
+        periodo_api = periodo
+        if periodo.isdigit() and len(periodo) == 6:
+            # Convertir YYYYMM a YYYYMM01 (Primer día del mes, formato numérico para SQL)
+            periodo_api = f"{periodo}01"
+        elif '-' in periodo:
+            # Asumir que ya viene en formato fecha YYYY-MM-DD
+            # Extraer año y mes para forzar siempre al día 01 (Sincronización mensual)
+            parts = periodo.split('-')
+            if len(parts) == 3:
+                # parts[0]=YYYY, parts[1]=MM
+                periodo_api = f"{parts[0]}{parts[1]}01"
+            else:
+                periodo_api = periodo.replace('-', '')
+        else:
+            logger.error(f"Formato de periodo inválido: {periodo}. Debe ser YYYYMM (ej: 202601) o YYYY-MM-DD")
             return []
         
         params = {
             'token': self.token,
             'centro_costo': cc,
-            'periodo': periodo
+            'periodo': periodo_api
         }
         
         print(f"[API DEBUG] Parametros: {params}")
         
         # Usar el endpoint v2
         data = self._make_request('articulos_v2', params)
+
         
         if data is None:
             logger.warning("No se recibieron datos de la API v2")
