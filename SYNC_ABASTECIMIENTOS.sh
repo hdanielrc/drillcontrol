@@ -4,20 +4,30 @@
 
 # Configuración
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CD "$PROJECT_DIR"
-VENV_ACTIVATE=".venv/bin/activate"
+cd "$PROJECT_DIR" || exit
 
 echo "========================================================"
 echo "  Sincronizador Automático de Abastecimientos (Linux)"
 echo "========================================================"
 echo ""
 
-# Activar entorno virtual
-if [ -f "$VENV_ACTIVATE" ]; then
-    source "$VENV_ACTIVATE"
+# Auto-detectar Python y Entorno Virtual
+PYTHON_EXEC="python3"
+if [ -f ".venv/bin/activate" ]; then
+    source ".venv/bin/activate"
+    PYTHON_EXEC="python" 
+elif [ -f "venv/bin/activate" ]; then
+     source "venv/bin/activate"
+     PYTHON_EXEC="python"
+elif command -v python3 &>/dev/null; then
+    PYTHON_EXEC="python3"
+    echo "VirtualEnv no encontrado. Usando python3 del sistema."
+elif command -v python &>/dev/null; then
+    PYTHON_EXEC="python"
+    echo "VirtualEnv no encontrado. Usando python del sistema."
 else
-    echo "Advertencia: Entorno virtual no encontrado en $VENV_ACTIVATE"
-    echo "Usando python del sistema..."
+    echo "ERROR: Python no encontrado."
+    exit 1
 fi
 
 # Parámetros
@@ -27,10 +37,10 @@ CC="$2"
 echo "Año: $ANIO"
 if [ -z "$CC" ]; then
     echo "Centro de Costo: TODOS"
-    CMD="python perforaciones_diamantinas/scripts/sync/sync_abastecimientos.py --year=$ANIO"
+    CMD="$PYTHON_EXEC perforaciones_diamantinas/scripts/sync/sync_abastecimientos.py --year=$ANIO"
 else
     echo "Centro de Costo: $CC"
-    CMD="python perforaciones_diamantinas/scripts/sync/sync_abastecimientos.py --year=$ANIO --cc=$CC"
+    CMD="$PYTHON_EXEC perforaciones_diamantinas/scripts/sync/sync_abastecimientos.py --year=$ANIO --cc=$CC"
 fi
 
 echo ""
