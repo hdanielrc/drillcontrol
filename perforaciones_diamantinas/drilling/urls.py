@@ -4,6 +4,7 @@ from . import api_views
 from . import auth_views
 from . import views_gestion_proyectos
 from . import views_stock
+from . import views_consumo
 from . import views_tareo
 from . import views_tareo_v2
 from . import views_headcount
@@ -239,6 +240,10 @@ urlpatterns = [
     # =========================================================================
     # STOCK v2.0 - Dashboard con Histórico y Alertas
     # =========================================================================
+    
+    # Verificación de Consumos y Stock (API)
+    path('consumos/verificacion/', views_consumo.lista_consumos, name='lista-consumos-api'),
+    path('stock/inventario-actual/', views_consumo.inventario_actual_list, name='inventario-actual-list'),
     
     # Dashboard de Stock
     path('stock/dashboard/', views_stock.dashboard_stock, name='dashboard-stock'),

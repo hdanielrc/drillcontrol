@@ -1,0 +1,147 @@
+{% extends 'drilling/base_admin.html' %}
+{% load static %}
+
+{% block title %}Registro de Consumos - DrillControl{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .stats-card h3 { font-size: 2rem; font-weight: 700; margin: 0; }
+    .filter-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .table-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h3 mb-2 text-gray-800">Verificación de Consumos (Salidas)</h1>
+        <p class="mb-4">Registro sincronizado desde API Vilbragroup.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="stats-card">
+            <p>Registros Totales</p>
+            <h3>{{ total_registros }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card" style="background: linear-gradient(135deg, #fb8c00 0%, #ef6c00 100%);">
+            <p>Items Consumidos</p>
+            <h3>{{ total_items|floatformat:0 }}</h3>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="filter-card">
+    <form method="get" class="row align-items-end">
+        <div class="col-md-2 form-group">
+            <label>Desde</label>
+            <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+        </div>
+        <div class="col-md-2 form-group">
+            <label>Hasta</label>
+            <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+        </div>
+        <div class="col-md-3 form-group">
+            <label>Centro Costo / Contrato</label>
+            <select name="centro_costo" class="form-control">
+                <option value="">-- Todos --</option>
+                {% for c in contratos %}
+                    <option value="{{ c.codigo_centro_costo }}" {% if c.codigo_centro_costo == centro_costo %}selected{% endif %}>
+                        {{ c.nombre_contrato }} ({{ c.codigo_centro_costo }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 form-group">
+            <label>Buscar (Cód, Doc, Serie)</label>
+            <input type="text" name="search" class="form-control" value="{{ search|default:'' }}" placeholder="Ej: 2101...">
+        </div>
+        <div class="col-md-2 form-group">
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-filter"></i> Filtrar
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Tabla -->
+<div class="table-container">
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered" id="dataTable" width="100%" cellspacing="0">
+            <thead class="thead-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Centro Costo</th>
+                    <th>Documento</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Serie</th>
+                    <th>Cant.</th>
+                    <th>Und.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in consumos %}
+                <tr>
+                    <td style="white-space:nowrap;">{{ item.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ item.centro_costo }}</td>
+                    <td>
+                        <span class="badge {% if item.documento == 'SIN_DOC' %}badge-warning{% else %}badge-secondary{% endif %}">
+                            {{ item.documento }}
+                        </span>
+                    </td>
+                    <td class="font-weight-bold text-primary">{{ item.codigo }}</td>
+                    <td class="small">{{ item.descripcion }}</td>
+                    <td>{{ item.serie|default:"-" }}</td>
+                    <td class="font-weight-bold">{{ item.cantidad|floatformat:2 }}</td>
+                    <td>{{ item.unidad }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4">No se encontraron registros de consumo con los filtros actuales.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if consumos.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if consumos.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ consumos.previous_page_number }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}&centro_costo={{ centro_costo }}&search={{ search }}">&laquo;</a></li>
+            {% endif %}
+            
+            <li class="page-item disabled"><span class="page-link">Página {{ consumos.number }} de {{ consumos.paginator.num_pages }}</span></li>
+            
+            {% if consumos.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ consumos.next_page_number }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}&centro_costo={{ centro_costo }}&search={{ search }}">&raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
