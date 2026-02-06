@@ -30,6 +30,23 @@ class ConsumoService:
     def __init__(self):
         self.api_client = VilbragroupAPIClient()
     
+
+    def _formatear_codigo_almacen(self, codigo: str) -> str:
+        """
+        Formatea el código de almacén al formato requerido por la API (2 dígitos).
+        Ej: '000003' -> '03', '6' -> '06', '000023' -> '23'
+        """
+        if not codigo:
+            return ""
+        try:
+            # Convertir a entero y formatear a 2 dígitos con ceros a la izquierda
+            numero = int(codigo)
+            return f"{numero:02d}"
+        except ValueError:
+            # Si no es numérico, devolver tal cual (fallback)
+            logger.warning(f"Código de almacén no numérico encontrado: {codigo}")
+            return codigo
+
     def sincronizar_periodo(
         self,
         fecha_inicio: str,
@@ -83,12 +100,15 @@ class ConsumoService:
         # 2. Iterar
         for cc_codigo, contrato_obj in centros_map.items():
             try:
-                logger.info(f"Sincronizando CC {cc_codigo} ({contrato_obj.nombre_contrato})")
+                # Formatear el código (API requiere 2 dígitos: '01', '03', '24'...)
+                codigo_formatted = self._formatear_codigo_almacen(cc_codigo)
+                
+                logger.info(f"Sincronizando CC {cc_codigo} -> API:{codigo_formatted} ({contrato_obj.nombre_contrato})")
                 
                 consumos = self.api_client.obtener_consumos(
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
-                    codigo_almacen=cc_codigo
+                    codigo_almacen=codigo_formatted
                 )
                 
                 if not consumos:
