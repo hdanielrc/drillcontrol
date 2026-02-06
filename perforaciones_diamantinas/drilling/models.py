@@ -2715,6 +2715,9 @@ class AbastecimientoArticulo(models.Model):
                     f"Precio: S/ {self.precio_unitario}"
                 )
                 historial.save(update_fields=['observaciones'])
+            
+            # Actualizar inventario de almacén (STOCK)
+            self._actualizar_stock_almacen()
                 
         except Exception as e:
             try:
@@ -2724,6 +2727,300 @@ class AbastecimientoArticulo(models.Model):
                 print(f"FATAL ERROR syncing broca {self.serie}: {e}")
                 # Re-raise para que no se oculte el error original si el logging falla
                 raise e
+
+    def _actualizar_stock_almacen(self):
+        """
+        Actualiza el inventario de almacén sumando la cantidad abastecida
+        """
+        try:
+            inventario, created = InventarioAlmacen.objects.get_or_create(
+                contrato=self.contrato,
+                codigo=self.codigo,
+                defaults={
+                    'descripcion': self.descripcion,
+                    'familia': self.familia,
+                    'unidad_medida': self.unidad,
+                    'cantidad_actual': 0,
+                    'valor_promedio': 0
+                }
+            )
+            
+            # Calcular nuevo stock y valor promedio
+            # Nota: Esto es una simplificación, para un cálculo exacto de valor promedio ponderado
+            # se necesitaría lógica más compleja de entradas y salidas.
+            # Aquí asumimos que se agrega al stock.
+            
+            # Si queremos recálculo completo deberíamos sumar todos los abastecimientos
+            # y restar todos los consumos. Para eficiencia, lo haremos incremental aquí
+            # O mejor aún: recalcularemos desde cero usando todos los registros para garantizar consistencia
+            
+            # Recálculo total para este artículo y contrato
+            from django.db.models import Sum
+            
+            total_abastecido = AbastecimientoArticulo.objects.filter(
+                contrato=self.contrato, 
+                codigo=self.codigo
+            ).aggregate(total=Sum('cantidad'))['total'] or 0
+            
+            total_consumido = ConsumoArticulo.objects.filter(
+                contrato=self.contrato,
+                codigo=self.codigo
+            ).aggregate(total=Sum('cantidad'))['total'] or 0
+            
+            inventario.cantidad_actual = total_abastecido - total_consumido
+            
+            # Actualizar timestamps y descripción por si cambió
+            inventario.descripcion = self.descripcion
+            inventario.ultima_sincronizacion = timezone.now()
+            inventario.save()
+            
+        except Exception as e:
+            # No interrumpir el flujo principal si falla la actualización de stock
+            print(f"Error actualizando stock para {self.codigo}: {e}")
+
+
+class ConsumoArticulo(models.Model):
+    """
+    Registro de artículos consumidos (salidas) desde la API externa.
+    Almacena el historial de todos los consumos con su información completa.
+    Funciona como contraparte de AbastecimientoArticulo.
+    """
+    
+    # Identificación y fecha
+    fecha = models.DateField(
+        db_index=True,
+        verbose_name='Fecha de Consumo'
+    )
+    
+    centro_costo = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name='Centro de Costo'
+    )
+    
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.PROTECT,
+        related_name='consumos_api',
+        verbose_name='Contrato',
+        help_text='Contrato asociado al centro de costo'
+    )
+    
+    # Documentación
+    documento = models.CharField(
+        max_length=100,
+        db_index=True,
+        verbose_name='Número de Documento',
+        help_text='Número de documento de salida/vale'
+    )
+    
+    documento_referencia = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Documento de Referencia'
+    )
+    
+    # Artículo
+    codigo = models.CharField(
+        max_length=100,
+        db_index=True,
+        verbose_name='Código de Artículo'
+    )
+    
+    serie = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name='Serie',
+        help_text='Serie individual del artículo (si aplica)'
+    )
+    
+    descripcion = models.TextField(
+        verbose_name='Descripción'
+    )
+    
+    codigo_movimiento = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name='Código de Movimiento'
+    )
+    
+    # Cantidades y medidas
+    cantidad = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name='Cantidad'
+    )
+    
+    unidad = models.CharField(
+        max_length=20,
+        verbose_name='Unidad de Medida'
+    )
+    
+    familia = models.CharField(
+        max_length=20,
+        db_index=True,
+        verbose_name='Familia',
+        help_text='Familia del artículo'
+    )
+    
+    # Relación con HistorialBroca (si es una broca que sale del stock)
+    historial_broca = models.ForeignKey(
+        'HistorialBroca',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='consumos',
+        verbose_name='Historial de Broca'
+    )
+    
+    # Timestamps
+    fecha_sincronizacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de Sincronización'
+    )
+    
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Última Actualización'
+    )
+    
+    class Meta:
+        db_table = 'consumo_articulo'
+        verbose_name = 'Consumo de Artículo'
+        verbose_name_plural = 'Consumos de Artículos'
+        ordering = ['-fecha', '-fecha_sincronizacion']
+        unique_together = [
+            ('documento', 'codigo', 'serie'),
+        ]
+        indexes = [
+            models.Index(fields=['fecha', 'centro_costo']),
+            models.Index(fields=['familia', 'codigo']),
+            models.Index(fields=['serie'], name='idx_consumo_serie'),
+            models.Index(fields=['contrato', 'fecha']),
+        ]
+    
+    def __str__(self):
+        serie_info = f" - Serie: {self.serie}" if self.serie else ""
+        return f"Consumo: {self.codigo} ({self.cantidad} {self.unidad}){serie_info} - {self.fecha}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Actualizar stock
+        self._actualizar_stock_almacen()
+        # Si es broca, podríamos marcarla como retirada si es un consumo final, pero
+        # la lógica de brocas es compleja (puede salir a mina 'EN_USO').
+    
+    def _actualizar_stock_almacen(self):
+        """
+        Actualiza el inventario restando el consumo
+        """
+        # (Misma lógica de recálculo que en AbastecimientoArticulo, 
+        # pero invocada desde el consumo hará que el total_consumido aumente)
+        # Podríamos refactorizar esto a un método estático o manager
+        from django.db.models import Sum
+        from django.utils import timezone
+        
+        try:
+            inventario, created = InventarioAlmacen.objects.get_or_create(
+                contrato=self.contrato,
+                codigo=self.codigo,
+                defaults={
+                    'descripcion': self.descripcion,
+                    'familia': self.familia,
+                    'unidad_medida': self.unidad,
+                    'cantidad_actual': 0
+                }
+            )
+            
+            total_abastecido = AbastecimientoArticulo.objects.filter(
+                contrato=self.contrato, 
+                codigo=self.codigo
+            ).aggregate(total=Sum('cantidad'))['total'] or 0
+            
+            total_consumido = ConsumoArticulo.objects.filter(
+                contrato=self.contrato,
+                codigo=self.codigo
+            ).aggregate(total=Sum('cantidad'))['total'] or 0
+            
+            inventario.cantidad_actual = total_abastecido - total_consumido
+            inventario.ultima_sincronizacion = timezone.now()
+            inventario.save()
+            
+        except Exception as e:
+            print(f"Error actualizando stock tras consumo {self.codigo}: {e}")
+
+
+class InventarioAlmacen(models.Model):
+    """
+    Tabla de STOCK ACTUAL consolidado por Contrato y Artículo.
+    Se actualiza automáticamente cada vez que se sincroniza un Abastecimiento o un Consumo.
+    Representa el 'Tercera Tabla' de balance.
+    """
+    
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.CASCADE,
+        related_name='inventario_almacen',
+        verbose_name='Contrato'
+    )
+    
+    codigo = models.CharField(
+        max_length=100,
+        db_index=True,
+        verbose_name='Código de Artículo'
+    )
+    
+    descripcion = models.TextField(
+        verbose_name='Descripción'
+    )
+    
+    familia = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name='Familia',
+        blank=True
+    )
+    
+    unidad_medida = models.CharField(
+        max_length=20,
+        verbose_name='Unidad de Medida',
+        blank=True
+    )
+    
+    cantidad_actual = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Stock Actual'
+    )
+    
+    validez_stock = models.CharField(
+        max_length=20,
+        default='VALIDO',
+        choices=[('VALIDO', 'Válido'), ('BAJO', 'Stock Bajo'), ('CRITICO', 'Crítico'), ('NEGATIVO', 'Negativo')],
+        verbose_name='Estado de Stock'
+    )
+    
+    ultima_sincronizacion = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Último Recálculo'
+    )
+    
+    class Meta:
+        db_table = 'inventario_almacen'
+        verbose_name = 'Inventario de Almacén'
+        verbose_name_plural = 'Inventario de Almacén'
+        unique_together = [('contrato', 'codigo')]
+        indexes = [
+            models.Index(fields=['contrato', 'familia']),
+            models.Index(fields=['cantidad_actual']),
+        ]
+        
+    def __str__(self):
+        return f"{self.codigo} - {self.cantidad_actual} {self.unidad_medida} ({self.contrato.nombre_contrato})"
+
 
 
 class PrecioUnitarioServicio(models.Model):

@@ -308,6 +308,38 @@ class VilbragroupAPIClient:
             logger.warning(f"Formato de respuesta inesperado: {type(data)}")
             return []
 
+    def obtener_consumos(
+        self,
+        fecha_inicio: str,
+        fecha_fin: str,
+        codigo_almacen: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Obtiene detalle de consumos desde API consumo_detalle_v2
+        
+        Args:
+            fecha_inicio: String DDMMYYYY (ej: 01012025)
+            fecha_fin: String DDMMYYYY (ej: 06012025)
+            codigo_almacen: Código de Almacén (ej: 03).
+            
+        Returns:
+            Lista de diccionarios con consumos
+        """
+        endpoint = "consumo_detalle_v2"
+        params = {
+            'token': self.token,
+            'codigo_almacen': codigo_almacen or self.centro_costo,
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin
+        }
+        
+        # Log para debug
+        logger.info(f"Consultando consumos Almacen:{params['codigo_almacen']} del {fecha_inicio} al {fecha_fin}")
+        
+        response = self._make_request(endpoint, params)
+        if response and isinstance(response, dict) and 'consumos' in response:
+            return response['consumos']
+        return []
 
 # Instancia global del cliente (opcional, para uso simple)
 def get_api_client() -> VilbragroupAPIClient:
