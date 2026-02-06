@@ -506,7 +506,7 @@ def dashboard_control_proyectos_abastecimientos(request):
         return redirect('dashboard')
     
     # Obtener todos los contratos activos
-    contratos = Contrato.objects.filter(activo=True)
+    contratos = Contrato.objects.filter(estado='ACTIVO')
     
     # Preparar datos por contrato
     contratos_data = []
@@ -569,7 +569,7 @@ def lista_abastecimientos(request):
     
     # Determinar contratos accesibles
     if user.is_superuser or user.role in ['GERENCIA', 'CONTROL_PROYECTOS']:
-        contratos = Contrato.objects.filter(activo=True)
+        contratos = Contrato.objects.filter(estado='ACTIVO')
     elif hasattr(user, 'contrato') and user.contrato:
         contratos = Contrato.objects.filter(id=user.contrato.id)
     else:
@@ -749,7 +749,7 @@ def dashboard_brocas_disponibles(request):
     
     # Determinar contratos accesibles
     if user.is_superuser or user.role in ['GERENCIA', 'CONTROL_PROYECTOS']:
-        contratos = Contrato.objects.filter(activo=True)
+        contratos = Contrato.objects.filter(estado='ACTIVO')
     elif hasattr(user, 'contrato') and user.contrato:
         contratos = Contrato.objects.filter(id=user.contrato.id)
     else:
