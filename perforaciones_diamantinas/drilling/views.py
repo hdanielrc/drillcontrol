@@ -2193,10 +2193,14 @@ def get_context_data(request):
         'trabajadores': trabajadores.filter(estado='ACTIVO'),
         'tipos_turno': tipos_turno_data,
         'tipos_actividad': tipos_actividad_qs,
+        'brocas_disponibles': HistorialBroca.objects.filter(
+            contrato_actual=contract,
+            estado__in=['NUEVA', 'EN_USO']
+        ).select_related('tipo_complemento').only('id', 'serie', 'estado', 'tipo_complemento__id', 'tipo_complemento__nombre', 'tipo_complemento__descripcion', 'tipo_complemento__categoria'),
         'tipos_complemento': TipoComplemento.objects.filter(
             contrato=contract,
             estado__in=['NUEVO', 'EN_USO']
-        ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato'),
+        ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato', 'descripcion', 'categoria'),
         'tipos_aditivo': TipoAditivo.objects.filter(
             contrato=contract
         ).select_related('contrato').only('id', 'nombre', 'codigo', 'contrato'),

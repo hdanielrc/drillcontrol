@@ -808,6 +808,14 @@
         <div class="section-card-body">
             <!-- Datalist para autocompletado de series -->
             <datalist id="lista-series-brocas">
+                <!-- Series de Brocas Disponibles -->
+                {% for broca in brocas_disponibles %}
+                    <option value="{{ broca.serie }}">
+                        {{ broca.serie }} - {{ broca.tipo_complemento.nombre }} ({{ broca.estado }})
+                    </option>
+                {% endfor %}
+                
+                <!-- Tipos con serie base (Legacy/Compatibilidad) -->
                 {% for complemento in tipos_complemento %}
                     {% if complemento.serie %}
                     <option value="{{ complemento.serie }}">
@@ -1150,14 +1158,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Datos de productos diamantados para búsqueda por serie
     const productosData = [
+        // 1. Agregar Brocas Individuales (HistorialBroca)
+        {% for broca in brocas_disponibles %}
+        {
+            id: {{ broca.tipo_complemento.id }},
+            serie: '{{ broca.serie }}',
+            nombre: '{{ broca.tipo_complemento.nombre|escapejs }}',
+            descripcion: '{{ broca.tipo_complemento.descripcion|default:""|escapejs }}',
+            categoria: '{{ broca.tipo_complemento.categoria|default:"BROCA" }}'
+        },
+        {% endfor %}
+        
+        // 2. Agregar Tipos Genéricos (TipoComplemento) - Evitamos duplicar si ya agregamos por serie
+        // Solo agregamos aquellos que NO tienen serie definida en el tipo base (para no ensuciar la búsqueda)
         {% for complemento in tipos_complemento %}
+        {% if not complemento.serie %}
         {
             id: {{ complemento.id }},
-            serie: '{{ complemento.serie|default:"" }}',
-            nombre: '{{ complemento.nombre }}',
-            descripcion: '{{ complemento.descripcion|default:"" }}',
+            serie: '', // Sin serie específica
+            nombre: '{{ complemento.nombre|escapejs }}',
+            descripcion: '{{ complemento.descripcion|default:""|escapejs }}',
             categoria: '{{ complemento.categoria|default:"" }}'
         },
+        {% endif %}
         {% endfor %}
     ];
     
