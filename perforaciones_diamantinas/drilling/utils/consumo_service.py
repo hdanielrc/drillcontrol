@@ -182,7 +182,7 @@ class ConsumoService:
         
         # Identificadores para búsqueda
         criterios = {
-            'documento': item.get('vale'),
+            'documento': item.get('vale') or 'SIN_DOC', # Fallback si no hay vale
             'codigo': item.get('codigo'),
             'centro_costo': cc_codigo,
             'fecha': fecha_date
