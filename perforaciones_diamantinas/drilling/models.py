@@ -26,6 +26,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from decimal import Decimal
+import logging
 
 
 # =============================================================================
@@ -2671,17 +2672,20 @@ class AbastecimientoArticulo(models.Model):
         """
         Crea o actualiza el registro en HistorialBroca para esta broca
         """
+        # Importar logging localmente por si falla la importación global
+        import logging
         from django.utils import timezone
         
         try:
             # Buscar o crear el tipo de complemento basado en la descripción
-            tipo_complemento, _ = TipoComplemento.objects.get_or_create(
-                nombre=self.descripcion[:100],
-                defaults={
-                    'unidad_medida': self.unidad,
-                    'es_broca': True
-                }
-            )
+            # Usar filter().first() para evitar error si existen duplicados
+            tipo_complemento = TipoComplemento.objects.filter(nombre=self.descripcion[:100]).first()
+            if not tipo_complemento:
+                tipo_complemento = TipoComplemento.objects.create(
+                    nombre=self.descripcion[:100],
+                    categoria='BROCA',
+                    descripcion=self.descripcion
+                )
             
             # Buscar o crear el historial de broca
             historial, created = HistorialBroca.objects.get_or_create(
@@ -2713,8 +2717,13 @@ class AbastecimientoArticulo(models.Model):
                 historial.save(update_fields=['observaciones'])
                 
         except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error al sincronizar historial de broca {self.serie}: {e}")
+            try:
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error al sincronizar historial de broca {self.serie}: {e}")
+            except:
+                print(f"FATAL ERROR syncing broca {self.serie}: {e}")
+                # Re-raise para que no se oculte el error original si el logging falla
+                raise e
 
 
 class PrecioUnitarioServicio(models.Model):

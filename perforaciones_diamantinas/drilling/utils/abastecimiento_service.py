@@ -99,7 +99,7 @@ class AbastecimientoService:
                 if solo_familia:
                     abastecimientos = [
                         a for a in abastecimientos 
-                        if a.get('familia') == solo_familia
+                        if str(a.get('familia', '')).strip() == solo_familia
                     ]
                 
                 # Acumular total encontrado

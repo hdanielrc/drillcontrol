@@ -298,9 +298,9 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="{% url 'sincronizar-abastecimientos' %}">
+            <form id="formSincronizar" method="post" action="{% url 'sincronizar-abastecimientos' %}">
                 {% csrf_token %}
-                <div class="modal-body">
+                <div class="modal-body" id="modalBodyContent">
                     <div class="mb-3">
                         <label class="form-label fw-bold">Año a Sincronizar</label>
                         <select name="periodo" class="form-select" required>
@@ -310,8 +310,21 @@
                         </select>
                         <div class="form-text">La sincronización traerá toda la información del año seleccionado.</div>
                     </div>
-                    
+
                     <div class="mb-3">
+                        <label class="form-label fw-bold">Contrato (Opcional)</label>
+                        <select name="centro_costo" class="form-select">
+                            <option value="" selected>Todos los Contratos (Masivo)</option>
+                            {% for c in contratos %}
+                                {% if c.codigo_centro_costo %}
+                                <option value="{{ c.codigo_centro_costo }}">{{ c.nombre_contrato }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Seleccione uno específico si la carga masiva tarda demasiado.</div>
+                    </div>
+                    
+                    <div class="mb-3 d-none">
                         <label class="form-label fw-bold">Familia</label>
                         <select name="familia" class="form-select">
                             <option value="" selected>Todas</option>
@@ -322,12 +335,33 @@
                     
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
-                        <strong>Nota:</strong> Se sincronizarán todos los contratos activos.
+                        <strong>Nota:</strong> Se sincronizarán todos los contratos activos de manera secuencial.
                     </div>
                 </div>
-                <div class="modal-footer">
+
+                <!-- Estado de Progreso (Oculto inicialmente) -->
+                <div class="modal-body d-none" id="modalProgress">
+                    <div class="text-center mb-4">
+                        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Procesando...</span>
+                        </div>
+                        <h5 class="fw-bold text-primary" id="progressTitle">Iniciando sincronización...</h5>
+                        <p class="text-muted" id="progressSubtitle">Conectando con servidores de Vilbragroup...</p>
+                    </div>
+                    
+                    <div class="progress" style="height: 25px;">
+                        <div id="syncProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                             role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                    <div class="mt-2 text-center text-muted small">
+                        <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+                        Por favor no cierre esta ventana mientras finaliza el proceso.
+                    </div>
+                </div>
+
+                <div class="modal-footer" id="modalFooter">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" class="btn btn-success" id="btnStartSync">
                         <i class="fas fa-play me-2"></i>Iniciar Sincronización
                     </button>
                 </div>
@@ -335,4 +369,64 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('formSincronizar');
+        const btnStart = document.getElementById('btnStartSync');
+        const modalBody = document.getElementById('modalBodyContent');
+        const modalProgress = document.getElementById('modalProgress');
+        const modalFooter = document.getElementById('modalFooter');
+        const progressBar = document.getElementById('syncProgressBar');
+        const progressTitle = document.getElementById('progressTitle');
+        const progressSubtitle = document.getElementById('progressSubtitle');
+
+        form.addEventListener('submit', function(e) {
+            // No prevenimos el envío real, solo cambiamos la UI antes de que el navegador cargue
+            // e.preventDefault(); // QUITAMOS ESTO para permitir que el form se envíe al servidor
+            
+            // Ocultar formulario y mostrar progreso
+            modalBody.classList.add('d-none');
+            modalFooter.classList.add('d-none');
+            modalProgress.classList.remove('d-none');
+            
+            // Iniciar animación simulada
+            let width = 0;
+            const messages = [
+                { pct: 10, msg: "Obteniendo lista de contratos..." },
+                { pct: 25, msg: "Descargando datos PDD y Suministros..." },
+                { pct: 40, msg: "Procesando registros en base de datos..." },
+                { pct: 60, msg: "Relacionando brocas con contratos..." },
+                { pct: 80, msg: "Finalizando importación..." },
+                { pct: 90, msg: "Esto está tomando un poco más de lo esperado..." }
+            ];
+            
+            let msgIndex = 0;
+            
+            const interval = setInterval(() => {
+                // Curva logarítmica para que nunca llegue a 100% hasta que recargue
+                if (width >= 95) {
+                    width += 0.1; 
+                } else if (width >= 70) {
+                    width += 0.5;
+                } else {
+                    width += 2;
+                }
+                
+                // Actualizar barra
+                const currentPct = Math.min(Math.round(width), 99);
+                progressBar.style.width = currentPct + '%';
+                progressBar.textContent = currentPct + '%';
+                
+                // Actualizar mensajes
+                if (msgIndex < messages.length && currentPct >= messages[msgIndex].pct) {
+                    progressSubtitle.textContent = messages[msgIndex].msg;
+                    msgIndex++;
+                }
+
+                if (width >= 99.5) clearInterval(interval);
+            }, 500); // Actualizar cada 500ms
+        });
+    });
+</script>
 {% endblock %}

@@ -13,11 +13,28 @@ echo ""
 
 # Auto-detectar Python y Entorno Virtual
 PYTHON_EXEC="python3"
+
+echo "DEBUG: Buscando entorno virtual desde $(pwd)..."
+
 if [ -f ".venv/bin/activate" ]; then
+    echo "Activando .venv/bin/activate"
     source ".venv/bin/activate"
     PYTHON_EXEC="python" 
 elif [ -f "venv/bin/activate" ]; then
+     echo "Activando venv/bin/activate"
      source "venv/bin/activate"
+     PYTHON_EXEC="python"
+elif [ -f "perforaciones_diamantinas/venv/bin/activate" ]; then
+     echo "Activando perforaciones_diamantinas/venv/bin/activate"
+     source "perforaciones_diamantinas/venv/bin/activate"
+     PYTHON_EXEC="python"
+elif [ -f "../venv/bin/activate" ]; then
+     echo "Activando ../venv/bin/activate"
+     source "../venv/bin/activate"
+     PYTHON_EXEC="python"
+elif [ -f "../.venv/bin/activate" ]; then
+     echo "Activando ../.venv/bin/activate"
+     source "../.venv/bin/activate"
      PYTHON_EXEC="python"
 elif command -v python3 &>/dev/null; then
     PYTHON_EXEC="python3"
