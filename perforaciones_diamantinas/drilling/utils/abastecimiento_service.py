@@ -211,18 +211,17 @@ class AbastecimientoService:
         Obtiene el contrato asociado a un centro de costo
         
         Estrategias:
-        1. Buscar por centro_costo exacto
+        1. Buscar por codigo_centro_costo exacto
         2. Buscar por centro_costo en nombre_contrato
         3. Buscar contrato activo por defecto
         """
         try:
-            # Buscar por centro_costo exacto (si existe el campo)
-            if hasattr(Contrato, 'centro_costo'):
-                contrato = Contrato.objects.filter(centro_costo=centro_costo).first()
-                if contrato:
-                    return contrato
+            # 1. Buscar por codigo_centro_costo exacto
+            contrato = Contrato.objects.filter(codigo_centro_costo=centro_costo).first()
+            if contrato:
+                return contrato
             
-            # Buscar en nombre o código
+            # 2. Buscar en nombre o código
             contrato = Contrato.objects.filter(
                 nombre_contrato__icontains=centro_costo
             ).first()
@@ -230,9 +229,10 @@ class AbastecimientoService:
             if contrato:
                 return contrato
             
-            # Último recurso: obtener primer contrato activo
+            # 3. Último recurso: obtener primer contrato activo
             logger.warning(f"No se encontró contrato para centro_costo {centro_costo}, usando primer contrato activo")
-            return Contrato.objects.filter(activo=True).first()
+            # El modelo Contrato usa estado='ACTIVO' no un booleano
+            return Contrato.objects.filter(estado='ACTIVO').first()
             
         except Exception as e:
             logger.error(f"Error buscando contrato: {e}")
