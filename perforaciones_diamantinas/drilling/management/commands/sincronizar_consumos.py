@@ -41,9 +41,9 @@ class Command(BaseCommand):
         # Calcular último día del mes
         last_day = calendar.monthrange(year, month)[1]
         
-        # Formatos para API DDMMYYYY
-        fecha_inicio = f"01{month:02d}{year}"
-        fecha_fin = f"{last_day:02d}{month:02d}{year}"
+        # Formatos para API DD-MM-YYYY (con guiones, según ejemplo funcional)
+        fecha_inicio = f"01-{month:02d}-{year}"
+        fecha_fin = f"{last_day:02d}-{month:02d}-{year}"
         
         self.stdout.write(f"Sincronizando consumos: {periodo} ({fecha_inicio} - {fecha_fin})")
         if centro_costo:
