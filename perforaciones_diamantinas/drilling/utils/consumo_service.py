@@ -47,6 +47,46 @@ class ConsumoService:
             logger.warning(f"Código de almacén no numérico encontrado: {codigo}")
             return codigo
 
+
+    def _agrupar_consumos(self, consumos: List[dict], cc_codigo: str) -> List[dict]:
+        """
+        Agrupa consumos repetidos (mismo día, item, doc) sumando cantidades.
+        Resuelve duplcados de API para items sin documento (SIN_DOC).
+        """
+        agrupados = {}
+        
+        for item in consumos:
+            # Normalizar fecha
+            fecha_str = item.get('fecha')
+            # Normalizar codigo y serie
+            codigo = item.get('codigo')
+            serie = item.get('serie') or ''
+            # Normalizar doc
+            doc = item.get('vale') or 'SIN_DOC'
+            
+            # Cantidad
+            try:
+                cantidad = Decimal(str(item.get('cantidad', 0)))
+            except:
+                cantidad = Decimal(0)
+
+            # Clave única de agrupación
+            key = (fecha_str, cc_codigo, doc, codigo, serie)
+            
+            if key in agrupados:
+                # Sumar cantidad a existente
+                agrupados[key]['cantidad'] += cantidad
+                # Actualizar timestamp log? (opcional)
+            else:
+                # Crear nueva entrada (copia para no mutar original)
+                nuevo_item = item.copy()
+                nuevo_item['cantidad'] = cantidad
+                nuevo_item['vale'] = doc # Asegurar que tiene el doc normalizado
+                nuevo_item['serie'] = serie
+                agrupados[key] = nuevo_item
+                
+        return list(agrupados.values())
+
     def sincronizar_periodo(
         self,
         fecha_inicio: str,
@@ -119,16 +159,19 @@ class ConsumoService:
                 if not consumos:
                     logger.info(f"Sin consumos para Almacen {codigo_formatted}")
                     continue
+                
+                # Pre-procesamiento: Agrupar repetidos para evitar Duplicate Key Error en SIN_DOC
+                consumos_procesados = self._agrupar_consumos(consumos, codigo_formatted)
                     
                 resultado['total_api'] += len(consumos)
                 
                 with transaction.atomic():
-                    for item in consumos:
+                    for item in consumos_procesados:
                         try:
                             # Pasamos codigo_api (almacen) pero el contrato ya está resuelto
-                            self._procesar_item_consumo(item, codigo_api, contrato_obj, resultado)
+                            self._procesar_item_consumo(item, codigo_formatted, contrato_obj, resultado)
                         except Exception as e:
-                            msg = f"Error pesistiendo item {item.get('codigo')} en Almacen {codigo_api}: {str(e)}"
+                            msg = f"Error pesistiendo item {item.get('codigo')} en Almacen {codigo_formatted}: {str(e)}"
                             logger.error(msg)
                             resultado['errores'] += 1
                             resultado['detalles_errores'].append(msg)

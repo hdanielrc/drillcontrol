@@ -2898,8 +2898,9 @@ class ConsumoArticulo(models.Model):
         verbose_name = 'Consumo de Artículo'
         verbose_name_plural = 'Consumos de Artículos'
         ordering = ['-fecha', '-fecha_sincronizacion']
+        # Se incluye fecha y centro_costo para permitir documentos repetidos (ej: SIN_DOC)
         unique_together = [
-            ('documento', 'codigo', 'serie'),
+            ('centro_costo', 'fecha', 'documento', 'codigo', 'serie'),
         ]
         indexes = [
             models.Index(fields=['fecha', 'centro_costo']),
