@@ -175,11 +175,20 @@
                             <li><a class="dropdown-item" href="{% url 'consumo-list' %}">
                                 <i class="fas fa-minus-circle"></i> Consumo
                             </a></li>
+                            
+                            {% if user.role == 'CONTROL_PROYECTOS' or user.is_superuser %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><h6 class="dropdown-header">Integraciones</h6></li>
+                            <li><h6 class="dropdown-header">Auditoría / API</h6></li>
                             <li><a class="dropdown-item" href="{% url 'vista-stock-almacen' %}">
                                 <i class="fas fa-cloud"></i> Stock Almacén (API)
                             </a></li>
+                            <li><a class="dropdown-item" href="{% url 'lista-consumos-api' %}">
+                                <i class="fas fa-dolly-flatbed"></i> Consumos (Salidas) API v2
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'inventario-actual-list' %}">
+                                <i class="fas fa-clipboard-check"></i> Stock Actual Consolidado
+                            </a></li>
+                            {% endif %}
 
                         </ul>
                     </li>
