@@ -161,13 +161,20 @@ class AbastecimientoService:
         # Validar campos requeridos
         campos_requeridos = [
             'fecha', 'centro_costo', 'documento', 'codigo', 
-            'descripcion', 'cantidad', 'unidad', 'familia',
-            'precio_unitario', 'precio_total'
+            'descripcion', 'cantidad', 'unidad', 'familia'
         ]
         
         for campo in campos_requeridos:
             if campo not in data:
-                raise ValueError(f"Campo requerido faltante: {campo}")
+                # Intento de recuperación si falta familia pero hay descripción
+                if campo == 'familia':
+                    data['familia'] = 'OTROS' # Valor por defecto
+                    logger.warning(f"Campo familia faltante en {data.get('codigo')}, asignado OTROS")
+                else:
+                    raise ValueError(f"Campo requerido faltante: {campo}")
+        
+        # Limpiar datos
+        data['familia'] = str(data['familia']).strip() if data.get('familia') else 'OTROS'
         
         # Parsear fecha
         fecha = self._parsear_fecha(data['fecha'])
@@ -179,35 +186,52 @@ class AbastecimientoService:
         
         # Buscar si ya existe el registro
         serie = data.get('serie')
+        if serie:
+            serie = str(serie).strip()
         
+        # Manejo seguro acumuladores numéricos
+        def clean_decimal(val):
+            try:
+                if val is None or val == '':
+                    return Decimal('0')
+                return Decimal(str(val))
+            except:
+                return Decimal('0')
+
         abastecimiento, created = AbastecimientoArticulo.objects.update_or_create(
-            documento=data['documento'],
-            codigo=data['codigo'],
+            documento=str(data['documento']).strip(),
+            codigo=str(data['codigo']).strip(),
             serie=serie if serie else '',  # Para unique_together
             defaults={
                 'fecha': fecha,
                 'centro_costo': data['centro_costo'],
                 'contrato': contrato,
                 'documento_referencia': data.get('documento_referencia', ''),
-                'descripcion': data['descripcion'],
+                'descripcion': data.get('descripcion', 'Sin descripción'),
                 'codigo_movimiento': data.get('codigo_movimiento', ''),
-                'cantidad': Decimal(str(data['cantidad'])),
-                'unidad': data['unidad'],
+                'cantidad': clean_decimal(data.get('cantidad')),
+                'unidad': data.get('unidad', 'UND'),
                 'familia': data['familia'],
-                'precio_unitario': Decimal(str(data['precio_unitario'])),
-                'precio_total': Decimal(str(data['precio_total'])),
+                'precio_unitario': clean_decimal(data.get('precio_unitario')),
+                'precio_total': clean_decimal(data.get('precio_total')),
             }
         )
         
-        # Verificar si se creó una broca nueva
+        # Verificar si se creó una broca nueva (o si existe pero no tiene broca asociada)
         broca_creada = False
-        if created and data['familia'] == 'PDD' and serie:
-            # El método save() del modelo ya sincroniza con HistorialBroca
-            # Solo verificamos si se creó
-            if abastecimiento.historial_broca:
-                broca_creada = True
-                logger.info(f"Nueva broca registrada: {serie}")
         
+        # LOGICA CRÍTICA: Asegurar creación de HistorialBroca para PDD
+        if data['familia'] == 'PDD' and serie:
+            # Forzar sincronización si no tiene historial
+            if not abastecimiento.historial_broca:
+                abastecimiento._sincronizar_historial_broca()
+                if abastecimiento.historial_broca:
+                    broca_creada = True
+                    # abast.save() no es necesario porque _sincronizar guarda
+            elif created:
+                # Si se acaba de crear, contamos como creada
+                broca_creada = True
+                
         return created, broca_creada
     
     def _parsear_fecha(self, fecha_str: str) -> date:
