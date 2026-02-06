@@ -494,7 +494,7 @@ def dashboard_control_proyectos_abastecimientos(request):
     Dashboard consolidado multi-contrato para Control de Proyectos
     Muestra resumen de todos los contratos con sus abastecimientos y brocas
     """
-    from .models import AbastecimientoArticulo, HistorialBroca
+    from .models import AbastecimientoArticulo, HistorialBroca, Maquina
     from django.db.models import Count, Sum
     from datetime import datetime
     
@@ -505,31 +505,51 @@ def dashboard_control_proyectos_abastecimientos(request):
         messages.error(request, "No tienes acceso a este dashboard.")
         return redirect('dashboard')
     
-    # Obtener periodo de filtro (YYYYMM)
-    periodo_filtro = request.GET.get('periodo', '').strip()
+    # Obtener filtros
+    anio_filtro = request.GET.get('anio', datetime.now().year)
+    contrato_filtro = request.GET.get('contrato')
+    maquina_filtro = request.GET.get('maquina')
     
     # Obtener todos los contratos activos
     contratos = Contrato.objects.filter(estado='ACTIVO')
     
+    # Filtrar contratos si se selecciona uno específico
+    if contrato_filtro:
+        contratos = contratos.filter(id=contrato_filtro)
+    
+    # Filtrar por máquina si se selecciona (mostrar contrato de la máquina)
+    if maquina_filtro:
+        contract_ids_by_maquina = Maquina.objects.filter(id=maquina_filtro).values_list('contrato_id', flat=True)
+        contratos = contratos.filter(id__in=contract_ids_by_maquina)
+
     # Preparar datos por contrato
     contratos_data = []
+    
+    # Listas para comboboxes
+    all_contratos = Contrato.objects.filter(estado='ACTIVO')
+    all_maquinas = Maquina.objects.filter(estado='OPERATIVA').select_related('contrato')
+    
     for contrato in contratos:
         # Base QuerySet para abastecimientos
         qs_abast = AbastecimientoArticulo.objects.filter(contrato=contrato)
         
-        # Aplicar filtro de periodo si existe
-        if periodo_filtro and len(periodo_filtro) == 6 and periodo_filtro.isdigit():
-            anio = int(periodo_filtro[:4])
-            mes = int(periodo_filtro[4:6])
-            qs_abast = qs_abast.filter(fecha__year=anio, fecha__month=mes)
-        
+        # Filtro por año (por defecto año actual si no se especifica)
+        if anio_filtro:
+            qs_abast = qs_abast.filter(fecha__year=anio_filtro)
+            
         stats_abast = qs_abast.aggregate(
             total=Count('id'),
             valor_total=Sum('precio_total')
         )
         
         # Las métricas de brocas (estado actual) se mantienen globales
-        # a menos que se quiera ver "brocas compradas en ese periodo"
+        # Opcional: Podríamos filtrar brocas_en_uso por máquina si tuviéramos esa relación directa fácil
+        if maquina_filtro:
+             # Si hay filtro de máquina, intentamos filtrar las brocas EN USO en esa máquina
+             # Esto requiere cruzar con TurnoComplemento -> Turno -> Maquina... es complejo para este dashboard resumen
+             # Por ahora mostramos métricas globales del contrato, ya que el filtro de máquina seleccionó el contrato.
+             pass
+
         brocas_nuevas = HistorialBroca.objects.filter(
             contrato_actual=contrato,
             estado='NUEVA'
@@ -558,15 +578,18 @@ def dashboard_control_proyectos_abastecimientos(request):
         'total_abastecimientos': sum(c['stats']['total_abastecimientos'] for c in contratos_data),
         'total_brocas': sum(c['stats']['brocas_disponibles'] for c in contratos_data),
         'valor_total': sum(c['stats']['valor_total'] for c in contratos_data),
-        'periodo_actual': periodo_filtro if periodo_filtro else datetime.now().strftime('%Y%m'),
+        'periodo_actual': str(anio_filtro),
     }
     
     context = {
-        'contratos': contratos,
+        'contratos': all_contratos, # Para el filtro
+        'maquinas': all_maquinas,   # Para el filtro
         'contratos_data': contratos_data,
         'totales': totales,
-        'periodo_actual': periodo_filtro if periodo_filtro else datetime.now().strftime('%Y%m'),
-        'periodo_filtro': periodo_filtro,
+        'anio_filtro': int(anio_filtro),
+        'contrato_filtro': int(contrato_filtro) if contrato_filtro else None,
+        'maquina_filtro': int(maquina_filtro) if maquina_filtro else None,
+        'anios_disponibles': [2024, 2025, 2026],
     }
     
     return render(request, 'drilling/abastecimientos/dashboard_control_proyectos.html', context)

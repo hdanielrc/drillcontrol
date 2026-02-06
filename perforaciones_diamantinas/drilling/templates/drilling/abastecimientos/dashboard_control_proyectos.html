@@ -104,29 +104,54 @@
     </div>
 
     <!-- Filtros -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-body py-3">
-            <form method="get" class="row align-items-end">
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 text-primary"><i class="fas fa-filter me-2"></i>Filtros de Búsqueda</h5>
+        </div>
+        <div class="card-body bg-light">
+            <form method="get" class="row g-3">
                 <div class="col-md-3">
-                    <label for="periodo" class="form-label fw-bold text-muted">Filtrar por Periodo</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="fas fa-calendar"></i></span>
-                        <input type="text" class="form-control" id="periodo" name="periodo" 
-                               value="{{ periodo_filtro|default:'' }}" 
-                               placeholder="Ej: 202501" maxlength="6" pattern="\d{6}">
+                    <label for="anio" class="form-label fw-bold text-muted">Año</label>
+                    <select class="form-select" id="anio" name="anio">
+                        {% for y in anios_disponibles %}
+                        <option value="{{ y }}" {% if anio_filtro == y %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="contrato" class="form-label fw-bold text-muted">Contrato</label>
+                    <select class="form-select" id="contrato" name="contrato">
+                        <option value="">Todos los Contratos</option>
+                        {% for c in contratos %}
+                        <option value="{{ c.id }}" {% if contrato_filtro == c.id %}selected{% endif %}>
+                            {{ c.nombre_contrato }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="maquina" class="form-label fw-bold text-muted">Máquina</label>
+                    <select class="form-select" id="maquina" name="maquina">
+                        <option value="">Todas las Máquinas</option>
+                        {% for m in maquinas %}
+                        <option value="{{ m.id }}" {% if maquina_filtro == m.id %}selected{% endif %}>
+                            {{ m.codigo }} - {{ m.contrato.nombre_contrato }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="d-flex w-100 gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">
+                            <i class="fas fa-search me-1"></i> Filtrar
+                        </button>
+                        <a href="?" class="btn btn-secondary">
+                            <i class="fas fa-sync-alt"></i>
+                        </a>
                     </div>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-filter me-1"></i> Filtrar
-                    </button>
-                </div>
-                <div class="col-md-2">
-                    {% if periodo_filtro %}
-                    <a href="?" class="btn btn-outline-secondary w-100">
-                        <i class="fas fa-times me-1"></i> Limpiar
-                    </a>
-                    {% endif %}
                 </div>
             </form>
         </div>
