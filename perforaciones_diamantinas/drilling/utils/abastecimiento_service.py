@@ -37,7 +37,8 @@ class AbastecimientoService:
         solo_familia: Optional[str] = None
     ) -> Dict[str, any]:
         """
-        Sincroniza todos los abastecimientos de un periodo desde la API
+        Sincroniza todos los abastecimientos de un periodo desde la API.
+        Si no se especifica centro_costo, itera sobre todos los contratos activos.
         
         Args:
             periodo: Periodo en formato YYYYMM (ej: '202601')
@@ -45,15 +46,7 @@ class AbastecimientoService:
             solo_familia: Filtrar solo por familia específica (ej: 'PDD', 'ADIT')
         
         Returns:
-            Diccionario con resultados de la sincronización:
-            {
-                'total_api': 100,
-                'importados': 95,
-                'actualizados': 5,
-                'errores': 0,
-                'brocas_creadas': 10,
-                'detalles_errores': []
-            }
+            Diccionario con resultados consolidados
         """
         logger.info(f"Iniciando sincronización de abastecimientos - Periodo: {periodo}")
         
@@ -66,58 +59,89 @@ class AbastecimientoService:
             'detalles_errores': []
         }
         
-        try:
-            # Obtener datos de la API
-            abastecimientos = self.api_client.obtener_articulos_abastecidos(
-                periodo=periodo,
-                centro_costo=centro_costo
-            )
+        # 1. Determinar lista de Centros de Costo a procesar
+        centros_costo_list = []
+        if centro_costo:
+            centros_costo_list.append(centro_costo)
+        else:
+            # Obtener todos los CC de contratos activos
+            contratos = Contrato.objects.filter(
+                estado='ACTIVO'
+            ).exclude(codigo_centro_costo__isnull=True).exclude(codigo_centro_costo='')
             
-            if not abastecimientos:
-                logger.warning(f"No se obtuvieron abastecimientos de la API para el periodo {periodo}")
+            # Usar set para evitar duplicados
+            centros_costo_list = list(set(c.codigo_centro_costo for c in contratos))
+            logger.info(f"Modo multi-contrato: Se procesarán {len(centros_costo_list)} centros de costo: {centros_costo_list}")
+            
+            if not centros_costo_list:
+                logger.warning("No se encontraron contratos activos con código de centro de costo.")
+                resultado['detalles_errores'].append("No hay contratos activos con centro de costo configurado.")
                 return resultado
-            
-            resultado['total_api'] = len(abastecimientos)
-            logger.info(f"Obtenidos {len(abastecimientos)} registros de la API")
-            
-            # Filtrar por familia si se especificó
-            if solo_familia:
-                abastecimientos = [
-                    a for a in abastecimientos 
-                    if a.get('familia') == solo_familia
-                ]
-                logger.info(f"Filtrados a {len(abastecimientos)} registros de familia {solo_familia}")
-            
-            # Procesar cada abastecimiento
-            for item in abastecimientos:
-                try:
-                    created, broca_creada = self._procesar_abastecimiento(item)
-                    
-                    if created:
-                        resultado['importados'] += 1
-                    else:
-                        resultado['actualizados'] += 1
-                    
-                    if broca_creada:
-                        resultado['brocas_creadas'] += 1
+
+        # 2. Iterar sobre cada Centro de Costo
+        for cc_actual in centros_costo_list:
+            try:
+                logger.info(f"Procesando centro de costo: {cc_actual}")
+                
+                # Obtener datos de la API para este CC
+                abastecimientos = self.api_client.obtener_articulos_abastecidos(
+                    periodo=periodo,
+                    centro_costo=cc_actual
+                )
+                
+                if not abastecimientos:
+                    logger.warning(f"No se obtuvieron datos para CC {cc_actual}")
+                    continue
+                
+                logger.info(f"Obtenidos {len(abastecimientos)} registros para CC {cc_actual}")
+                
+                # Filtrar por familia si se especificó
+                if solo_familia:
+                    abastecimientos = [
+                        a for a in abastecimientos 
+                        if a.get('familia') == solo_familia
+                    ]
+                
+                # Acumular total encontrado
+                resultado['total_api'] += len(abastecimientos)
+                
+                # Procesar registros
+                for item in abastecimientos:
+                    try:
+                        # Asegurar que el CC del item coincida con el solicitado (por seguridad)
+                        if 'centro_costo' not in item or not item['centro_costo']:
+                            item['centro_costo'] = cc_actual
+                            
+                        created, broca_creada = self._procesar_abastecimiento(item)
                         
-                except Exception as e:
-                    resultado['errores'] += 1
-                    error_msg = f"Error procesando {item.get('codigo', 'UNKNOWN')}: {str(e)}"
-                    logger.error(error_msg)
-                    resultado['detalles_errores'].append(error_msg)
-            
-            logger.info(
-                f"Sincronización completada - "
-                f"Importados: {resultado['importados']}, "
-                f"Actualizados: {resultado['actualizados']}, "
-                f"Errores: {resultado['errores']}, "
-                f"Brocas creadas: {resultado['brocas_creadas']}"
-            )
-            
-        except Exception as e:
-            logger.error(f"Error crítico en sincronización: {e}")
-            resultado['detalles_errores'].append(f"Error crítico: {str(e)}")
+                        if created:
+                            resultado['importados'] += 1
+                        else:
+                            resultado['actualizados'] += 1
+                        
+                        if broca_creada:
+                            resultado['brocas_creadas'] += 1
+                            
+                    except Exception as e:
+                        resultado['errores'] += 1
+                        error_msg = f"Error en CC {cc_actual} item {item.get('codigo', '?')}: {str(e)}"
+                        # Solo guardar los primeros 50 errores para no saturar
+                        if len(resultado['detalles_errores']) < 50:
+                            resultado['detalles_errores'].append(error_msg)
+                            
+            except Exception as e_cc:
+                # Error a nivel de centro de costo (ej: error 500 en API para ese CC)
+                msg = f"Error procesando lote de CC {cc_actual}: {str(e_cc)}"
+                logger.error(msg)
+                resultado['detalles_errores'].append(msg)
+                resultado['errores'] += 1
+
+        logger.info(
+            f"Sincronización FINALIZADA - "
+            f"Total API: {resultado['total_api']}, "
+            f"Importados: {resultado['importados']}, "
+            f"Errores: {resultado['errores']}"
+        )
         
         return resultado
     
