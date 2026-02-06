@@ -137,12 +137,21 @@ class ConsumoService:
         """
         Procesa un item individual de la API y lo guarda en BD
         """
-        # Parsear fecha: API devuelve DD/MM/YYYY
+        # Parsear fecha: API devuelve YYYY-MM-DD (aunque documentación decía DD/MM/YYYY)
         fecha_str = item.get('fecha')
-        try:
-            fecha_date = datetime.strptime(fecha_str, '%d/%m/%Y').date()
-        except ValueError:
-            logger.warning(f"Fecha inválida: {fecha_str}")
+        fecha_date = None
+        
+        # Intentar varios formatos por robustez
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+            try:
+                if fecha_str:
+                    fecha_date = datetime.strptime(fecha_str, fmt).date()
+                    break
+            except ValueError:
+                continue
+        
+        if not fecha_date:
+            logger.warning(f"Fecha inválida o vacía: {fecha_str}")
             return
 
         # Mapeo de campos
