@@ -806,6 +806,17 @@
             <small class="text-muted">Se asignan por sondaje</small>
         </div>
         <div class="section-card-body">
+            <!-- Datalist para autocompletado de series -->
+            <datalist id="lista-series-brocas">
+                {% for complemento in tipos_complemento %}
+                    {% if complemento.serie %}
+                    <option value="{{ complemento.serie }}">
+                        {{ complemento.nombre }} - {{ complemento.descripcion|default:'' }}
+                    </option>
+                    {% endif %}
+                {% endfor %}
+            </datalist>
+
             <div id="complementos-seccion">
                 <div class="section-empty-state" id="empty-diamantados">
                     <i class="fas fa-gem"></i>
@@ -1605,7 +1616,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="row align-items-end">
                 <div class="col-md-3">
                     <label class="form-label fw-semibold"><i class="fas fa-barcode text-muted"></i> Serie</label>
-                    <input type="text" name="serie_${idx}" class="form-control input-serie" placeholder="Ingrese serie de la broca" required>
+                    <input type="text" name="serie_${idx}" class="form-control input-serie" list="lista-series-brocas" placeholder="Ingrese o busque serie" autocomplete="off" required>
                     <input type="hidden" name="tipo_complemento_${idx}" class="complemento-id">
                 </div>
                 <div class="col-md-3">
