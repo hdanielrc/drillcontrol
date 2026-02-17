@@ -57,22 +57,27 @@
                                 {% if form.nombres.errors %}<div class="text-danger small">{{ form.nombres.errors.0 }}</div>{% endif %}
                             </div>
                             <div class="col-md-4 form-group-compact">
-                                <label class="form-label required-field">Apellidos</label>
-                                {{ form.apellidos }}
-                                {% if form.apellidos.errors %}<div class="text-danger small">{{ form.apellidos.errors.0 }}</div>{% endif %}
+                                <label class="form-label required-field">Apellido Paterno</label>
+                                {{ form.apepat }}
+                                {% if form.apepat.errors %}<div class="text-danger small">{{ form.apepat.errors.0 }}</div>{% endif %}
                             </div>
                             <div class="col-md-4 form-group-compact">
-                                <label class="form-label required-field">DNI</label>
-                                {{ form.dni }}
-                                {% if form.dni.errors %}<div class="text-danger small">{{ form.dni.errors.0 }}</div>{% endif %}
+                                <label class="form-label required-field">Apellido Materno</label>
+                                {{ form.apemat }}
+                                {% if form.apemat.errors %}<div class="text-danger small">{{ form.apemat.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
                         
                         <div class="row">
                             <div class="col-md-4 form-group-compact">
+                                <label class="form-label required-field">DNI</label>
+                                {{ form.dni }}
+                                {% if form.dni.errors %}<div class="text-danger small">{{ form.dni.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
                                 <label class="form-label required-field">Cargo</label>
                                 {{ form.cargo }}
-                                <small class="form-text text-muted">El grupo se asigna automáticamente según el cargo</small>
+                                <small class="form-text text-muted">Sincronizado desde API</small>
                                 {% if form.cargo.errors %}<div class="text-danger small">{{ form.cargo.errors.0 }}</div>{% endif %}
                             </div>
                             <div class="col-md-4 form-group-compact">

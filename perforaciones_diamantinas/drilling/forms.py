@@ -21,11 +21,23 @@ class TrabajadorForm(forms.ModelForm):
             'nombres': forms.TextInput(attrs={
                 'class': 'form-control', 
                 'placeholder': 'Nombres',
-                'autofocus': True
+                'readonly': True
             }),
-            'apepat': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido Paterno'}),
-            'apemat': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido Materno'}),
-            'cargo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cargo'}),
+            'apepat': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Apellido Paterno',
+                'readonly': True
+            }),
+            'apemat': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Apellido Materno',
+                'readonly': True
+            }),
+            'cargo': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Cargo',
+                'readonly': True
+            }),
             'area': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Área de trabajo'}),
             'maquina_asignada': forms.Select(attrs={'class': 'form-select'}),
             'guardia_asignada': forms.Select(attrs={'class': 'form-select'}),
@@ -33,7 +45,11 @@ class TrabajadorForm(forms.ModelForm):
             'tipo_trabajo': forms.Select(attrs={'class': 'form-select'}),
             'regimen_laboral': forms.Select(attrs={'class': 'form-select'}),
             'fecha_inicio_ciclo': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
-            'dni': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'DNI o documento de identidad'}),
+            'dni': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'DNI',
+                'readonly': True
+            }),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '+56 9 1234 5678'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'correo@ejemplo.com'}),
             'fecha_ingreso': forms.DateInput(format='%Y-%m-%d', attrs={
