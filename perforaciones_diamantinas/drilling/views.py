@@ -1086,6 +1086,93 @@ class SondajeDeleteView(AdminOrContractFilterMixin, DeleteView):
         messages.success(request, 'Sondaje eliminado exitosamente')
         return super().delete(request, *args, **kwargs)
 
+
+@login_required
+def sondaje_seguimiento(request):
+    """Vista de seguimiento de sondajes: corridas agrupadas por fecha, estilo reporte."""
+    from collections import defaultdict
+    from datetime import date, timedelta
+
+    # Rango de fechas — por defecto últimos 30 días
+    fecha_hasta_str = request.GET.get('fecha_hasta', '')
+    fecha_desde_str = request.GET.get('fecha_desde', '')
+
+    try:
+        fecha_hasta = date.fromisoformat(fecha_hasta_str) if fecha_hasta_str else date.today()
+    except ValueError:
+        fecha_hasta = date.today()
+    try:
+        fecha_desde = date.fromisoformat(fecha_desde_str) if fecha_desde_str else fecha_hasta - timedelta(days=29)
+    except ValueError:
+        fecha_desde = fecha_hasta - timedelta(days=29)
+
+    # Filtro de sondaje específico
+    sondaje_id = request.GET.get('sondaje', '')
+
+    # Base queryset de corridas en el rango
+    qs = TurnoCorrida.objects.filter(
+        turno__fecha__gte=fecha_desde,
+        turno__fecha__lte=fecha_hasta,
+    ).select_related(
+        'turno', 'turno__contrato',
+    ).prefetch_related(
+        'turno__sondajes',
+    ).order_by('turno__fecha', 'turno__sondajes__nombre_sondaje', 'corrida_numero')
+
+    # Filtrar por contrato si el usuario no es admin
+    if not request.user.can_manage_all_contracts():
+        qs = qs.filter(turno__contrato=request.user.contrato)
+
+    # Obtener sondajes disponibles para el filtro
+    if request.user.can_manage_all_contracts():
+        sondajes_disponibles = Sondaje.objects.order_by('nombre_sondaje')
+    else:
+        sondajes_disponibles = Sondaje.objects.filter(
+            contrato=request.user.contrato
+        ).order_by('nombre_sondaje')
+
+    if sondaje_id:
+        qs = qs.filter(turno__sondajes__id=sondaje_id)
+
+    # Construir filas: cada corrida es una fila con datos del sondaje del turno
+    filas = []
+    colores_sondaje = {}
+    palette = ['table-primary', 'table-info', 'table-secondary', 'table-warning', 'table-success']
+    color_idx = 0
+
+    for corrida in qs:
+        turno = corrida.turno
+        # Tomar primer sondaje del turno (o el filtrado)
+        sondaje_obj = turno.sondajes.filter(id=sondaje_id).first() if sondaje_id else turno.sondajes.first()
+        if not sondaje_obj:
+            continue
+
+        nombre_s = sondaje_obj.nombre_sondaje
+        if nombre_s not in colores_sondaje:
+            colores_sondaje[nombre_s] = palette[color_idx % len(palette)]
+            color_idx += 1
+
+        filas.append({
+            'fecha': turno.fecha,
+            'nombre_sondaje': nombre_s,
+            'profundidad': sondaje_obj.profundidad,
+            'linea': '-',          # pendiente — vendrá de descripción broca
+            'inclinacion': sondaje_obj.inclinacion,
+            'desde': corrida.desde,
+            'hasta': corrida.hasta,
+            'color': colores_sondaje[nombre_s],
+        })
+
+    context = {
+        'filas': filas,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'sondaje_id': sondaje_id,
+        'sondajes_disponibles': sondajes_disponibles,
+        'total_corridas': len(filas),
+    }
+    return render(request, 'drilling/sondajes/seguimiento.html', context)
+
 # ===============================
 # TIPO ACTIVIDAD VIEWS - CRUD COMPLETO
 # ===============================

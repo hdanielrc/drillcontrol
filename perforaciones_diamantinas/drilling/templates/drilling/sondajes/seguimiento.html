@@ -1,0 +1,158 @@
+{% extends 'drilling/base.html' %}
+
+{% block title %}Seguimiento de Sondajes{% endblock %}
+
+{% block content %}
+
+<style>
+    .tbl-seguimiento {
+        font-size: 0.88rem;
+        border-collapse: collapse;
+        width: 100%;
+    }
+    .tbl-seguimiento thead tr.hdr-main th {
+        background: #1565c0;
+        color: #fff;
+        text-align: center;
+        font-weight: 700;
+        letter-spacing: .04em;
+        padding: 10px 8px;
+        border: 1px solid #0d47a1;
+    }
+    .tbl-seguimiento thead tr.hdr-sub th {
+        background: #cfd8dc;
+        color: #263238;
+        text-align: center;
+        font-weight: 600;
+        padding: 7px 8px;
+        border: 1px solid #b0bec5;
+    }
+    .tbl-seguimiento tbody td {
+        padding: 7px 10px;
+        border: 1px solid #dee2e6;
+        vertical-align: middle;
+        text-align: center;
+    }
+    .tbl-seguimiento tbody td.td-fecha {
+        font-weight: 700;
+        color: #1a237e;
+        white-space: nowrap;
+        text-align: left;
+        padding-left: 14px;
+    }
+    /* Colores por sondaje - alternados */
+    .row-blue   { background: #bbdefb; }
+    .row-purple { background: #e1bee7; }
+    .row-teal   { background: #b2dfdb; }
+    .row-amber  { background: #fff9c4; }
+    .row-green  { background: #c8e6c9; }
+
+    .badge-linea {
+        background: #1e8449;
+        color: #fff;
+        font-size: .78rem;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-weight: 600;
+    }
+    .page-header { margin-bottom: 1.2rem; }
+</style>
+
+<!-- Page Header -->
+<div class="page-header animate-fade-in d-flex justify-content-between align-items-center">
+    <h2><i class="fas fa-chart-line"></i> Seguimiento de Sondajes</h2>
+    <a href="{% url 'sondaje-list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-list"></i> Listado
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card filters-card mb-4 animate-fade-in">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label"><i class="fas fa-calendar text-muted"></i> Desde</label>
+                <input type="date" name="fecha_desde" class="form-control"
+                       value="{{ fecha_desde|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label"><i class="fas fa-calendar text-muted"></i> Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control"
+                       value="{{ fecha_hasta|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label"><i class="fas fa-map-pin text-muted"></i> Sondaje</label>
+                <select name="sondaje" class="form-select">
+                    <option value="">Todos los sondajes</option>
+                    {% for s in sondajes_disponibles %}
+                    <option value="{{ s.id }}" {% if sondaje_id == s.id|stringformat:"s" %}selected{% endif %}>
+                        {{ s.nombre_sondaje }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter"></i> Filtrar
+                </button>
+                <a href="{% url 'sondaje-seguimiento' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla seguimiento -->
+<div class="card card-modern animate-fade-in">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-table"></i> Reporte de Corridas</h5>
+        <span class="badge bg-secondary">{{ total_corridas }} corrida{{ total_corridas|pluralize }}</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="tbl-seguimiento">
+                <thead>
+                    <tr class="hdr-main">
+                        <th rowspan="2" style="vertical-align:middle; width:110px;">DÍAS</th>
+                        <th colspan="4">SONDAJE</th>
+                        <th rowspan="2" style="vertical-align:middle;">DESDE</th>
+                        <th rowspan="2" style="vertical-align:middle;">HASTA</th>
+                    </tr>
+                    <tr class="hdr-sub">
+                        <th>NOMBRE</th>
+                        <th>PROFUNDIDAD</th>
+                        <th>LÍNEA</th>
+                        <th>INCLINACIÓN</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if filas %}
+                        {% for fila in filas %}
+                        <tr class="{{ fila.color }}">
+                            <td class="td-fecha">{{ fila.fecha|date:"d-M-y" }}</td>
+                            <td><strong>{{ fila.nombre_sondaje }}</strong></td>
+                            <td>{{ fila.profundidad }} m</td>
+                            <td>
+                                <span class="badge-linea">{{ fila.linea }}</span>
+                            </td>
+                            <td>{{ fila.inclinacion }}°</td>
+                            <td>{% if fila.desde %}{{ fila.desde }}{% else %}-{% endif %}</td>
+                            <td>{{ fila.hasta }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fas fa-search fa-2x mb-2 d-block"></i>
+                                No hay corridas registradas para el período seleccionado.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
