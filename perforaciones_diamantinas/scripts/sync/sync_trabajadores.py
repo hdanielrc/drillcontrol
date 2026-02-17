@@ -48,7 +48,7 @@ def sync_trabajadores():
     logger.info("Iniciando sincronización de trabajadores...")
     
     try:
-        response = requests.get(API_URL, timeout=30)
+        response = requests.get(API_URL, timeout=120)
         response.raise_for_status()
         data = response.json()
         
