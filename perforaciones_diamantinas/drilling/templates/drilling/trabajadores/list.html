@@ -30,10 +30,12 @@
                 <label class="form-label"><i class="fas fa-briefcase text-muted"></i> Cargo</label>
                 <select name="cargo" class="form-select">
                     <option value="">Todos los cargos</option>
-                    {% for cargo in cargos %}
-                    <option value="{{ cargo.id_cargo }}" {% if filtros.cargo == cargo.id_cargo|stringformat:"s" %}selected{% endif %}>
-                        {{ cargo.nombre }}
+                    {% for cargo_nombre in cargos %}
+                    {% if cargo_nombre %}
+                    <option value="{{ cargo_nombre }}" {% if filtros.cargo == cargo_nombre %}selected{% endif %}>
+                        {{ cargo_nombre }}
                     </option>
+                    {% endif %}
                     {% endfor %}
                 </select>
             </div>
@@ -97,7 +99,7 @@
                             <small class="text-muted">{{ trabajador.contrato.cliente.nombre }}</small>
                         </td>
                         <td>
-                            <span class="badge bg-info">{{ trabajador.cargo.nombre }}</span>
+                            <span class="badge bg-info">{{ trabajador.cargo }}</span>
                         </td>
                         <td>
                             {% if trabajador.tipo_trabajo == 'SUBTERRANEA' %}

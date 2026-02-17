@@ -443,7 +443,8 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         
         # context['cargos'] eliminado porque el modelo Cargo ya no existe
         # context['cargos'] = Cargo.objects.filter(is_active=True).order_by('nombre')
-        context['cargos'] = [] # Lista vacía para evitar errores en template
+        # Obtener cargos únicos desde la tabla Trabajador
+        context['cargos'] = Trabajador.objects.order_by('cargo').values_list('cargo', flat=True).distinct()
         context['grupos'] = [] # Trabajador.GRUPO_CHOICES eliminado o no existe en nuevo modelo
         context['filtros'] = self.request.GET
         return context
