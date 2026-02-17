@@ -71,7 +71,7 @@
                     <tr>
                         <th>DNI</th>
                         <th>Nombre</th>
-                        <th>Contrato</th>
+                        <th>Servicio</th>
                         <th>Cargo</th>
                         <th>Tipo Trabajo</th>
                         <th>Teléfono</th>
@@ -93,8 +93,18 @@
                             {% endif %}
                         </td>
                         <td>
-                            <div class="fw-bold">{{ trabajador.contrato.nombre_contrato }}</div>
-                            <small class="text-muted">{{ trabajador.contrato.cliente.nombre }}</small>
+                            {% if trabajador.grupo == 'OPERADORES' %}
+                                <span class="badge bg-primary me-1">DDH</span>
+                            {% elif trabajador.grupo == 'SERVICIOS_GEOLOGICOS' %}
+                                <span class="badge bg-success me-1">SGEOL</span>
+                            {% elif trabajador.grupo == 'PERSONAL_AUXILIAR' %}
+                                <span class="badge bg-secondary me-1">AUX</span>
+                            {% elif trabajador.grupo == 'LINEA_MANDO' %}
+                                <span class="badge bg-warning text-dark me-1">SUP</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark me-1">-</span>
+                            {% endif %}
+                            <small class="text-muted">{{ trabajador.contrato.nombre_contrato }}</small>
                         </td>
                         <td>
                             <span class="badge bg-info">{{ trabajador.cargo }}</span>
