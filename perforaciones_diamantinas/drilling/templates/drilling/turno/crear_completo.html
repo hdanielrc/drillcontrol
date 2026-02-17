@@ -2072,12 +2072,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 var last = document.querySelectorAll('.trabajador-row');
                 var row = last[last.length - 1];
                 if (!row) return;
+                
                 var selTrab = row.querySelector('select[name^="trabajador_"]');
                 if (selTrab) selTrab.value = t.trabajador_id || '';
+                
                 var selFunc = row.querySelector('select[name^="funcion_"]');
                 if (selFunc) selFunc.value = t.funcion || '';
+                
                 var obs = row.querySelector('input[name^="obs_"]');
                 if (obs) obs.value = t.observaciones || '';
+                
+                // CRITICAL FIX: Restore attendance status
+                var selAsist = row.querySelector('select[name^="estado_asistencia_"]');
+                if (selAsist) {
+                    selAsist.value = t.estado_asistencia || 'TRABAJADO';
+                    // Trigger visual update for non-TRABAJADO rows (yellow background)
+                    if (typeof actualizarEstiloFila === 'function') {
+                        actualizarEstiloFila(selAsist);
+                    }
+                }
             });
 
             // Usar setTimeout para asegurar que las subsecciones se hayan creado
@@ -2155,17 +2168,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 editData.aditivos.forEach(function(a) {
                     var sid = a.sondaje_id || (editData.sondaje_ids && editData.sondaje_ids[0]) || null;
                     if (!sid) return;
+                    
+                    // Buscar o esperar a que la subsección exista
                     var sub = document.querySelector('.aditivo-subsection[data-sondaje-id="' + sid + '"]');
-                    if (!sub) return;
+                    if (!sub) {
+                         // Fallback: intentar crearla si no existe (aunque ensureSondajeSubsections debería haberlo hecho)
+                         console.warn('Subsección aditivos no encontrada para sondaje ' + sid);
+                         return;
+                    }
+                    
                     var list = sub.querySelector('.aditivos-list');
                     list.insertAdjacentHTML('beforeend', crearAditivoRowForSondaje(sid));
                     var last = list.querySelectorAll('.aditivo-row');
                     var row = last[last.length - 1];
                     if (!row) return;
+                    
                     var tipo = row.querySelector('select[name^="tipo_aditivo_"]');
-                    if (tipo) tipo.value = a.tipo_aditivo_id || '';
+                    if (tipo) {
+                        tipo.value = a.tipo_aditivo_id || '';
+                        // Disparar evento change si es necesario para lógica dependiente
+                    }
+                    
                     var cant = row.querySelector('input[name^="cantidad_usada_"]');
                     if (cant) cant.value = a.cantidad_usada || '';
+                    
                     var um = row.querySelector('select[name^="unidad_medida_"]');
                     if (um) um.value = a.unidad_medida_id || '';
                 });
@@ -2176,12 +2202,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 var last = document.querySelectorAll('.actividad-row');
                 var row = last[last.length - 1];
                 if (!row) return;
+                
                 var sel = row.querySelector('select[name^="actividad_"]');
                 if (sel) sel.value = act.actividad_id || '';
+                
                 var hi = row.querySelector('input[name^="hora_inicio_"]');
                 if (hi && act.hora_inicio) hi.value = act.hora_inicio;
+                
                 var hf = row.querySelector('input[name^="hora_fin_"]');
                 if (hf && act.hora_fin) hf.value = act.hora_fin;
+                
                 var obs = row.querySelector('input[name^="obs_act_"]');
                 if (obs) obs.value = act.observaciones || '';
 
@@ -2189,18 +2219,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (act.hora_inicio && act.hora_fin) {
                     var h1_parts = act.hora_inicio.split(':');
                     var h2_parts = act.hora_fin.split(':');
-                    var h1 = parseInt(h1_parts[0]);
-                    var m1 = parseInt(h1_parts[1]);
-                    var h2 = parseInt(h2_parts[0]);
-                    var m2 = parseInt(h2_parts[1]);
                     
-                    if (!isNaN(h1) && !isNaN(h2)) {
-                        var min1 = h1 * 60 + m1;
-                        var min2 = h2 * 60 + m2;
-                        if (min2 < min1) min2 += 1440; // Next day
-                        var diffHours = (min2 - min1) / 60;
-                        var durInput = row.querySelector('.duracion-actividad-input');
-                        if (durInput) durInput.value = parseFloat(diffHours.toFixed(2));
+                    if (h1_parts.length >= 2 && h2_parts.length >= 2) {
+                        var h1 = parseInt(h1_parts[0]);
+                        var m1 = parseInt(h1_parts[1]);
+                        var h2 = parseInt(h2_parts[0]);
+                        var m2 = parseInt(h2_parts[1]);
+                        
+                        if (!isNaN(h1) && !isNaN(h2)) {
+                            var min1 = h1 * 60 + m1;
+                            var min2 = h2 * 60 + m2;
+                            if (min2 < min1) min2 += 1440; // Next day
+                            var diffHours = (min2 - min1) / 60;
+                            var durInput = row.querySelector('.duracion-actividad-input');
+                            if (durInput) durInput.value = parseFloat(diffHours.toFixed(2));
+                        }
                     }
                 }
             });
