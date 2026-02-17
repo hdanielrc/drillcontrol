@@ -15,6 +15,7 @@ from drilling.api_client import VilbragroupAPIClient
 from drilling.models import (
     AbastecimientoArticulo,
     Contrato,
+    ContratoServicio,
     HistorialBroca,
     TipoComplemento
 )
@@ -64,15 +65,20 @@ class AbastecimientoService:
         if centro_costo:
             centros_costo_list.append(centro_costo)
         else:
-            # Obtener todos los CC de contratos activos
-            contratos = Contrato.objects.filter(
-                estado='ACTIVO'
-            ).exclude(codigo_centro_costo__isnull=True).exclude(codigo_centro_costo='')
-            
-            # Usar set para evitar duplicados
-            centros_costo_list = list(set(c.codigo_centro_costo for c in contratos))
+            # Obtener todos los CC: campo principal + ContratoServicio adicionales
+            contratos = Contrato.objects.filter(estado='ACTIVO').prefetch_related('servicios')
+
+            cc_set = set()
+            for c in contratos:
+                if c.codigo_centro_costo:
+                    cc_set.add(c.codigo_centro_costo)
+                for srv in c.servicios.filter(activo=True):
+                    if srv.codigo_centro_costo:
+                        cc_set.add(srv.codigo_centro_costo)
+
+            centros_costo_list = sorted(cc_set)
             logger.info(f"Modo multi-contrato: Se procesarán {len(centros_costo_list)} centros de costo: {centros_costo_list}")
-            
+
             if not centros_costo_list:
                 logger.warning("No se encontraron contratos activos con código de centro de costo.")
                 resultado['detalles_errores'].append("No hay contratos activos con centro de costo configurado.")

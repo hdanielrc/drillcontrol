@@ -99,7 +99,88 @@ class Contrato(models.Model):
     def __str__(self):
         return f"{self.cliente.nombre} - {self.nombre_contrato}"
 
-from django.contrib.auth.models import AbstractUser
+    def get_centros_costo(self):
+        """
+        Retorna lista de todos los códigos de centro de costo asociados:
+        incluye el campo principal y todos los ContratoServicio.
+        """
+        codigos = []
+        if self.codigo_centro_costo:
+            codigos.append(self.codigo_centro_costo)
+        for srv in self.servicios.all():
+            if srv.codigo_centro_costo and srv.codigo_centro_costo not in codigos:
+                codigos.append(srv.codigo_centro_costo)
+        return codigos
+
+    def get_codigos_almacen(self):
+        """
+        Retorna lista de todos los códigos de almacén asociados al contrato.
+        """
+        codigos = []
+        if self.codigo_almacen:
+            codigos.append(self.codigo_almacen)
+        for srv in self.servicios.all():
+            if srv.codigo_almacen and srv.codigo_almacen not in codigos:
+                codigos.append(srv.codigo_almacen)
+        return codigos
+
+
+class ContratoServicio(models.Model):
+    """
+    Permite que un Contrato tenga múltiples Centros de Costo / Servicios.
+    Ejemplo: San Cristóbal puede tener DDH (000035) y SGEOL (000402).
+    """
+    TIPO_SERVICIO_CHOICES = [
+        ('DDH', 'Perforación Diamantina (DDH)'),
+        ('SGEOL', 'Servicios Geológicos (SGEOL)'),
+        ('WDTH', 'Wireline / Downhole (WDTH)'),
+        ('VCR', 'VCR / Raise Boring (VCR)'),
+        ('OTRO', 'Otro'),
+    ]
+
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.CASCADE,
+        related_name='servicios',
+        verbose_name='Contrato'
+    )
+    tipo_servicio = models.CharField(
+        max_length=10,
+        choices=TIPO_SERVICIO_CHOICES,
+        verbose_name='Tipo de Servicio'
+    )
+    codigo_centro_costo = models.CharField(
+        max_length=50,
+        verbose_name='Código Centro de Costo',
+        help_text='Ej: 000402'
+    )
+    codigo_almacen = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='Código Almacén API',
+        help_text='Para consumos (ej: 16)'
+    )
+    descripcion = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Descripción',
+        help_text='Descripción adicional (opcional)'
+    )
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'contrato_servicios'
+        verbose_name = 'Servicio de Contrato'
+        verbose_name_plural = 'Servicios de Contrato'
+        unique_together = [('contrato', 'codigo_centro_costo')]
+        ordering = ['tipo_servicio']
+
+    def __str__(self):
+        return f"{self.contrato.nombre_contrato} | {self.tipo_servicio} | CC: {self.codigo_centro_costo}"
+
+
 from django.db import models
 from django.utils import timezone
 

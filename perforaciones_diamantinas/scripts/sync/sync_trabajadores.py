@@ -30,7 +30,7 @@ except Exception as e:
 
 # Importar modelos después de setup
 from django.db.models import Max
-from drilling.models import Trabajador, Contrato
+from drilling.models import Trabajador, Contrato, ContratoServicio
 
 # Configuración de Logging
 logging.basicConfig(
@@ -74,13 +74,19 @@ def sync_trabajadores():
     created_count = 0
     updated_count = 0
     
-    # Cache para optimizar búsquedas
-    # Mapeo: codigo_centro_costo -> Contrato object
+    # Cache: codigo_centro_costo -> Contrato object
+    # Incluye tanto el codigo_centro_costo principal del Contrato
+    # como los CCs adicionales definidos en ContratoServicio
     contratos_cache = {}
 
-    # Pre-cargar contratos que tienen codigo_centro_costo
+    # Pre-cargar desde campo principal
     for c in Contrato.objects.exclude(codigo_centro_costo__isnull=True).exclude(codigo_centro_costo__exact=''):
         contratos_cache[c.codigo_centro_costo] = c
+
+    # Pre-cargar desde ContratoServicio (CCs adicionales)
+    for srv in ContratoServicio.objects.filter(activo=True).select_related('contrato'):
+        if srv.codigo_centro_costo and srv.codigo_centro_costo not in contratos_cache:
+            contratos_cache[srv.codigo_centro_costo] = srv.contrato
 
     for worker in workers_data:
         dni = worker.get('dni')

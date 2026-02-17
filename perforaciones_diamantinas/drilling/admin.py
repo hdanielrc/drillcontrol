@@ -148,13 +148,30 @@ class ClienteAdmin(admin.ModelAdmin):
     search_fields = ['nombre']
     ordering = ['nombre']
 
+class ContratoServicioInline(admin.TabularInline):
+    model = ContratoServicio
+    extra = 1
+    fields = ['tipo_servicio', 'codigo_centro_costo', 'codigo_almacen', 'descripcion', 'activo']
+    verbose_name = 'Servicio / Centro de Costo adicional'
+    verbose_name_plural = 'Servicios / Centros de Costo adicionales'
+
+
 @admin.register(Contrato)
 class ContratoAdmin(admin.ModelAdmin):
-    list_display = ['nombre_contrato', 'cliente', 'duracion_turno', 'estado']  # Solo campos que existen
+    list_display = ['nombre_contrato', 'cliente', 'codigo_centro_costo', 'codigo_almacen', 'duracion_turno', 'estado']
     list_filter = ['estado', 'cliente']
     search_fields = ['nombre_contrato', 'cliente__nombre']
     ordering = ['nombre_contrato']
     raw_id_fields = ['cliente']
+    inlines = [ContratoServicioInline]
+
+
+@admin.register(ContratoServicio)
+class ContratoServicioAdmin(admin.ModelAdmin):
+    list_display = ['contrato', 'tipo_servicio', 'codigo_centro_costo', 'codigo_almacen', 'activo']
+    list_filter = ['tipo_servicio', 'activo', 'contrato']
+    search_fields = ['contrato__nombre_contrato', 'codigo_centro_costo']
+    ordering = ['contrato__nombre_contrato', 'tipo_servicio']
 
 @admin.register(Trabajador)
 class TrabajadorAdmin(admin.ModelAdmin):
