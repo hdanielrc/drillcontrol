@@ -12,7 +12,7 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-in-production')
 DEBUG = True  # FORZADO A TRUE PARA DESARROLLO
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'drillcontrol.com', 'www.drillcontrol.com', '138.197.203.247'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'drillcontrol.com', 'www.drillcontrol.com', '138.197.203.247', 'rockdrillgroup.site', 'www.rockdrillgroup.site'])
 
 # Permitir subdominios de ngrok en desarrollo para exponer el servidor local
 # de forma temporal. Esto solo se activa cuando DEBUG=True.
@@ -25,7 +25,9 @@ CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://localhost', 
     'http://127.0.0.1', 
     'https://drillcontrol.com',
-    'https://www.drillcontrol.com'
+    'https://www.drillcontrol.com',
+    'https://rockdrillgroup.site',
+    'https://www.rockdrillgroup.site'
 ])
 if DEBUG:
     # Permitir orígenes https de ngrok (subdominios)
