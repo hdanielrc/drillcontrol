@@ -425,10 +425,19 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         grupo = self.request.GET.get('grupo')
         if grupo:
             queryset = queryset.filter(grupo=grupo)
-            
+        
+        # Filtro de activo
         activo = self.request.GET.get('activo')
+        
+        # SI no viene el parámetro 'activo', asumimos que es carga inicial y filtramos solo ACTIVOS
+        if 'activo' not in self.request.GET:
+            activo = 'true'
+            
         if activo:
-            queryset = queryset.filter(estado='ACTIVO' if activo == 'true' else 'CESADO')
+            if activo == 'true':
+                queryset = queryset.filter(estado='ACTIVO')
+            elif activo == 'false':
+                queryset = queryset.exclude(estado='ACTIVO')
             
         return queryset
     
@@ -446,7 +455,13 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         # Obtener cargos únicos desde la tabla Trabajador
         context['cargos'] = Trabajador.objects.order_by('cargo').values_list('cargo', flat=True).distinct()
         context['grupos'] = [] # Trabajador.GRUPO_CHOICES eliminado o no existe en nuevo modelo
-        context['filtros'] = self.request.GET
+        
+        # Filtros con default para activo
+        filtros = self.request.GET.copy()
+        if 'activo' not in filtros:
+            filtros['activo'] = 'true'
+        context['filtros'] = filtros
+        
         return context
 
 @login_required
