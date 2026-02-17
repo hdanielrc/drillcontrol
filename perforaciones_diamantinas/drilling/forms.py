@@ -14,7 +14,8 @@ class TrabajadorForm(forms.ModelForm):
             'vehiculo_asignado', 'tipo_trabajo', 'regimen_laboral', 'fecha_inicio_ciclo',
             'telefono', 'email', 
             'subestado', 'es_standby',
-            'fotocheck_fecha_emision'
+            'fotocheck_fecha_emision',
+            'fecha_contratacion'
         ]
         widgets = {
             'contrato': forms.Select(attrs={'class': 'form-select'}),
@@ -52,10 +53,11 @@ class TrabajadorForm(forms.ModelForm):
             }),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '+56 9 1234 5678'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'correo@ejemplo.com'}),
-            'fecha_ingreso': forms.DateInput(format='%Y-%m-%d', attrs={
+            'fecha_contratacion': forms.DateInput(format='%Y-%m-%d', attrs={
                 'class': 'form-control', 
                 'type': 'date',
-                'id': 'id_fecha_ingreso'
+                'id': 'id_fecha_contratacion',
+                'readonly': True
             }),
             'estado': forms.Select(attrs={'class': 'form-select'}),
             'subestado': forms.Select(attrs={'class': 'form-select'}),
@@ -80,7 +82,8 @@ class TrabajadorForm(forms.ModelForm):
             
             # Precargar fecha de ingreso con hoy
             from django.utils import timezone
-            self.fields['fecha_ingreso'].initial = timezone.now().date()
+            if 'fecha_contratacion' in self.fields:
+                self.fields['fecha_contratacion'].initial = timezone.now().date()
         
         # Configurar campos opcionales
         self.fields['maquina_asignada'].required = False

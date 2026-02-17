@@ -81,6 +81,15 @@
                                 {% if form.cargo.errors %}<div class="text-danger small">{{ form.cargo.errors.0 }}</div>{% endif %}
                             </div>
                             <div class="col-md-4 form-group-compact">
+                                <label class="form-label">Fecha de Ingreso</label>
+                                {{ form.fecha_contratacion }}
+                                <small class="text-muted">Sincronizado desde API</small>
+                                {% if form.fecha_contratacion.errors %}<div class="text-danger small">{{ form.fecha_contratacion.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                         <div class="row">
+                            <div class="col-md-4 form-group-compact">
                                 <label class="form-label">Grupo Funcional</label>
                                 {% if object and object.grupo %}
                                     <input type="text" class="form-control" value="{{ object.get_grupo_display }}" readonly disabled>
@@ -90,36 +99,28 @@
                                     <small class="form-text text-muted">Se calculará según el cargo seleccionado</small>
                                 {% endif %}
                             </div>
-                            <div class="col-md-4 form-group-compact">
+                             <div class="col-md-4 form-group-compact">
                                 <label class="form-label">Área</label>
                                 {{ form.area }}
                                 {% if form.area.errors %}<div class="text-danger small">{{ form.area.errors.0 }}</div>{% endif %}
                             </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-4 form-group-compact">
-                                <label class="form-label">Fecha de Ingreso</label>
-                                {{ form.fecha_ingreso }}
-                                {% if form.fecha_ingreso.errors %}<div class="text-danger small">{{ form.fecha_ingreso.errors.0 }}</div>{% endif %}
+                             <div class="col-md-4 form-group-compact">
+                                <label class="form-label required-field">Contrato</label>
+                                {{ form.contrato }}
+                                {% if form.contrato.errors %}<div class="text-danger small">{{ form.contrato.errors.0 }}</div>{% endif %}
                             </div>
-                            <div class="col-md-4 form-group-compact">
+                        </div>
+
+                         <div class="row">
+                             <div class="col-md-6 form-group-compact">
                                 <label class="form-label">Teléfono</label>
                                 {{ form.telefono }}
                                 {% if form.telefono.errors %}<div class="text-danger small">{{ form.telefono.errors.0 }}</div>{% endif %}
                             </div>
-                            <div class="col-md-4 form-group-compact">
+                            <div class="col-md-6 form-group-compact">
                                 <label class="form-label">Email</label>
                                 {{ form.email }}
                                 {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors.0 }}</div>{% endif %}
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-12 form-group-compact">
-                                <label class="form-label required-field">Contrato</label>
-                                {{ form.contrato }}
-                                {% if form.contrato.errors %}<div class="text-danger small">{{ form.contrato.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
 
