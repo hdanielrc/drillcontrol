@@ -1826,6 +1826,36 @@ class Trabajador(models.Model):
         super().save(*args, **kwargs)
 
 
+class TrabajadorAPI(models.Model):
+    """
+    Modelo temporal para almacenar la respuesta de la API de trabajadores.
+    Sirve como staging area antes de sincronizar con el modelo principal Trabajador.
+    """
+    dni = models.CharField(max_length=20, unique=True)
+    nombres = models.CharField(max_length=200)
+    apepat = models.CharField(max_length=100, verbose_name='Apellido Paterno')
+    apemat = models.CharField(max_length=100, verbose_name='Apellido Materno')
+    cargo = models.CharField(max_length=200, help_text='Cargo original del API')
+    centro_costo = models.CharField(max_length=50, help_text='Código de centro de costo')
+    contrato = models.CharField(max_length=200, help_text='Nombre del contrato')
+    fecha_contratacion = models.DateField(null=True, blank=True)
+    estado = models.CharField(max_length=50)
+    synced = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Trabajador API (Staging)'
+        verbose_name_plural = 'Trabajadores API (Staging)'
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.dni} - {self.nombres} {self.apepat}"
+
+    @property
+    def get_full_name(self):
+        return f"{self.nombres} {self.apepat} {self.apemat}".strip()
+
+
 class HistorialLaboral(models.Model):
     """
     Historial de cambios laborales del trabajador (Cargo, Guardia, Régimen)
@@ -4381,4 +4411,77 @@ class HeadCount(models.Model):
     def esta_completo(self):
         """Verifica si el headcount está completo"""
         return self.get_cantidad_actual() >= self.cantidad_requerida
+
+
+# =============================================================================
+# SECCIÓN: API INTEGRATION - Staging Tables
+# =============================================================================
+
+class TrabajadorAPI(models.Model):
+    """
+    Tabla de staging/remplazo para sincronización de trabajadores desde API externa.
+    Contiene campos de la API y campos operativos del sistema actual.
+    """
+    # --- CAMPOS NUEVOS (API) ---
+    dni = models.CharField(max_length=20, unique=True, verbose_name='DNI')
+    nombres = models.CharField(max_length=200, blank=True)
+    apepat = models.CharField(max_length=100, blank=True, verbose_name='Apellido Paterno')
+    apemat = models.CharField(max_length=100, blank=True, verbose_name='Apellido Materno')
+    
+    # Datos Laborales (Texto crudo desde API)
+    cargo_nombre = models.CharField(max_length=200, blank=True, verbose_name='Cargo (Texto API)')
+    centro_costo = models.CharField(max_length=50, blank=True, null=True, verbose_name='Centro Costo (API)')
+    contrato_nombre = models.CharField(max_length=200, blank=True, verbose_name='Contrato (Texto API)')
+    fecha_contratacion = models.DateField(null=True, blank=True, verbose_name='Fecha Contratación')
+    estado_api = models.CharField(max_length=50, blank=True, verbose_name='Estado API')
+
+    # --- CAMPOS OPERATIVOS DEL SISTEMA ACTUAL (Compatibilidad) ---
+    # Estos campos son necesarios para que el sistema siga funcionando si usamos esta tabla
+    
+    # Referencias a modelos existentes
+    contrato = models.ForeignKey('Contrato', on_delete=models.SET_NULL, null=True, blank=True, related_name='trabajadores_api')
+    cargo = models.ForeignKey('Cargo', on_delete=models.SET_NULL, null=True, blank=True, related_name='trabajadores_api')
+    
+    # Campos Operativos
+    maquina_asignada = models.ForeignKey('Maquina', on_delete=models.SET_NULL, null=True, blank=True)
+    vehiculo_asignado = models.ForeignKey('Vehiculo', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    guardia_asignada = models.CharField(max_length=1, choices=Trabajador.GUARDIA_CHOICES, null=True, blank=True)
+    es_standby = models.BooleanField(default=False)
+    
+    regimen_laboral = models.CharField(max_length=10, choices=Trabajador.REGIMEN_CHOICES, default='14x7')
+    fecha_inicio_ciclo = models.DateField(null=True, blank=True)
+    
+    tipo_trabajo = models.CharField(max_length=20, choices=Trabajador.TIPO_TRABAJO_CHOICES, default='SUBTERRANEA')
+    area = models.CharField(max_length=100, blank=True)
+    
+    telefono = models.CharField(max_length=15, blank=True)
+    email = models.EmailField(blank=True)
+    
+    subestado = models.CharField(max_length=30, choices=Trabajador.SUBESTADO_CHOICES, default='EN_OPERACION')
+    fotocheck_fecha_emision = models.DateField(null=True, blank=True)
+
+    # Control de Sincronización
+    synced = models.BooleanField(default=False, verbose_name='Sincronizado')
+    last_synced_at = models.DateTimeField(auto_now=True, verbose_name='Última Sincronización')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha Creación')
+    
+    class Meta:
+        db_table = 'trabajadores_api_staging'
+        verbose_name = 'Trabajador API (Nuevo Modelo)'
+        verbose_name_plural = 'Trabajadores API (Nuevo Modelo)'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.dni} - {self.nombres} {self.apepat}"
+
+    @property
+    def get_full_name(self):
+        return f"{self.nombres} {self.apepat} {self.apemat}".strip()
+    
+    @property
+    def apellidos(self):
+        # Propiedad de compatibilidad con modelo anterior
+        return f"{self.apepat} {self.apemat}".strip()
+
 
