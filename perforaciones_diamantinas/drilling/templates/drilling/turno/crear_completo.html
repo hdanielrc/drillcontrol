@@ -1093,12 +1093,31 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     document.getElementById('agregar-trabajador-btn').addEventListener('click', function() {
+        const emptyState = document.getElementById('empty-trabajadores');
+        if (emptyState) {
+            emptyState.remove();
+        }
+        
         document.getElementById('trabajadores-seccion').insertAdjacentHTML('beforeend', crearTrabajadorRow());
     });
     
     document.getElementById('trabajadores-seccion').addEventListener('click', function(event) {
         if (event.target.closest('.btn-remove-trabajador')) {
             event.target.closest('.trabajador-row').remove();
+            
+            // Verificar si quedan trabajadores
+            const container = document.getElementById('trabajadores-seccion');
+            if (container.querySelectorAll('.trabajador-row').length === 0) {
+                // Solo agregar si no existe ya
+                if (!document.getElementById('empty-trabajadores')) {
+                    container.insertAdjacentHTML('beforeend', `
+                        <div class="section-empty-state" id="empty-trabajadores">
+                            <i class="fas fa-user-plus"></i>
+                            <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" o use el selector de Guardia para comenzar.</p>
+                        </div>
+                    `);
+                }
+            }
         }
     });
     
