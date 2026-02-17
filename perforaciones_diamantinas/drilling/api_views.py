@@ -194,7 +194,7 @@ def api_grupos_disponibles_por_fecha(request):
         debug_info = {}
         for asist in todos_trabajadores:
             guardia = asist.guardia_snapshot
-            grupo = asist.trabajador.grupo or 'SIN_GRUPO'
+            grupo = asist.trabajador.cargo or 'SIN_CARGO'
             cargo = asist.trabajador.cargo or 'SIN_CARGO'
             if guardia not in debug_info:
                 debug_info[guardia] = []

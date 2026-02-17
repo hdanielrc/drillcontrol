@@ -128,7 +128,7 @@ def tareo_mensual_view(request):
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).select_related('cargo', 'maquina_asignada').order_by('grupo', 'guardia_asignada', 'apellidos', 'nombres')
+    ).select_related('maquina_asignada').order_by('cargo', 'guardia_asignada', 'apepat', 'nombres')
     
     # Obtener asistencias del rango
     asistencias = AsistenciaTrabajador.objects.filter(
@@ -163,8 +163,11 @@ def tareo_mensual_view(request):
         primary_name = ''
         order_weight = 99
         
-        # Prioridad 1: Línea de Mando
-        if trabajador.grupo == 'LINEA_MANDO':
+        cargo_upper = (trabajador.cargo or '').upper()
+        
+        # Prioridad 1: Línea de Mando (según cargo)
+        CARGOS_LINEA_MANDO = ('RESIDENTE', 'SUPERVISOR', 'JEFE', 'ADMINISTRADOR', 'ING.', 'INGENIERO', 'GERENTE', 'SEGURIDAD', 'SSOMA')
+        if any(c in cargo_upper for c in CARGOS_LINEA_MANDO):
             primary_key = '00_LINEA_MANDO'
             primary_name = 'LÍNEA DE MANDO'
             order_weight = 0
@@ -181,19 +184,16 @@ def tareo_mensual_view(request):
              primary_name = f'VEHÍCULO {trabajador.vehiculo_asignado.placa}' # O nombre
              order_weight = 20
              
-        # Prioridad 4: Grupo Funcional por defecto
+        # Prioridad 4: Grupo por defecto basado en cargo
         else:
             if trabajador.es_standby:
                 primary_key = '85_PERSONAL_STANDBY'
                 primary_name = 'PERSONAL STANDBY'
                 order_weight = 85
             else:
-                grupo_raw = trabajador.grupo
-                if not grupo_raw:
-                    grupo_raw = trabajador.asignar_grupo_automatico() or 'SIN_GRUPO'
-                
-                primary_key = f'90_{grupo_raw}'
-                primary_name = trabajador.get_grupo_display() if trabajador.grupo else grupo_raw.replace('_', ' ')
+                grupo_raw = cargo_upper or 'SIN_GRUPO'
+                primary_key = f'90_{grupo_raw[:20]}'
+                primary_name = cargo_upper.replace('_', ' ') or 'SIN GRUPO'
                 order_weight = 90
 
         # Almacenar peso para ordenamiento final
@@ -740,7 +740,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         ws.cell(row=row_num, column=2).value = trabajador.dni
         ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
         ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
-        ws.cell(row=row_num, column=5).value = trabajador.get_grupo_display() if trabajador.grupo else ""
+        ws.cell(row=row_num, column=5).value = trabajador.cargo or ""
         ws.cell(row=row_num, column=6).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
         
         # Marcaciones diarias
@@ -1036,14 +1036,14 @@ def auto_rellenar_asistencia(request):
             # EXCEPCIÓN: No asignar guardia a LINEA_MANDO
             trabajadores_sin_guardia = [
                 t for t in trabajadores 
-                if not t.guardia_asignada and t.grupo != 'LINEA_MANDO'
+                if not t.guardia_asignada and not any(c in (t.cargo or '').upper() for c in ('RESIDENTE','SUPERVISOR','JEFE','ADMINISTRADOR','INGENIERO','GERENTE'))
             ]
             
             if trabajadores_sin_guardia:
                 # Contar actuales (excluyendo linea de mando)
                 conteos = {'A': 0, 'B': 0, 'C': 0}
                 for t in trabajadores:
-                    if t.guardia_asignada in conteos and t.grupo != 'LINEA_MANDO':
+                    if t.guardia_asignada in conteos and not any(c in (t.cargo or '').upper() for c in ('RESIDENTE','SUPERVISOR','JEFE','ADMINISTRADOR','INGENIERO','GERENTE')):
                         conteos[t.guardia_asignada] += 1
                 
                 # Asignar round-robin a la guardia con menos gente
@@ -1065,7 +1065,7 @@ def auto_rellenar_asistencia(request):
                     estado_regimen = None
                     
                     # CASO ESPECIAL: LINEA DE MANDO (Siempre TRABAJADO, excepto domingos si aplica, o según régimen simple)
-                    if trabajador.grupo == 'LINEA_MANDO':
+                    if any(c in (trabajador.cargo or '').upper() for c in ('RESIDENTE','SUPERVISOR','JEFE','ADMINISTRADOR','INGENIERO','GERENTE')):
                         # Asumimos TRABAJADO por defecto para línea de mando, o lógica simple
                         # Si tienen régimen, intentar respetarlo, pero sin offsets de guardia
                         if trabajador.regimen_laboral:
@@ -1231,9 +1231,9 @@ def actualizar_grupos_trabajadores(request):
         count = 0
         stats = {}
         for t in trabajadores:
-            t.save() # Esto dispara asignar_grupo_automatico() en models.py
+            t.save()
             count += 1
-            grupo = t.grupo if t.grupo else 'SIN_GRUPO'
+            grupo = (t.cargo or 'SIN_GRUPO').upper()
             stats[grupo] = stats.get(grupo, 0) + 1
             
         detalles = ", ".join([f"{k}: {v}" for k, v in stats.items()])
@@ -1353,7 +1353,7 @@ def debug_trabajadores(request):
     
     for t in trabajadores:
         grupo_calc = t.asignar_grupo_automatico()
-        match_style = "text-success" if t.grupo == grupo_calc else "text-danger fw-bold"
+match_style = "text-success"
         
         html += f"""
         <tr>
@@ -1362,7 +1362,7 @@ def debug_trabajadores(request):
             <td>{t.nombres}</td>
             <td>{t.apellidos}</td>
             <td>{t.cargo or '-'}</td>
-            <td>{t.grupo}</td>
+            <td>-</td>
             <td class="{match_style}">{grupo_calc}</td>
             <td>{t.estado}</td>
             <td>{t.guardia_asignada}</td>
@@ -1638,7 +1638,7 @@ def autocompletar_tareo_por_regimen(request):
             # Para régimen 14x7 (ciclo de 21 días), con 3 guardias, el desfase es 7 días
             # Esto garantiza que siempre haya 2 guardias trabajando y 1 descansando
             for trabajador in trabajadores:
-                if trabajador.grupo != 'LINEA_MANDO':
+                if not any(c in (trabajador.cargo or '').upper() for c in ('RESIDENTE','SUPERVISOR','JEFE','ADMINISTRADOR','INGENIERO','GERENTE')):
                     fecha_anterior = trabajador.fecha_inicio_ciclo
                     
                     # Recalcular inicio de ciclo según guardia (desfase de 7 días por guardia)
@@ -1670,7 +1670,7 @@ def autocompletar_tareo_por_regimen(request):
                     
                     # Si no tiene régimen configurado (return None), aplicar defaults por grupo
                     if not estado:
-                        if trabajador.grupo == 'LINEA_MANDO':
+                        if any(c in (trabajador.cargo or '').upper() for c in ('RESIDENTE','SUPERVISOR','JEFE','ADMINISTRADOR','INGENIERO','GERENTE')):
                             # Default para oficina: Lunes a Viernes
                             estado = 'TRABAJADO' if fecha_actual.weekday() < 5 else 'DIA_LIBRE'
                         else:
