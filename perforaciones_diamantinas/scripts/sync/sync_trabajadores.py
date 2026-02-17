@@ -98,6 +98,7 @@ def sync_trabajadores():
             # Preparar datos base
             cargo_api = worker.get('cargo', '').strip()
             grupo_calculado = Trabajador.calcular_grupo_desde_cargo(cargo_api)
+            tipo_servicio_calculado = Trabajador.calcular_tipo_servicio_desde_cargo(cargo_api)
             
             defaults = {
                 'nombres': worker.get('nombres', ''),
@@ -105,6 +106,7 @@ def sync_trabajadores():
                 'apemat': worker.get('apemat', ''),
                 'cargo': cargo_api, # Guardamos texto directo
                 'grupo': grupo_calculado,
+                'tipo_servicio': tipo_servicio_calculado,
                 'centro_costo': worker.get('centro_costo', ''),
                 'contrato_nombre': worker.get('contrato', ''),
                 'fecha_contratacion': worker.get('fecha_contratacion'), 

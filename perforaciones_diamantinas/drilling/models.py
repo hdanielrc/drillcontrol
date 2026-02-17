@@ -189,6 +189,7 @@ class CustomUser(AbstractUser):
     
     # Definición de roles del sistema
     USER_ROLES = [
+        ('ADMINISTRADOR_GENERAL', 'Administrador General del Sistema'),
         ('ADMINISTRADOR', 'Administrador de Contrato'),
         ('LOGISTICO', 'Logístico'),
         ('RESIDENTE', 'Residente'),
@@ -1558,6 +1559,23 @@ class Trabajador(models.Model):
         help_text='Asignado automáticamente según el cargo'
     )
 
+    # Tipo de Servicio (calculado automáticamente desde el cargo API)
+    TIPO_SERVICIO_CHOICES = [
+        ('DDH', 'Perforación Diamantina (DDH)'),
+        ('SGEOL', 'Servicios Geológicos (SGEOL)'),
+        ('WDTH', 'Wireline / Downhole (WDTH)'),
+        ('VCR', 'Vacuum Core Recovery (VCR)'),
+        ('OTRO', 'Otro'),
+    ]
+    tipo_servicio = models.CharField(
+        max_length=10,
+        choices=TIPO_SERVICIO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name='Tipo de Servicio',
+        help_text='DDH, SGEOL, WDTH o VCR — calculado automáticamente desde el cargo'
+    )
+
     # Control Sincronización
     synced = models.BooleanField(default=False)
     last_synced_at = models.DateTimeField(auto_now=True)
@@ -1750,14 +1768,48 @@ class Trabajador(models.Model):
     def asignar_grupo_automatico(self):
         """Wrapper de instancia que usa el cargo del trabajador."""
         return self.calcular_grupo_desde_cargo(self.cargo)
-    
+
+    @staticmethod
+    def calcular_tipo_servicio_desde_cargo(cargo_texto):
+        """
+        Calcula el tipo de servicio (DDH, SGEOL, WDTH, VCR) basado en el cargo.
+        Por defecto todo es DDH — mecánicos, conductores, supervisores incluidos.
+        Solo se asigna SGEOL/WDTH/VCR si el cargo contiene keywords específicas.
+        """
+        if not cargo_texto:
+            return 'DDH'
+        import re
+        c = re.sub(r'\s+', ' ', cargo_texto.upper().strip())
+
+        # SGEOL — Servicios Geológicos
+        if any(k in c for k in [
+            'MUESTRERO', 'CORTADOR DE TESTIGOS', 'GEOLOGO', 'GEÓLOGO',
+            'LOGUEO', 'GEOTECNISTA', 'GEOMECANI', 'TOPOGRAFO', 'TOPÓGRAFO',
+            'QA/QC', 'QA & QC', 'AUXILIAR QA', 'DENSIDAD', 'HIDROGEOLOGO',
+            'AYUDANTE DE LOGUEO', 'ASISTENTE DE LOGUEO', 'AYUDANTE DE GEOLOGIA',
+            'ORE CONTROL', 'LABORATORIO', 'MAPEO', 'SGEOL',
+        ]):
+            return 'SGEOL'
+
+        # WDTH — Wireline / Downhole
+        if any(k in c for k in ['WIRELINE', 'WDTH', 'DOWNHOLE']):
+            return 'WDTH'
+
+        # VCR — Vacuum Core Recovery
+        if any(k in c for k in ['VCR', 'VACUUM']):
+            return 'VCR'
+
+        # Todo lo demás (Perforistas, Ayudantes, Mecánicos, Conductores, Supervisores…)
+        return 'DDH'
+
     def save(self, *args, **kwargs):
         """Override save para asignar automáticamente el grupo y máquina"""
-        # Asignar grupo automáticamente si no tiene o si cambió el cargo
+        # Asignar grupo y tipo_servicio automáticamente
         if self.cargo:
             grupo_calculado = self.asignar_grupo_automatico()
             if grupo_calculado:
                 self.grupo = grupo_calculado
+            self.tipo_servicio = self.calcular_tipo_servicio_desde_cargo(self.cargo)
         
         # Asignar máquina por defecto si no tiene una asignada
         # y es perforista o ayudante
