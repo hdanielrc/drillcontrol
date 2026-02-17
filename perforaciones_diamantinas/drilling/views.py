@@ -227,7 +227,7 @@ def dashboard(request):
         ).values(
             'trabajador__id',
             'trabajador__nombres',
-            'trabajador__apellidos'
+            'trabajador__apepat'
         ).annotate(
             total_metros=DbSum('turno__avance__metros_perforados')
         ).order_by('-total_metros')[:5]
@@ -235,7 +235,7 @@ def dashboard(request):
         top_trabajadores_data = []
         for item in top_trabajadores:
             if item['total_metros'] and item['total_metros'] > 0:
-                nombre_completo = f"{item['trabajador__nombres']} {item['trabajador__apellidos']}"
+                nombre_completo = f"{item['trabajador__nombres']} {item['trabajador__apepat']}"
                 metros = item['total_metros'] or 0
                 top_trabajadores_data.append({
                     'nombre': nombre_completo,
@@ -285,7 +285,7 @@ def dashboard(request):
         # Trabajadores recientes
         trabajadores_recientes = Trabajador.objects.filter(
             contrato=contract
-        ).select_related('cargo').order_by('-id')[:5]
+        ).order_by('-id')[:5]
         
         context = {
             'trabajadores_activos': trabajadores_activos,
@@ -411,7 +411,7 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('cargo', 'contrato').order_by('apellidos', 'nombres')
+        queryset = super().get_queryset().select_related('contrato').order_by('apepat', 'nombres')
         
         # Filtros adicionales
         contrato = self.request.GET.get('contrato')
@@ -471,12 +471,12 @@ def estado_emo_trabajadores(request):
     
     # Obtener trabajadores según permisos
     if request.user.has_access_to_all_contracts():
-        trabajadores = Trabajador.objects.filter(estado='ACTIVO').select_related('cargo', 'contrato')
+        trabajadores = Trabajador.objects.filter(estado='ACTIVO').select_related('contrato')
     else:
         trabajadores = Trabajador.objects.filter(
             contrato=request.user.contrato,
             estado='ACTIVO'
-        ).select_related('cargo', 'contrato')
+        ).select_related('contrato')
     
     # Calcular estados del EMO
     hoy = date.today()
@@ -2146,7 +2146,7 @@ def get_context_data(request):
         # Admin: usar only() para cargar solo campos necesarios
         sondajes = Sondaje.objects.only('id', 'nombre_sondaje', 'estado', 'contrato')
         maquinas = Maquina.objects.only('id', 'nombre', 'estado', 'contrato')
-        trabajadores = Trabajador.objects.select_related('cargo').only(
+        trabajadores = Trabajador.objects.only(
             'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
         )
     else:
@@ -2156,7 +2156,7 @@ def get_context_data(request):
         maquinas = Maquina.objects.filter(contrato=contract).only(
             'id', 'nombre', 'estado', 'contrato'
         )
-        trabajadores = Trabajador.objects.filter(contrato=contract).select_related('cargo').only(
+        trabajadores = Trabajador.objects.filter(contrato=contract).only(
             'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
         )
     
