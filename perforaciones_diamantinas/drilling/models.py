@@ -1401,109 +1401,38 @@ class TurnoHoraExtra(models.Model):
         return f"{self.trabajador} - {self.turno.fecha} - {self.horas_extra}h extra"
 
 
-# =============================================================================
-# SECCIÓN 2: PERSONAL - Cargos, Trabajadores, Asistencia, Horas Extras
-# =============================================================================
-
-class Cargo(models.Model):
-    id_cargo = models.IntegerField(primary_key=True, verbose_name='ID Cargo')
-    nombre = models.CharField(max_length=100, unique=True, verbose_name='Nombre del cargo')
-    descripcion = models.TextField(blank=True, verbose_name='Descripción')
-    is_active = models.BooleanField(default=True, verbose_name='Activo')
-    # Jerarquía organizacional
-    nivel_jerarquico = models.IntegerField(
-        default=99, 
-        verbose_name='Nivel Jerárquico',
-        help_text='Nivel en el organigrama (1=más alto como RESIDENTE, 99=más bajo)'
-    )
-    cargo_superior = models.ForeignKey(
-        'self', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='subordinados',
-        verbose_name='Cargo Superior',
-        help_text='Cargo al que reporta este cargo en la jerarquía'
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'cargos'
-        verbose_name = 'Cargo'
-        verbose_name_plural = 'Cargos'
-        ordering = ['nivel_jerarquico', 'nombre']
-
-    def __str__(self):
-        return self.nombre
+# [MODELOS ELIMINADOS]
+# Se eliminan las clases Cargo y Trabajador antiguas para reemplazarlas por el nuevo modelo simplificado.
 
 class Trabajador(models.Model):
-    ESTADO_CHOICES = [
-        ('ACTIVO', 'Activo'),
-        ('CESADO', 'Cesado'),
-    ]
+    """
+    Nuevo modelo de Trabajador (Reemplazo total).
+    Sincronizado directamente con la API y sin dependencia de tabla de Cargos.
+    """
+    # --- CAMPOS DE IDENTIDAD ---
+    dni = models.CharField(max_length=20, unique=True, verbose_name='DNI')
+    nombres = models.CharField(max_length=200, blank=True)
+    apepat = models.CharField(max_length=100, blank=True, verbose_name='Apellido Paterno')
+    apemat = models.CharField(max_length=100, blank=True, verbose_name='Apellido Materno')
     
-    SUBESTADO_CHOICES = [
-        ('EN_OPERACION', 'En Operación'),
-        ('DESCANSO_MEDICO', 'Descanso Médico'),
-        ('DIAS_LIBRES', 'Días Libres'),
-        ('FALTA', 'Falta'),
-    ]
+    # --- DATOS LABORALES (Sincronizados) ---
+    cargo = models.CharField(max_length=200, blank=True, verbose_name='Cargo')
+    centro_costo = models.CharField(max_length=50, blank=True, null=True, verbose_name='Centro Costo')
+    contrato_nombre = models.CharField(max_length=200, blank=True, verbose_name='Contrato (Texto)')
+    fecha_contratacion = models.DateField(null=True, blank=True, verbose_name='Fecha Contratación')
+    estado = models.CharField(max_length=50, blank=True, verbose_name='Estado')
+    estado_api = models.CharField(max_length=50, blank=True, verbose_name='Estado API')
 
-    TIPO_TRABAJO_CHOICES = [
-        ('SUBTERRANEA', 'Interior Mina'),
-        ('SUPERFICIAL', 'Superficial'),
-    ]
+    # --- RELACIONES DEL SISTEMA ---
+    contrato = models.ForeignKey(Contrato, on_delete=models.SET_NULL, null=True, blank=True, related_name='trabajadores')
     
-    contrato = models.ForeignKey(Contrato, on_delete=models.PROTECT, related_name='trabajadores')
-    nombres = models.CharField(max_length=200)
-    apellidos = models.CharField(max_length=200, blank=True)
-    tipo_trabajo = models.CharField(max_length=20, choices=TIPO_TRABAJO_CHOICES, default='SUBTERRANEA', verbose_name='Tipo de Trabajo')
-    cargo = models.ForeignKey(Cargo, on_delete=models.PROTECT, related_name='trabajadores', verbose_name='Cargo')
-    area = models.CharField(max_length=100, blank=True, verbose_name='Área', help_text='Área de trabajo del trabajador')
+    # --- CAMPOS OPERATIVOS ---
+    maquina_asignada = models.ForeignKey('Maquina', on_delete=models.SET_NULL, null=True, blank=True, related_name='trabajadores_asignados')
+    vehiculo_asignado = models.ForeignKey('Vehiculo', on_delete=models.SET_NULL, null=True, blank=True, related_name='conductores_asignados')
     
-    # =====================================================================
-    # NOTA IMPORTANTE: Campo para visualización en organigrama únicamente
-    # =====================================================================
-    # Este campo NO afecta la lógica operativa de turnos, sondajes ni asignaciones diarias.
-    # Es solo un campo de referencia esquemático para mostrar estructura organizacional.
-    # Las asignaciones reales de trabajadores a máquinas se manejan a través de:
-    # - TurnoTrabajador (asignaciones por turno)
-    # - TurnoActividad (actividades realizadas en el turno)
-    # Mantener SIEMPRE como opcional (null=True, blank=True) para no romper flujos existentes.
-    maquina_asignada = models.ForeignKey(
-        'Maquina',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='trabajadores_asignados',
-        verbose_name='Máquina Asignada (Organigrama)',
-        help_text='⚠️ SOLO PARA ORGANIGRAMA - No afecta asignaciones operativas reales'
-    )
+    GUARDIA_CHOICES = [('A', 'Guardia A'), ('B', 'Guardia B'), ('C', 'Guardia C')]
+    guardia_asignada = models.CharField(max_length=1, choices=GUARDIA_CHOICES, null=True, blank=True)
     
-    # Guardia asignada para organigrama (A, B, C)
-    GUARDIA_CHOICES = [
-        ('A', 'Guardia A'),
-        ('B', 'Guardia B'),
-        ('C', 'Guardia C'),
-    ]
-    guardia_asignada = models.CharField(
-        max_length=1,
-        choices=GUARDIA_CHOICES,
-        null=True,
-        blank=True,
-        verbose_name='Guardia (Organigrama)',
-        help_text='⚠️ SOLO PARA ORGANIGRAMA - Guardia A, B o C para visualización'
-    )
-    
-    # Personal de reserva / standby
-    es_standby = models.BooleanField(
-        default=False,
-        verbose_name='Personal STANDBY',
-        help_text='Marca este trabajador como personal de reserva para cubrir ausencias. No se asigna a guardia fija.'
-    )
-
-    # Régimen Laboral
     REGIMEN_CHOICES = [
         ('14x7', '14 Días Trabajo x 7 Días Descanso'),
         ('20x10', '20 Días Trabajo x 10 Días Descanso'),
@@ -1511,143 +1440,52 @@ class Trabajador(models.Model):
         ('5x2', '5 Días Trabajo x 2 Días Descanso'),
         ('6x1', '6 Días Trabajo x 1 Día Descanso'),
     ]
-    regimen_laboral = models.CharField(
-        max_length=10,
-        choices=REGIMEN_CHOICES,
-        default='14x7',
-        verbose_name='Régimen Laboral'
-    )
-    fecha_inicio_ciclo = models.DateField(
-        null=True, 
-        blank=True,
-        verbose_name='Inicio de Ciclo',
-        help_text='Fecha de inicio del ciclo actual (Día 1 de trabajo)'
-    )
+    regimen_laboral = models.CharField(max_length=10, choices=REGIMEN_CHOICES, default='14x7')
+    fecha_inicio_ciclo = models.DateField(null=True, blank=True)
     
-    # =====================================================================
-    # Vehículo asignado (principalmente para conductores en organigrama)
-    # =====================================================================
-    vehiculo_asignado = models.ForeignKey(
-        'Vehiculo',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='conductores_asignados',
-        verbose_name='Vehículo Asignado (Organigrama)',
-        help_text='⚠️ SOLO PARA ORGANIGRAMA - Vehículo asignado especialmente para conductores'
-    )
+    TIPO_TRABAJO_CHOICES = [('SUBTERRANEA', 'Interior Mina'), ('SUPERFICIAL', 'Superficial')]
+    tipo_trabajo = models.CharField(max_length=20, choices=TIPO_TRABAJO_CHOICES, default='SUBTERRANEA')
     
-    # `dni` debe ser único y no nulo; mantenemos la columna `id` como PK
-    # para evitar romper relaciones existentes en la base de datos.
-    dni = models.CharField(max_length=20, unique=True)
+    es_standby = models.BooleanField(default=False)
+    area = models.CharField(max_length=100, blank=True)
     telefono = models.CharField(max_length=15, blank=True)
     email = models.EmailField(blank=True)
-    fecha_ingreso = models.DateField(null=True, blank=True)
-    # Estados del trabajador
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ACTIVO', help_text='Estado principal del trabajador')
-    subestado = models.CharField(max_length=30, choices=SUBESTADO_CHOICES, default='EN_OPERACION', help_text='Estado operacional del trabajador')
-    # Fotocheck
-    fotocheck_fecha_emision = models.DateField(null=True, blank=True, verbose_name='Fecha emisión fotocheck')
-    fotocheck_fecha_caducidad = models.DateField(null=True, blank=True, verbose_name='Fecha caducidad fotocheck')
-    # Examen médico ocupacional (EMO)
-    emo_fecha_realizado = models.DateField(null=True, blank=True, verbose_name='Fecha EMO realizado')
-    emo_fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name='Fecha vencimiento EMO')
-    emo_programacion = models.DateField(null=True, blank=True, verbose_name='Programación EMO', help_text='Fecha programada para próximo examen médico')
-    emo_estado = models.CharField(max_length=20, blank=True, verbose_name='Estado EMO', help_text='Estado del examen médico ocupacional')
     
-    # Grupo funcional del trabajador (se asigna automáticamente según cargo)
-    GRUPO_CHOICES = [
-        ('OPERADORES_INTERIOR_MINA', 'Operadores Interior Mina'),
-        ('OPERADORES_SUPERFICIE', 'Operadores Superficie'),
-        ('SERVICIOS_GEOLOGICOS_INTERIOR_MINA', 'Servicios Geológicos Interior Mina'),
-        ('SERVICIOS_GEOLOGICOS_SUPERFICIE', 'Servicios Geológicos Superficie'),
-        ('PERSONAL_AUXILIAR_INTERIOR_MINA', 'Personal Auxiliar Interior Mina'),
-        ('PERSONAL_AUXILIAR_SUPERFICIE', 'Personal Auxiliar Superficie'),
-        ('LINEA_MANDO', 'Línea de Mando'),
-        # Legacy groups (keep for compatibility until data migration)
-        ('OPERADORES', 'Operadores (Legacy)'),
-        ('SERVICIOS_GEOLOGICOS', 'Servicios Geológicos (Legacy)'),
-        ('PERSONAL_AUXILIAR', 'Personal Auxiliar (Legacy)'),
+    SUBESTADO_CHOICES = [
+        ('EN_OPERACION', 'En Operación'),
+        ('DESCANSO_MEDICO', 'Descanso Médico'),
+        ('DIAS_LIBRES', 'Días Libres'),
+        ('FALTA', 'Falta'),
     ]
-    grupo = models.CharField(
-        max_length=50,
-        choices=GRUPO_CHOICES,
-        blank=True,
-        verbose_name='Grupo Funcional',
-        help_text='Se asigna automáticamente según el cargo y zona de trabajo'
-    )
+    subestado = models.CharField(max_length=30, choices=SUBESTADO_CHOICES, default='EN_OPERACION')
     
-    # Timestamps automáticos
+    fotocheck_fecha_emision = models.DateField(null=True, blank=True)
+    
+    # Control Sincronización
+    synced = models.BooleanField(default=False)
+    last_synced_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'trabajadores'
-        # Cuando 'dni' es PK global, no es necesaria una constraint ('contrato','dni')
-        # unique_together se elimina para evitar duplicación de restricciones.
-        indexes = [
-            models.Index(fields=['estado']),
-            models.Index(fields=['subestado']),
-            models.Index(fields=['contrato', 'estado']),
-            models.Index(fields=['fotocheck_fecha_caducidad']),
-            models.Index(fields=['emo_fecha_vencimiento']),
-            models.Index(fields=['emo_programacion']),
-            models.Index(fields=['area']),
-            models.Index(fields=['grupo']),
-            models.Index(fields=['contrato', 'grupo']),
-        ]
-    # Usar 'dni' como clave primaria para identificar al trabajador
-    # (se establece más abajo como primary_key=True)
+        db_table = 'trabajadores' # Reutilizamos nombre tabla original si se puede, o 'trabajadores_v2'
+        verbose_name = 'Trabajador'
+        verbose_name_plural = 'Trabajadores'
 
     def __str__(self):
-        return f"{self.nombres} {self.apellidos or ''} - {self.cargo.nombre}"
-    
-    def calcular_estado_regimen(self, fecha_consulta):
-        """
-        Calcula el estado esperado (TRABAJADO o DIA_LIBRE) según el régimen y fecha de inicio.
-        Retorna None si no hay datos suficientes.
-        """
-        if not self.fecha_inicio_ciclo or not self.regimen_laboral:
-            return None
-            
-        # Parsear régimen (ej: "14x7")
-        try:
-            dias_trabajo, dias_descanso = map(int, self.regimen_laboral.lower().split('x'))
-            ciclo_total = dias_trabajo + dias_descanso
-        except ValueError:
-            return None
-            
-        delta = (fecha_consulta - self.fecha_inicio_ciclo).days
-        
-        # Si la fecha es anterior al inicio, no aplica
-        if delta < 0:
-            return None
-            
-        dia_en_ciclo = delta % ciclo_total
-        
-        # Si está dentro de los días de trabajo (0 a dias_trabajo - 1)
-        if dia_en_ciclo < dias_trabajo:
-            return 'TRABAJADO'
-        else:
-            return 'DIA_LIBRE'
+        return f"{self.nombres} {self.apepat} - {self.cargo}"
 
+    @property
+    def get_full_name(self):
+        return f"{self.nombres} {self.apepat} {self.apemat}".strip()
+    
+    @property
+    def apellidos(self):
+        return f"{self.apepat} {self.apemat}".strip()
+
+    # Métodos de compatibilidad (Stubs para evitar roturas inmediatas donde se llame)
     def asignar_maquina_por_defecto(self):
-        """
-        Asigna una máquina y guardia por defecto cumpliendo la maqueta:
-        - 3 Guardias (A, B, C)
-        - 1 Perforista por guardia
-        - 2 Ayudantes por guardia
-        
-        Si ya tiene guardia asignada, busca máquina con cupo en esa guardia.
-        Si no tiene guardia, busca el primer cupo disponible.
-        """
-        if not self.cargo:
-            return None
-        
-        cargo_nombre = self.cargo.nombre.upper()
-        
-        # Identificar rol
-        is_perforista = 'PERFORISTA' in cargo_nombre
+        return None # Desactivado temporalmente
+
         is_ayudante = 'AYUDANTE' in cargo_nombre
         
         if not (is_perforista or is_ayudante):
@@ -1826,35 +1664,10 @@ class Trabajador(models.Model):
         super().save(*args, **kwargs)
 
 
-class TrabajadorAPI(models.Model):
-    """
-    Modelo temporal para almacenar la respuesta de la API de trabajadores.
-    Sirve como staging area antes de sincronizar con el modelo principal Trabajador.
-    """
-    dni = models.CharField(max_length=20, unique=True)
-    nombres = models.CharField(max_length=200)
-    apepat = models.CharField(max_length=100, verbose_name='Apellido Paterno')
-    apemat = models.CharField(max_length=100, verbose_name='Apellido Materno')
-    cargo = models.CharField(max_length=200, help_text='Cargo original del API')
-    centro_costo = models.CharField(max_length=50, help_text='Código de centro de costo')
-    contrato = models.CharField(max_length=200, help_text='Nombre del contrato')
-    fecha_contratacion = models.DateField(null=True, blank=True)
-    estado = models.CharField(max_length=50)
-    synced = models.BooleanField(default=False)
-    timestamp = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        verbose_name = 'Trabajador API (Staging)'
-        verbose_name_plural = 'Trabajadores API (Staging)'
-        ordering = ['-timestamp']
-
-    def __str__(self):
-        return f"{self.dni} - {self.nombres} {self.apepat}"
-
-    @property
-    def get_full_name(self):
-        return f"{self.nombres} {self.apepat} {self.apemat}".strip()
-
+# [CLASE ELIMINADA: TrabajadorAPI (Duplicada)]
+# Se ha eliminado la definición duplicada de TrabajadorAPI que estaba aquí.
+# La versión correcta está al final del archivo.
 
 class HistorialLaboral(models.Model):
     """

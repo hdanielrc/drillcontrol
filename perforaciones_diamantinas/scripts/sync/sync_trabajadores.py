@@ -27,9 +27,10 @@ except Exception as e:
     print(f"Error configurando Django: {e}")
     sys.exit(1)
 
+
 # Importar modelos después de setup
 from django.db.models import Max
-from drilling.models import TrabajadorAPI, Contrato, Cargo
+from drilling.models import Trabajador, Contrato
 
 # Configuración de Logging
 logging.basicConfig(
@@ -76,16 +77,10 @@ def sync_trabajadores():
     # Cache para optimizar búsquedas
     # Mapeo: codigo_centro_costo -> Contrato object
     contratos_cache = {}
-    # Mapeo: nombre_cargo -> Cargo object 
-    cargos_cache = {}
 
     # Pre-cargar contratos que tienen codigo_centro_costo
     for c in Contrato.objects.exclude(codigo_centro_costo__isnull=True).exclude(codigo_centro_costo__exact=''):
         contratos_cache[c.codigo_centro_costo] = c
-
-    # Pre-cargar cargos por nombre
-    for c in Cargo.objects.all():
-        cargos_cache[c.nombre] = c
 
     for worker in workers_data:
         dni = worker.get('dni')
@@ -95,24 +90,25 @@ def sync_trabajadores():
 
         try:
             # Preparar datos base
+            cargo_api = worker.get('cargo', '').strip()
+            
             defaults = {
                 'nombres': worker.get('nombres', ''),
                 'apepat': worker.get('apepat', ''),
                 'apemat': worker.get('apemat', ''),
-                'cargo_nombre': worker.get('cargo', ''),
+                'cargo': cargo_api, # Guardamos texto directo
                 'centro_costo': worker.get('centro_costo', ''),
                 'contrato_nombre': worker.get('contrato', ''),
-                'fecha_contratacion': worker.get('fecha_contratacion'), # Asumimos formato compatible YYYY-MM-DD o None
+                'fecha_contratacion': worker.get('fecha_contratacion'), 
                 'estado_api': worker.get('estado', ''),
                 'synced': True
             }
 
-            # Buscar Contrato
+            # Buscar Contrato (Mantenemos relación si existe)
             cc_code = worker.get('centro_costo')
             contrato_obj = None
             if cc_code:
                 contrato_obj = contratos_cache.get(cc_code)
-                # Si no está en cache, intentar buscar en DB de nuevo por si acaso (aunque pre-cargamos)
                 if not contrato_obj:
                     contrato_obj = Contrato.objects.filter(codigo_centro_costo=cc_code).first()
                     if contrato_obj:
@@ -121,44 +117,8 @@ def sync_trabajadores():
             if contrato_obj:
                 defaults['contrato'] = contrato_obj
 
-            # Buscar Cargo
-            cargo_name = worker.get('cargo')
-            cargo_obj = None
-            if cargo_name:
-                cargo_name = cargo_name.strip()  # Eliminar espacios extra al inicio/final
-                
-                # Intentar buscar en cache primero
-                cargo_obj = cargos_cache.get(cargo_name)
-                
-                if not cargo_obj:
-                    # Intentar búsqueda flexible en BD
-                    cargo_obj = Cargo.objects.filter(nombre__iexact=cargo_name).first()
-                    
-                    if not cargo_obj:
-                        # Si no existe, CREARLO
-                        logger.info(f"Creando nuevo cargo: '{cargo_name}'")
-                        try:
-                            # Calcular nuevo ID
-                            max_id = Cargo.objects.aggregate(Max('id_cargo'))['id_cargo__max']
-                            new_id = (max_id or 0) + 1
-                            
-                            cargo_obj = Cargo.objects.create(
-                                id_cargo=new_id,
-                                nombre=cargo_name,
-                                descripcion=f"Sincronizado desde API - {datetime.now().strftime('%Y-%m-%d')}"
-                            )
-                        except Exception as e:
-                            logger.error(f"Error creando cargo '{cargo_name}': {e}")
-                            cargo_obj = None
-
-                    if cargo_obj:
-                        cargos_cache[cargo_name] = cargo_obj
-            
-            if cargo_obj:
-                defaults['cargo'] = cargo_obj
-
             # Update or Create
-            obj, created = TrabajadorAPI.objects.update_or_create(
+            obj, created = Trabajador.objects.update_or_create(
                 dni=dni,
                 defaults=defaults
             )
