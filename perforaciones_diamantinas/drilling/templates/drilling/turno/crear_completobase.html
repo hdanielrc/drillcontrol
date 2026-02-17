@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <select name="trabajador_${trabajadorCount}" class="form-select" required>
                         <option value="">Seleccionar trabajador</option>
                         {% for trabajador in trabajadores %}
-                        <option value="{{ trabajador.dni }}">{{ trabajador.apellidos }}, {{ trabajador.nombres }}{% if trabajador.dni %} - {{ trabajador.dni }}{% endif %} - {{ trabajador.get_cargo_display }}</option>
+                        <option value="{{ trabajador.dni }}">{{ trabajador.apellidos }}, {{ trabajador.nombres }} — {{ trabajador.cargo }}</option>
                         {% endfor %}
                     </select>
                 </div>
