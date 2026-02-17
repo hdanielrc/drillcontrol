@@ -52,30 +52,6 @@ class TrabajadorForm(forms.ModelForm):
                 'type': 'date',
                 'id': 'id_fotocheck_fecha_emision'
             }),
-            'fotocheck_fecha_caducidad': forms.DateInput(format='%Y-%m-%d', attrs={
-                'class': 'form-control', 
-                'type': 'date',
-                'id': 'id_fotocheck_fecha_caducidad',
-                'readonly': True
-            }),
-            'emo_fecha_realizado': forms.DateInput(format='%Y-%m-%d', attrs={
-                'class': 'form-control', 
-                'type': 'date',
-                'id': 'id_emo_fecha_realizado'
-            }),
-            'emo_fecha_vencimiento': forms.DateInput(format='%Y-%m-%d', attrs={
-                'class': 'form-control', 
-                'type': 'date',
-                'id': 'id_emo_fecha_vencimiento',
-                'readonly': True
-            }),
-            'emo_programacion': forms.DateInput(format='%Y-%m-%d', attrs={
-                'class': 'form-control', 
-                'type': 'date',
-                'id': 'id_emo_programacion',
-                'readonly': True
-            }),
-            'emo_estado': forms.Select(attrs={'class': 'form-select'}),
         }
     
     def __init__(self, *args, user=None, **kwargs):
@@ -100,13 +76,6 @@ class TrabajadorForm(forms.ModelForm):
         
         # Campos de fotocheck opcionales
         self.fields['fotocheck_fecha_emision'].required = False
-        self.fields['fotocheck_fecha_caducidad'].required = False
-        
-        # Campos de EMO opcionales
-        self.fields['emo_fecha_realizado'].required = False
-        self.fields['emo_fecha_vencimiento'].required = False
-        self.fields['emo_programacion'].required = False
-        self.fields['emo_estado'].required = False
         
         # Labels mejorados
         self.fields['maquina_asignada'].label = 'Máquina asignada'
@@ -115,9 +84,6 @@ class TrabajadorForm(forms.ModelForm):
         self.fields['guardia_asignada'].help_text = 'A, B o C'
         self.fields['vehiculo_asignado'].label = 'Vehículo asignado'
         self.fields['vehiculo_asignado'].help_text = 'Para conductores'
-        self.fields['fotocheck_fecha_caducidad'].help_text = 'Se calcula automáticamente (1 año)'
-        self.fields['emo_fecha_vencimiento'].help_text = 'Se calcula automáticamente (1 año - 1 día)'
-        self.fields['emo_programacion'].help_text = 'Se calcula automáticamente (30 días antes del vencimiento)'
         
         # Si el usuario tiene acceso limitado, filtrar contratos y preseleccionar
         if user:
