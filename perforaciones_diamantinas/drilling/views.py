@@ -2165,7 +2165,11 @@ def get_context_data(request):
         # Admin: usar only() para cargar solo campos necesarios
         sondajes = Sondaje.objects.only('id', 'nombre_sondaje', 'estado', 'contrato')
         maquinas = Maquina.objects.only('id', 'nombre', 'estado', 'contrato')
-        trabajadores = Trabajador.objects.only(
+        trabajadores = Trabajador.objects.filter(
+            tipo_servicio='DDH',
+            grupo='OPERADORES',
+            estado='ACTIVO'
+        ).only(
             'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     else:
@@ -2175,7 +2179,12 @@ def get_context_data(request):
         maquinas = Maquina.objects.filter(contrato=contract).only(
             'id', 'nombre', 'estado', 'contrato'
         )
-        trabajadores = Trabajador.objects.filter(contrato=contract).only(
+        trabajadores = Trabajador.objects.filter(
+            contrato=contract,
+            tipo_servicio='DDH',
+            grupo='OPERADORES',
+            estado='ACTIVO'
+        ).only(
             'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     
