@@ -100,6 +100,7 @@ def sync_trabajadores():
                 'centro_costo': worker.get('centro_costo', ''),
                 'contrato_nombre': worker.get('contrato', ''),
                 'fecha_contratacion': worker.get('fecha_contratacion'), 
+                'estado': worker.get('estado', ''),
                 'estado_api': worker.get('estado', ''),
                 'synced': True
             }
