@@ -1422,9 +1422,9 @@ def generar_guardias_automaticas(request):
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).exclude(
-            grupo='LINEA_MANDO'
-        ).select_related('cargo').order_by('cargo__nombre', 'apellidos', 'nombres')
+        ).order_by('cargo', 'apepat', 'nombres')
+        
+        # .exclude(grupo='LINEA_MANDO') # TODO: Restaurar cuando el campo grupo exista
         
         if not trabajadores.exists():
             return JsonResponse({

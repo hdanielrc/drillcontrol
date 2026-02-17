@@ -46,16 +46,22 @@ def organigrama_view(request):
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).select_related('cargo').order_by('cargo__nivel_jerarquico', 'cargo__nombre', 'apellidos', 'nombres')
+    ).order_by('cargo', 'apepat', 'nombres')
     
-    # Organizar por jerarquía (4 niveles)
+    # Organizar por jerarquía (4 niveles) - Heurística simple
     niveles = {1: [], 2: [], 3: [], 4: []}
     
     for trabajador in trabajadores:
-        nivel = trabajador.cargo.nivel_jerarquico if trabajador.cargo else 4
-        # Asegurar que el nivel esté entre 1 y 4
-        if nivel not in [1, 2, 3, 4]:
+        c = (trabajador.cargo or '').upper()
+        if 'RESIDENTE' in c or 'GERENTE' in c:
+            nivel = 1
+        elif 'SUPERVISOR' in c or 'JEFE' in c:
+            nivel = 2
+        elif 'PERFORISTA' in c or 'OPERADOR' in c:
+            nivel = 3
+        else:
             nivel = 4
+            
         niveles[nivel].append(trabajador)
     
     # Para nivel 4, agrupar por tipo de cargo

@@ -211,7 +211,7 @@ def api_grupos_disponibles_por_fecha(request):
             guardia_snapshot__isnull=False
         ).filter(
             # Filtrar por cargo que contenga palabras clave de perforistas/ayudantes
-            trabajador__cargo__nombre__iregex=r'(perforist|ayudante|operador|winch)'
+            trabajador__cargo__iregex=r'(perforist|ayudante|operador|winch)'
         ).exclude(
             guardia_snapshot=''
         ).values_list('guardia_snapshot', flat=True).distinct().order_by('guardia_snapshot')
@@ -299,8 +299,8 @@ def api_trabajadores_por_grupo_fecha(request):
             estado='TRABAJADO'  # Solo trabajadores que asistieron
         ).filter(
             # Filtrar por cargo que contenga palabras clave de perforistas/ayudantes
-            trabajador__cargo__nombre__iregex=r'(perforist|ayudante|operador|winch)'
-        ).select_related('trabajador', 'trabajador__cargo')
+            trabajador__cargo__iregex=r'(perforist|ayudante|operador|winch)'
+        ).select_related('trabajador') # .select_related('trabajador__cargo')  # Removed incorrect select_related
         
         trabajadores_data = []
         for asistencia in asistencias:

@@ -710,7 +710,7 @@ def reporte_horas_extras(request):
     # Inicializar queryset
     horas_extras_qs = TurnoHoraExtra.objects.select_related(
         'turno', 'trabajador', 'configuracion_aplicada'
-    ).order_by('-turno__fecha', 'trabajador__apellidos')
+    ).order_by('-turno__fecha', 'trabajador__apepat')
     
     # Aplicar filtros
     if fecha_inicio:
@@ -739,8 +739,9 @@ def reporte_horas_extras(request):
     trabajadores_resumen = horas_extras_qs.values(
         'trabajador__dni',
         'trabajador__nombres',
-        'trabajador__apellidos',
-        'trabajador__cargo__nombre'
+        'trabajador__apepat',
+        'trabajador__apemat',
+        'trabajador__cargo',
     ).annotate(
         total_horas_extra=Sum('horas_extra'),
         cantidad_turnos=Count('turno', distinct=True)
@@ -2149,7 +2150,7 @@ def get_context_data(request):
         sondajes = Sondaje.objects.only('id', 'nombre_sondaje', 'estado', 'contrato')
         maquinas = Maquina.objects.only('id', 'nombre', 'estado', 'contrato')
         trabajadores = Trabajador.objects.only(
-            'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
+            'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     else:
         sondajes = Sondaje.objects.filter(contrato=contract).only(
@@ -2159,7 +2160,7 @@ def get_context_data(request):
             'id', 'nombre', 'estado', 'contrato'
         )
         trabajadores = Trabajador.objects.filter(contrato=contract).only(
-            'id', 'nombres', 'apellidos', 'dni', 'estado', 'contrato', 'cargo__nombre'
+            'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     
     # Actividades: usar cache si es admin, o relaciÃ³n contrato si es usuario normal
@@ -3573,19 +3574,19 @@ def asignaciones_equipos_list(request):
     # Ordenar por fecha de asignaciÃ³n (mÃ¡s recientes primero)
     asignaciones = asignaciones.select_related(
         'trabajador', 'equipo', 'organigrama_semanal'
-    ).order_by('-fecha_asignacion', 'trabajador__apellidos')
+    ).order_by('-fecha_asignacion', 'trabajador__apepat')
     
     # Obtener trabajadores y tipos de equipo para filtros
     if contrato:
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).order_by('apellidos', 'nombres')
+        ).order_by('apepat', 'nombres')
         tipos_equipo = Equipo.objects.filter(
             contrato=contrato
         ).values_list('tipo', flat=True).distinct()
     else:
-        trabajadores = Trabajador.objects.filter(estado='ACTIVO').order_by('apellidos', 'nombres')
+        trabajadores = Trabajador.objects.filter(estado='ACTIVO').order_by('apepat', 'nombres')
         tipos_equipo = Equipo.objects.values_list('tipo', flat=True).distinct()
     
     context = {

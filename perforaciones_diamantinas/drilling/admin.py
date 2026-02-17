@@ -776,9 +776,9 @@ class AsignacionOrganigramaAdmin(admin.ModelAdmin):
     
     def get_cargo(self, obj):
         """Muestra el cargo del trabajador"""
-        return obj.trabajador.cargo.nombre
+        return obj.trabajador.cargo
     get_cargo.short_description = 'Cargo'
-    get_cargo.admin_order_field = 'trabajador__cargo__nombre'
+    get_cargo.admin_order_field = 'trabajador__cargo'
 
 
 @admin.register(GuardiaConductor)

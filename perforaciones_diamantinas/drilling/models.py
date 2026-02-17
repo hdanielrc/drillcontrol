@@ -1517,7 +1517,7 @@ class Trabajador(models.Model):
                     )
                     if self.pk: ocupantes = ocupantes.exclude(pk=self.pk)
                     
-                    cant_perforistas = ocupantes.filter(cargo__nombre__icontains='PERFORISTA').count()
+                    cant_perforistas = ocupantes.filter(cargo__icontains='PERFORISTA').count()
                     
                     if cant_perforistas < 1:
                         if not self.guardia_asignada: self.guardia_asignada = guardia
@@ -1534,7 +1534,7 @@ class Trabajador(models.Model):
                     )
                     if self.pk: ocupantes = ocupantes.exclude(pk=self.pk)
                     
-                    cant_ayudantes = ocupantes.filter(cargo__nombre__icontains='AYUDANTE').count()
+                    cant_ayudantes = ocupantes.filter(cargo__icontains='AYUDANTE').count()
                     
                     if cant_ayudantes < 1: # Prioridad: Asegurar al menos 1
                         if not self.guardia_asignada: self.guardia_asignada = guardia
@@ -1550,7 +1550,7 @@ class Trabajador(models.Model):
                     )
                     if self.pk: ocupantes = ocupantes.exclude(pk=self.pk)
                     
-                    cant_ayudantes = ocupantes.filter(cargo__nombre__icontains='AYUDANTE').count()
+                    cant_ayudantes = ocupantes.filter(cargo__icontains='AYUDANTE').count()
                     
                     if cant_ayudantes < 2: # Completar dotación ideal
                         if not self.guardia_asignada: self.guardia_asignada = guardia
