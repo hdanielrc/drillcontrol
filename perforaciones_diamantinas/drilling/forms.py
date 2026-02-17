@@ -3,27 +3,18 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from .models import *
 
-class CargoForm(forms.ModelForm):
-    class Meta:
-        model = Cargo
-        fields = ['id_cargo', 'nombre', 'descripcion', 'is_active']
-        widgets = {
-            'id_cargo': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'ID del cargo'}),
-            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del cargo'}),
-            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción opcional'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
+# CargoForm eliminado (Modelo Cargo eliminado)
 
 class TrabajadorForm(forms.ModelForm):
     class Meta:
         model = Trabajador
         fields = [
-            'contrato', 'nombres', 'apellidos', 'cargo', 'area', 'maquina_asignada', 'guardia_asignada', 
+            'contrato', 'dni', 'nombres', 'apepat', 'apemat', 'cargo', 
+            'area', 'maquina_asignada', 'guardia_asignada', 
             'vehiculo_asignado', 'tipo_trabajo', 'regimen_laboral', 'fecha_inicio_ciclo',
-            'dni', 'telefono', 'email', 'fecha_ingreso', 
-            'estado', 'subestado', 'es_standby',
-            'fotocheck_fecha_emision', 'fotocheck_fecha_caducidad',
-            'emo_fecha_realizado', 'emo_fecha_vencimiento', 'emo_programacion', 'emo_estado'
+            'telefono', 'email', 
+            'subestado', 'es_standby',
+            'fotocheck_fecha_emision'
         ]
         widgets = {
             'contrato': forms.Select(attrs={'class': 'form-select'}),
@@ -32,8 +23,9 @@ class TrabajadorForm(forms.ModelForm):
                 'placeholder': 'Nombres',
                 'autofocus': True
             }),
-            'apellidos': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellidos'}),
-            'cargo': forms.Select(attrs={'class': 'form-select'}),
+            'apepat': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido Paterno'}),
+            'apemat': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido Materno'}),
+            'cargo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cargo'}),
             'area': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Área de trabajo'}),
             'maquina_asignada': forms.Select(attrs={'class': 'form-select'}),
             'guardia_asignada': forms.Select(attrs={'class': 'form-select'}),
@@ -457,7 +449,7 @@ class HeadCountForm(forms.ModelForm):
         fields = ['contrato', 'cargo', 'cantidad_requerida', 'maquina', 'observaciones', 'activo']
         widgets = {
             'contrato': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'cargo': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'cargo': forms.TextInput(attrs={'class': 'form-control', 'required': True, 'placeholder': 'Cargo'}),
             'cantidad_requerida': forms.NumberInput(attrs={
                 'class': 'form-control', 
                 'min': '1',

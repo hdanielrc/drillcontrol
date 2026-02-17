@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponseRedirect
 from django.db.models import Sum, Count, Q
 from django.urls import reverse
-from .models import HeadCount, Contrato, Trabajador, Cargo, Maquina
+from .models import HeadCount, Contrato, Trabajador, Maquina
 from .forms import HeadCountForm
 
 
@@ -117,7 +117,7 @@ def headcount_list(request):
     
     # Aplicar filtros adicionales
     if cargo_id:
-        headcounts_query = headcounts_query.filter(cargo_id=cargo_id)
+        headcounts_query = headcounts_query.filter(cargo__icontains=cargo_id)
         messages.info(request, f'Después de filtrar por cargo: {headcounts_query.count() if hasattr(headcounts_query, "count") else len(headcounts_query)}')
     
     if estado_filtro == 'completo':
@@ -138,9 +138,9 @@ def headcount_list(request):
     
     # Convertir a lista si aún es QuerySet
     if hasattr(headcounts_query, 'select_related'):
-        headcounts = headcounts_query.select_related('cargo', 'maquina').order_by('cargo__nombre', 'maquina__nombre')
+        headcounts = headcounts_query.select_related('maquina').order_by('cargo', 'maquina__nombre')
     else:
-        headcounts = sorted(headcounts_query, key=lambda x: (x.cargo.nombre, x.maquina.nombre if x.maquina else ''))
+        headcounts = sorted(headcounts_query, key=lambda x: (x.cargo, x.maquina.nombre if x.maquina else ''))
     
     # Debug: contar todos los headcounts del contrato (incluso inactivos)
     total_headcounts = HeadCount.objects.filter(contrato=contrato).count()
@@ -148,12 +148,12 @@ def headcount_list(request):
         messages.info(request, f'Hay {total_headcounts - len(headcounts)} headcount(s) inactivo(s) para este contrato')
     
     # Obtener cargos con trabajadores activos que NO están en el headcount
-    cargos_en_headcount = set(hc.cargo_id for hc in headcounts)
+    cargos_en_headcount = set(hc.cargo for hc in headcounts)
     trabajadores_sin_headcount = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
     ).exclude(
-        cargo_id__in=cargos_en_headcount
+        cargo__in=cargos_en_headcount
     ).values('cargo').annotate(
         cantidad=Count('id')
     )

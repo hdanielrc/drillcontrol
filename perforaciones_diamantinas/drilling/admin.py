@@ -161,7 +161,7 @@ class TrabajadorAdmin(admin.ModelAdmin):
     list_display = ['apellidos', 'nombres', 'cargo', 'contrato', 'dni', 'estado', 'es_standby_display', 'guardia_asignada']
     list_filter = ['cargo', 'estado', 'contrato', 'es_standby', 'guardia_asignada']
     search_fields = ['nombres', 'apellidos', 'dni']
-    ordering = ['apellidos', 'nombres']
+    ordering = ['apepat', 'nombres']
     raw_id_fields = ['contrato', 'cargo']
     
     def es_standby_display(self, obj):
@@ -424,15 +424,7 @@ try:
 except:
     pass
 
-try:
-    @admin.register(Cargo)
-    class CargoAdmin(admin.ModelAdmin):
-        list_display = ['id_cargo', 'nombre', 'is_active']
-        list_filter = ['is_active']
-        search_fields = ['nombre', 'descripcion']
-        ordering = ['nombre']
-except:
-    pass
+# CargoAdmin eliminado (Modelo Cargo eliminado)
 
 try:
     @admin.register(ConfiguracionHoraExtra)
