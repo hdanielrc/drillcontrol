@@ -915,7 +915,7 @@ class AsistenciaTrabajador(models.Model):
         verbose_name_plural = 'Asistencias de Trabajadores'
         # Única asistencia por trabajador por día
         unique_together = [['trabajador', 'fecha']]
-        ordering = ['-fecha', 'trabajador__apellidos', 'trabajador__nombres']
+        ordering = ['-fecha', 'trabajador__apepat', 'trabajador__nombres']
         indexes = [
             models.Index(fields=['trabajador', 'fecha']),
             models.Index(fields=['fecha']),
@@ -1392,7 +1392,7 @@ class TurnoHoraExtra(models.Model):
 
     class Meta:
         db_table = 'turno_hora_extra'
-        ordering = ['-turno__fecha', 'trabajador__apellidos']
+        ordering = ['-turno__fecha', 'trabajador__apepat']
         verbose_name = 'Hora Extra de Turno'
         verbose_name_plural = 'Horas Extras de Turnos'
         unique_together = [('turno', 'trabajador')]
@@ -3423,7 +3423,7 @@ class AsignacionOrganigrama(models.Model):
         db_table = 'asignacion_organigrama'
         verbose_name = 'Asignación de Organigrama'
         verbose_name_plural = 'Asignaciones de Organigrama'
-        ordering = ['trabajador__apellidos', 'trabajador__nombres']
+        ordering = ['trabajador__apepat', 'trabajador__nombres']
         unique_together = ['organigrama_semanal', 'trabajador']
         indexes = [
             models.Index(fields=['organigrama_semanal', 'maquina']),
@@ -3475,7 +3475,7 @@ class GuardiaConductor(models.Model):
         db_table = 'guardia_conductor'
         verbose_name = 'Guardia de Conductor'
         verbose_name_plural = 'Guardias de Conductores'
-        ordering = ['guardia', 'conductor__apellidos']
+        ordering = ['guardia', 'conductor__apepat']
         unique_together = ['organigrama_semanal', 'conductor']
         indexes = [
             models.Index(fields=['organigrama_semanal', 'guardia']),
@@ -3655,7 +3655,7 @@ class AsignacionEquipo(models.Model):
         db_table = 'asignacion_equipo'
         verbose_name = 'Asignación de Equipo'
         verbose_name_plural = 'Asignaciones de Equipos'
-        ordering = ['-fecha_asignacion', 'trabajador__apellidos']
+        ordering = ['-fecha_asignacion', 'trabajador__apepat']
         indexes = [
             models.Index(fields=['trabajador', 'estado']),
             models.Index(fields=['equipo', 'estado']),
@@ -4184,7 +4184,7 @@ class HeadCount(models.Model):
             models.Index(fields=['maquina']),
             models.Index(fields=['-created_at']),
         ]
-        ordering = ['contrato', 'cargo__nombre']
+        ordering = ['contrato', 'cargo']
     
     def __str__(self):
         maquina_str = f" - {self.maquina.nombre}" if self.maquina else ""
