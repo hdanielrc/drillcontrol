@@ -28,6 +28,7 @@ except Exception as e:
     sys.exit(1)
 
 # Importar modelos después de setup
+from django.db.models import Max
 from drilling.models import TrabajadorAPI, Contrato, Cargo
 
 # Configuración de Logging
@@ -124,14 +125,34 @@ def sync_trabajadores():
             cargo_name = worker.get('cargo')
             cargo_obj = None
             if cargo_name:
+                cargo_name = cargo_name.strip()  # Eliminar espacios extra al inicio/final
+                
+                # Intentar buscar en cache primero
                 cargo_obj = cargos_cache.get(cargo_name)
+                
                 if not cargo_obj:
-                    # Intentar búsqueda flexible o directa
+                    # Intentar búsqueda flexible en BD
                     cargo_obj = Cargo.objects.filter(nombre__iexact=cargo_name).first()
+                    
+                    if not cargo_obj:
+                        # Si no existe, CREARLO
+                        logger.info(f"Creando nuevo cargo: '{cargo_name}'")
+                        try:
+                            # Calcular nuevo ID
+                            max_id = Cargo.objects.aggregate(Max('id_cargo'))['id_cargo__max']
+                            new_id = (max_id or 0) + 1
+                            
+                            cargo_obj = Cargo.objects.create(
+                                id_cargo=new_id,
+                                nombre=cargo_name,
+                                descripcion=f"Sincronizado desde API - {datetime.now().strftime('%Y-%m-%d')}"
+                            )
+                        except Exception as e:
+                            logger.error(f"Error creando cargo '{cargo_name}': {e}")
+                            cargo_obj = None
+
                     if cargo_obj:
                         cargos_cache[cargo_name] = cargo_obj
-                    else:
-                        logger.warning(f"Cargo no encontrado para DNI {dni}: '{cargo_name}'")
             
             if cargo_obj:
                 defaults['cargo'] = cargo_obj
