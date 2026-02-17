@@ -176,7 +176,7 @@ def tareo_mensual_view(request):
             order_weight = 10
             
         # Prioridad 3: Vehículo Asignado (si existe y tiene rol de conductor o auxiliar)
-        elif trabajador.vehiculo_asignado and ('CHOFER' in (trabajador.cargo.nombre.upper() if trabajador.cargo else '') or 'CONDUCTOR' in (trabajador.cargo.nombre.upper() if trabajador.cargo else '')):
+        elif trabajador.vehiculo_asignado and ('CHOFER' in (trabajador.cargo.upper() if trabajador.cargo else '') or 'CONDUCTOR' in (trabajador.cargo.upper() if trabajador.cargo else '')):
              primary_key = f'20_VEH_{trabajador.vehiculo_asignado.id}'
              primary_name = f'VEHÍCULO {trabajador.vehiculo_asignado.placa}' # O nombre
              order_weight = 20
@@ -267,7 +267,7 @@ def tareo_mensual_view(request):
                 # Esto ya venía un poco ordenado de la query pero al mezclar puede perderse si no es estricto
                 # Hacemos un sort in-place ligero
                 guardia_info['trabajadores'].sort(key=lambda x: (
-                    0 if 'PERFORISTA' in (x['trabajador'].cargo.nombre.upper() if x['trabajador'].cargo else '') else 1,
+                    0 if 'PERFORISTA' in (x['trabajador'].cargo.upper() if x['trabajador'].cargo else '') else 1,
                     x['trabajador'].apellidos
                 ))
                 
@@ -339,7 +339,7 @@ def guardar_asistencia(request):
                 'tipo': tipo,
                 'observaciones': observaciones,
                 'registrado_por': user,
-                'cargo_snapshot': trabajador.cargo.nombre if trabajador.cargo else None,
+                'cargo_snapshot': trabajador.cargo or None,
                 'guardia_snapshot': trabajador.guardia_asignada
             }
         )
@@ -417,7 +417,7 @@ def guardar_asistencias_masivas(request):
                             'estado': estado,
                             'observaciones': observaciones,
                             'registrado_por': user,
-                            'cargo_snapshot': trabajador.cargo.nombre if trabajador.cargo else None,
+                            'cargo_snapshot': trabajador.cargo or None,
                             'guardia_snapshot': trabajador.guardia_asignada
                         }
                         if tipo:
@@ -739,7 +739,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         ws.cell(row=row_num, column=1).value = idx
         ws.cell(row=row_num, column=2).value = trabajador.dni
         ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
-        ws.cell(row=row_num, column=4).value = trabajador.cargo.nombre if trabajador.cargo else ""
+        ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
         ws.cell(row=row_num, column=5).value = trabajador.get_grupo_display() if trabajador.grupo else ""
         ws.cell(row=row_num, column=6).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
         
@@ -959,7 +959,7 @@ def auto_rellenar_turno_view(request):
                     'id': t.id,
                     'nombres': t.nombres,
                     'apellidos': t.apellidos,
-                    'cargo': t.cargo.nombre if t.cargo else '',
+                    'cargo': t.cargo or '',
                     'observaciones': ''
                 })
         
@@ -982,7 +982,7 @@ def auto_rellenar_turno_view(request):
                     'id': t.id,
                     'nombres': t.nombres,
                     'apellidos': t.apellidos,
-                    'cargo': t.cargo.nombre if t.cargo else '',
+                    'cargo': t.cargo or '',
                     'observaciones': 'Sugerido por perfil'
                 })
 
@@ -1177,7 +1177,7 @@ def auto_rellenar_asistencia(request):
             if key not in cobertura:
                 cobertura[key] = {'perforistas': 0, 'ayudantes': 0}
             
-            cargo_nombre = asist.trabajador.cargo.nombre.upper()
+            cargo_nombre = (asist.trabajador.cargo or '').upper()
             if 'PERFORISTA' in cargo_nombre and 'AYUDANTE' not in cargo_nombre:
                 cobertura[key]['perforistas'] += 1
             elif 'AYUDANTE' in cargo_nombre:
@@ -1261,7 +1261,7 @@ def actualizar_grupos_trabajadores(request):
             if t.guardia_asignada in guardias_check:
                 es_perforista = False
                 if t.cargo:
-                    cargo_nombre = t.cargo.nombre.upper().strip()
+                    cargo_nombre = t.cargo.upper().strip()
                     if 'PERFORISTA' in cargo_nombre and 'AYUDANTE' not in cargo_nombre:
                         es_perforista = True
                 
@@ -1361,7 +1361,7 @@ def debug_trabajadores(request):
             <td>{t.contrato.nombre_contrato if t.contrato else '-'}</td>
             <td>{t.nombres}</td>
             <td>{t.apellidos}</td>
-            <td>{t.cargo.nombre if t.cargo else '-'}</td>
+            <td>{t.cargo or '-'}</td>
             <td>{t.grupo}</td>
             <td class="{match_style}">{grupo_calc}</td>
             <td>{t.estado}</td>
@@ -1439,7 +1439,7 @@ def generar_guardias_automaticas(request):
                 personal_standby.append(trabajador)
                 continue
             
-            cargo_upper = trabajador.cargo.nombre.upper()
+            cargo_upper = (trabajador.cargo or '').upper()
             
             # Identificar PERFORISTAS
             if 'PERFORISTA' in cargo_upper and 'AYUDANTE' not in cargo_upper:
@@ -1684,7 +1684,7 @@ def autocompletar_tareo_por_regimen(request):
                         defaults={
                             'estado': estado,
                             'guardia_snapshot': trabajador.guardia_asignada,
-                            'cargo_snapshot': trabajador.cargo.nombre if trabajador.cargo else '',
+                            'cargo_snapshot': trabajador.cargo or '',
                             'registrado_por': user
                         }
                     )
@@ -1696,7 +1696,7 @@ def autocompletar_tareo_por_regimen(request):
                         if asistencia.estado != estado:
                             asistencia.estado = estado
                             asistencia.guardia_snapshot = trabajador.guardia_asignada
-                            asistencia.cargo_snapshot = trabajador.cargo.nombre if trabajador.cargo else ''
+                            asistencia.cargo_snapshot = trabajador.cargo or ''
                             asistencia.save()
                             registros_actualizados += 1
                 

@@ -74,7 +74,7 @@ def organigrama_view(request):
     }
     
     for trabajador in niveles[4]:
-        cargo_lower = trabajador.cargo.nombre.lower() if trabajador.cargo else ''
+        cargo_lower = trabajador.cargo.lower() if trabajador.cargo else ''
         
         if 'perforista' in cargo_lower:
             nivel4_agrupado['perforistas'].append(trabajador)

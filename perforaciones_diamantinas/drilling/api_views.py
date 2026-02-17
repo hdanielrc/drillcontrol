@@ -195,7 +195,7 @@ def api_grupos_disponibles_por_fecha(request):
         for asist in todos_trabajadores:
             guardia = asist.guardia_snapshot
             grupo = asist.trabajador.grupo or 'SIN_GRUPO'
-            cargo = asist.trabajador.cargo.nombre if asist.trabajador.cargo else 'SIN_CARGO'
+            cargo = asist.trabajador.cargo or 'SIN_CARGO'
             if guardia not in debug_info:
                 debug_info[guardia] = []
             debug_info[guardia].append(f"{grupo} - {cargo}")
@@ -311,9 +311,9 @@ def api_trabajadores_por_grupo_fecha(request):
                 'nombres': trabajador.nombres,
                 'apellidos': trabajador.apellidos,
                 'nombre_completo': f"{trabajador.nombres} {trabajador.apellidos}".strip(),
-                'cargo': asistencia.cargo_snapshot or (trabajador.cargo.nombre if trabajador.cargo else ''),
+                'cargo': asistencia.cargo_snapshot or trabajador.cargo or '',
                 'guardia': asistencia.guardia_snapshot,
-                'funcion': trabajador.cargo.nombre if trabajador.cargo else ''  # Función por defecto basada en su cargo
+                'funcion': trabajador.cargo or ''  # Función por defecto basada en su cargo
             })
         
         return JsonResponse({

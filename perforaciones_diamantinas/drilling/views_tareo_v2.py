@@ -924,7 +924,7 @@ def api_exportar_nomina_excel(request, cierre_id):
         ws.cell(row=row_num, column=1, value=trabajador.dni)
         ws.cell(row=row_num, column=2, value=trabajador.apellidos)
         ws.cell(row=row_num, column=3, value=trabajador.nombres)
-        ws.cell(row=row_num, column=4, value=trabajador.cargo.nombre if trabajador.cargo else '')
+        ws.cell(row=row_num, column=4, value=trabajador.cargo or '')
         ws.cell(row=row_num, column=5, value=trabajador.regimen_laboral or '')
         ws.cell(row=row_num, column=6, value=asistencias.filter(estado='TRABAJO').count())
         ws.cell(row=row_num, column=7, value=asistencias.filter(estado='DESCANSO').count())
