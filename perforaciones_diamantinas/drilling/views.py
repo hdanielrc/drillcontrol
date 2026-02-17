@@ -1947,11 +1947,13 @@ def crear_turno_completo(request, pk=None):
         # preparar listas JSON para inyectar en template
         trabajadores = []
         for tt in TurnoTrabajador.objects.filter(turno=turno).select_related('trabajador'):
+            # Obtener estado de asistencia si existe el campo en el modelo, sino default
+            estado_asist = getattr(tt, 'estado_asistencia', 'TRABAJADO')
             trabajadores.append({
-                # Serializar por DNI para que la plantilla pueda preseleccionar por value="dni"
-                'trabajador_id': getattr(tt.trabajador, 'dni', None),
+                'trabajador_id': tt.trabajador.id,  # Validado: usar ID (PK) para coincidir con <option value="{{ id }}">
                 'funcion': tt.funcion,
                 'observaciones': tt.observaciones,
+                'estado_asistencia': estado_asist,
             })
 
         # Usar select_related para evitar N+1 queries
