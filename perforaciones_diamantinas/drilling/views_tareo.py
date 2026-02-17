@@ -1233,7 +1233,7 @@ def actualizar_grupos_trabajadores(request):
         for t in trabajadores:
             t.save()
             count += 1
-            grupo = (t.cargo or 'SIN_GRUPO').upper()
+            grupo = t.grupo or 'SIN_GRUPO'
             stats[grupo] = stats.get(grupo, 0) + 1
             
         detalles = ", ".join([f"{k}: {v}" for k, v in stats.items()])
@@ -1353,7 +1353,7 @@ def debug_trabajadores(request):
     
     for t in trabajadores:
         grupo_calc = t.asignar_grupo_automatico()
-match_style = "text-success"
+        match_style = "text-success" if t.grupo == grupo_calc else "text-danger fw-bold"
         
         html += f"""
         <tr>
@@ -1362,7 +1362,7 @@ match_style = "text-success"
             <td>{t.nombres}</td>
             <td>{t.apellidos}</td>
             <td>{t.cargo or '-'}</td>
-            <td>-</td>
+            <td>{t.grupo or '-'}</td>
             <td class="{match_style}">{grupo_calc}</td>
             <td>{t.estado}</td>
             <td>{t.guardia_asignada}</td>

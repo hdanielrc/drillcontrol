@@ -1461,6 +1461,22 @@ class Trabajador(models.Model):
     
     fotocheck_fecha_emision = models.DateField(null=True, blank=True)
     
+    # Grupo Funcional (calculado automáticamente desde el cargo API)
+    GRUPO_CHOICES = [
+        ('OPERADORES', 'Operadores'),
+        ('SERVICIOS_GEOLOGICOS', 'Servicios Geológicos'),
+        ('PERSONAL_AUXILIAR', 'Personal Auxiliar'),
+        ('LINEA_MANDO', 'Línea de Mando'),
+    ]
+    grupo = models.CharField(
+        max_length=30,
+        choices=GRUPO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name='Grupo Funcional',
+        help_text='Asignado automáticamente según el cargo'
+    )
+
     # Control Sincronización
     synced = models.BooleanField(default=False)
     last_synced_at = models.DateTimeField(auto_now=True)
@@ -1558,74 +1574,101 @@ class Trabajador(models.Model):
         
         return None
 
-    def asignar_grupo_automatico(self):
+    @staticmethod
+    def calcular_grupo_desde_cargo(cargo_texto):
         """
-        Asigna automáticamente el grupo funcional basado en el cargo del trabajador
-        y su tipo de trabajo / máquina asignada.
-        
-        Reglas de asignación:
-        - OPERADORES: Perforistas, Ayudantes. Se dividen en Interior Mina / Superficie.
-        - SERVICIOS_GEOLOGICOS: Muestreros, Geólogos. Se dividen en Interior Mina / Superficie.
-        - PERSONAL_AUXILIAR: Conductores, Mecánicos. Se dividen en Interior Mina / Superficie.
-        - LINEA_MANDO: Todos los demás cargos. No se divide.
+        Calcula el grupo funcional basado en el texto del cargo (proveniente de la API).
+        Usa matching parcial robusto, insensible a espacios extra, guiones y variaciones.
+
+        Grupos:
+        - OPERADORES          : Perforistas, Ayudantes DDH/Perforación, Operadores de equipo
+        - SERVICIOS_GEOLOGICOS: Muestreros, Geólogos, QA/QC, Topógrafos, Geotecnistas
+        - PERSONAL_AUXILIAR   : Conductores, Mecánicos, Electricistas, Almaceneros, Operadores de cisterna
+        - LINEA_MANDO         : Todo lo demás (Supervisores, Residentes, Ingenieros, Admin, SSOMA, etc.)
         """
-        if not self.cargo:
-            return None
-        
-        # Determinar zona de trabajo (Interior Mina vs Superficie)
-        # Prioridad: 1. Máquina asignada, 2. Tipo de trabajo del trabajador
-        es_subterranea = True
-        
-        # Si tiene máquina asignada, usar su tipo
-        if self.maquina_asignada:
-            # Si maquina tiene atributo tipo_trabajo (que acabamos de añadir)
-            if hasattr(self.maquina_asignada, 'tipo_trabajo'):
-                es_subterranea = (self.maquina_asignada.tipo_trabajo == 'SUBTERRANEA')
-        else:
-            # Usar preferencia del trabajador
-            es_subterranea = (self.tipo_trabajo == 'SUBTERRANEA')
-            
-        suffix = '_INTERIOR_MINA' if es_subterranea else '_SUPERFICIE'
-        
-        # PERSONAL STANDBY: Se agrupa con Personal Auxiliar
-        if self.es_standby:
-            return f'PERSONAL_AUXILIAR{suffix}'
-        
-        cargo_nombre = self.cargo.upper().strip() if self.cargo else ''
-        
-        # OPERADORES: Perforistas, Ayudantes DDH y Ayudante Perforista
-        operadores_keywords = [
-            'PERFORISTA DDH-I',
-            'PERFORISTA DDH-II',
-            'AYUDANTE DDH-I',
-            'AYUDANTE DDH-II',
-            'AYUDANTE PERFORISTA',
-            'AYUDANTE DE PERFORISTA'
-        ]
-        if any(keyword in cargo_nombre for keyword in operadores_keywords):
-            return f'OPERADORES{suffix}'
-        
-        # SERVICIOS GEOLÓGICOS
-        servicios_geologicos_keywords = [
-            'AYUDANTE MUESTRERO',
-            'MAESTRO MUESTRERO',
+        if not cargo_texto:
+            return 'LINEA_MANDO'
+
+        # Normalizar: mayúsculas, colapsar espacios múltiples
+        import re
+        c = re.sub(r'\s+', ' ', cargo_texto.upper().strip())
+
+        # ── OPERADORES ─────────────────────────────────────────────────────────
+        # Palabras clave que identifican personal operativo de perforación
+        if any(k in c for k in [
+            'PERFORISTA',          # PERFORISTA DDH- I/II, PERFORISTA I, PERFORISTA
+            'AYUDANTE DDH',        # AYUDANTE DDH- I/II, AYUDANTE DDH TRAINEE
+            'AYUD.DE PERFORACION', # AYUD.DE PERFORACION I/II
+            'AYUD. DE PERFORACION',
+            'AYUDANTE DE PERFORACION',
+            'AYUDANTE PERFORISTA',  # AYUDANTE PERFORISTA, AYUDANTE  PERFORISTA, AYUDANTE PERFORISTA I
+            'AYUDANTE DE SIMBA',
+            'OPERADOR DE SIMBA',
+            'OPERADOR SIMBA',
+            'TEC. DE PERFORACION',  # TEC. DE PERFORACION I
+            'TEC.DE PERFORACION',
+            'TECNICO DE PERFORACION',
+        ]):
+            return 'OPERADORES'
+
+        # ── SERVICIOS GEOLÓGICOS ───────────────────────────────────────────────
+        if any(k in c for k in [
+            'MUESTRERO',            # MUESTRERO, MAESTRO MUESTRERO, AYUDANTE MUESTRERO, MAESTRO MUESTRERO II
             'CORTADOR DE TESTIGOS',
-            'GEOLOGO PLENO LOGUEO GEOMECANICO',
-            'GEÓLOGO PLENO LOGUEO GEOMECÁNICO',
-            'GEOLOGO JUNIOR DE LOGUEO',
-            'GEÓLOGO JUNIOR DE LOGUEO',
-            'ASISTENTE DE DENSIDAD'
-        ]
-        if any(keyword in cargo_nombre for keyword in servicios_geologicos_keywords):
-            return f'SERVICIOS_GEOLOGICOS{suffix}'
-        
-        # PERSONAL AUXILIAR: Conductores y Mecánicos
-        auxiliar_keywords = ['CONDUCTOR', 'MECANICO', 'MECÁNICO', 'TECNICO MECANICO']
-        if any(keyword in cargo_nombre for keyword in auxiliar_keywords):
-            return f'PERSONAL_AUXILIAR{suffix}'
-        
-        # LINEA DE MANDO: Todos los demás
+            'GEOLOGO',              # GEOLOGO DE LOGUEO, GEOLOGO JUNIOR, GEOLOGO SUPERVISOR, etc.
+            'GEÓLOGO',              # Con tilde
+            'LOGUEO',               # Captura variantes con LOGUEO
+            'GEOTECNISTA',
+            'GEOMECANI',            # GEOMECANICO / GEOMECÁNICO
+            'TOPOGRAFO',
+            'TOPÓGRAFO',
+            'QA/QC',
+            'QA & QC',
+            'AUXILIAR QA',
+            'ASISTENTE DE DENSIDAD',
+            'ANALISTA DE DENSIDAD',
+            'TECNICO DE MEDICION',
+            'TÉCNICO DE MEDICIÓN',
+            'TECNICO DE MAPEO',
+            'HIDROGEOLOGO',
+            'AYUDANTE DE LOGUEO',
+            'ASISTENTE DE LOGUEO',
+            'AYUDANTE DE GEOLOGIA',
+            'AYUDANTE GEOMEC',
+            'ORE CONTROL',
+            'LABORATORIO',
+            'DENSIDAD HIDROSTATICA',
+        ]):
+            return 'SERVICIOS_GEOLOGICOS'
+
+        # ── PERSONAL AUXILIAR ─────────────────────────────────────────────────
+        if any(k in c for k in [
+            'CONDUCTOR',            # CONDUCTOR, CONDUCTOR MULTIPLE, CONDUCTOR DE CAMIONETA
+            'CHOFER',
+            'MECANICO',             # MECANICO, MECÁNICO, TECNICO MECANICO, AYUDANTE MECANICO
+            'MECÁNICO',
+            'ELECTRICISTA',
+            'ALMACENERO',
+            'CISTERNA',             # OPERADOR DE CISTERNA DE AGUA/COMBUSTIBLE
+            'SOLDADOR',
+            'OPERARIO DE LIMPIEZA',
+            'ASISTENTE MECANICO',
+            'AYUDANTE MECANICO',
+            'MAESTRO DE SERVICIO',
+            'AYUDANTE DE SERVICIO',
+            'LOGISTICO',            # ASISTENTE LOGISTICO, LOGISTICO
+            'LOGÍSTICO',
+            'ALMACEN',
+        ]):
+            return 'PERSONAL_AUXILIAR'
+
+        # ── LÍNEA DE MANDO ────────────────────────────────────────────────────
+        # Todo lo demás: supervisores, residentes, ingenieros, admin, SSOMA, etc.
         return 'LINEA_MANDO'
+
+    def asignar_grupo_automatico(self):
+        """Wrapper de instancia que usa el cargo del trabajador."""
+        return self.calcular_grupo_desde_cargo(self.cargo)
     
     def save(self, *args, **kwargs):
         """Override save para asignar automáticamente el grupo y máquina"""
