@@ -1591,7 +1591,7 @@ class Trabajador(models.Model):
         if self.es_standby:
             return f'PERSONAL_AUXILIAR{suffix}'
         
-        cargo_nombre = self.cargo.nombre.upper().strip()
+        cargo_nombre = self.cargo.upper().strip() if self.cargo else ''
         
         # OPERADORES: Perforistas, Ayudantes DDH y Ayudante Perforista
         operadores_keywords = [
@@ -1640,7 +1640,7 @@ class Trabajador(models.Model):
         if not self.maquina_asignada and self.cargo:
             try:
                 # Verificar si es personal operativo
-                cargo_upper = self.cargo.nombre.upper()
+                cargo_upper = self.cargo.upper()
                 es_operativo = 'PERFORISTA' in cargo_upper or 'AYUDANTE' in cargo_upper
                 
                 if es_operativo:
