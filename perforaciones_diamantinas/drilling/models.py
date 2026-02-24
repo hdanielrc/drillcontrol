@@ -2767,7 +2767,6 @@ class AbastecimientoArticulo(models.Model):
                     'familia': self.familia,
                     'unidad_medida': self.unidad,
                     'cantidad_actual': 0,
-                    'valor_promedio': 0
                 }
             )
             
