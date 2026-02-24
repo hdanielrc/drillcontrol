@@ -1036,6 +1036,11 @@
         { id: "{{ sondaje.id }}", text: "{{ sondaje.nombre_sondaje }}" },
         {% endfor %}
     ];
+    window.TODAS_ACTIVIDADES = [
+        {% for actividad in tipos_actividad %}
+        { id: "{{ actividad.id }}", nombre: "{{ actividad.nombre|escapejs }}" },
+        {% endfor %}
+    ];
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -2204,7 +2209,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!row) return;
                 
                 var sel = row.querySelector('select[name^="actividad_"]');
-                if (sel) sel.value = act.actividad_id || '';
+                if (sel) {
+                    sel.value = act.actividad_id || '';
+                    sel.dispatchEvent(new Event('change'));
+                }
                 
                 var hi = row.querySelector('input[name^="hora_inicio_"]');
                 if (hi && act.hora_inicio) hi.value = act.hora_inicio;
@@ -2334,12 +2342,19 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="row">
                 <div class="col-md-3">
                     <label class="form-label">Actividad</label>
-                    <select name="actividad_${actividadCount}" class="form-select" required>
-                        <option value="">Seleccionar actividad</option>
-                        {% for actividad in tipos_actividad %}
-                        <option value="{{ actividad.id }}">{{ actividad.nombre }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="actividad-search-wrapper" style="position:relative">
+                        <input type="text" class="form-control form-control-sm actividad-search-input mb-1"
+                               placeholder="&#128269; Buscar actividad..." autocomplete="off">
+                        <div class="actividad-dropdown list-group"
+                             style="position:absolute;z-index:1050;width:100%;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,.15);">
+                        </div>
+                        <select name="actividad_${actividadCount}" class="actividad-select-hidden" style="display:none">
+                            <option value=""></option>
+                            {% for actividad in tipos_actividad %}
+                            <option value="{{ actividad.id }}">{{ actividad.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Hora Inicio</label>
@@ -2435,8 +2450,66 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function initSearchableSelect(row) {
+        var searchInput = row.querySelector('.actividad-search-input');
+        var dropdown = row.querySelector('.actividad-dropdown');
+        var hiddenSelect = row.querySelector('.actividad-select-hidden');
+        if (!searchInput || !dropdown || !hiddenSelect) return;
+
+        function renderDropdown(q) {
+            var term = q.toLowerCase();
+            var filtered = (window.TODAS_ACTIVIDADES || []).filter(function(a) {
+                return a.nombre.toLowerCase().includes(term);
+            });
+            dropdown.innerHTML = '';
+            filtered.forEach(function(a) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'list-group-item list-group-item-action py-1 px-2 text-start';
+                btn.style.fontSize = '0.85rem';
+                btn.textContent = a.nombre;
+                btn.dataset.id = a.id;
+                btn.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    hiddenSelect.value = a.id;
+                    searchInput.value = a.nombre;
+                    searchInput.dataset.selectedId = a.id;
+                    dropdown.style.display = 'none';
+                });
+                dropdown.appendChild(btn);
+            });
+            dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
+        }
+
+        searchInput.addEventListener('input', function() {
+            hiddenSelect.value = '';
+            searchInput.dataset.selectedId = '';
+            if (this.value.trim().length > 0) {
+                renderDropdown(this.value);
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length > 0) renderDropdown(this.value);
+        });
+        searchInput.addEventListener('blur', function() {
+            setTimeout(function() { dropdown.style.display = 'none'; }, 160);
+        });
+        // Para modo edición: cuando se asigne valor al select externamente
+        hiddenSelect.addEventListener('change', function() {
+            if (this.value) {
+                var act = (window.TODAS_ACTIVIDADES || []).find(function(a) { return a.id == hiddenSelect.value; });
+                if (act) searchInput.value = act.nombre;
+            }
+        });
+    }
+
     document.getElementById('agregar-actividad-btn').addEventListener('click', function() {
         document.getElementById('actividades-seccion').insertAdjacentHTML('beforeend', crearActividadRow());
+        var rows = document.querySelectorAll('.actividad-row');
+        var newRow = rows[rows.length - 1];
+        if (newRow) initSearchableSelect(newRow);
         actualizarEmptyStateActividades();
     });
     
@@ -2985,7 +3058,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Recolectar actividades
         const actividades = [];
         document.querySelectorAll('.actividad-row').forEach(row => {
-            const actividadId = row.querySelector('select[name*="actividad_"]').value;
+            const actividadId = (row.querySelector('select[name*="actividad_"]') || row.querySelector('.actividad-select-hidden') || {}).value || '';
             const horaInicio = row.querySelector('input[name*="hora_inicio_act_"]').value;
             const horaFin = row.querySelector('input[name*="hora_fin_act_"]').value;
             const observaciones = row.querySelector('input[name*="obs_act_"]').value;
