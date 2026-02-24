@@ -1,80 +1,56 @@
 @echo off
+setlocal enabledelayedexpansion
 REM ====================================================================
-REM Script de Sincronización Diaria de Abastecimientos - TODOS LOS CENTROS DDH
-REM Se ejecuta automáticamente a las 4:00 AM mediante Task Scheduler
-REM Sincroniza los 19 centros de costo DDH configurados
+REM Script de Sincronización Diaria de Abastecimientos - TODOS LOS CONTRATOS
+REM Se ejecuta automáticamente a las 5:00 AM mediante Task Scheduler
+REM Sincroniza los ultimos 3 meses para TODOS los contratos activos
+REM Cubre todas las familias (PDD, ADIT, EPP, IN, etc.)
 REM ====================================================================
 
-echo [%date% %time%] Iniciando sincronizacion diaria de abastecimientos DDH...
+echo [%date% %time%] Iniciando sincronizacion diaria de abastecimientos...
 
 REM Cambiar al directorio del proyecto
 cd /d "%~dp0"
 
 REM Activar entorno virtual si existe
-if exist "venv\Scripts\activate.bat" (
+if exist "..\.venv\Scripts\activate.bat" (
+    call ..\.venv\Scripts\activate.bat
+    echo Entorno virtual activado
+) else if exist "venv\Scripts\activate.bat" (
     call venv\Scripts\activate.bat
     echo Entorno virtual activado
 )
 
-REM Obtener el periodo actual (formato YYYYMM)
-for /f "tokens=1-3 delims=/" %%a in ('echo %date%') do (
-    set dia=%%a
-    set mes=%%b
-    set anio=%%c
+REM ====================================================================
+REM Calcular los ultimos 3 meses usando Python puro (sin dependencias extra)
+REM ====================================================================
+for /f "delims=" %%i in ('python -c "from datetime import date; d=date.today(); m=d.month; y=d.year; p=[(y if m-i>0 else y-1, (m-i) if m-i>0 else m-i+12) for i in range(2,-1,-1)]; print(' '.join(str(a)+str(b).zfill(2) for a,b in p))"') do set PERIODOS=%%i
+
+if "!PERIODOS!"=="" (
+    echo ERROR: No se pudieron calcular los periodos. Verifica que Python este en el PATH.
+    exit /b 1
 )
 
-REM Asegurar que mes tenga 2 dígitos
-if %mes% LSS 10 set mes=0%mes%
+echo Periodos a sincronizar: !PERIODOS!
 
-REM Construir periodo (YYYYMM)
-set PERIODO=%anio%%mes%
-
-echo.
-echo ====================================================================
-echo Sincronizando TODOS los centros DDH para periodo: %PERIODO%
-echo ====================================================================
-echo.
-
-REM Ejecutar sincronización masiva DDH para el mes actual
-REM Nota: --todos-ddh sincroniza automáticamente los 19 centros de costo DDH
-python manage.py sincronizar_abastecimientos %PERIODO% --todos-ddh --familia PDD >> logs\sync_abastecimientos_%PERIODO%.log 2>&1
-
-REM Verificar código de salida
-if %ERRORLEVEL% EQU 0 (
-    echo [%date% %time%] Sincronizacion del mes actual completada exitosamente
-) else (
-    echo [%date% %time%] ERROR: Sincronizacion del mes actual fallo con codigo %ERRORLEVEL%
-)
-
-echo.
-echo ====================================================================
-echo Sincronizando mes anterior (datos rezagados)
-echo ====================================================================
-echo.
-
-REM También sincronizar mes anterior por si hay datos rezagados
-set /a mes_anterior=%mes%-1
-if %mes_anterior% LSS 1 (
-    set mes_anterior=12
-    set /a anio_anterior=%anio%-1
-) else (
-    set anio_anterior=%anio%
-)
-
-REM Asegurar formato de 2 dígitos
-if %mes_anterior% LSS 10 set mes_anterior=0%mes_anterior%
-set PERIODO_ANTERIOR=%anio_anterior%%mes_anterior%
-
-echo Sincronizando periodo anterior: %PERIODO_ANTERIOR%
-python manage.py sincronizar_abastecimientos %PERIODO_ANTERIOR% --todos-ddh --familia PDD >> logs\sync_abastecimientos_%PERIODO_ANTERIOR%.log 2>&1
-
-if %ERRORLEVEL% EQU 0 (
-    echo [%date% %time%] Sincronizacion del mes anterior completada exitosamente
-) else (
-    echo [%date% %time%] ERROR: Sincronizacion del mes anterior fallo con codigo %ERRORLEVEL%
+REM ====================================================================
+REM Sincronizar cada periodo (todos los contratos activos, todas las familias)
+REM ====================================================================
+for %%P in (!PERIODOS!) do (
+    echo.
+    echo ====================================================================
+    echo Sincronizando periodo: %%P - TODOS los contratos activos
+    echo ====================================================================
+    python manage.py sincronizar_abastecimientos %%P --verbose >> logs\sync_abastecimientos_%%P.log 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        echo [%date% %time%] Periodo %%P completado exitosamente
+    ) else (
+        echo [%date% %time%] ERROR en periodo %%P - codigo !ERRORLEVEL!
+    )
 )
 
 echo.
 echo [%date% %time%] Proceso de sincronizacion diaria finalizado
 echo Logs guardados en: logs\sync_abastecimientos_*.log
 echo ====================================================================
+endlocal

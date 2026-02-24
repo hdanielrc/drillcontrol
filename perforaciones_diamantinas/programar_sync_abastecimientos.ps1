@@ -39,9 +39,9 @@ if (-not (Test-Path $logsPath)) {
 
 # Configuración de la tarea programada
 $taskName = "DrillControl - Sync Abastecimientos Diario"
-$taskDescription = "Sincronización automática diaria de abastecimientos desde API externa a las 4:00 AM"
+$taskDescription = "Sincronización automática diaria de abastecimientos desde API externa a las 5:00 AM"
 $taskAction = New-ScheduledTaskAction -Execute $scriptPath -WorkingDirectory $projectPath
-$taskTrigger = New-ScheduledTaskTrigger -Daily -At "04:00AM"
+$taskTrigger = New-ScheduledTaskTrigger -Daily -At "05:00AM"
 
 # Configurar para que se ejecute incluso si el usuario no está logueado
 $taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
@@ -89,7 +89,7 @@ try {
     Write-Host "=====================================================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "Nombre de la tarea: $taskName" -ForegroundColor White
-    Write-Host "Horario: Todos los días a las 4:00 AM" -ForegroundColor White
+    Write-Host "Horario: Todos los días a las 5:00 AM" -ForegroundColor White
     Write-Host "Script: $scriptPath" -ForegroundColor White
     Write-Host "Logs: $logsPath" -ForegroundColor White
     Write-Host ""
