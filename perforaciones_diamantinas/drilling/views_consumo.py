@@ -1,7 +1,9 @@
+import csv
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Sum, Q, Count
+from django.http import HttpResponse
 from django.utils import timezone
 from datetime import datetime, timedelta
 
@@ -37,6 +39,27 @@ def lista_consumos(request):
             Q(serie__icontains=search)
         )
         
+    # Exportar CSV
+    if request.GET.get('exportar') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        filename = f"consumos_{timezone.now().strftime('%Y%m%d')}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.write('\ufeff')  # BOM para Excel
+        writer = csv.writer(response)
+        writer.writerow(['Fecha', 'Centro Costo', 'Documento', 'Código', 'Descripción', 'Serie', 'Cantidad', 'Unidad'])
+        for item in consumos.order_by('-fecha').iterator():
+            writer.writerow([
+                item.fecha.strftime('%d/%m/%Y') if item.fecha else '',
+                item.centro_costo or '',
+                item.documento or '',
+                item.codigo or '',
+                item.descripcion or '',
+                item.serie or '',
+                item.cantidad,
+                item.unidad or '',
+            ])
+        return response
+
     # Stats
     total_registros = consumos.count()
     if total_registros < 5000: # Optimizacion

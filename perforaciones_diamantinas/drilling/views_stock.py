@@ -656,7 +656,34 @@ def lista_abastecimientos(request):
     
     # Ordenar
     abastecimientos = abastecimientos.order_by('-fecha', '-fecha_sincronizacion')
-    
+
+    # Exportar CSV
+    if request.GET.get('exportar') == 'csv':
+        import csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        filename = f"abastecimientos_{contrato.codigo_centro_costo}_{timezone.now().strftime('%Y%m%d')}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.write('\ufeff')  # BOM para Excel
+        writer = csv.writer(response)
+        writer.writerow(['Fecha', 'Código', 'Serie', 'Descripción', 'Familia',
+                         'Cantidad', 'Unidad', 'Precio Unitario', 'Precio Total', 'Documento', 'Contrato'])
+        for item in abastecimientos.iterator():
+            writer.writerow([
+                item.fecha.strftime('%d/%m/%Y') if item.fecha else '',
+                item.codigo or '',
+                item.serie or '',
+                item.descripcion or '',
+                item.familia or '',
+                item.cantidad,
+                item.unidad or '',
+                item.precio_unitario,
+                item.precio_total,
+                item.documento or '',
+                contrato.nombre_contrato,
+            ])
+        return response
+
     # Paginación
     from django.core.paginator import Paginator
     paginator = Paginator(abastecimientos, 50)
