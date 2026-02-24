@@ -1,0 +1,402 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block title %}Gantt de Sondajes — {{ mes_label }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── layout ───────────────────────────────────────────────────────────── */
+.gantt-wrapper {
+    overflow-x: auto;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.10);
+    background: #fff;
+}
+
+/* ── tabla ────────────────────────────────────────────────────────────── */
+.gantt-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    white-space: nowrap;
+    font-size: .82rem;
+    min-width: 900px;
+}
+.gantt-table thead th {
+    position: sticky;
+    top: 0;
+    background: #1a2035;
+    color: #e9ecef;
+    font-weight: 600;
+    padding: 8px 5px;
+    text-align: center;
+    border-bottom: 2px solid #0d6efd;
+    z-index: 10;
+}
+.gantt-table thead th.th-sondaje {
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    min-width: 155px;
+    text-align: left;
+    padding-left: 12px;
+    background: #0d2137;
+}
+.gantt-table thead th.th-total {
+    min-width: 80px;
+    background: #0d2137;
+}
+.gantt-table thead th.th-hoy {
+    background: #0a4c80 !important;
+    border-bottom: 2px solid #ffc107 !important;
+}
+
+/* ── filas ────────────────────────────────────────────────────────────── */
+.gantt-table tbody tr:hover td {
+    background-color: #f0f4fb;
+}
+.gantt-table tbody tr:hover td.td-sondaje {
+    background-color: #e8f0fe;
+}
+.td-sondaje {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 5;
+    min-width: 155px;
+    border-right: 2px solid #dee2e6;
+    padding: 6px 10px;
+}
+.td-sondaje .sondaje-nombre { font-weight: 700; color: #1a2035; }
+.td-sondaje .sondaje-meta  { font-size:.75rem; color:#6c757d; }
+
+.td-total {
+    background: #f8f9fa;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 8px;
+    border-left: 2px solid #dee2e6;
+    position: sticky;
+    right: 0;
+    z-index: 5;
+    min-width: 80px;
+}
+.td-total .pct-bar {
+    height: 5px;
+    border-radius: 3px;
+    background: #dee2e6;
+    margin-top: 3px;
+    overflow: hidden;
+}
+.td-total .pct-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0d6efd, #0dcaf0);
+    border-radius: 3px;
+    transition: width .4s;
+}
+
+/* ── celda de día ─────────────────────────────────────────────────────── */
+.td-dia {
+    text-align: center;
+    vertical-align: middle;
+    padding: 3px 2px;
+    min-width: 42px;
+    border-right: 1px solid #e9ecef;
+    cursor: default;
+}
+.td-dia.td-hoy {
+    background-color: rgba(255, 193, 7, 0.08) !important;
+    border-right: 1px solid #ffc107;
+    border-left: 1px solid #ffc107;
+}
+.td-dia.td-vacio { background: transparent; }
+
+/* turnos dentro de la celda */
+.turno-pill {
+    display: block;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: .72rem;
+    font-weight: 600;
+    line-height: 1.4;
+    margin: 1px 0;
+}
+.turno-DIA   { background: #fff3cd; color: #664d03; }
+.turno-NOCHE { background: #cfe2ff; color: #084298; }
+.turno-TARDE { background: #d1e7dd; color: #0a3622; }
+.turno-default { background: #e2e3e5; color: #41464b; }
+
+/* estado badge sondaje */
+.badge-estado {
+    font-size: .65rem; padding: 2px 5px; border-radius: 4px;
+    font-weight: 600; display: inline-block; margin-top: 2px;
+}
+.badge-activo    { background:#d1e7dd; color:#0a3622; }
+.badge-pausado   { background:#fff3cd; color:#664d03; }
+.badge-finalizado{ background:#cfe2ff; color:#084298; }
+.badge-cancelado { background:#f8d7da; color:#58151c; }
+
+/* progress bar sondaje */
+.sondaje-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: #e9ecef;
+    margin-top: 3px;
+    overflow: hidden;
+}
+.sondaje-progress-fill { height: 100%; border-radius: 2px; }
+
+/* ── controles superiores ────────────────────────────────────────────── */
+.gantt-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 18px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.08);
+    margin-bottom: 16px;
+}
+.mes-nav { display:flex; align-items:center; gap:6px; }
+.mes-label {
+    font-size: 1.1rem; font-weight: 700; min-width: 150px; text-align: center;
+    color: #1a2035;
+}
+.btn-nav {
+    background: #1a2035; color: #fff; border: none;
+    border-radius: 6px; padding: 6px 12px; cursor: pointer;
+    text-decoration: none; font-size: .85rem;
+    transition: background .2s;
+}
+.btn-nav:hover { background: #0d6efd; color:#fff; }
+
+/* ── leyenda ─────────────────────────────────────────────────────────── */
+.leyenda { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.leyenda-item {
+    display:flex; align-items:center; gap:4px;
+    font-size:.78rem; font-weight:600;
+}
+.leyenda-box { width:14px; height:14px; border-radius:3px; display:inline-block; }
+
+/* ── totales footer ──────────────────────────────────────────────────── */
+.gantt-table tfoot td {
+    background: #1a2035; color: #e9ecef;
+    font-weight: 700; text-align: center;
+    padding: 6px 4px;
+    position: sticky; bottom: 0;
+}
+.gantt-table tfoot td.tfoot-label {
+    position: sticky; left: 0; z-index: 5; text-align: left; padding-left: 12px;
+    background: #0d2137;
+}
+.gantt-table tfoot td.tfoot-total {
+    position: sticky; right: 0; z-index: 5;
+    background: #0d2137;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-in">
+    <h2><i class="fas fa-project-diagram"></i> Gantt de Sondajes — {{ mes_label }}</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'sondaje-list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-list"></i> Lista
+        </a>
+        <a href="{% url 'sondaje-seguimiento' %}" class="btn btn-outline-info">
+            <i class="fas fa-chart-line"></i> Seguimiento
+        </a>
+    </div>
+</div>
+
+<!-- ── Controles ──────────────────────────────────────────────────────────── -->
+<form method="get" class="gantt-controls animate-fade-in">
+    <!-- Navegación de mes -->
+    <div class="mes-nav">
+        <a class="btn-nav"
+           href="?mes={{ mes_ant }}{% if contrato %}&contrato={{ contrato.id }}{% endif %}">
+            <i class="fas fa-chevron-left"></i>
+        </a>
+        <input type="month" name="mes" value="{{ mes_actual }}"
+               class="form-control form-control-sm" style="width:160px;"
+               onchange="this.form.submit()">
+        <a class="btn-nav"
+           href="?mes={{ mes_sig }}{% if contrato %}&contrato={{ contrato.id }}{% endif %}">
+            <i class="fas fa-chevron-right"></i>
+        </a>
+    </div>
+
+    <!-- Selector contrato (solo admin) -->
+    {% if is_admin %}
+    <div class="d-flex align-items-center gap-2">
+        <label class="fw-semibold text-muted small mb-0">Contrato:</label>
+        <select name="contrato" class="form-select form-select-sm" style="max-width:250px;"
+                onchange="this.form.submit()">
+            <option value="">— Seleccionar —</option>
+            {% for c in contratos %}
+            <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
+                {{ c.nombre_contrato }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <!-- Leyenda de tipos de turno -->
+    {% if colores_leyenda %}
+    <div class="leyenda ms-auto">
+        <span class="text-muted small fw-semibold">Turno:</span>
+        {% for tipo, color in colores_leyenda.items %}
+        <span class="leyenda-item">
+            <span class="leyenda-box" style="background:{{ color }};"></span>
+            {{ tipo }}
+        </span>
+        {% endfor %}
+        {% if today_dia %}
+        <span class="leyenda-item">
+            <span class="leyenda-box" style="background:rgba(255,193,7,.3); border:1px solid #ffc107;"></span>
+            Hoy (día {{ today_dia }})
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
+</form>
+
+<!-- ── Gantt ──────────────────────────────────────────────────────────────── -->
+{% if filas_gantt %}
+<div class="gantt-wrapper animate-fade-in">
+    <table class="gantt-table w-100">
+        <thead>
+            <tr>
+                <th class="th-sondaje">Sondaje</th>
+                {% for dia in dias %}
+                <th class="{% if dia == today_dia %}th-hoy{% endif %}">{{ dia }}</th>
+                {% endfor %}
+                <th class="th-total">Total<br><small class="fw-normal text-warning">m (%)</small></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fila in filas_gantt %}
+            <tr>
+                <!-- Nombre del sondaje -->
+                <td class="td-sondaje">
+                    <div class="sondaje-nombre">{{ fila.sondaje.nombre_sondaje }}</div>
+                    <div class="sondaje-meta">
+                        Prof: {{ fila.sondaje.profundidad }} m &nbsp;|&nbsp; {{ fila.sondaje.inclinacion }}°
+                    </div>
+                    <span class="badge-estado badge-{{ fila.sondaje.estado|lower }}">
+                        {{ fila.sondaje.get_estado_display }}
+                    </span>
+                    <div class="sondaje-progress">
+                        <div class="sondaje-progress-fill"
+                             style="width:{{ fila.porcentaje }}%;
+                                    background: {% if fila.porcentaje >= 100 %}#198754{% elif fila.porcentaje >= 60 %}#0d6efd{% elif fila.porcentaje >= 30 %}#0dcaf0{% else %}#6c757d{% endif %};">
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Celdas de metraje por día -->
+                {% for celda in fila.celdas %}
+                <td class="td-dia {% if celda.vacio %}td-vacio{% endif %} {% if celda.dia == today_dia %}td-hoy{% endif %}"
+                    {% if not celda.vacio %}
+                    title="{{ fila.sondaje.nombre_sondaje }} — día {{ celda.dia }}&#10;{% for tipo, m in celda.turnos.items %}{{ tipo }}: {{ m|floatformat:2 }} m&#10;{% endfor %}Total: {{ celda.total|floatformat:2 }} m"
+                    data-bs-toggle="tooltip" data-bs-placement="top"
+                    {% endif %}>
+                    {% if not celda.vacio %}
+                        {% for tipo, metros in celda.turnos.items %}
+                        <span class="turno-pill turno-{{ tipo }} {% if tipo != 'DIA' and tipo != 'NOCHE' and tipo != 'TARDE' %}turno-default{% endif %}">
+                            {{ metros|floatformat:1 }}
+                        </span>
+                        {% endfor %}
+                    {% endif %}
+                </td>
+                {% endfor %}
+
+                <!-- Total del sondaje -->
+                <td class="td-total">
+                    <div>{{ fila.total_metros|floatformat:2 }} m</div>
+                    <small class="text-muted">{{ fila.porcentaje }}%</small>
+                    <div class="pct-bar">
+                        <div class="pct-fill" style="width:{{ fila.porcentaje|floatformat:0 }}%;"></div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td class="tfoot-label"><i class="fas fa-sigma me-1"></i> Total por día</td>
+                {% for dia in dias %}
+                <td id="tfoot-dia-{{ dia }}">—</td>
+                {% endfor %}
+                <td class="tfoot-total" id="tfoot-total-global">—</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+{% else %}
+<div class="card card-modern animate-fade-in">
+    <div class="card-body">
+        <div class="empty-state py-5">
+            <i class="fas fa-project-diagram fa-3x text-muted mb-3 d-block"></i>
+            <h5>No hay datos de avance para {{ mes_label }}</h5>
+            <p class="text-muted">Registra turnos con metraje para ver el Gantt.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Inicializar tooltips Bootstrap ───────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    var tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltipEls.forEach(function(el) {
+        new bootstrap.Tooltip(el, { html: false });
+    });
+
+    // ── Calcular totales por día en el pie de tabla ──────────────────────────
+    const COLORES = {{ COLORES_TURNO_JSON|safe }};
+    const filas = document.querySelectorAll('.gantt-table tbody tr');
+    const diasCount = {{ dias|length }};
+    const totalesdia = Array(diasCount + 1).fill(0);
+
+    filas.forEach(function(tr) {
+        // celdas de día: índice 1 .. diasCount
+        const celdas = tr.querySelectorAll('.td-dia');
+        celdas.forEach(function(td, idx) {
+            const pills = td.querySelectorAll('.turno-pill');
+            let sumCelda = 0;
+            pills.forEach(function(p) {
+                const val = parseFloat(p.textContent.trim()) || 0;
+                sumCelda += val;
+            });
+            totalesdia[idx] += sumCelda;
+        });
+    });
+
+    let totalGlobal = 0;
+    totalesdia.forEach(function(tot, idx) {
+        const td = document.getElementById('tfoot-dia-' + (idx + 1));
+        if (td) {
+            if (tot > 0) {
+                td.textContent = tot.toFixed(1);
+                td.style.color = '#7dd3fc';
+            } else {
+                td.textContent = '';
+            }
+            totalGlobal += tot;
+        }
+    });
+
+    const tdTotalGlobal = document.getElementById('tfoot-total-global');
+    if (tdTotalGlobal) {
+        tdTotalGlobal.textContent = totalGlobal.toFixed(2) + ' m';
+        tdTotalGlobal.style.color = '#fde68a';
+    }
+});
+</script>
+{% endblock %}

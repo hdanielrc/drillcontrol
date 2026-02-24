@@ -1173,6 +1173,146 @@ def sondaje_seguimiento(request):
     }
     return render(request, 'drilling/sondajes/seguimiento.html', context)
 
+
+@login_required
+def sondaje_gantt(request):
+    """
+    Vista Gantt de avance de sondajes por turno en el mes operativo seleccionado.
+    - Eje Y: sondajes activos (o con actividad en el mes)
+    - Eje X: días del mes
+    - Celdas: metraje por turno (DIA / NOCHE) coloreadas
+    """
+    import calendar
+    from collections import defaultdict
+
+    # ── Mes seleccionado ─────────────────────────────────────────────────────
+    today = date.today()
+    mes_param = request.GET.get('mes', '')  # Formato: YYYY-MM
+    try:
+        if mes_param:
+            año, mes = int(mes_param[:4]), int(mes_param[5:7])
+        else:
+            año, mes = today.year, today.month
+    except (ValueError, IndexError):
+        año, mes = today.year, today.month
+
+    mes_actual = f"{año:04d}-{mes:02d}"
+    dias_en_mes = calendar.monthrange(año, mes)[1]
+    dias = list(range(1, dias_en_mes + 1))
+
+    # Mes anterior / siguiente para navegación
+    primer_dia_mes = date(año, mes, 1)
+    mes_ant = (primer_dia_mes - timedelta(days=1)).strftime('%Y-%m')
+    if mes == 12:
+        mes_sig = f"{año+1:04d}-01"
+    else:
+        mes_sig = f"{año:04d}-{mes+1:02d}"
+
+    # ── Contrato ─────────────────────────────────────────────────────────────
+    is_admin = request.user.can_manage_all_contracts()
+    contratos_qs = Contrato.objects.filter(estado='ACTIVO')
+    if not is_admin:
+        contrato = getattr(request.user, 'contrato', None)
+        contratos_qs = contratos_qs.filter(id=contrato.id) if contrato else contratos_qs.none()
+    else:
+        contrato_id = request.GET.get('contrato')
+        if contrato_id:
+            contrato = get_object_or_404(Contrato, id=contrato_id)
+        else:
+            contrato = contratos_qs.first()
+
+    # ── Datos de TurnoSondaje en el mes ─────────────────────────────────────
+    qs = (
+        TurnoSondaje.objects
+        .filter(
+            turno__fecha__year=año,
+            turno__fecha__month=mes,
+        )
+        .select_related('turno', 'turno__tipo_turno', 'sondaje', 'sondaje__contrato')
+        .order_by('sondaje__nombre_sondaje', 'turno__fecha')
+    )
+    if contrato:
+        qs = qs.filter(turno__contrato=contrato)
+
+    # ── Construir mapa: sondaje → día → { tipo_turno: metros } ──────────────
+    # mapa[sondaje_id][dia][tipo_turno_nombre] = metros
+    mapa = defaultdict(lambda: defaultdict(dict))
+    sondajes_info = {}  # sondaje_id → sondaje obj
+
+    for ts in qs:
+        sid = ts.sondaje_id
+        dia = ts.turno.fecha.day
+        tipo = ts.turno.tipo_turno.nombre.upper() if ts.turno.tipo_turno else 'N/A'
+        metros = float(ts.metros_turno or 0)
+        if metros > 0 or tipo not in mapa[sid][dia]:
+            mapa[sid][dia][tipo] = metros
+        sondajes_info[sid] = ts.sondaje
+
+    # También incluir sondajes ACTIVOS del contrato aunque no tengan data ese mes
+    if contrato:
+        for s in Sondaje.objects.filter(contrato=contrato, estado='ACTIVO'):
+            if s.id not in sondajes_info:
+                sondajes_info[s.id] = s
+
+    # ── Ordenar sondajes ─────────────────────────────────────────────────────
+    sondajes_ordenados = sorted(sondajes_info.values(), key=lambda s: s.nombre_sondaje)
+
+    # ── Construir filas para el template ─────────────────────────────────────
+    COLORES_TURNO = {
+        'DIA': '#fff3cd',    # amarillo suave
+        'NOCHE': '#cfe2ff',  # azul suave
+        'TARDE': '#d1e7dd',  # verde suave
+    }
+    COLOR_DEFAULT = '#e2e3e5'
+
+    filas_gantt = []
+    for sondaje in sondajes_ordenados:
+        sid = sondaje.id
+        total_metros = 0.0
+        celdas = []
+        for dia in dias:
+            turnos_dia = mapa[sid].get(dia, {})
+            total_dia = sum(turnos_dia.values())
+            total_metros += total_dia
+            celdas.append({
+                'dia': dia,
+                'turnos': turnos_dia,          # {'DIA': 12.5, 'NOCHE': 8.0}
+                'total': total_dia,
+                'vacio': total_dia == 0,
+            })
+        filas_gantt.append({
+            'sondaje': sondaje,
+            'celdas': celdas,
+            'total_metros': round(total_metros, 2),
+            'porcentaje': round((total_metros / float(sondaje.profundidad)) * 100, 1)
+                          if sondaje.profundidad else 0,
+        })
+
+    # Paleta de colores para leyenda
+    tipos_turno_usados = set()
+    for sid in mapa:
+        for dia in mapa[sid]:
+            tipos_turno_usados.update(mapa[sid][dia].keys())
+
+    colores_leyenda = {t: COLORES_TURNO.get(t, COLOR_DEFAULT) for t in sorted(tipos_turno_usados)}
+
+    context = {
+        'filas_gantt': filas_gantt,
+        'dias': dias,
+        'mes_actual': mes_actual,
+        'mes_ant': mes_ant,
+        'mes_sig': mes_sig,
+        'mes_label': primer_dia_mes.strftime('%B %Y').capitalize(),
+        'contratos': contratos_qs,
+        'contrato': contrato,
+        'is_admin': is_admin,
+        'colores_leyenda': colores_leyenda,
+        'COLORES_TURNO_JSON': json.dumps(COLORES_TURNO),
+        'today_dia': today.day if (today.year == año and today.month == mes) else None,
+    }
+    return render(request, 'drilling/sondajes/gantt.html', context)
+
+
 # ===============================
 # TIPO ACTIVIDAD VIEWS - CRUD COMPLETO
 # ===============================

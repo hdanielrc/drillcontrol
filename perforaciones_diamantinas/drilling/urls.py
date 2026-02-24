@@ -135,6 +135,7 @@ urlpatterns = [
     # Sondajes CRUD
     path('sondajes/', views.SondajeListView.as_view(), name='sondaje-list'),
     path('sondajes/seguimiento/', views.sondaje_seguimiento, name='sondaje-seguimiento'),
+    path('sondajes/gantt/', views.sondaje_gantt, name='sondaje-gantt'),
     path('sondajes/nuevo/', views.SondajeCreateView.as_view(), name='sondaje-create'),
     path('sondajes/<int:pk>/editar/', views.SondajeUpdateView.as_view(), name='sondaje-update'),
     path('sondajes/<int:pk>/eliminar/', views.SondajeDeleteView.as_view(), name='sondaje-delete'),
