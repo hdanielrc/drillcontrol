@@ -2242,6 +2242,52 @@ def convert_to_time(time_str):
     except (ValueError, AttributeError):
         return None
 
+def _get_tipos_aditivo_desde_abastecimiento(contract):
+    """
+    Retorna TipoAditivo para el contrato, sincronizando automáticamente
+    desde los AbastecimientoArticulo con familia='ADIT' que ya fueron
+    importados por el sync diario de la API.
+    Si no hay artículos ADIT sincronizados, devuelve el catálogo
+    estático de TipoAditivo existente como fallback.
+    """
+    if contract:
+        try:
+            # Obtener artículos ADIT únicos por código ya sincronizados
+            adit_qs = (
+                AbastecimientoArticulo.objects
+                .filter(contrato=contract, familia='ADIT')
+                .values('codigo', 'descripcion')
+                .distinct()
+            )
+            if adit_qs.exists():
+                # Sincronizar al catálogo TipoAditivo (crear o actualizar)
+                for art in adit_qs:
+                    if art['codigo']:
+                        nombre = (art['descripcion'] or art['codigo'])[:100]
+                        existing = TipoAditivo.objects.filter(
+                            codigo=art['codigo'], contrato=contract
+                        ).first()
+                        if existing:
+                            if existing.nombre != nombre:
+                                existing.nombre = nombre
+                                existing.save(update_fields=['nombre'])
+                        else:
+                            TipoAditivo.objects.create(
+                                codigo=art['codigo'],
+                                contrato=contract,
+                                nombre=nombre
+                            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Error sincronizando TipoAditivo desde ADIT para contrato {contract}: {e}"
+            )
+
+    return TipoAditivo.objects.filter(
+        contrato=contract
+    ).select_related('contrato').only('id', 'nombre', 'codigo', 'contrato')
+
+
 def get_context_data(request):
     """Obtener datos de contexto para el formulario - OPTIMIZADO CON CACHE"""
     from django.core.cache import cache
@@ -2318,9 +2364,7 @@ def get_context_data(request):
             contrato=contract,
             estado__in=['NUEVO', 'EN_USO']
         ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato', 'descripcion', 'categoria'),
-        'tipos_aditivo': TipoAditivo.objects.filter(
-            contrato=contract
-        ).select_related('contrato').only('id', 'nombre', 'codigo', 'contrato'),
+        'tipos_aditivo': _get_tipos_aditivo_desde_abastecimiento(contract),
         'unidades_medida': unidades_data,
         'today': timezone.now().date(),
     }
