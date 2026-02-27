@@ -197,6 +197,149 @@
 .section-corridas .section-card-icon { background: #efebe9; color: #5d4037; }
 .section-corridas .section-card-header { background: #fdfcfb; }
 
+/* === CORRIDAS: DISEÑO REDISEÑADO === */
+.corrida-item {
+    background: white;
+    border: 1.5px solid #d7ccc8;
+    border-left: 4px solid #8d6e63;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: border-left-color 0.2s, box-shadow 0.2s;
+    animation: slideIn 0.25s ease;
+}
+.corrida-item:hover {
+    border-left-color: #5d4037;
+    box-shadow: 0 3px 14px rgba(93,64,55,0.12);
+}
+.corrida-item-header {
+    background: linear-gradient(135deg, #efebe9 0%, #f8f5f3 100%);
+    padding: 7px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #e0d7d3;
+}
+.corrida-num-badge {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    background: linear-gradient(135deg, #6d4c41 0%, #4e342e 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+.corrida-item-summary {
+    flex: 1;
+    font-size: 0.78rem;
+    color: #8d6e63;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.corrida-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.corrida-chip-metros { background: #5d4037; color: white; }
+.corrida-chip-rec-good   { background: #e8f5e9; color: #2e7d32; }
+.corrida-chip-rec-medium { background: #fff8e1; color: #e65100; }
+.corrida-chip-rec-poor   { background: #ffebee; color: #c62828; }
+.corrida-item-body {
+    padding: 10px 14px 12px;
+}
+.corrida-item .btn-remove-corrida {
+    background: transparent;
+    border: 1px solid #d7ccc8;
+    color: #795548;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+.corrida-item .btn-remove-corrida:hover {
+    background: #c62828;
+    border-color: #c62828;
+    color: white;
+}
+.corrida-recovery-bar-wrap {
+    margin: 4px 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.corrida-recovery-bar-track {
+    flex: 1;
+    height: 5px;
+    background: #e0d7d3;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.corrida-recovery-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.35s ease, background 0.35s;
+    width: 0;
+}
+.corridas-summary-panel {
+    background: linear-gradient(135deg, #efebe9 0%, #fdf9f7 100%);
+    border: 1.5px solid #d7ccc8;
+    border-radius: 10px;
+    padding: 10px 18px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.corridas-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 74px;
+}
+.corridas-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #5d4037;
+    line-height: 1.1;
+}
+.corridas-stat-label {
+    font-size: 0.68rem;
+    color: #8d6e63;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 2px;
+    text-align: center;
+}
+.corridas-stat-divider {
+    width: 1px;
+    height: 32px;
+    background: #d7ccc8;
+    align-self: center;
+}
+@media (max-width: 768px) {
+    .corrida-item-header { flex-wrap: wrap; row-gap: 4px; }
+    .corridas-summary-panel { gap: 10px; padding: 10px 12px; }
+}
+
 .section-estado .section-card-icon { background: #e8eaf6; color: #3949ab; }
 .section-estado .section-card-header { background: #f9faff; }
 
@@ -539,7 +682,7 @@
                 <span class="nav-sidebar-badge" id="badge-actividades">0</span>
             </a>
             <a href="#seccion-corridas" class="nav-sidebar-item" data-section="corridas">
-                <i class="fas fa-ruler-vertical"></i>
+                <i class="fas fa-layer-group"></i>
                 <span>Corridas</span>
                 <span class="nav-sidebar-badge" id="badge-corridas">0</span>
             </a>
@@ -889,7 +1032,7 @@
     <div id="seccion-corridas" class="section-card section-corridas">
         <div class="section-card-header">
             <h5 class="section-card-title">
-                <span class="section-card-icon"><i class="fas fa-ruler-vertical"></i></span>
+                <span class="section-card-icon"><i class="fas fa-layer-group"></i></span>
                 Corridas de Perforación
             </h5>
             <button type="button" class="btn btn-add-item btn-sm" id="agregar-corrida-btn">
@@ -897,12 +1040,38 @@
             </button>
         </div>
         <div class="section-card-body">
-            <div id="corridas-seccion">
-                <div class="section-empty-state" id="empty-corridas">
-                    <i class="fas fa-ruler-vertical"></i>
-                    <p>No hay corridas registradas.<br>Haz clic en "Agregar Corrida" para comenzar.</p>
+
+            <!-- Panel resumen dinámico -->
+            <div id="corridas-summary-panel" class="corridas-summary-panel d-none">
+                <div class="corridas-stat">
+                    <span class="corridas-stat-value" id="stat-num-corridas">0</span>
+                    <span class="corridas-stat-label">Corridas</span>
+                </div>
+                <div class="corridas-stat-divider"></div>
+                <div class="corridas-stat">
+                    <span class="corridas-stat-value" id="stat-total-metros">0.00</span>
+                    <span class="corridas-stat-label">Metros total</span>
+                </div>
+                <div class="corridas-stat-divider"></div>
+                <div class="corridas-stat">
+                    <span class="corridas-stat-value" id="stat-avg-recovery">—</span>
+                    <span class="corridas-stat-label">Recup. prom.</span>
+                </div>
+                <div class="corridas-stat-divider"></div>
+                <div class="corridas-stat">
+                    <span class="corridas-stat-value" id="stat-avg-agua">—</span>
+                    <span class="corridas-stat-label">Retorno prom.</span>
                 </div>
             </div>
+
+            <!-- Lista de corridas -->
+            <div id="corridas-seccion">
+                <div class="section-empty-state" id="empty-corridas">
+                    <i class="fas fa-layer-group" style="font-size:2.2rem;opacity:0.35;display:block;margin-bottom:8px;"></i>
+                    <p class="mb-0">No hay corridas registradas.<br><small class="text-muted">Haz clic en <strong>Agregar Corrida</strong> para comenzar.</small></p>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -2253,19 +2422,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!row) return;
                 var num = row.querySelector('input[name^="corrida_numero_"]');
                 if (num) num.value = cr.corrida_numero || '';
-                var desde = row.querySelector('input[name^="desde_"]');
+                var desde = row.querySelector('.metro-desde');
                 if (desde) desde.value = cr.desde || '';
-                var hasta = row.querySelector('input[name^="hasta_"]');
+                var hasta = row.querySelector('.metro-hasta');
                 if (hasta) hasta.value = cr.hasta || '';
-                var lt = row.querySelector('input[name^="longitud_testigo_"]');
+                var lt = row.querySelector('.longitud-testigo');
                 if (lt) lt.value = cr.longitud_testigo || '';
-                var pr = row.querySelector('input[name^="pct_recuperacion_"]');
-                if (pr) pr.value = cr.pct_recuperacion || '';
-                var pa = row.querySelector('input[name^="pct_retorno_agua_"]');
+                var pr = row.querySelector('.pct-recuperacion');
+                if (pr) { pr.value = cr.pct_recuperacion || ''; pr.dataset.autoFilled = 'false'; }
+                var pa = row.querySelector('.pct-retorno-agua');
                 if (pa) pa.value = cr.pct_retorno_agua || '';
-                var lit = row.querySelector('input[name^="litologia_"]');
+                var lit = row.querySelector('textarea[name^="litologia_"]');
                 if (lit) lit.value = cr.litologia || '';
+                // Actualizar chips y barra de recuperación
+                if (typeof actualizarChipsCorrida === 'function') actualizarChipsCorrida(row);
             });
+            actualizarPanelCorridas();
             
             }, 300); // Fin del setTimeout para cargar complementos, aditivos y actividades
 
@@ -2539,58 +2711,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // =============================================
     // FUNCIONES PARA CORRIDAS
     // =============================================
-    
-    function crearCorridaRow() {
-        const corridaCount = document.querySelectorAll('.corrida-row').length + 1;
-        return `
-        <div class="corrida-row border rounded p-3 mb-3 bg-light">
-            <div class="row">
-                <div class="col-md-1">
-                    <label class="form-label">Corrida #</label>
-                    <input type="number" name="corrida_numero_${corridaCount}" class="form-control" value="${corridaCount}" min="1" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Desde (m)</label>
-                    <input type="number" step="0.01" name="desde_${corridaCount}" class="form-control" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Hasta (m)</label>
-                    <input type="number" step="0.01" name="hasta_${corridaCount}" class="form-control" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Long. Testigo</label>
-                    <input type="number" step="0.01" name="longitud_testigo_${corridaCount}" class="form-control" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">% Recuperación</label>
-                    <input type="number" step="0.01" name="pct_recuperacion_${corridaCount}" class="form-control" min="0" max="100" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">% Retorno Agua</label>
-                    <input type="number" step="0.01" name="pct_retorno_agua_${corridaCount}" class="form-control" min="0" max="100" required>
-                </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-corrida">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-12">
-                    <label class="form-label">Litología</label>
-                    <textarea name="litologia_${corridaCount}" class="form-control" rows="2" placeholder="Descripción de la litología" required></textarea>
-                </div>
-            </div>
-        </div>`;
-    }
-    
+
     document.getElementById('agregar-corrida-btn').addEventListener('click', function() {
-        document.getElementById('corridas-seccion').insertAdjacentHTML('beforeend', crearCorridaRow());
+        const container = document.getElementById('corridas-seccion');
+        const emptyState = document.getElementById('empty-corridas');
+        if (emptyState) emptyState.remove();
+        container.insertAdjacentHTML('beforeend', crearCorridaRow());
+        actualizarBadges();
+        actualizarPanelCorridas();
+        // Enfocar el primer campo editable de la nueva corrida
+        const ultima = container.querySelector('.corrida-item:last-child');
+        if (ultima) {
+            const primerInput = ultima.querySelector('.metro-desde');
+            if (primerInput) setTimeout(() => primerInput.focus(), 80);
+        }
     });
-    
+
     document.getElementById('corridas-seccion').addEventListener('click', function(event) {
         if (event.target.closest('.btn-remove-corrida')) {
-            event.target.closest('.corrida-row').remove();
+            const row = event.target.closest('.corrida-row');
+            if (row) {
+                row.remove();
+                // Renumerar badges de las corridas restantes
+                document.querySelectorAll('.corrida-item').forEach(function(item, idx) {
+                    const badge = item.querySelector('.corrida-num-badge');
+                    if (badge) badge.textContent = idx + 1;
+                    // Actualizar valores hidden del número
+                    const hiddenNum = item.querySelector('input[name*="corrida_numero_"]');
+                    if (hiddenNum) hiddenNum.value = idx + 1;
+                });
+                // Mostrar empty state si no quedan corridas
+                const container = document.getElementById('corridas-seccion');
+                if (!container.querySelector('.corrida-row')) {
+                    container.innerHTML = '<div class="section-empty-state" id="empty-corridas"><i class="fas fa-layer-group" style="font-size:2.2rem;opacity:0.35;display:block;margin-bottom:8px;"></i><p class="mb-0">No hay corridas registradas.<br><small class="text-muted">Haz clic en <strong>Agregar Corrida</strong> para comenzar.</small></p></div>';
+                }
+                actualizarBadges();
+                actualizarPanelCorridas();
+            }
         }
     });
     
@@ -2689,67 +2846,163 @@ document.addEventListener('DOMContentLoaded', function() {
     // que incluye la logica de Duración.
 
 
-    // Mejorar función de crear corrida con autocompletado de metros
-    function crearCorridaRowMejorada() {
+    // =============================================
+    // CREAR FILA DE CORRIDA (DISEÑO MEJORADO)
+    // =============================================
+    function crearCorridaRow() {
         const corridaCount = document.querySelectorAll('.corrida-row').length + 1;
 
-        // Calcular metro de inicio basado en la última corrida
-        let metroInicioSugerido = '';
-        const ultimaCorrida = document.querySelector('.corrida-row:last-child input[name*="hasta_"]');
-        if (ultimaCorrida && ultimaCorrida.value) {
-            metroInicioSugerido = parseFloat(ultimaCorrida.value);
-        } else {
-            metroInicioSugerido = 0;
-        }
+        // Auto-sugerir metro inicial desde la última corrida
+        let desdeVal = 0;
+        const ultimaHasta = document.querySelector('.corrida-item:last-child .metro-hasta');
+        if (ultimaHasta && ultimaHasta.value) desdeVal = parseFloat(ultimaHasta.value);
 
         return `
-        <div class="corrida-row border rounded p-3 mb-3 bg-light position-relative">
-            <div class="row">
-                <div class="col-md-1">
-                    <label class="form-label">Corrida #</label>
-                    <input type="number" name="corrida_numero_${corridaCount}" class="form-control" value="${corridaCount}" min="1" required readonly>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Desde (m)</label>
-                    <input type="number" step="0.01" name="desde_${corridaCount}" class="form-control metro-desde" value="${metroInicioSugerido}" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Hasta (m)</label>
-                    <input type="number" step="0.01" name="hasta_${corridaCount}" class="form-control metro-hasta" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Long. Testigo</label>
-                    <input type="number" step="0.01" name="longitud_testigo_${corridaCount}" class="form-control longitud-testigo" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">% Recuperación</label>
-                    <input type="number" step="0.01" name="pct_recuperacion_${corridaCount}" class="form-control" min="0" max="100" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">% Retorno Agua</label>
-                    <input type="number" step="0.01" name="pct_retorno_agua_${corridaCount}" class="form-control" min="0" max="100" required>
-                </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-corrida" title="Eliminar corrida">
-                        <i class="fas fa-trash"></i>
+        <div class="corrida-row corrida-item">
+            <!-- Header de la corrida -->
+            <div class="corrida-item-header">
+                <span class="corrida-num-badge">${corridaCount}</span>
+                <span class="corrida-item-summary">Complete los metros para ver el resumen</span>
+                <div class="d-flex gap-1 align-items-center ms-auto">
+                    <span class="corrida-chip corrida-chip-metros d-none corrida-chip-m"></span>
+                    <span class="corrida-chip d-none corrida-chip-r"></span>
+                    <button type="button" class="btn-remove-corrida ms-2" title="Eliminar corrida">
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
-            <div class="row mt-2">
-                <div class="col-12">
-                    <label class="form-label">Litología</label>
-                    <textarea name="litologia_${corridaCount}" class="form-control" rows="2" placeholder="Descripción detallada de la litología encontrada" required></textarea>
+
+            <!-- Campos -->
+            <div class="corrida-item-body">
+                <input type="hidden" name="corrida_numero_${corridaCount}" value="${corridaCount}">
+
+                <div class="row g-2 mb-1">
+                    <div class="col-6 col-sm-4 col-md">
+                        <label class="form-label form-label-sm mb-1 fw-semibold"><i class="fas fa-arrow-right text-muted me-1"></i>Desde (m)</label>
+                        <input type="number" step="0.01" name="desde_${corridaCount}" class="form-control form-control-sm metro-desde" value="${desdeVal}" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md">
+                        <label class="form-label form-label-sm mb-1 fw-semibold"><i class="fas fa-arrow-left text-muted me-1"></i>Hasta (m)</label>
+                        <input type="number" step="0.01" name="hasta_${corridaCount}" class="form-control form-control-sm metro-hasta" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md">
+                        <label class="form-label form-label-sm mb-1 fw-semibold"><i class="fas fa-ruler text-muted me-1"></i>Long. Testigo</label>
+                        <input type="number" step="0.01" name="longitud_testigo_${corridaCount}" class="form-control form-control-sm longitud-testigo" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="col-6 col-sm-6 col-md">
+                        <label class="form-label form-label-sm mb-1 fw-semibold"><i class="fas fa-percent text-success me-1"></i>% Recuperación</label>
+                        <input type="number" step="0.01" name="pct_recuperacion_${corridaCount}" class="form-control form-control-sm pct-recuperacion" min="0" max="100" placeholder="0.00" required>
+                    </div>
+                    <div class="col-6 col-sm-6 col-md">
+                        <label class="form-label form-label-sm mb-1 fw-semibold"><i class="fas fa-tint text-primary me-1"></i>% Retorno Agua</label>
+                        <input type="number" step="0.01" name="pct_retorno_agua_${corridaCount}" class="form-control form-control-sm pct-retorno-agua" min="0" max="100" placeholder="0.00" required>
+                    </div>
                 </div>
-            </div>
-            <div class="metraje-info mt-2 text-muted small d-none">
-                <i class="fas fa-ruler"></i> <span></span>
+
+                <!-- Barra de recuperación -->
+                <div class="corrida-recovery-bar-wrap d-none">
+                    <small class="text-muted" style="white-space:nowrap;font-size:0.72rem;">Recup.</small>
+                    <div class="corrida-recovery-bar-track">
+                        <div class="corrida-recovery-bar-fill"></div>
+                    </div>
+                    <small class="corrida-rec-pct fw-bold" style="white-space:nowrap;font-size:0.72rem;">0%</small>
+                </div>
+
+                <!-- Litología -->
+                <div class="mt-2">
+                    <label class="form-label form-label-sm mb-1 fw-semibold"><i class="fas fa-mountain text-muted me-1"></i>Litología <small class="text-muted fw-normal">(tipo de roca, RQD, fracturas...)</small></label>
+                    <textarea name="litologia_${corridaCount}" class="form-control form-control-sm" rows="2" placeholder="Ej: Diorita alterada, RQD 65%, fracturación moderada, húmedo..."></textarea>
+                </div>
             </div>
         </div>`;
     }
 
-    // Reemplazar la función original con la mejorada
-    function crearCorridaRow() {
-        return crearCorridaRowMejorada();
+    // Actualiza los chips y barra de recuperación de una fila
+    function actualizarChipsCorrida(row) {
+        const desde   = parseFloat(row.querySelector('.metro-desde').value) || 0;
+        const hasta   = parseFloat(row.querySelector('.metro-hasta').value) || 0;
+        const lt      = parseFloat(row.querySelector('.longitud-testigo').value) || 0;
+        const pctRec  = parseFloat(row.querySelector('.pct-recuperacion').value);
+        const chipM   = row.querySelector('.corrida-chip-m');
+        const chipR   = row.querySelector('.corrida-chip-r');
+        const barWrap = row.querySelector('.corrida-recovery-bar-wrap');
+        const barFill = row.querySelector('.corrida-recovery-bar-fill');
+        const barPct  = row.querySelector('.corrida-rec-pct');
+        const summary = row.querySelector('.corrida-item-summary');
+
+        if (hasta > desde) {
+            const metros = (hasta - desde).toFixed(2);
+            chipM.textContent = metros + ' m';
+            chipM.classList.remove('d-none');
+
+            // Auto-calcular % recuperación si long. testigo fue llenado y campo vacío
+            const pctInput = row.querySelector('.pct-recuperacion');
+            let recVal = isNaN(pctRec) ? null : pctRec;
+            if (lt > 0 && (!pctInput.value || pctInput.dataset.autoFilled === 'true')) {
+                recVal = Math.min(100, (lt / (hasta - desde)) * 100);
+                pctInput.value = recVal.toFixed(1);
+                pctInput.dataset.autoFilled = 'true';
+            }
+
+            if (recVal !== null) {
+                const pct = Math.min(100, Math.max(0, recVal));
+                // Chip color
+                chipR.className = 'corrida-chip d-none corrida-chip-r';
+                if (pct >= 85)       chipR.classList.add('corrida-chip-rec-good');
+                else if (pct >= 60)  chipR.classList.add('corrida-chip-rec-medium');
+                else                 chipR.classList.add('corrida-chip-rec-poor');
+                chipR.textContent = pct.toFixed(1) + '% rec.';
+                chipR.classList.remove('d-none');
+                // Barra
+                barFill.style.width = pct + '%';
+                if (pct >= 85)      barFill.style.background = '#4caf50';
+                else if (pct >= 60) barFill.style.background = '#ff9800';
+                else                barFill.style.background = '#f44336';
+                barPct.textContent  = pct.toFixed(1) + '%';
+                barWrap.classList.remove('d-none');
+            } else {
+                chipR.classList.add('d-none');
+                barWrap.classList.add('d-none');
+            }
+
+            // Actualizar resumen del header
+            const num = row.querySelector('.corrida-num-badge').textContent;
+            summary.textContent = `${metros} m perforados` + (recVal !== null ? ` · ${recVal.toFixed(1)}% rec.` : '');
+        } else {
+            chipM.classList.add('d-none');
+            chipR.classList.add('d-none');
+            barWrap.classList.add('d-none');
+            summary.textContent = 'Complete los metros para ver el resumen';
+        }
+    }
+
+    // Actualiza el panel de estadísticas globales de corridas
+    function actualizarPanelCorridas() {
+        const panel   = document.getElementById('corridas-summary-panel');
+        const rows    = document.querySelectorAll('.corrida-item');
+        if (!panel) return;
+
+        if (rows.length === 0) {
+            panel.classList.add('d-none');
+            return;
+        }
+        panel.classList.remove('d-none');
+
+        let totalMetros = 0, sumRec = 0, countRec = 0, sumAgua = 0, countAgua = 0;
+        rows.forEach(function(row) {
+            const d = parseFloat(row.querySelector('.metro-desde').value) || 0;
+            const h = parseFloat(row.querySelector('.metro-hasta').value) || 0;
+            if (h > d) totalMetros += h - d;
+            const pr = parseFloat(row.querySelector('.pct-recuperacion').value);
+            if (!isNaN(pr)) { sumRec += pr; countRec++; }
+            const pa = parseFloat(row.querySelector('.pct-retorno-agua').value);
+            if (!isNaN(pa)) { sumAgua += pa; countAgua++; }
+        });
+
+        document.getElementById('stat-num-corridas').textContent  = rows.length;
+        document.getElementById('stat-total-metros').textContent  = totalMetros.toFixed(2);
+        document.getElementById('stat-avg-recovery').textContent  = countRec  ? (sumRec  / countRec).toFixed(1)  + '%' : '—';
+        document.getElementById('stat-avg-agua').textContent      = countAgua ? (sumAgua / countAgua).toFixed(1) + '%' : '—';
     }
 
     // Validaciones y cálculos automáticos para actividades
@@ -2785,39 +3038,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Validaciones y cálculos automáticos para corridas
+    // Cálculos y validaciones en tiempo real para corridas
     document.getElementById('corridas-seccion').addEventListener('input', function(event) {
-        if (event.target.matches('.metro-desde, .metro-hasta, .longitud-testigo')) {
+        if (event.target.matches('.metro-desde, .metro-hasta, .longitud-testigo, .pct-recuperacion, .pct-retorno-agua')) {
             const row = event.target.closest('.corrida-row');
-            const desde = parseFloat(row.querySelector('.metro-desde').value) || 0;
-            const hasta = parseFloat(row.querySelector('.metro-hasta').value) || 0;
-            const longitudTestigo = parseFloat(row.querySelector('.longitud-testigo').value) || 0;
-            const metrajeDiv = row.querySelector('.metraje-info');
-            const metrajeSpan = metrajeDiv.querySelector('span');
-
-            if (desde && hasta && hasta > desde) {
-                const metrosCorrida = hasta - desde;
-                let mensaje = `Metros corrida: ${metrosCorrida.toFixed(2)}m`;
-
-                if (longitudTestigo > 0) {
-                    const recuperacion = (longitudTestigo / metrosCorrida * 100).toFixed(1);
-                    mensaje += ` | Recuperación calculada: ${recuperacion}%`;
-
-                    // Auto-llenar porcentaje de recuperación si está vacío
-                    const pctRecuperacionInput = row.querySelector('input[name*="pct_recuperacion"]');
-                    if (pctRecuperacionInput && !pctRecuperacionInput.value) {
-                        pctRecuperacionInput.value = recuperacion;
-                    }
-                }
-
-                metrajeSpan.textContent = mensaje;
-                metrajeDiv.classList.remove('d-none');
-
-                // Validar continuidad de metros
-                validarContinuidadCorridas();
-            } else {
-                metrajeDiv.classList.add('d-none');
+            if (!row) return;
+            // Si el usuario modificó manualmente % recuperación, quitar el flag de auto-llenado
+            if (event.target.matches('.pct-recuperacion')) {
+                event.target.dataset.autoFilled = 'false';
             }
+            actualizarChipsCorrida(row);
+            actualizarPanelCorridas();
+            validarContinuidadCorridas();
         }
     });
 
@@ -2858,24 +3090,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const desde = parseFloat(row.querySelector('.metro-desde').value) || 0;
             const hasta = parseFloat(row.querySelector('.metro-hasta').value) || 0;
             return { row, desde, hasta };
-        }).filter(cor => cor.desde >= 0 && cor.hasta > cor.desde);
+        }).filter(cor => cor.hasta > cor.desde);
 
-        // Limpiar warnings previos
+        // Limpiar warnings y bordes previos
         document.querySelectorAll('.corrida-warning').forEach(el => el.remove());
+        document.querySelectorAll('.corrida-item').forEach(el => {
+            el.style.borderLeftColor = '';
+        });
 
         // Ordenar por metro de inicio
         corridas.sort((a, b) => a.desde - b.desde);
 
         for (let i = 1; i < corridas.length; i++) {
             const anterior = corridas[i - 1];
-            const actual = corridas[i];
+            const actual   = corridas[i];
+            const gap = Math.round((actual.desde - anterior.hasta) * 100) / 100; // 2dp precision
 
-            if (actual.desde !== anterior.hasta) {
-                const gap = actual.desde - anterior.hasta;
+            if (Math.abs(gap) > 0.005) {
                 if (gap > 0) {
-                    mostrarWarningCorrida(actual.row, `Gap de ${gap.toFixed(2)}m con corrida anterior`);
+                    mostrarWarningCorrida(actual.row, `Gap de ${gap.toFixed(2)} m con corrida anterior`);
+                    actual.row.style.borderLeftColor = '#ff9800';
                 } else {
-                    mostrarWarningCorrida(actual.row, `Solapamiento de ${Math.abs(gap).toFixed(2)}m con corrida anterior`);
+                    mostrarWarningCorrida(actual.row, `Solapamiento de ${Math.abs(gap).toFixed(2)} m con corrida anterior`);
+                    actual.row.style.borderLeftColor = '#f44336';
                 }
             }
         }
@@ -2898,10 +3135,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function mostrarWarningCorrida(row, mensaje) {
         if (!row.querySelector('.corrida-warning')) {
+            // Mostrar el warning de forma compacta dentro del item-body (no como alerta grande)
             const warning = document.createElement('div');
-            warning.className = 'corrida-warning alert alert-warning alert-sm mt-2 mb-0 py-1';
+            warning.className = 'corrida-warning d-flex align-items-center gap-1 mt-1 mb-0';
+            warning.style.cssText = 'background:#fff3cd;border-radius:6px;padding:4px 8px;font-size:0.75rem;color:#856404;';
             warning.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${mensaje}`;
-            row.appendChild(warning);
+            const body = row.querySelector('.corrida-item-body');
+            if (body) body.appendChild(warning);
+            else row.appendChild(warning);
         }
     }
 
@@ -3080,11 +3321,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const desde = row.querySelector('.metro-desde').value;
             const hasta = row.querySelector('.metro-hasta').value;
             const longitudTestigo = row.querySelector('.longitud-testigo').value;
-            const pctRecuperacion = row.querySelector('input[name*="pct_recuperacion_"]').value;
-            const pctRetornoAgua = row.querySelector('input[name*="pct_retorno_agua_"]').value;
+            const pctRecuperacion = row.querySelector('.pct-recuperacion').value;
+            const pctRetornoAgua = row.querySelector('.pct-retorno-agua').value;
             const litologia = row.querySelector('textarea[name*="litologia_"]').value;
             
-            if (numero && desde && hasta) {
+            if (numero && desde && hasta && parseFloat(hasta) > parseFloat(desde)) {
                 corridas.push({
                     corrida_numero: numero,
                     desde: desde,

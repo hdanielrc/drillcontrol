@@ -2082,16 +2082,18 @@ def crear_turno_completo(request, pk=None):
                     TurnoActividad.objects.bulk_create(actividades_objetos)
 
                 # Crear corridas usando bulk_create
+                # NOTA: bulk_create no llama a save(), por eso calculamos total_calc manualmente.
                 if corridas_parsed:
                     corridas_objetos = [
                         TurnoCorrida(
                             turno=turno,
                             corrida_numero=cr['corrida_numero'],
-                            desde=cr['desde'],
-                            hasta=cr['hasta'],
-                            longitud_testigo=cr['longitud_testigo'],
-                            pct_recuperacion=cr['pct_recuperacion'],
-                            pct_retorno_agua=cr['pct_retorno_agua'],
+                            desde=Decimal(str(cr['desde'])),
+                            hasta=Decimal(str(cr['hasta'])),
+                            total_calc=Decimal(str(cr['hasta'])) - Decimal(str(cr['desde'])),
+                            longitud_testigo=Decimal(str(cr['longitud_testigo'])),
+                            pct_recuperacion=Decimal(str(cr['pct_recuperacion'])),
+                            pct_retorno_agua=Decimal(str(cr['pct_retorno_agua'])),
                             litologia=cr['litologia']
                         ) for cr in corridas_parsed
                     ]
