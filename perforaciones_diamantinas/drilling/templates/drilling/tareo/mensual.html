@@ -275,10 +275,10 @@
                                     </td>
                                     <td class="sticky-column-2 bg-light p-1" style="z-index: 1000; vertical-align: middle;">
                                         <div style="line-height: 1.1;">
-                                            <div class="fw-bold text-truncate" style="font-size: 0.8rem; max-width: 200px;" title="{{ item.trabajador.apellidos }}, {{ item.trabajador.nombres }}">
-                                                {{ item.trabajador.apellidos }}, {{ item.trabajador.nombres }}
+                                            <div class="fw-bold text-truncate" style="font-size: 0.8rem; max-width: 200px;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">
+                                                {{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}
                                             </div>
-                                            <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo.nombre|truncatechars:25 }} | {{ item.trabajador.dni }}</div>
+                                            <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
                                         </div>
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.75rem; vertical-align: middle;">
