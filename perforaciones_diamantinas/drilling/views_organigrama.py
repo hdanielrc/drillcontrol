@@ -1,14 +1,12 @@
 """
-Vista para el organigrama organizacional - Solo visualización
+Vista para el organigrama organizacional - Solo visualización.
 
-El organigrama muestra la estructura jerárquica de trabajadores por contrato
-basándose en el nivel_jerarquico del cargo de cada trabajador.
-
-Niveles:
-- Nivel 1: Residente
-- Nivel 2: Gerencias (Administrador, Jefe Logística, Ing. Seguridad, etc.)
-- Nivel 3: Supervisión (Supervisores)
-- Nivel 4: Operaciones (Perforistas, Ayudantes, Conductores, Técnicos)
+Estructura basada en el campo `grupo` del trabajador:
+  - LINEA_MANDO   → Línea de Mando (Residente, Jefes, Ingenieros, Supervisores)
+  - OPERADORES    → Operadores, agrupados por guardia A/B/C con máquina asignada
+  - SERVICIOS_GEOLOGICOS → Servicios Geológicos
+  - PERSONAL_AUXILIAR   → Personal Auxiliar
+  - Stand By / Sin grupo → al final
 """
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -16,11 +14,23 @@ from django.contrib import messages
 from .models import Contrato, Trabajador
 
 
+def _cargo_order(cargo):
+    """Retorna un número de prioridad para ordenar dentro de Línea de Mando."""
+    c = (cargo or '').upper()
+    if 'RESIDENTE' in c:        return 1
+    if 'JEFE' in c:             return 2
+    if 'GERENTE' in c:          return 2
+    if 'ADMINISTRADOR' in c:    return 3
+    if 'INGENIERO' in c:        return 3
+    if 'SUPERVISOR' in c:       return 4
+    return 5
+
+
 @login_required
 def organigrama_view(request):
-    """Vista para mostrar el organigrama del contrato - Solo visualización"""
+    """Vista para mostrar el organigrama del contrato - Solo visualización."""
     user = request.user
-    
+
     # Determinar contratos accesibles
     if user.has_access_to_all_contracts():
         contrato_id = request.GET.get('contrato')
@@ -32,68 +42,65 @@ def organigrama_view(request):
                 contrato = None
         else:
             contrato = Contrato.objects.filter(estado='ACTIVO').first()
-        
         contratos_disponibles = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
     else:
         contrato = user.contrato
         contratos_disponibles = None
-    
+
     if not contrato:
         messages.warning(request, 'No hay contratos activos disponibles')
         return redirect('dashboard')
-    
-    # Obtener trabajadores activos del contrato
+
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).order_by('cargo', 'apepat', 'nombres')
-    
-    # Organizar por jerarquía (4 niveles) - Heurística simple
-    niveles = {1: [], 2: [], 3: [], 4: []}
-    
-    for trabajador in trabajadores:
-        c = (trabajador.cargo or '').upper()
-        if 'RESIDENTE' in c or 'GERENTE' in c:
-            nivel = 1
-        elif 'SUPERVISOR' in c or 'JEFE' in c:
-            nivel = 2
-        elif 'PERFORISTA' in c or 'OPERADOR' in c:
-            nivel = 3
-        else:
-            nivel = 4
-            
-        niveles[nivel].append(trabajador)
-    
-    # Para nivel 4, agrupar por tipo de cargo
-    nivel4_agrupado = {
-        'perforistas': [],
-        'ayudantes': [],
-        'conductores': [],
-        'tecnicos': [],
-        'otros': []
-    }
-    
-    for trabajador in niveles[4]:
-        cargo_lower = trabajador.cargo.lower() if trabajador.cargo else ''
-        
-        if 'perforista' in cargo_lower:
-            nivel4_agrupado['perforistas'].append(trabajador)
-        elif 'ayudante' in cargo_lower:
-            nivel4_agrupado['ayudantes'].append(trabajador)
-        elif 'conductor' in cargo_lower:
-            nivel4_agrupado['conductores'].append(trabajador)
-        elif 'tecnico' in cargo_lower or 'técnico' in cargo_lower or 'mecanico' in cargo_lower or 'mecánico' in cargo_lower:
-            nivel4_agrupado['tecnicos'].append(trabajador)
-        else:
-            nivel4_agrupado['otros'].append(trabajador)
-    
+    ).select_related('maquina_asignada').order_by('apepat', 'nombres')
+
+    # ── Línea de Mando ──────────────────────────────────────────────
+    linea_mando = sorted(
+        [t for t in trabajadores if t.grupo == 'LINEA_MANDO'],
+        key=lambda t: (_cargo_order(t.cargo), t.apepat)
+    )
+
+    # ── Operadores agrupados por guardia A/B/C ───────────────────────
+    operadores_raw = [t for t in trabajadores if t.grupo == 'OPERADORES']
+    guardias_operadores = {}
+    for t in sorted(operadores_raw, key=lambda x: (x.guardia_asignada or 'Z', x.apepat)):
+        g = t.guardia_asignada or 'SIN_GUARDIA'
+        guardias_operadores.setdefault(g, []).append(t)
+
+    operadores_por_guardia = []
+    for key in ['A', 'B', 'C', 'SIN_GUARDIA']:
+        if key in guardias_operadores:
+            operadores_por_guardia.append({
+                'guardia': key,
+                'label': f'Guardia {key}' if key != 'SIN_GUARDIA' else 'Sin Guardia',
+                'trabajadores': guardias_operadores[key],
+            })
+
+    # ── Servicios Geológicos ─────────────────────────────────────────
+    servicios_geo = [t for t in trabajadores if t.grupo == 'SERVICIOS_GEOLOGICOS']
+
+    # ── Personal Auxiliar ────────────────────────────────────────────
+    personal_auxiliar = [t for t in trabajadores if t.grupo == 'PERSONAL_AUXILIAR']
+
+    # ── Stand By + Sin grupo ─────────────────────────────────────────
+    otros = [t for t in trabajadores if not t.grupo or t.es_standby]
+
     context = {
         'contrato': contrato,
-        'niveles': niveles,
-        'nivel4_agrupado': nivel4_agrupado,
         'contratos_disponibles': contratos_disponibles,
         'total_trabajadores': trabajadores.count(),
+        'linea_mando': linea_mando,
+        'operadores_por_guardia': operadores_por_guardia,
+        'servicios_geo': servicios_geo,
+        'personal_auxiliar': personal_auxiliar,
+        'otros': otros,
+        'total_operadores': len(operadores_raw),
+        'total_linea_mando': len(linea_mando),
+        'total_servicios_geo': len(servicios_geo),
+        'total_auxiliar': len(personal_auxiliar),
     }
-    
+
     return render(request, 'drilling/organigrama/view.html', context)
 

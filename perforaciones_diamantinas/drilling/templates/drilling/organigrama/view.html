@@ -1,632 +1,323 @@
-{% extends 'drilling/base.html' %}
+﻿{% extends 'drilling/base.html' %}
 {% load static %}
 
 {% block title %}Organigrama - {{ contrato.nombre_contrato }}{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* ============================================
-       ORGANIGRAMA EMPRESARIAL - DRILLCONTROL
-       ============================================ */
-    
-    /* === VARIABLES LOCALES (fallback) === */
-    :root {
-        --org-primary: #084163;
-        --org-primary-light: #0470AC;
-        --org-yellow: #FFC248;
-        --org-green: #28a745;
-        --org-blue: #17a2b8;
-        --org-purple: #6f42c1;
-    }
-
-    /* === CONTENEDOR PRINCIPAL === */
-    .org-container {
-        background: #f4f6f9;
-        min-height: calc(100vh - 150px);
-        padding: 30px;
-    }
-
-    /* === CABECERA === */
-    .org-page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-        flex-wrap: wrap;
-        gap: 20px;
-    }
-
-    .org-page-header h2 {
-        color: #084163;
-        font-weight: 700;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .org-page-header h2 i {
-        color: #0470AC;
-    }
-
-    .org-page-header .subtitle {
-        color: #6c757d;
-        font-size: 0.95rem;
-        margin: 5px 0 0 0;
-    }
-
-    /* === SELECTOR DE CONTRATO === */
-    .org-contract-selector {
-        background: white;
-        padding: 12px 20px;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .org-contract-selector label {
-        color: #6c757d;
-        font-weight: 500;
-        margin: 0;
-        white-space: nowrap;
-    }
-
-    .org-contract-selector select {
-        border: 2px solid #0470AC;
-        border-radius: 8px;
-        padding: 8px 35px 8px 15px;
-        font-weight: 600;
-        color: #084163;
-        min-width: 250px;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-
-    .org-contract-selector select:focus {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(4, 112, 172, 0.25);
-    }
-
-    /* === TARJETA PRINCIPAL DEL ORGANIGRAMA === */
-    .org-chart-card {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        overflow: hidden;
-    }
-
-    /* === HEADER DEL ORGANIGRAMA === */
-    .org-chart-header {
-        background: linear-gradient(135deg, #084163 0%, #0470AC 100%);
-        color: white;
-        padding: 25px 30px;
-        text-align: center;
-    }
-
-    .org-chart-header h3 {
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-    }
-
-    .org-chart-header .org-stats {
-        margin-top: 12px;
-        display: flex;
-        justify-content: center;
-        gap: 25px;
-        flex-wrap: wrap;
-    }
-
-    .org-stat-item {
-        background: rgba(255,255,255,0.15);
-        padding: 8px 20px;
-        border-radius: 25px;
-        font-size: 0.9rem;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    /* === CUERPO DEL ORGANIGRAMA === */
-    .org-chart-body {
-        padding: 30px;
-        background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
-    }
-
-    /* === NIVELES === */
-    .org-level {
-        margin-bottom: 25px;
-        position: relative;
-    }
-
-    .org-level:last-child {
-        margin-bottom: 0;
-    }
-
-    /* === ENCABEZADO DE NIVEL === */
-    .org-level-header {
-        text-align: center;
-        margin-bottom: 20px;
-    }
-
-    .org-level-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 25px;
-        border-radius: 30px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-    }
-
-    .org-level-badge i {
-        font-size: 1.1rem;
-    }
-
-    /* Colores por nivel */
-    .org-level-1 .org-level-badge {
-        background: linear-gradient(135deg, #FFC248 0%, #ffb300 100%);
-        color: #5d4200;
-    }
-
-    .org-level-2 .org-level-badge {
-        background: linear-gradient(135deg, #0470AC 0%, #084163 100%);
-        color: white;
-    }
-
-    .org-level-3 .org-level-badge {
-        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
-        color: white;
-    }
-
-    .org-level-4 .org-level-badge {
-        background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);
-        color: white;
-    }
-
-    /* === CONTENEDOR DE TARJETAS === */
-    .org-cards-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        justify-content: center;
-    }
-
-    /* === TARJETA DE EMPLEADO === */
-    .org-employee-card {
-        width: 160px;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 3px 15px rgba(0,0,0,0.08);
-        transition: all 0.3s ease;
-        overflow: hidden;
-        border: 1px solid #e9ecef;
-    }
-
-    .org-employee-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 30px rgba(0,0,0,0.15);
-    }
-
-    /* Barra superior de color */
-    .org-card-accent {
-        height: 5px;
-    }
-
-    .org-level-1 .org-card-accent { background: linear-gradient(90deg, #FFC248, #ffb300); }
-    .org-level-2 .org-card-accent { background: linear-gradient(90deg, #0470AC, #084163); }
-    .org-level-3 .org-card-accent { background: linear-gradient(90deg, #28a745, #1e7e34); }
-    .org-level-4 .org-card-accent { background: linear-gradient(90deg, #17a2b8, #117a8b); }
-
-    .org-card-content {
-        padding: 18px 12px;
-        text-align: center;
-    }
-
-    /* === AVATAR === */
-    .org-avatar {
-        width: 55px;
-        height: 55px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
-    .org-avatar i {
-        font-size: 1.4rem;
-    }
-
-    .org-level-1 .org-avatar {
-        background: linear-gradient(135deg, #FFC248 0%, #ffb300 100%);
-    }
-    .org-level-1 .org-avatar i { color: #5d4200; }
-
-    .org-level-2 .org-avatar {
-        background: linear-gradient(135deg, #0470AC 0%, #084163 100%);
-    }
-    .org-level-2 .org-avatar i { color: white; }
-
-    .org-level-3 .org-avatar {
-        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
-    }
-    .org-level-3 .org-avatar i { color: white; }
-
-    .org-level-4 .org-avatar {
-        background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);
-    }
-    .org-level-4 .org-avatar i { color: white; }
-
-    /* === INFORMACIÓN DEL EMPLEADO === */
-    .org-employee-name {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #084163;
-        margin-bottom: 3px;
-        line-height: 1.3;
-    }
-
-    .org-employee-lastname {
-        font-size: 0.8rem;
-        color: #6c757d;
-        margin-bottom: 10px;
-        font-weight: 400;
-    }
-
-    .org-employee-role {
-        display: inline-block;
-        font-size: 0.65rem;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .org-level-1 .org-employee-role {
-        background: #fff8e6;
-        color: #b17c00;
-    }
-
-    .org-level-2 .org-employee-role {
-        background: #e6f3fa;
-        color: #084163;
-    }
-
-    .org-level-3 .org-employee-role {
-        background: #e8f5e9;
-        color: #1e7e34;
-    }
-
-    .org-level-4 .org-employee-role {
-        background: #e3f6f8;
-        color: #117a8b;
-    }
-
-    /* === CONECTOR ENTRE NIVELES === */
-    .org-connector {
-        display: flex;
-        justify-content: center;
-        padding: 8px 0;
-    }
-
-    .org-connector-line {
-        width: 3px;
-        height: 30px;
-        background: linear-gradient(180deg, #0470AC 0%, #17a2b8 100%);
-        border-radius: 3px;
-        position: relative;
-    }
-
-    .org-connector-line::before,
-    .org-connector-line::after {
-        content: '';
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-    }
-
-    .org-connector-line::before {
-        top: -4px;
-        background: #0470AC;
-    }
-
-    .org-connector-line::after {
-        bottom: -4px;
-        background: #17a2b8;
-    }
-
-    /* === ESTADO VACÍO === */
-    .org-empty-state {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 15px 25px;
-        background: #f8f9fa;
-        border: 2px dashed #dee2e6;
-        border-radius: 12px;
-        color: #6c757d;
-        font-style: italic;
-    }
-
-    .org-empty-state i {
-        color: #adb5bd;
-        font-size: 1.2rem;
-    }
-
-    /* === SIN DATOS COMPLETO === */
-    .org-no-data {
-        text-align: center;
-        padding: 60px 30px;
-    }
-
-    .org-no-data i {
-        font-size: 5rem;
-        color: #dee2e6;
-        margin-bottom: 20px;
-    }
-
-    .org-no-data h4 {
-        color: #084163;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
-
-    .org-no-data p {
-        color: #6c757d;
-        margin: 0;
-    }
-
-    /* === RESPONSIVE === */
-    @media (max-width: 768px) {
-        .org-container {
-            padding: 15px;
-        }
-
-        .org-chart-header {
-            padding: 20px;
-        }
-
-        .org-chart-body {
-            padding: 20px;
-        }
-
-        .org-employee-card {
-            width: 140px;
-        }
-
-        .org-page-header {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
-        .org-contract-selector {
-            width: 100%;
-        }
-
-        .org-contract-selector select {
-            flex: 1;
-            min-width: auto;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .org-employee-card {
-            width: 130px;
-        }
-
-        .org-cards-container {
-            gap: 10px;
-        }
-
-        .org-level-badge {
-            font-size: 0.75rem;
-            padding: 8px 18px;
-        }
-    }
+/* ============================================================
+   ORGANIGRAMA DRILLCONTROL – layout por grupo / guardia
+   ============================================================ */
+:root {
+    --org-primary:   #084163;
+    --org-light:     #0470AC;
+    --org-yellow:    #FFC248;
+    --org-green:     #28a745;
+    --org-teal:      #17a2b8;
+    --org-purple:    #6f42c1;
+    --org-orange:    #e67e22;
+}
+
+.org-container {
+    background:#f4f6f9;
+    min-height:calc(100vh - 150px);
+    padding:28px 32px;
+}
+
+/* Cabecera */
+.org-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:28px;
+    flex-wrap:wrap;
+    gap:16px;
+}
+.org-header h2 { color:var(--org-primary); font-weight:700; margin:0; display:flex; align-items:center; gap:10px; }
+.org-header .subtitle { color:#6c757d; font-size:.9rem; margin:4px 0 0 0; }
+
+/* Stats */
+.org-stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:28px; }
+.stat-badge {
+    background:#fff; border:1px solid #dee2e6; border-radius:10px;
+    padding:10px 18px; display:flex; flex-direction:column; align-items:center;
+    min-width:100px; box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.stat-badge .num { font-size:1.6rem; font-weight:700; line-height:1; }
+.stat-badge .lbl { font-size:.72rem; color:#6c757d; text-transform:uppercase; margin-top:3px; }
+
+/* Selector contrato */
+.contract-selector {
+    background:#fff; border:1px solid #dee2e6; border-radius:10px;
+    padding:12px 16px; display:flex; align-items:center; gap:10px;
+    box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.contract-selector label { font-size:.85rem; color:#6c757d; margin:0; white-space:nowrap; }
+.contract-selector select { border:1px solid #ced4da; border-radius:6px; padding:5px 10px; font-size:.9rem; min-width:220px; }
+
+/* Secciones */
+.org-section { background:#fff; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.07); margin-bottom:24px; overflow:hidden; }
+.section-header {
+    display:flex; align-items:center; gap:12px; padding:14px 22px;
+    border-bottom:2px solid rgba(255,255,255,.2); font-weight:700; font-size:1.05rem; color:#fff;
+}
+.section-header .count-badge {
+    margin-left:auto; background:rgba(255,255,255,.25); border-radius:20px; padding:2px 12px; font-size:.85rem; font-weight:600;
+}
+.section-header .icon { font-size:1.2rem; }
+.sh-linea      { background:linear-gradient(135deg,#084163,#0470AC); }
+.sh-operadores { background:linear-gradient(135deg,#155724,#28a745); }
+.sh-geo        { background:linear-gradient(135deg,#0c4a6e,#0369a1); }
+.sh-auxiliar   { background:linear-gradient(135deg,#444,#6c757d); }
+.sh-otros      { background:linear-gradient(135deg,#92400e,#d97706); }
+.section-body  { padding:18px 22px; }
+
+/* Sub-header guardia */
+.guardia-group { margin-bottom:18px; }
+.guardia-group:last-child { margin-bottom:0; }
+.guardia-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; padding-bottom:6px; border-bottom:2px solid #e9ecef; }
+.guardia-pill { display:inline-flex; align-items:center; gap:6px; font-size:.8rem; font-weight:700; border-radius:20px; padding:3px 12px; color:#fff; }
+.guardia-pill.ga { background:#1565c0; }
+.guardia-pill.gb { background:#6a1b9a; }
+.guardia-pill.gc { background:#004d40; }
+.guardia-pill.gx { background:#757575; }
+.guardia-count { font-size:.8rem; color:#6c757d; }
+
+/* Cards */
+.workers-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+.workers-grid.compact { grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); }
+
+.worker-card {
+    background:#f8f9fa; border:1px solid #e9ecef; border-radius:10px;
+    padding:12px 14px; display:flex; flex-direction:column; gap:6px;
+    transition:transform .15s,box-shadow .15s;
+}
+.worker-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.1); }
+.worker-card.standby-card { border-left:4px solid var(--org-yellow); }
+
+.worker-avatar {
+    width:40px; height:40px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:1rem; font-weight:700; color:#fff; flex-shrink:0;
+}
+.av-linea    { background:#0470AC; }
+.av-operador { background:#28a745; }
+.av-geo      { background:#0369a1; }
+.av-auxiliar { background:#6c757d; }
+.av-otros    { background:#d97706; }
+
+.worker-name  { font-weight:600; font-size:.88rem; color:#212529; line-height:1.2; }
+.worker-cargo { font-size:.78rem; color:#6c757d; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.card-badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:2px; }
+.badge-sm { display:inline-flex; align-items:center; gap:3px; font-size:.7rem; padding:2px 7px; border-radius:10px; font-weight:600; white-space:nowrap; }
+.badge-guardia-a { background:#dbeafe; color:#1d4ed8; }
+.badge-guardia-b { background:#ede9fe; color:#7c3aed; }
+.badge-guardia-c { background:#d1fae5; color:#065f46; }
+.badge-guardia-x { background:#f3f4f6; color:#374151; }
+.badge-maquina   { background:#fef3c7; color:#92400e; }
+.badge-standby   { background:#fef9c3; color:#713f12; }
+
+.linea-mando-grid { display:flex; flex-wrap:wrap; gap:12px; }
+.linea-mando-grid .worker-card { flex:1 1 200px; max-width:260px; }
+
+.empty-group { color:#adb5bd; font-style:italic; font-size:.9rem; padding:8px 0; }
+
+@media (max-width:768px) {
+    .org-container { padding:14px; }
+    .linea-mando-grid .worker-card { max-width:100%; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="org-container">
-    <!-- Header de la página -->
-    <div class="org-page-header">
+
+    <!-- Cabecera -->
+    <div class="org-header">
         <div>
-            <h2>
-                <i class="fas fa-sitemap"></i>
-                Organigrama
-            </h2>
-            <p class="subtitle">Estructura organizacional del personal por contrato</p>
+            <h2><i class="fas fa-sitemap"></i> Organigrama</h2>
+            <p class="subtitle">{{ contrato.nombre_contrato }}</p>
         </div>
-        
         {% if contratos_disponibles %}
-        <div class="org-contract-selector">
-            <label><i class="fas fa-file-contract"></i> Contrato:</label>
-            <form method="GET" style="margin: 0;">
-                <select name="contrato" onchange="this.form.submit()">
-                    {% for c in contratos_disponibles %}
-                    <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
-                        {{ c.nombre_contrato }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </form>
+        <div class="contract-selector">
+            <label><i class="fas fa-hard-hat"></i> Contrato</label>
+            <select onchange="location='?contrato='+this.value">
+                {% for c in contratos_disponibles %}
+                <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>{{ c.nombre_contrato }}</option>
+                {% endfor %}
+            </select>
         </div>
         {% endif %}
     </div>
 
-    <!-- Tarjeta del Organigrama -->
-    <div class="org-chart-card">
-        <!-- Header -->
-        <div class="org-chart-header">
-            <h3>
-                <i class="fas fa-building"></i>
-                {{ contrato.nombre_contrato }}
-            </h3>
-            <div class="org-stats">
-                <div class="org-stat-item">
-                    <i class="fas fa-users"></i>
-                    <span>{{ total_trabajadores }} trabajadores</span>
-                </div>
-                <div class="org-stat-item">
-                    <i class="fas fa-layer-group"></i>
-                    <span>4 niveles jerárquicos</span>
-                </div>
-            </div>
+    <!-- Stats -->
+    <div class="org-stats">
+        <div class="stat-badge">
+            <span class="num" style="color:var(--org-primary)">{{ total_trabajadores }}</span>
+            <span class="lbl">Total</span>
         </div>
+        <div class="stat-badge">
+            <span class="num" style="color:#0470AC">{{ total_linea_mando }}</span>
+            <span class="lbl">Línea Mando</span>
+        </div>
+        <div class="stat-badge">
+            <span class="num" style="color:#28a745">{{ total_operadores }}</span>
+            <span class="lbl">Operadores</span>
+        </div>
+        <div class="stat-badge">
+            <span class="num" style="color:#0369a1">{{ total_servicios_geo }}</span>
+            <span class="lbl">Serv. Geol.</span>
+        </div>
+        <div class="stat-badge">
+            <span class="num" style="color:#6c757d">{{ total_auxiliar }}</span>
+            <span class="lbl">Auxiliar</span>
+        </div>
+    </div>
 
-        <!-- Cuerpo del Organigrama -->
-        <div class="org-chart-body">
-            {% if niveles %}
-                
-                <!-- NIVEL 1: RESIDENTE -->
-                <div class="org-level org-level-1">
-                    <div class="org-level-header">
-                        <span class="org-level-badge">
-                            <i class="fas fa-crown"></i>
-                            Nivel 1 — Dirección / Residente
-                        </span>
-                    </div>
-                    <div class="org-cards-container">
-                        {% for trabajador in niveles.1 %}
-                        <div class="org-employee-card">
-                            <div class="org-card-accent"></div>
-                            <div class="org-card-content">
-                                <div class="org-avatar">
-                                    <i class="fas fa-user-tie"></i>
-                                </div>
-                                <div class="org-employee-name">{{ trabajador.nombres }}</div>
-                                <div class="org-employee-lastname">{{ trabajador.apellidos }}</div>
-                                <span class="org-employee-role">{{ trabajador.cargo.nombre }}</span>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="org-empty-state">
-                            <i class="fas fa-user-slash"></i>
-                            <span>Sin personal asignado</span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="org-connector"><div class="org-connector-line"></div></div>
-
-                <!-- NIVEL 2: GERENCIAS -->
-                <div class="org-level org-level-2">
-                    <div class="org-level-header">
-                        <span class="org-level-badge">
-                            <i class="fas fa-user-cog"></i>
-                            Nivel 2 — Gerencias / Jefaturas
-                        </span>
-                    </div>
-                    <div class="org-cards-container">
-                        {% for trabajador in niveles.2 %}
-                        <div class="org-employee-card">
-                            <div class="org-card-accent"></div>
-                            <div class="org-card-content">
-                                <div class="org-avatar">
-                                    <i class="fas fa-user-cog"></i>
-                                </div>
-                                <div class="org-employee-name">{{ trabajador.nombres }}</div>
-                                <div class="org-employee-lastname">{{ trabajador.apellidos }}</div>
-                                <span class="org-employee-role">{{ trabajador.cargo.nombre }}</span>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="org-empty-state">
-                            <i class="fas fa-user-slash"></i>
-                            <span>Sin personal asignado</span>
-                        </div>
-                        {% endfor %}
+    <!-- 1. LÍNEA DE MANDO -->
+    <div class="org-section">
+        <div class="section-header sh-linea">
+            <span class="icon"><i class="fas fa-crown"></i></span>
+            Línea de Mando
+            <span class="count-badge">{{ total_linea_mando }} trabajadores</span>
+        </div>
+        <div class="section-body">
+            {% if linea_mando %}
+            <div class="linea-mando-grid">
+                {% for t in linea_mando %}
+                <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
+                    <div class="worker-avatar av-linea">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
+                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
+                    <div class="card-badges">
+                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
+                        {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
                     </div>
                 </div>
-
-                <div class="org-connector"><div class="org-connector-line"></div></div>
-
-                <!-- NIVEL 3: SUPERVISIÓN -->
-                <div class="org-level org-level-3">
-                    <div class="org-level-header">
-                        <span class="org-level-badge">
-                            <i class="fas fa-clipboard-check"></i>
-                            Nivel 3 — Supervisión
-                        </span>
-                    </div>
-                    <div class="org-cards-container">
-                        {% for trabajador in niveles.3 %}
-                        <div class="org-employee-card">
-                            <div class="org-card-accent"></div>
-                            <div class="org-card-content">
-                                <div class="org-avatar">
-                                    <i class="fas fa-user-check"></i>
-                                </div>
-                                <div class="org-employee-name">{{ trabajador.nombres }}</div>
-                                <div class="org-employee-lastname">{{ trabajador.apellidos }}</div>
-                                <span class="org-employee-role">{{ trabajador.cargo.nombre }}</span>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="org-empty-state">
-                            <i class="fas fa-user-slash"></i>
-                            <span>Sin personal asignado</span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="org-connector"><div class="org-connector-line"></div></div>
-
-                <!-- NIVEL 4: OPERACIONES -->
-                <div class="org-level org-level-4">
-                    <div class="org-level-header">
-                        <span class="org-level-badge">
-                            <i class="fas fa-hard-hat"></i>
-                            Nivel 4 — Operaciones
-                        </span>
-                    </div>
-                    <div class="org-cards-container">
-                        {% for trabajador in niveles.4 %}
-                        <div class="org-employee-card">
-                            <div class="org-card-accent"></div>
-                            <div class="org-card-content">
-                                <div class="org-avatar">
-                                    <i class="fas fa-hard-hat"></i>
-                                </div>
-                                <div class="org-employee-name">{{ trabajador.nombres }}</div>
-                                <div class="org-employee-lastname">{{ trabajador.apellidos }}</div>
-                                <span class="org-employee-role">{{ trabajador.cargo.nombre }}</span>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="org-empty-state">
-                            <i class="fas fa-user-slash"></i>
-                            <span>Sin personal asignado</span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
+                {% endfor %}
+            </div>
             {% else %}
-                <div class="org-no-data">
-                    <i class="fas fa-users"></i>
-                    <h4>No hay trabajadores activos</h4>
-                    <p>Asigne trabajadores al contrato para visualizar el organigrama.</p>
-                </div>
+            <p class="empty-group">Sin trabajadores en Línea de Mando.</p>
             {% endif %}
         </div>
     </div>
+
+    <!-- 2. OPERADORES por guardia -->
+    <div class="org-section">
+        <div class="section-header sh-operadores">
+            <span class="icon"><i class="fas fa-hard-hat"></i></span>
+            Operadores
+            <span class="count-badge">{{ total_operadores }} trabajadores</span>
+        </div>
+        <div class="section-body">
+            {% if operadores_por_guardia %}
+                {% for bloque in operadores_por_guardia %}
+                <div class="guardia-group">
+                    <div class="guardia-header">
+                        <span class="guardia-pill g{{ bloque.guardia|lower }}">
+                            <i class="fas fa-shield-alt"></i> {{ bloque.label }}
+                        </span>
+                        <span class="guardia-count">{{ bloque.trabajadores|length }} trabajadores</span>
+                    </div>
+                    <div class="workers-grid compact">
+                        {% for t in bloque.trabajadores %}
+                        <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
+                            <div class="worker-avatar av-operador">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                            <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
+                            <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
+                            <div class="card-badges">
+                                {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
+                                {% if t.maquina_asignada %}<span class="badge-sm badge-maquina"><i class="fas fa-cog"></i> {{ t.maquina_asignada.nombre }}</span>{% endif %}
+                                {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <p class="empty-group">Sin operadores registrados.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 3. SERVICIOS GEOLÓGICOS -->
+    {% if servicios_geo %}
+    <div class="org-section">
+        <div class="section-header sh-geo">
+            <span class="icon"><i class="fas fa-flask"></i></span>
+            Servicios Geológicos
+            <span class="count-badge">{{ total_servicios_geo }} trabajadores</span>
+        </div>
+        <div class="section-body">
+            <div class="workers-grid">
+                {% for t in servicios_geo %}
+                <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
+                    <div class="worker-avatar av-geo">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
+                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
+                    <div class="card-badges">
+                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
+                        {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 4. PERSONAL AUXILIAR -->
+    {% if personal_auxiliar %}
+    <div class="org-section">
+        <div class="section-header sh-auxiliar">
+            <span class="icon"><i class="fas fa-tools"></i></span>
+            Personal Auxiliar
+            <span class="count-badge">{{ total_auxiliar }} trabajadores</span>
+        </div>
+        <div class="section-body">
+            <div class="workers-grid">
+                {% for t in personal_auxiliar %}
+                <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
+                    <div class="worker-avatar av-auxiliar">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
+                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
+                    <div class="card-badges">
+                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
+                        {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 5. STAND BY / SIN GRUPO -->
+    {% if otros %}
+    <div class="org-section">
+        <div class="section-header sh-otros">
+            <span class="icon"><i class="fas fa-user-clock"></i></span>
+            Stand By / Sin Grupo
+            <span class="count-badge">{{ otros|length }} trabajadores</span>
+        </div>
+        <div class="section-body">
+            <div class="workers-grid">
+                {% for t in otros %}
+                <div class="worker-card standby-card">
+                    <div class="worker-avatar av-otros">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
+                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
+                    <div class="card-badges">
+                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
+                        <span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
