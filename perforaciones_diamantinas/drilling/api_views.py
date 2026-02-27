@@ -448,8 +448,9 @@ def api_actualizar_grupo_trabajador(request, pk):
             if hasattr(request.user, 'contrato') and request.user.contrato != trabajador.contrato:
                 return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
 
-        trabajador.grupo = grupo or None
-        trabajador.save(update_fields=['grupo'])
+        # Usar QuerySet.update() para evitar que el model save() sobreescriba el grupo
+        # via asignar_grupo_automatico()
+        Trabajador.objects.filter(pk=pk).update(grupo=grupo or None)
 
         grupo_display = dict(Trabajador.GRUPO_CHOICES).get(grupo, '-') if grupo else '-'
         return JsonResponse({'success': True, 'grupo': grupo, 'grupo_display': grupo_display})
