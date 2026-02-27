@@ -152,20 +152,18 @@
                                     <th class="text-center sticky-column" style="min-width: 40px; z-index: 1001;">#</th>
                                     <th class="text-center sticky-column-2" style="min-width: 250px; z-index: 1001;">Trabajador</th>
                                     <th class="text-center" style="min-width: 120px;">Máquina</th>
-                                    <th class="text-center" style="min-width: 80px;">Grupo</th>
                                     <th class="text-center" style="min-width: 60px;">Guardia</th>
                                     {% for dia in dias_rango %}
                                     <th class="text-center {% if dia.es_domingo %}table-danger{% elif dia.es_sabado %}table-warning{% endif %}" 
-                                        style="min-width: 60px; font-size: 0.75rem; position:relative;">
-                                        {{ dia.nombre_dia }}<br>
-                                        <small>{{ dia.dia }}</small>
+                                        style="min-width: 50px; font-size: 0.8rem; position:relative; padding: 4px 2px;">
+                                        {{ dia.dia }}
                                         <div class="dropdown mt-1">
                                             <button class="btn btn-xs btn-light border dropdown-toggle py-0 px-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.7rem;">
                                                 <i class="fas fa-magic"></i>
                                             </button>
                                             <ul class="dropdown-menu p-1" style="min-width:120px;">
                                                 {% for codigo, nombre in estados_asistencia %}
-                                                <li><a class="dropdown-item py-1 px-2" href="#" onclick="aplicarEstadoColumna({{ forloop.parentloop.counter0|add:5 }}, '{{ codigo }}');return false;">{{ nombre }}</a></li>
+                                                <li><a class="dropdown-item py-1 px-2" href="#" onclick="aplicarEstadoColumna({{ forloop.parentloop.counter0|add:4 }}, '{{ codigo }}');return false;">{{ nombre }}</a></li>
                                                 {% endfor %}
                                             </ul>
                                         </div>
@@ -179,7 +177,7 @@
                                 <!-- Separador de Grupo con controles de selección masiva -->
                                 {% if grupo.key == 'LINEA_MANDO' %}
                                 <tr class="align-middle" style="background-color: #212529; color: white;">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #495057;">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #495057;">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                                             <div style="font-size: 0.95rem;">
                                                 <i class="fas fa-sitemap me-2 text-white-50"></i>
@@ -208,7 +206,7 @@
                                 </tr>
                                 {% elif grupo.key == 'OPERADORES' %}
                                 <tr class="align-middle" style="background-color: #0d6efd; color: white;">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #0a58ca;">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #0a58ca;">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                                             <div style="font-size: 0.95rem;">
                                                 <i class="fas fa-industry me-2 text-white-50"></i>
@@ -237,7 +235,7 @@
                                 </tr>
                                 {% elif grupo.key == 'SERVICIOS_GEOLOGICOS' %}
                                 <tr class="align-middle" style="background-color: #198754; color: white;">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #146c43;">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #146c43;">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                                             <div style="font-size: 0.95rem;">
                                                 <i class="fas fa-flask me-2 text-white-50"></i>
@@ -266,7 +264,7 @@
                                 </tr>
                                 {% elif grupo.key == 'PERSONAL_AUXILIAR' %}
                                 <tr class="align-middle" style="background-color: #fd7e14; color: white;">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #dc6502;">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #dc6502;">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                                             <div style="font-size: 0.95rem;">
                                                 <i class="fas fa-tools me-2 text-white-50"></i>
@@ -295,7 +293,7 @@
                                 </tr>
                                 {% elif grupo.key == '__STAND_BY__' %}
                                 <tr class="align-middle" style="background-color: #ffc107; color: #212529;">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #e0a800;">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-start p-2 grupo-header" style="border-left: 5px solid #e0a800;">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                                             <div style="font-size: 0.95rem;">
                                                 <i class="fas fa-pause-circle me-2" style="opacity:0.6;"></i>
@@ -325,7 +323,7 @@
                                 </tr>
                                 {% else %}
                                 <tr class="bg-light align-middle">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start p-2 grupo-header" style="background-color:#f8f9fa;border-left:5px solid #6c757d;">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-start p-2 grupo-header" style="background-color:#f8f9fa;border-left:5px solid #6c757d;">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                                             <div style="font-size:0.9rem;">
                                                 <i class="fas fa-question-circle text-secondary me-2"></i>
@@ -358,7 +356,7 @@
                                 <!-- Separador de Guardia -->
                                 {% if guardia.key != 'SIN_GUARDIA' %}
                                 <tr class="bg-white" style="border-left: 4px solid {% if grupo.key == 'OPERADORES' %}#0d6efd{% elif grupo.key == 'LINEA_MANDO' %}#495057{% elif grupo.key == 'SERVICIOS_GEOLOGICOS' %}#198754{% elif grupo.key == 'PERSONAL_AUXILIAR' %}#fd7e14{% elif grupo.key == '__STAND_BY__' %}#e0a800{% else %}#adb5bd{% endif %};">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-4 p-1" style="font-size: 0.8rem; background-color: #f1f3f5;">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-start ps-4 p-1" style="font-size: 0.8rem; background-color: #f1f3f5;">
                                         <div class="d-flex align-items-center">
                                             <span class="badge rounded-pill bg-light text-dark border me-2" style="font-weight: 600;">{{ guardia.key }}</span>
                                             <strong class="text-secondary">{{ guardia.nombre }}</strong>
@@ -393,9 +391,6 @@
                                         {% else %}
                                         <span class="text-muted" style="font-size: 0.65rem;">-</span>
                                         {% endif %}
-                                    </td>
-                                    <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle;">
-                                        <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.get_grupo_display|default:"-"|truncatechars:10 }}</span>
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle; cursor: pointer;" 
                                         onclick="toggleGuardia(this, {{ item.trabajador.id }})"
@@ -454,7 +449,7 @@
                                 {% endfor %}
                                 {% empty %}
                                 <tr>
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-center py-5">
+                                    <td colspan="{{ total_dias|add:5 }}" class="text-center py-5">
                                         <i class="fas fa-info-circle"></i> No hay trabajadores activos en este contrato
                                     </td>
                                 </tr>
