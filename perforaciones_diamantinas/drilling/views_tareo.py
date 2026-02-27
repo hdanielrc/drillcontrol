@@ -176,13 +176,17 @@ def tareo_mensual_view(request):
         'OPERADORES':          {'nombre': 'Operadores',            'order': 2},
         'SERVICIOS_GEOLOGICOS':{'nombre': 'Servicios Geológicos',  'order': 3},
         'PERSONAL_AUXILIAR':   {'nombre': 'Personal Auxiliar',     'order': 4},
-        '__SIN_GRUPO__':       {'nombre': 'Sin Grupo Asignado',    'order': 5},
+        '__STAND_BY__':        {'nombre': 'Personal Stand By',     'order': 5},
+        '__SIN_GRUPO__':       {'nombre': 'Sin Grupo Asignado',    'order': 6},
     }
 
     trabajadores_por_grupo = {}
 
     for trabajador in trabajadores:
-        primary_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
+        if trabajador.es_standby:
+            primary_key = '__STAND_BY__'
+        else:
+            primary_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
         guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
 
         if primary_key not in trabajadores_por_grupo:
