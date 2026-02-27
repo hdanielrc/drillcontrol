@@ -10,70 +10,80 @@
         <i class="fas fa-calendar-check"></i>
     </div>
     <div class="page-header-content">
-        <h2>Tareo de Asistencia - {{ nombre_periodo }}</h2>
-        <p>Control de asistencia mensual completo</p>
+        <h2>Tareo de Asistencia</h2>
+        <div class="d-flex align-items-center gap-3 mt-1">
+            <a href="?contrato={{ contrato.id }}&mes_offset=-1" class="btn btn-sm btn-outline-light py-0 px-2" title="Mes anterior">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            <span class="fw-bold" style="font-size:1rem;">{{ nombre_periodo }}</span>
+            <span class="badge bg-light text-primary">{{ total_dias }} días operativos</span>
+            <a href="?contrato={{ contrato.id }}&mes_offset=1" class="btn btn-sm btn-outline-light py-0 px-2" title="Mes siguiente">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
     </div>
-    <div class="page-header-actions d-flex gap-2">
+    <div class="page-header-actions d-flex align-items-center gap-2 flex-wrap">
         {% if contratos_disponibles %}
-        <select class="form-select" id="selectContrato" onchange="cambiarContrato()" style="min-width: 200px;">
+        <select class="form-select form-select-sm" id="selectContrato" onchange="cambiarContrato()" style="min-width: 180px;">
             {% for c in contratos_disponibles %}
-            <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
-                {{ c.nombre_contrato }}
-            </option>
+            <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>{{ c.nombre_contrato }}</option>
             {% endfor %}
         </select>
         {% endif %}
-        <button class="btn btn-success text-white" onclick="descargarTareoMes()" title="Descargar tareo del mes en Excel">
-            <i class="fas fa-download me-2"></i> Descargar Tareo
+        <button class="btn btn-sm btn-primary text-white" onclick="generarGuardiasAutomaticas()" title="Generar guardias A, B, C automáticamente">
+            <i class="fas fa-users-cog me-1"></i> Generar Guardias
+        </button>
+        <button class="btn btn-sm btn-info text-white" onclick="autocompletarRegimen()" title="Autocompletar tareo según régimen laboral">
+            <i class="fas fa-magic me-1"></i> Autocompletar Régimen
+        </button>
+        <button class="btn btn-sm btn-secondary text-white" onclick="actualizarGrupos()" title="Recargar el tareo con los grupos actuales">
+            <i class="fas fa-sync me-1"></i> Actualizar Grupos
+        </button>
+        <button class="btn btn-sm btn-danger text-white" onclick="confirmarLimpiezaMes()" title="Limpiar asistencias del mes">
+            <i class="fas fa-trash-alt me-1"></i> Limpiar Mes
+        </button>
+        <button class="btn btn-sm btn-success text-white" onclick="descargarTareoMes()" title="Descargar tareo del mes en Excel">
+            <i class="fas fa-download me-1"></i> Descargar
         </button>
     </div>
 </div>
 
-<!-- Navegación de Mes -->
-<div class="filter-section mb-4">
-    <div class="filter-header" style="background: linear-gradient(135deg, #0470AC, #084163);">
-        <i class="fas fa-calendar-alt"></i> Navegación Mensual
-    </div>
-    <div class="filter-body">
-        <!-- Nota informativa -->
-        <div class="alert alert-info mb-3" role="alert">
-            <i class="fas fa-info-circle me-2"></i>
-            Vista mensual completa. Use los botones de navegación para cambiar de mes.
-        </div>
-        
-        <!-- Navegación del mes -->
-        <div class="d-flex justify-content-between align-items-center p-4 rounded" style="background: linear-gradient(135deg, rgba(4, 112, 172, 0.15), rgba(8, 65, 99, 0.1));">
-            <a href="?contrato={{ contrato.id }}&mes_offset=-1" 
-               class="btn btn-lg btn-outline-primary">
-                <i class="fas fa-chevron-left me-2"></i> Mes Anterior
-            </a>
-            
-            <div class="text-center">
-                <h3 class="mb-1 text-primary fw-bold">{{ nombre_periodo }}</h3>
-                <p class="mb-0 text-muted">{{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</p>
-                <small class="badge bg-primary mt-2">{{ total_dias }} días</small>
+<!-- Barra de controles del tareo -->
+<div class="bg-light border-bottom px-3 py-2 mb-2">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <!-- Selección Múltiple -->
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-primary" onclick="iniciarSeleccionMultiple()" id="btnIniciarSeleccion">
+                <i class="fas fa-check-square me-1"></i> Selección Múltiple
+            </button>
+            <div id="controlesSeleccion" style="display: none;" class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded">
+                <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()" title="Cancelar selección múltiple">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <span class="badge bg-secondary" id="celdasSeleccionadas">Ninguna seleccionada</span>
+                <div class="vr"></div>
+                <select class="form-select form-select-sm" id="estadoSeleccion" style="width:140px;" title="Seleccione el estado a aplicar">
+                    <option value="">Estado...</option>
+                    {% for codigo, nombre in estados_asistencia %}
+                    <option value="{{ codigo }}">{{ nombre }}</option>
+                    {% endfor %}
+                </select>
+                <select class="form-select form-select-sm" id="turnoSeleccion" style="width:80px;" title="Seleccione el turno a aplicar (opcional)">
+                    <option value="">Turno</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                </select>
+                <button class="btn btn-sm btn-success" onclick="aplicarSeleccion()" title="Aplicar cambios a las celdas seleccionadas">
+                    <i class="fas fa-check"></i> Aplicar
+                </button>
             </div>
-            
-            <a href="?contrato={{ contrato.id }}&mes_offset=1" 
-               class="btn btn-lg btn-outline-primary">
-                Mes Siguiente <i class="fas fa-chevron-right ms-2"></i>
-            </a>
         </div>
-    </div>
-</div>
-
-<!-- Barra de herramientas optimizada -->
-<div class="list-section mb-4">
-    <div class="list-header py-2 px-3 d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #6c757d, #495057); color: white;">
+        <!-- Modo Rápido -->
         <div class="d-flex align-items-center gap-2">
-            <i class="fas fa-tools"></i> 
-            <span class="fw-bold">Herramientas</span>
-            <span class="badge bg-light text-dark ms-2">{{ total_trabajadores }} Trabajadores</span>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="form-check form-switch mb-0 me-2">
+            <div class="form-check form-switch mb-0">
                 <input class="form-check-input" type="checkbox" id="toggleModoRapido" onchange="toggleModoRapido()">
-                <label class="form-check-label text-white" for="toggleModoRapido">Modo Rápido (Clic)</label>
+                <label class="form-check-label" for="toggleModoRapido" style="font-size:0.85rem;">Modo Rápido (Clic)</label>
             </div>
             <select class="form-select form-select-sm" id="estadoRapido" style="width: 150px;" disabled>
                 <option value="TRABAJADO">TRABAJADO (T)</option>
@@ -86,54 +96,6 @@
                 <option value="PERMISO">PERMISO (P)</option>
                 <option value="">LIMPIAR (-)</option>
             </select>
-        </div>
-    </div>
-    <div class="list-body p-2 bg-light border-bottom">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <!-- Selección Múltiple -->
-            <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-sm btn-outline-primary" onclick="iniciarSeleccionMultiple()" id="btnIniciarSeleccion">
-                    <i class="fas fa-check-square me-1"></i> Selección Múltiple
-                </button>
-                <div id="controlesSeleccion" style="display: none;" class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded">
-                    <button class="btn btn-sm btn-secondary" onclick="cancelarSeleccionMultiple()" title="Cancelar selección múltiple">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
-                    <span class="badge bg-secondary" id="celdasSeleccionadas">Ninguna seleccionada</span>
-                    <div class="vr"></div>
-                    <select class="form-select form-select-sm" id="estadoSeleccion" style="width:140px;" title="Seleccione el estado a aplicar">
-                        <option value="">Estado...</option>
-                        {% for codigo, nombre in estados_asistencia %}
-                        <option value="{{ codigo }}">{{ nombre }}</option>
-                        {% endfor %}
-                    </select>
-                    <select class="form-select form-select-sm" id="turnoSeleccion" style="width:80px;" title="Seleccione el turno a aplicar (opcional)">
-                        <option value="">Turno</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                    </select>
-                    <button class="btn btn-sm btn-success" onclick="aplicarSeleccion()" title="Aplicar cambios a las celdas seleccionadas">
-                        <i class="fas fa-check"></i> Aplicar
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Herramientas de automatización y exportación -->
-            <div>
-                <button class="btn btn-sm btn-primary text-white me-2" onclick="generarGuardiasAutomaticas()" title="Generar guardias A, B, C automáticamente">
-                    <i class="fas fa-users-cog me-1"></i> Generar Guardias
-                </button>
-                <button class="btn btn-sm btn-info text-white me-2" onclick="autocompletarRegimen()" title="Autocompletar tareo según régimen laboral">
-                    <i class="fas fa-magic me-1"></i> Autocompletar Régimen
-                </button>
-                <button class="btn btn-sm btn-secondary text-white me-2" onclick="actualizarGrupos()" title="Recargar el tareo con los grupos actuales">
-                    <i class="fas fa-sync me-1"></i> Actualizar Grupos
-                </button>
-                <button class="btn btn-sm btn-danger text-white" onclick="confirmarLimpiezaMes()" title="Limpiar asistencias del mes">
-                    <i class="fas fa-trash-alt me-1"></i> Limpiar Mes
-                </button>
-            </div>
         </div>
     </div>
 </div>
