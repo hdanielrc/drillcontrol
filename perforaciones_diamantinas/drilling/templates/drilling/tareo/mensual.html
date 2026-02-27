@@ -372,23 +372,25 @@
                                     <td class="sticky-column bg-light text-center p-1" style="z-index: 1000; font-size: 0.75rem; vertical-align: middle;">
                                         {{ forloop.parentloop.parentloop.counter }}{{ forloop.parentloop.counter }}{{ forloop.counter }}
                                     </td>
-                                    <td class="sticky-column-2 bg-light p-0" style="z-index: 1000; vertical-align: middle; position: relative;">
-                                        <div style="line-height: 1.1; padding: 3px 28px 3px 4px;">
-                                            <div class="fw-bold text-truncate" style="font-size: 0.8rem;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">
-                                                {{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}
+                                    <td class="sticky-column-2 bg-light p-0" style="z-index: 1000; vertical-align: middle;">
+                                        <div style="display: flex; align-items: stretch;">
+                                            <div style="flex: 1; min-width: 0; padding: 3px 4px; line-height: 1.1;">
+                                                <div class="fw-bold text-truncate" style="font-size: 0.8rem;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">
+                                                    {{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}
+                                                </div>
+                                                <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
+                                                {% if item.trabajador.es_standby %}
+                                                <span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 1px 4px;"><i class="fas fa-pause-circle me-1"></i>STAND BY</span>
+                                                {% endif %}
                                             </div>
-                                            <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
-                                            {% if item.trabajador.es_standby %}
-                                            <span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 1px 4px;"><i class="fas fa-pause-circle me-1"></i>STAND BY</span>
-                                            {% endif %}
+                                            <button type="button" class="btn-fecha-inicio"
+                                                data-trabajador-id="{{ item.trabajador.id }}"
+                                                data-fecha-actual="{{ item.trabajador.fecha_inicio_labores|date:'Y-m-d'|default:'' }}"
+                                                title="{% if item.trabajador.fecha_inicio_labores %}Inicio labores: {{ item.trabajador.fecha_inicio_labores|date:'d/m/Y' }} — clic para cambiar{% else %}Fijar fecha inicio labores{% endif %}"
+                                                style="flex-shrink: 0; width: 22px; border: none; border-left: 1px solid #dee2e6; background: {% if item.trabajador.fecha_inicio_labores %}#fff3cd{% else %}#f8f9fa{% endif %}; color: {% if item.trabajador.fecha_inicio_labores %}#e67e22{% else %}#adb5bd{% endif %}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; padding: 0;">
+                                                <i class="fas fa-calendar-day"></i>
+                                            </button>
                                         </div>
-                                        <button type="button" class="btn-fecha-inicio"
-                                            data-trabajador-id="{{ item.trabajador.id }}"
-                                            data-fecha-actual="{{ item.trabajador.fecha_inicio_labores|date:'Y-m-d'|default:'' }}"
-                                            title="{% if item.trabajador.fecha_inicio_labores %}Inicio labores: {{ item.trabajador.fecha_inicio_labores|date:'d/m/Y' }} — clic para cambiar{% else %}Fijar fecha inicio labores{% endif %}"
-                                            style="position: absolute; top: 0; right: 0; bottom: 0; width: 24px; border: none; border-left: 1px solid #dee2e6; background: {% if item.trabajador.fecha_inicio_labores %}#fff3cd{% else %}#f8f9fa{% endif %}; color: {% if item.trabajador.fecha_inicio_labores %}#e67e22{% else %}#adb5bd{% endif %}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
-                                            <i class="fas fa-calendar-day"></i>
-                                        </button>
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.75rem; vertical-align: middle;">
                                         {% if item.trabajador.maquina_asignada %}
