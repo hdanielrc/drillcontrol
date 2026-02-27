@@ -444,16 +444,12 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Obtener contratos según permisos
-        if self.request.user.has_access_to_all_contracts():
-            context['contratos'] = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
-        else:
-            context['contratos'] = Contrato.objects.filter(id=self.request.user.contrato.id)
-        
-        # context['cargos'] eliminado porque el modelo Cargo ya no existe
-        # context['cargos'] = Cargo.objects.filter(is_active=True).order_by('nombre')
-        # Obtener cargos únicos desde la tabla Trabajador
-        context['cargos'] = Trabajador.objects.order_by('cargo').values_list('cargo', flat=True).distinct()
+        # Cargos únicos de trabajadores ACTIVOS del contrato del usuario actual
+        qs_cargos = Trabajador.objects.filter(estado='ACTIVO')
+        if not self.request.user.has_access_to_all_contracts():
+            if hasattr(self.request.user, 'contrato') and self.request.user.contrato:
+                qs_cargos = qs_cargos.filter(contrato=self.request.user.contrato)
+        context['cargos'] = qs_cargos.order_by('cargo').values_list('cargo', flat=True).distinct()
         context['grupos'] = Trabajador.GRUPO_CHOICES
         
         # Filtros con default para activo

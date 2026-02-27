@@ -13,18 +13,7 @@
 <div class="card filters-card mb-4 animate-fade-in">
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label"><i class="fas fa-file-contract text-muted"></i> Contrato</label>
-                <select name="contrato" class="form-select">
-                    <option value="">Todos los contratos</option>
-                    {% for contrato in contratos %}
-                    <option value="{{ contrato.id }}" {% if filtros.contrato == contrato.id|stringformat:"s" %}selected{% endif %}>
-                        {{ contrato.nombre_contrato }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <label class="form-label"><i class="fas fa-briefcase text-muted"></i> Cargo</label>
                 <select name="cargo" class="form-select">
                     <option value="">Todos los cargos</option>
@@ -37,7 +26,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label class="form-label"><i class="fas fa-layer-group text-muted"></i> Grupo Tareo</label>
                 <select name="grupo" class="form-select">
                     <option value="">Todos los grupos</option>
@@ -46,7 +35,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label class="form-label"><i class="fas fa-toggle-on text-muted"></i> Estado</label>
                 <select name="activo" class="form-select">
                     <option value="">Todos</option>
