@@ -339,6 +339,39 @@
     .corrida-item-header { flex-wrap: wrap; row-gap: 4px; }
     .corridas-summary-panel { gap: 10px; padding: 10px 12px; }
 }
+/* === CONCORDANCIA CORRIDAS-DIAMANTADOS === */
+.concordancia-ok   { color: #2e7d32; font-weight: 700; }
+.concordancia-warn { color: #e65100; font-weight: 700; }
+.concordancia-err  { color: #c62828; font-weight: 700; }
+.concordancia-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 9px;
+    padding: 8px 14px;
+    margin-bottom: 14px;
+    font-size: 0.83rem;
+    border: 1.5px solid;
+    flex-wrap: wrap;
+    transition: all 0.3s;
+}
+.concordancia-banner.ok   { background:#f1f8e9; border-color:#a5d6a7; color:#1b5e20; }
+.concordancia-banner.warn { background:#fff8e1; border-color:#ffcc02; color:#5f3c00; }
+.concordancia-banner.err  { background:#ffebee; border-color:#ef9a9a; color:#7f0000; }
+.concordancia-banner .concordancia-detail { opacity:.75; font-size:.78rem; }
+.concordancia-banner .btn-sync {
+    margin-left: auto;
+    background: #5d4037;
+    border: none;
+    color: white;
+    font-size: 0.77rem;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+}
+.concordancia-banner .btn-sync:hover { background: #4e342e; }
 
 .section-estado .section-card-icon { background: #e8eaf6; color: #3949ab; }
 .section-estado .section-card-header { background: #f9faff; }
@@ -1062,6 +1095,21 @@
                     <span class="corridas-stat-value" id="stat-avg-agua">—</span>
                     <span class="corridas-stat-label">Retorno prom.</span>
                 </div>
+                <div class="corridas-stat-divider"></div>
+                <div class="corridas-stat" title="Concordancia metros corridas vs Brocas/Reamers en Diamantados">
+                    <span class="corridas-stat-value" id="stat-concordancia">—</span>
+                    <span class="corridas-stat-label">vs Diamantados</span>
+                </div>
+            </div>
+
+            <!-- Banner de concordancia -->
+            <div id="corridas-concordancia-banner" class="concordancia-banner d-none">
+                <i id="concordancia-icono" class="fas fa-check-circle"></i>
+                <span id="concordancia-mensaje"></span>
+                <span class="concordancia-detail" id="concordancia-detalle"></span>
+                <button type="button" class="btn-sync" id="btn-sync-metraje" title="Establece el metraje del sondaje igual al total de corridas">
+                    <i class="fas fa-sync-alt"></i> Aplicar al sondaje
+                </button>
             </div>
 
             <!-- Lista de corridas -->
@@ -1493,6 +1541,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+        // Re-verificar concordancia con corridas cuando cambian los diamantados
+        const _mCorridas = parseFloat(document.getElementById('stat-total-metros')?.textContent) || 0;
+        if (_mCorridas > 0 && typeof verificarConcordanciaCorridas === 'function') {
+            verificarConcordanciaCorridas(_mCorridas);
+        }
     }
     
     // Recalcular metraje de todos los sondajes
@@ -3003,7 +3056,108 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('stat-total-metros').textContent  = totalMetros.toFixed(2);
         document.getElementById('stat-avg-recovery').textContent  = countRec  ? (sumRec  / countRec).toFixed(1)  + '%' : '—';
         document.getElementById('stat-avg-agua').textContent      = countAgua ? (sumAgua / countAgua).toFixed(1) + '%' : '—';
+        verificarConcordanciaCorridas(totalMetros);
     }
+
+    // =============================================
+    // CONCORDANCIA CORRIDAS vs DIAMANTADOS (BROCAS + REAMERS)
+    // =============================================
+    function calcularTotalDiamantados() {
+        let totalBrocas = 0, totalReamers = 0;
+        document.querySelectorAll('.complemento-row').forEach(function(row) {
+            const metros = parseFloat(row.querySelector('input[name*="metros_turno"]')?.value) || 0;
+            if (metros <= 0) return;
+            const cat = (row.getAttribute('data-categoria') || '').toUpperCase();
+            if (cat === 'BROCA') totalBrocas += metros;
+            else if (cat === 'REAMER' || cat === 'RIMADOR') totalReamers += metros;
+        });
+        return { totalBrocas, totalReamers };
+    }
+
+    function verificarConcordanciaCorridas(totalCorridas) {
+        const statEl  = document.getElementById('stat-concordancia');
+        const banner  = document.getElementById('corridas-concordancia-banner');
+        const msgEl   = document.getElementById('concordancia-mensaje');
+        const detEl   = document.getElementById('concordancia-detalle');
+        const iconEl  = document.getElementById('concordancia-icono');
+        const syncBtn = document.getElementById('btn-sync-metraje');
+        if (!statEl || !banner) return;
+
+        if (totalCorridas <= 0) {
+            statEl.textContent = '—';
+            statEl.className = 'corridas-stat-value';
+            banner.classList.add('d-none');
+            return;
+        }
+        const { totalBrocas, totalReamers } = calcularTotalDiamantados();
+        if (totalBrocas <= 0 && totalReamers <= 0) {
+            statEl.textContent = '—';
+            statEl.className = 'corridas-stat-value';
+            banner.classList.add('d-none');
+            return;
+        }
+
+        const TOL = 0.011;
+        const diffB = totalBrocas  > 0 ? Math.abs(totalCorridas - totalBrocas)  : null;
+        const diffR = totalReamers > 0 ? Math.abs(totalCorridas - totalReamers) : null;
+        const mismatch = (diffB !== null && diffB > TOL) || (diffR !== null && diffR > TOL);
+
+        const parts = [];
+        if (totalBrocas  > 0) parts.push('Broca: '  + totalBrocas.toFixed(2)  + ' m');
+        if (totalReamers > 0) parts.push('Reamer: ' + totalReamers.toFixed(2) + ' m');
+        const detalle = parts.join(' · ') + '  —  Corridas: ' + totalCorridas.toFixed(2) + ' m';
+
+        if (!mismatch) {
+            statEl.textContent = '✓';
+            statEl.className = 'corridas-stat-value concordancia-ok';
+            banner.className = 'concordancia-banner ok';
+            iconEl.className = 'fas fa-check-circle';
+            msgEl.textContent = 'Metros concordantes con productos diamantados.';
+            detEl.textContent = detalle;
+            syncBtn.style.display = 'none';
+            banner.classList.remove('d-none');
+            setTimeout(() => banner.classList.add('d-none'), 3500);
+        } else {
+            let diffStr = '';
+            if (diffB !== null && diffB > TOL) {
+                const sign = totalCorridas - totalBrocas >= 0 ? '+' : '';
+                diffStr += '  Broca Δ' + sign + (totalCorridas - totalBrocas).toFixed(2) + ' m';
+            }
+            if (diffR !== null && diffR > TOL) {
+                const sign = totalCorridas - totalReamers >= 0 ? '+' : '';
+                diffStr += '  Reamer Δ' + sign + (totalCorridas - totalReamers).toFixed(2) + ' m';
+            }
+            const isBig = (diffB > 1) || (diffR > 1);
+            statEl.textContent = '✗';
+            statEl.className = 'corridas-stat-value ' + (isBig ? 'concordancia-err' : 'concordancia-warn');
+            banner.className = 'concordancia-banner ' + (isBig ? 'err' : 'warn');
+            iconEl.className = 'fas fa-exclamation-triangle';
+            msgEl.innerHTML = '<strong>Metraje no concuerda.</strong>' + diffStr;
+            detEl.textContent = detalle;
+            syncBtn.style.display = '';
+            banner.classList.remove('d-none');
+        }
+    }
+
+    // Botón: sincronizar metraje del sondaje con total de corridas
+    document.getElementById('btn-sync-metraje').addEventListener('click', function() {
+        const totalCorridas = parseFloat(document.getElementById('stat-total-metros').textContent) || 0;
+        if (totalCorridas <= 0) return;
+        const sondajeRows = document.querySelectorAll('.sondaje-row');
+        if (sondajeRows.length === 0) return;
+        const porSondaje = sondajeRows.length === 1
+            ? totalCorridas.toFixed(2)
+            : (totalCorridas / sondajeRows.length).toFixed(2);
+        sondajeRows.forEach(function(sr) {
+            const inp = sr.querySelector('input[name="sondajes_metraje"]');
+            if (inp) {
+                inp.value = porSondaje;
+                inp.classList.add('bg-success-subtle');
+                setTimeout(() => inp.classList.remove('bg-success-subtle'), 700);
+            }
+        });
+        verificarConcordanciaCorridas(totalCorridas);
+    });
 
     // Validaciones y cálculos automáticos para actividades
     document.getElementById('actividades-seccion').addEventListener('input', function(event) {
