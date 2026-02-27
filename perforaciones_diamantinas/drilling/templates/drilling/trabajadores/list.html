@@ -72,7 +72,7 @@
                         <th>Servicio</th>
                         <th>Cargo</th>
                         <th>Grupo Tareo</th>
-                        <th>Tipo Trabajo</th>
+                        <th>Teléfono</th>
                         <th>Teléfono</th>
                         <th>Email</th>
                         <th>Estado</th>
@@ -117,13 +117,6 @@
                                 <option value="LINEA_MANDO" {% if trabajador.grupo == 'LINEA_MANDO' %}selected{% endif %}>Línea de Mando</option>
                             </select>
                         </td>
-                        <td>
-                            {% if trabajador.tipo_trabajo == 'SUBTERRANEA' %}
-                                <span class="badge bg-dark">Interior Mina</span>
-                            {% else %}    
-                                <span class="badge bg-warning text-dark">Superficial</span>
-                            {% endif %}
-                        </td>
                         <td>{{ trabajador.telefono|default:"-" }}</td>
                         <td>{{ trabajador.email|default:"-" }}</td>
                         <td>
@@ -146,7 +139,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10">
+                        <td colspan="9">
                             <div class="empty-state">
                                 <i class="fas fa-users"></i>
                                 <h5>No hay trabajadores registrados</h5>
