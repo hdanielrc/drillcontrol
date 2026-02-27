@@ -203,6 +203,24 @@ const GRUPO_COLORS = {
     '':                    '#dee2e6'
 };
 
+function mostrarToastLista(mensaje, tipo) {
+    // Crear o reusar contenedor de toasts
+    let container = document.getElementById('toast-container-lista');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container-lista';
+        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;';
+        document.body.appendChild(container);
+    }
+    const colors = { success: '#198754', danger: '#dc3545', info: '#0d6efd' };
+    const icons  = { success: '\u2713', danger: '\u2717', info: '\u2139' };
+    const toast = document.createElement('div');
+    toast.style.cssText = `background:${colors[tipo]||'#333'};color:#fff;padding:10px 16px;border-radius:6px;font-size:0.88rem;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.25);min-width:220px;max-width:320px;`;
+    toast.innerHTML = `${icons[tipo] || ''} ${mensaje}`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(()=>toast.remove(), 400); }, 2800);
+}
+
 function colorearGrupoSelect(sel) {
     const color = GRUPO_COLORS[sel.value] || GRUPO_COLORS[''];
     sel.style.borderColor = color;
@@ -216,6 +234,8 @@ document.querySelectorAll('.grupo-select').forEach(sel => {
         const id = this.dataset.id;
         const grupo = this.value;
         const selEl = this;
+        const prevValue = selEl.dataset.prevValue || '';
+        selEl.dataset.prevValue = grupo;
         selEl.disabled = true;
 
         fetch(`/api/trabajadores/${id}/grupo/`, {
@@ -230,16 +250,23 @@ document.querySelectorAll('.grupo-select').forEach(sel => {
         .then(data => {
             if (data.success) {
                 colorearGrupoSelect(selEl);
-                selEl.style.transition = 'background 0.3s';
-                selEl.style.background = '#d1fae5';
-                setTimeout(() => { selEl.style.background = ''; }, 900);
+                mostrarToastLista('Grupo guardado: ' + (data.grupo_display || '—'), 'success');
             } else {
-                alert('Error: ' + (data.error || 'No se pudo guardar'));
+                // Revertir al valor anterior
+                selEl.value = prevValue;
+                colorearGrupoSelect(selEl);
+                mostrarToastLista('Error: ' + (data.error || 'No se pudo guardar'), 'danger');
             }
         })
-        .catch(() => alert('Error de red al guardar el grupo'))
+        .catch(() => {
+            selEl.value = prevValue;
+            colorearGrupoSelect(selEl);
+            mostrarToastLista('Error de red. Intenta de nuevo.', 'danger');
+        })
         .finally(() => { selEl.disabled = false; });
     });
+    // Guardar valor inicial
+    sel.dataset.prevValue = sel.value;
 });
 </script>
 {% endblock %}

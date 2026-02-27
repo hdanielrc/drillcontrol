@@ -443,10 +443,9 @@ def api_actualizar_grupo_trabajador(request, pk):
 
         trabajador = Trabajador.objects.get(pk=pk)
 
-        # Verificar permiso básico de contrato
-        if not request.user.is_staff:
-            if hasattr(request.user, 'contrato') and request.user.contrato != trabajador.contrato:
-                return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+        # Cualquier usuario que pueda crear/editar datos básicos puede asignar grupo
+        if not request.user.is_staff and not request.user.can_create_basic_data():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
 
         # Usar QuerySet.update() para evitar que el model save() sobreescriba el grupo
         # via asignar_grupo_automatico()
