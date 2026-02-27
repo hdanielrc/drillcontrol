@@ -1719,6 +1719,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>`;
                 complementosCont.appendChild(div);
+                // Auto-rellenar broca/rimador del historial si existen
+                prefillarUltimaBroca(s.id, div);
             }
             if (!existingAdit[s.id]){
                 const div2 = document.createElement('div');
@@ -1796,6 +1798,60 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // ==================================================
+    // AUTO-RELLENAR ÚLTIMA BROCA/RIMADOR POR HISTORIAL
+    // ==================================================
+    function prefillarUltimaBroca(sondajeId, subsectionDiv) {
+        fetch(`/api/sondaje/${sondajeId}/ultima-broca/`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                const itemsToAdd = [];
+                if (data.broca) itemsToAdd.push(data.broca);
+                if (data.reamer) itemsToAdd.push(data.reamer);
+                if (itemsToAdd.length === 0) return;
+
+                const container = subsectionDiv.querySelector('.complementos-list');
+                if (!container) return;
+                const emptyState = container.querySelector('.subsection-empty');
+                if (emptyState) emptyState.style.display = 'none';
+
+                const seriesAdded = [];
+                itemsToAdd.forEach(item => {
+                    container.insertAdjacentHTML('beforeend', crearComplementoRowForSondaje(sondajeId));
+                    const rows = container.querySelectorAll('.complemento-row');
+                    const row = rows[rows.length - 1];
+
+                    const serieInput = row.querySelector('.input-serie');
+                    const descripcionInput = row.querySelector('.descripcion-complemento');
+                    const hiddenId = row.querySelector('.complemento-id');
+                    const metrosInicioInput = row.querySelector('input[name*="metros_inicio"]');
+
+                    if (serieInput) { serieInput.value = item.serie || ''; serieInput.classList.add('is-valid'); }
+                    if (descripcionInput) descripcionInput.value = item.nombre + ' \u2014 \u00FAlt. uso (pre-cargado)';
+                    if (hiddenId) hiddenId.value = item.tipo_complemento_id || '';
+                    if (metrosInicioInput && item.metros_fin !== null && item.metros_fin !== undefined)
+                        metrosInicioInput.value = item.metros_fin;
+                    row.setAttribute('data-categoria', item.categoria || 'BROCA');
+
+                    seriesAdded.push(item.serie || item.nombre);
+                });
+
+                recalcularMetrajeSondaje(sondajeId);
+
+                // Notificación breve bajo el header de la subsección
+                const header = subsectionDiv.querySelector('.sondaje-subsection-header');
+                if (header) {
+                    const notif = document.createElement('div');
+                    notif.style.cssText = 'font-size:0.78rem;padding:4px 10px;background:#e8f4fd;border-left:3px solid #0d6efd;margin:4px 0;border-radius:0 4px 4px 0;display:flex;align-items:center;gap:6px;color:#0a58ca;';
+                    notif.innerHTML = `<i class="fas fa-history"></i> Pre-cargado desde historial: <strong>${seriesAdded.join(', ')}</strong> — verifique y ajuste los metros.`;
+                    header.insertAdjacentElement('afterend', notif);
+                    setTimeout(() => notif.remove(), 8000);
+                }
+            })
+            .catch(err => console.warn('Error obteniendo última broca del sondaje:', err));
+    }
+
     function getEstadoBadgeClass(estado) {
         const classes = {
             'ACTIVO': 'bg-success',

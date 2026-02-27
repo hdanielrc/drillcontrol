@@ -421,3 +421,44 @@ def api_crear_sondaje_rapido(request):
             'success': False,
             'error': 'Error interno al crear el sondaje'
         }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_ultima_broca_sondaje(request, sondaje_id):
+    """
+    Endpoint para obtener la última broca y rimador usados en un sondaje.
+    Retorna JSON con la última serie, tipo y metros para pre-rellenar el formulario.
+    """
+    from .models import TurnoComplemento
+
+    def get_last(categoria_list):
+        qs = TurnoComplemento.objects.filter(
+            sondaje_id=sondaje_id,
+            tipo_complemento__categoria__in=categoria_list
+        ).select_related('tipo_complemento', 'turno').order_by('-turno__fecha', '-id')
+        return qs.first()
+
+    try:
+        last_broca = get_last(['BROCA'])
+        last_reamer = get_last(['REAMER', 'RIMADOR'])
+
+        def serialize(comp):
+            if not comp:
+                return None
+            return {
+                'serie': comp.codigo_serie or '',
+                'tipo_complemento_id': comp.tipo_complemento_id,
+                'nombre': comp.tipo_complemento.nombre,
+                'categoria': comp.tipo_complemento.categoria,
+                'metros_fin': float(comp.metros_fin) if comp.metros_fin is not None else None,
+            }
+
+        return JsonResponse({
+            'success': True,
+            'broca': serialize(last_broca),
+            'reamer': serialize(last_reamer),
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo última broca del sondaje {sondaje_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
