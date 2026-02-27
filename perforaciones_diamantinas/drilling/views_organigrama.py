@@ -63,9 +63,17 @@ def organigrama_view(request):
     )
 
     # ── Operadores agrupados por guardia A/B/C ───────────────────────
+    # Sorted por (guardia, maquina_id, apepat) para que {% regroup %} funcione
     operadores_raw = [t for t in trabajadores if t.grupo == 'OPERADORES']
     guardias_operadores = {}
-    for t in sorted(operadores_raw, key=lambda x: (x.guardia_asignada or 'Z', x.apepat)):
+    for t in sorted(
+        operadores_raw,
+        key=lambda x: (
+            x.guardia_asignada or 'Z',
+            x.maquina_asignada_id or 0,
+            x.apepat,
+        )
+    ):
         g = t.guardia_asignada or 'SIN_GUARDIA'
         guardias_operadores.setdefault(g, []).append(t)
 

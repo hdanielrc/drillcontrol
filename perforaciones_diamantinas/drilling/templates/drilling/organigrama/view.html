@@ -1,146 +1,325 @@
-﻿{% extends 'drilling/base.html' %}
+﻿{% extends "drilling/base.html" %}
 {% load static %}
 
-{% block title %}Organigrama - {{ contrato.nombre_contrato }}{% endblock %}
+{% block title %}Organigrama – {{ contrato.nombre_contrato }}{% endblock %}
 
 {% block extra_css %}
 <style>
-/* ============================================================
-   ORGANIGRAMA DRILLCONTROL – layout por grupo / guardia
-   ============================================================ */
+/* ═══════════════════════════════════════════════════════════
+   ORGANIGRAMA TIPO ÁRBOL – drillcontrol
+   ═══════════════════════════════════════════════════════════ */
+
 :root {
-    --org-primary:   #084163;
-    --org-light:     #0470AC;
-    --org-yellow:    #FFC248;
-    --org-green:     #28a745;
-    --org-teal:      #17a2b8;
-    --org-purple:    #6f42c1;
-    --org-orange:    #e67e22;
+    --lm-color:  #084163;
+    --op-color:  #166534;
+    --geo-color: #0369a1;
+    --aux-color: #4b5563;
+    --ga-color:  #1d4ed8;
+    --gb-color:  #7c3aed;
+    --gc-color:  #065f46;
+    --gx-color:  #6b7280;
+    --line-color:#94a3b8;
+    --card-bg:   #f8fafc;
+    --card-border:#e2e8f0;
 }
 
-.org-container {
-    background:#f4f6f9;
-    min-height:calc(100vh - 150px);
-    padding:28px 32px;
+html, body { height: 100%; }
+
+.org-page {
+    background: #f1f5f9;
+    min-height: calc(100vh - 120px);
+    padding: 20px 24px 40px;
+    overflow-x: auto;
 }
 
-/* Cabecera */
-.org-header {
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    margin-bottom:28px;
-    flex-wrap:wrap;
-    gap:16px;
+/* ── Top bar ─────────────────────────────────────── */
+.org-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
 }
-.org-header h2 { color:var(--org-primary); font-weight:700; margin:0; display:flex; align-items:center; gap:10px; }
-.org-header .subtitle { color:#6c757d; font-size:.9rem; margin:4px 0 0 0; }
-
-/* Stats */
-.org-stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:28px; }
-.stat-badge {
-    background:#fff; border:1px solid #dee2e6; border-radius:10px;
-    padding:10px 18px; display:flex; flex-direction:column; align-items:center;
-    min-width:100px; box-shadow:0 1px 4px rgba(0,0,0,.06);
+.org-topbar h2 {
+    margin: 0;
+    color: var(--lm-color);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.4rem;
 }
-.stat-badge .num { font-size:1.6rem; font-weight:700; line-height:1; }
-.stat-badge .lbl { font-size:.72rem; color:#6c757d; text-transform:uppercase; margin-top:3px; }
-
-/* Selector contrato */
-.contract-selector {
-    background:#fff; border:1px solid #dee2e6; border-radius:10px;
-    padding:12px 16px; display:flex; align-items:center; gap:10px;
-    box-shadow:0 1px 4px rgba(0,0,0,.06);
+.contract-sel { display: flex; align-items: center; gap: 8px; }
+.contract-sel label { font-size: .85rem; color: #64748b; white-space: nowrap; }
+.contract-sel select {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: .9rem;
+    min-width: 200px;
+    background: #fff;
 }
-.contract-selector label { font-size:.85rem; color:#6c757d; margin:0; white-space:nowrap; }
-.contract-selector select { border:1px solid #ced4da; border-radius:6px; padding:5px 10px; font-size:.9rem; min-width:220px; }
 
-/* Secciones */
-.org-section { background:#fff; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.07); margin-bottom:24px; overflow:hidden; }
-.section-header {
-    display:flex; align-items:center; gap:12px; padding:14px 22px;
-    border-bottom:2px solid rgba(255,255,255,.2); font-weight:700; font-size:1.05rem; color:#fff;
+/* ── Stats strip ─────────────────────────────────── */
+.org-stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
 }
-.section-header .count-badge {
-    margin-left:auto; background:rgba(255,255,255,.25); border-radius:20px; padding:2px 12px; font-size:.85rem; font-weight:600;
+.stat-chip {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: .82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
-.section-header .icon { font-size:1.2rem; }
-.sh-linea      { background:linear-gradient(135deg,#084163,#0470AC); }
-.sh-operadores { background:linear-gradient(135deg,#155724,#28a745); }
-.sh-geo        { background:linear-gradient(135deg,#0c4a6e,#0369a1); }
-.sh-auxiliar   { background:linear-gradient(135deg,#444,#6c757d); }
-.sh-otros      { background:linear-gradient(135deg,#92400e,#d97706); }
-.section-body  { padding:18px 22px; }
-
-/* Sub-header guardia */
-.guardia-group { margin-bottom:18px; }
-.guardia-group:last-child { margin-bottom:0; }
-.guardia-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; padding-bottom:6px; border-bottom:2px solid #e9ecef; }
-.guardia-pill { display:inline-flex; align-items:center; gap:6px; font-size:.8rem; font-weight:700; border-radius:20px; padding:3px 12px; color:#fff; }
-.guardia-pill.ga { background:#1565c0; }
-.guardia-pill.gb { background:#6a1b9a; }
-.guardia-pill.gc { background:#004d40; }
-.guardia-pill.gx { background:#757575; }
-.guardia-count { font-size:.8rem; color:#6c757d; }
-
-/* Cards */
-.workers-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
-.workers-grid.compact { grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); }
-
-.worker-card {
-    background:#f8f9fa; border:1px solid #e9ecef; border-radius:10px;
-    padding:12px 14px; display:flex; flex-direction:column; gap:6px;
-    transition:transform .15s,box-shadow .15s;
+.stat-chip .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
 }
-.worker-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.1); }
-.worker-card.standby-card { border-left:4px solid var(--org-yellow); }
 
-.worker-avatar {
-    width:40px; height:40px; border-radius:50%; display:flex; align-items:center;
-    justify-content:center; font-size:1rem; font-weight:700; color:#fff; flex-shrink:0;
+/* ── Árbol contenedor ────────────────────────────── */
+.org-tree-wrap {
+    position: relative;
+    width: 100%;
 }
-.av-linea    { background:#0470AC; }
-.av-operador { background:#28a745; }
-.av-geo      { background:#0369a1; }
-.av-auxiliar { background:#6c757d; }
-.av-otros    { background:#d97706; }
 
-.worker-name  { font-weight:600; font-size:.88rem; color:#212529; line-height:1.2; }
-.worker-cargo { font-size:.78rem; color:#6c757d; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* SVG overlay para líneas */
+#org-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 0;
+}
 
-.card-badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:2px; }
-.badge-sm { display:inline-flex; align-items:center; gap:3px; font-size:.7rem; padding:2px 7px; border-radius:10px; font-weight:600; white-space:nowrap; }
-.badge-guardia-a { background:#dbeafe; color:#1d4ed8; }
-.badge-guardia-b { background:#ede9fe; color:#7c3aed; }
-.badge-guardia-c { background:#d1fae5; color:#065f46; }
-.badge-guardia-x { background:#f3f4f6; color:#374151; }
-.badge-maquina   { background:#fef3c7; color:#92400e; }
-.badge-standby   { background:#fef9c3; color:#713f12; }
+/* ── Nodo raíz (contrato) ────────────────────────── */
+.root-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 1;
+}
+.node-root {
+    background: linear-gradient(135deg, #084163, #0470ac);
+    color: #fff;
+    border-radius: 14px;
+    padding: 14px 28px;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(8,65,99,.35);
+    min-width: 220px;
+}
+.node-root .root-title { font-weight: 700; font-size: 1.05rem; }
+.node-root .root-sub   { font-size: .8rem; opacity: .8; margin-top: 2px; }
 
-.linea-mando-grid { display:flex; flex-wrap:wrap; gap:12px; }
-.linea-mando-grid .worker-card { flex:1 1 200px; max-width:260px; }
+/* ── Nivel 1: secciones principales ─────────────── */
+.level1-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: nowrap;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 40px;
+    align-items: flex-start;
+}
 
-.empty-group { color:#adb5bd; font-style:italic; font-size:.9rem; padding:8px 0; }
+/* ── Columna de sección ──────────────────────────── */
+.org-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    position: relative;
+}
 
-@media (max-width:768px) {
-    .org-container { padding:14px; }
-    .linea-mando-grid .worker-card { max-width:100%; }
+/* ── Header de sección ───────────────────────────── */
+.section-node {
+    border-radius: 12px;
+    padding: 10px 20px;
+    color: #fff;
+    font-weight: 700;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+    white-space: nowrap;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+}
+.sn-lm  { background: linear-gradient(135deg, #084163, #0470ac); }
+.sn-op  { background: linear-gradient(135deg, #14532d, #16a34a); }
+.sn-geo { background: linear-gradient(135deg, #0c4a6e, #0369a1); }
+.sn-aux { background: linear-gradient(135deg, #374151, #6b7280); }
+.sn-std { background: linear-gradient(135deg, #78350f, #d97706); }
+
+.sn-count {
+    background: rgba(255,255,255,.25);
+    border-radius: 12px;
+    padding: 1px 8px;
+    font-size: .75rem;
+}
+
+/* ── Workers de Línea de Mando ───────────────────── */
+.lm-workers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ── Card de trabajador ──────────────────────────── */
+.worker-node {
+    background: #fff;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    transition: transform .15s, box-shadow .15s;
+    position: relative;
+    z-index: 1;
+    width: 200px;
+}
+.worker-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+.worker-node.standby { border-left: 4px solid #fbbf24; }
+
+.avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+}
+.av-lm  { background: #0470ac; }
+.av-op  { background: #16a34a; }
+.av-geo { background: #0369a1; }
+.av-aux { background: #6b7280; }
+.av-std { background: #d97706; }
+
+.node-info { min-width: 0; flex: 1; }
+.node-name  {
+    font-weight: 600; font-size: .82rem; color: #1e293b;
+    line-height: 1.2; display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.node-cargo {
+    font-size: .72rem; color: #64748b; display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.nano-badges {
+    display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px;
+}
+.nb {
+    font-size: .62rem; padding: 1px 5px; border-radius: 8px; font-weight: 600;
+}
+.nb-ga { background: #dbeafe; color: #1d4ed8; }
+.nb-gb { background: #ede9fe; color: #7c3aed; }
+.nb-gc { background: #d1fae5; color: #065f46; }
+.nb-gx { background: #f1f5f9; color: #475569; }
+.nb-mq { background: #fef3c7; color: #92400e; }
+.nb-sb { background: #fef9c3; color: #713f12; }
+
+/* ── Sección Operadores: guardias en columna ──────── */
+.guardias-wrap {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    position: relative;
+    z-index: 1;
+}
+
+.guardia-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.guardia-node {
+    border-radius: 10px;
+    padding: 6px 16px;
+    color: #fff;
+    font-weight: 700;
+    font-size: .82rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    position: relative;
+    z-index: 1;
+}
+.gn-a { background: var(--ga-color); }
+.gn-b { background: var(--gb-color); }
+.gn-c { background: var(--gc-color); }
+.gn-x { background: var(--gx-color); }
+
+/* Workers de guardia agrupados por máquina */
+.maquina-group { margin-bottom: 12px; }
+.maquina-group:last-child { margin-bottom: 0; }
+.maquina-label {
+    font-size: .7rem; font-weight: 700; color: #92400e;
+    background: #fef3c7; border: 1px solid #fde68a;
+    border-radius: 8px; padding: 2px 8px;
+    margin-bottom: 6px; display: inline-flex; align-items: center; gap: 4px;
+    width: 200px; box-sizing: border-box;
+}
+.maquina-group .worker-node { margin-bottom: 6px; }
+.maquina-group .worker-node:last-child { margin-bottom: 0; }
+
+/* Sin máquina */
+.sin-maquina-label {
+    font-size: .7rem; color: #94a3b8; margin-bottom: 4px;
+    font-style: italic; display: block; text-align: center;
+    width: 200px;
+}
+
+/* ── Sección lateral (Geo, Aux) ───────────────────── */
+.side-workers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ── Responsive ──────────────────────────────────── */
+@media (max-width: 900px) {
+    .level1-row { flex-wrap: wrap; gap: 30px; }
+    .org-page   { padding: 12px; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="org-container">
+<div class="org-page">
 
-    <!-- Cabecera -->
-    <div class="org-header">
-        <div>
-            <h2><i class="fas fa-sitemap"></i> Organigrama</h2>
-            <p class="subtitle">{{ contrato.nombre_contrato }}</p>
-        </div>
+    <!-- Top bar -->
+    <div class="org-topbar">
+        <h2><i class="fas fa-sitemap"></i> Organigrama</h2>
         {% if contratos_disponibles %}
-        <div class="contract-selector">
-            <label><i class="fas fa-hard-hat"></i> Contrato</label>
+        <div class="contract-sel">
+            <label><i class="fas fa-hard-hat"></i></label>
             <select onchange="location='?contrato='+this.value">
                 {% for c in contratos_disponibles %}
                 <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>{{ c.nombre_contrato }}</option>
@@ -152,172 +331,262 @@
 
     <!-- Stats -->
     <div class="org-stats">
-        <div class="stat-badge">
-            <span class="num" style="color:var(--org-primary)">{{ total_trabajadores }}</span>
-            <span class="lbl">Total</span>
-        </div>
-        <div class="stat-badge">
-            <span class="num" style="color:#0470AC">{{ total_linea_mando }}</span>
-            <span class="lbl">Línea Mando</span>
-        </div>
-        <div class="stat-badge">
-            <span class="num" style="color:#28a745">{{ total_operadores }}</span>
-            <span class="lbl">Operadores</span>
-        </div>
-        <div class="stat-badge">
-            <span class="num" style="color:#0369a1">{{ total_servicios_geo }}</span>
-            <span class="lbl">Serv. Geol.</span>
-        </div>
-        <div class="stat-badge">
-            <span class="num" style="color:#6c757d">{{ total_auxiliar }}</span>
-            <span class="lbl">Auxiliar</span>
-        </div>
+        <div class="stat-chip"><span class="dot" style="background:#334155"></span> {{ total_trabajadores }} total</div>
+        <div class="stat-chip"><span class="dot" style="background:var(--lm-color)"></span> {{ total_linea_mando }} Línea Mando</div>
+        <div class="stat-chip"><span class="dot" style="background:var(--op-color)"></span> {{ total_operadores }} Operadores</div>
+        <div class="stat-chip"><span class="dot" style="background:var(--geo-color)"></span> {{ total_servicios_geo }} Serv. Geol.</div>
+        <div class="stat-chip"><span class="dot" style="background:var(--aux-color)"></span> {{ total_auxiliar }} Auxiliar</div>
     </div>
 
-    <!-- 1. LÍNEA DE MANDO -->
-    <div class="org-section">
-        <div class="section-header sh-linea">
-            <span class="icon"><i class="fas fa-crown"></i></span>
-            Línea de Mando
-            <span class="count-badge">{{ total_linea_mando }} trabajadores</span>
-        </div>
-        <div class="section-body">
-            {% if linea_mando %}
-            <div class="linea-mando-grid">
-                {% for t in linea_mando %}
-                <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
-                    <div class="worker-avatar av-linea">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
-                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
-                    <div class="card-badges">
-                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
-                        {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
-                    </div>
-                </div>
-                {% endfor %}
+    <!-- ═══ ÁRBOL ══════════════════════════════════════════════ -->
+    <div class="org-tree-wrap" id="orgTreeWrap">
+        <svg id="org-svg"></svg>
+
+        <!-- RAÍZ: Contrato -->
+        <div class="root-row">
+            <div class="node-root" id="node-root">
+                <div class="root-title"><i class="fas fa-industry"></i> {{ contrato.nombre_contrato }}</div>
+                <div class="root-sub">{{ total_trabajadores }} trabajadores activos</div>
             </div>
-            {% else %}
-            <p class="empty-group">Sin trabajadores en Línea de Mando.</p>
-            {% endif %}
         </div>
-    </div>
 
-    <!-- 2. OPERADORES por guardia -->
-    <div class="org-section">
-        <div class="section-header sh-operadores">
-            <span class="icon"><i class="fas fa-hard-hat"></i></span>
-            Operadores
-            <span class="count-badge">{{ total_operadores }} trabajadores</span>
-        </div>
-        <div class="section-body">
-            {% if operadores_por_guardia %}
-                {% for bloque in operadores_por_guardia %}
-                <div class="guardia-group">
-                    <div class="guardia-header">
-                        <span class="guardia-pill g{{ bloque.guardia|lower }}">
-                            <i class="fas fa-shield-alt"></i> {{ bloque.label }}
-                        </span>
-                        <span class="guardia-count">{{ bloque.trabajadores|length }} trabajadores</span>
-                    </div>
-                    <div class="workers-grid compact">
-                        {% for t in bloque.trabajadores %}
-                        <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
-                            <div class="worker-avatar av-operador">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                            <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
-                            <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
-                            <div class="card-badges">
-                                {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
-                                {% if t.maquina_asignada %}<span class="badge-sm badge-maquina"><i class="fas fa-cog"></i> {{ t.maquina_asignada.nombre }}</span>{% endif %}
-                                {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
+        <!-- NIVEL 1: columnas por grupo -->
+        <div class="level1-row" id="level1Row">
+
+            <!-- ── LÍNEA DE MANDO ── -->
+            {% if linea_mando %}
+            <div class="org-col" id="col-lm">
+                <div class="section-node sn-lm" id="sn-lm">
+                    <i class="fas fa-crown"></i> Línea de Mando
+                    <span class="sn-count">{{ total_linea_mando }}</span>
+                </div>
+                <div class="lm-workers">
+                    {% for t in linea_mando %}
+                    <div class="worker-node {% if t.es_standby %}standby{% endif %}">
+                        <div class="avatar av-lm">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                        <div class="node-info">
+                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
+                            <span class="node-cargo">{{ t.cargo }}</span>
+                            <div class="nano-badges">
+                                {% if t.guardia_asignada %}<span class="nb nb-g{{ t.guardia_asignada|lower }}">Grd.{{ t.guardia_asignada }}</span>{% endif %}
+                                {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
                             </div>
                         </div>
-                        {% endfor %}
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            {% else %}
-            <p class="empty-group">Sin operadores registrados.</p>
+            </div>
             {% endif %}
-        </div>
-    </div>
 
-    <!-- 3. SERVICIOS GEOLÓGICOS -->
-    {% if servicios_geo %}
-    <div class="org-section">
-        <div class="section-header sh-geo">
-            <span class="icon"><i class="fas fa-flask"></i></span>
-            Servicios Geológicos
-            <span class="count-badge">{{ total_servicios_geo }} trabajadores</span>
-        </div>
-        <div class="section-body">
-            <div class="workers-grid">
-                {% for t in servicios_geo %}
-                <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
-                    <div class="worker-avatar av-geo">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
-                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
-                    <div class="card-badges">
-                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
-                        {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
-                    </div>
+            <!-- ── OPERADORES por guardia ── -->
+            {% if operadores_por_guardia %}
+            <div class="org-col" id="col-op">
+                <div class="section-node sn-op" id="sn-op">
+                    <i class="fas fa-hard-hat"></i> Operadores
+                    <span class="sn-count">{{ total_operadores }}</span>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
+                <div class="guardias-wrap">
+                    {% for bloque in operadores_por_guardia %}
+                    <div class="guardia-col" id="gcol-{{ bloque.guardia }}">
 
-    <!-- 4. PERSONAL AUXILIAR -->
-    {% if personal_auxiliar %}
-    <div class="org-section">
-        <div class="section-header sh-auxiliar">
-            <span class="icon"><i class="fas fa-tools"></i></span>
-            Personal Auxiliar
-            <span class="count-badge">{{ total_auxiliar }} trabajadores</span>
-        </div>
-        <div class="section-body">
-            <div class="workers-grid">
-                {% for t in personal_auxiliar %}
-                <div class="worker-card {% if t.es_standby %}standby-card{% endif %}">
-                    <div class="worker-avatar av-auxiliar">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
-                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
-                    <div class="card-badges">
-                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
-                        {% if t.es_standby %}<span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>{% endif %}
-                    </div>
+                        <div class="guardia-node gn-{{ bloque.guardia|lower }}" id="gn-{{ bloque.guardia }}">
+                            <i class="fas fa-shield-alt"></i> {{ bloque.label }}
+                            <span style="opacity:.7;font-size:.72rem">({{ bloque.trabajadores|length }})</span>
+                        </div>
+
+                        <!-- Agrupar por máquina -->
+                        {% regroup bloque.trabajadores by maquina_asignada as por_maquina %}
+                        {% for mq_group in por_maquina %}
+                            {% if mq_group.grouper %}
+                            <div class="maquina-group">
+                                <div class="maquina-label">
+                                    <i class="fas fa-cog"></i> {{ mq_group.grouper.nombre }}
+                                </div>
+                                {% for t in mq_group.list %}
+                                <div class="worker-node {% if t.es_standby %}standby{% endif %}">
+                                    <div class="avatar av-op">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                                    <div class="node-info">
+                                        <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
+                                        <span class="node-cargo">{{ t.cargo }}</span>
+                                        <div class="nano-badges">
+                                            <span class="nb nb-mq"><i class="fas fa-cog"></i> {{ mq_group.grouper.nombre }}</span>
+                                            {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="maquina-group">
+                                <span class="sin-maquina-label">Sin máquina asignada</span>
+                                {% for t in mq_group.list %}
+                                <div class="worker-node {% if t.es_standby %}standby{% endif %}">
+                                    <div class="avatar av-op">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                                    <div class="node-info">
+                                        <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
+                                        <span class="node-cargo">{{ t.cargo }}</span>
+                                        <div class="nano-badges">
+                                            {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+
+                    </div><!-- /guardia-col -->
+                    {% endfor %}
+                </div><!-- /guardias-wrap -->
+            </div><!-- /col-op -->
+            {% endif %}
+
+            <!-- ── SERVICIOS GEOLÓGICOS ── -->
+            {% if servicios_geo %}
+            <div class="org-col" id="col-geo">
+                <div class="section-node sn-geo" id="sn-geo">
+                    <i class="fas fa-flask"></i> Serv. Geológicos
+                    <span class="sn-count">{{ total_servicios_geo }}</span>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- 5. STAND BY / SIN GRUPO -->
-    {% if otros %}
-    <div class="org-section">
-        <div class="section-header sh-otros">
-            <span class="icon"><i class="fas fa-user-clock"></i></span>
-            Stand By / Sin Grupo
-            <span class="count-badge">{{ otros|length }} trabajadores</span>
-        </div>
-        <div class="section-body">
-            <div class="workers-grid">
-                {% for t in otros %}
-                <div class="worker-card standby-card">
-                    <div class="worker-avatar av-otros">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                    <span class="worker-name">{{ t.apepat }} {{ t.apemat }}, {{ t.nombres }}</span>
-                    <span class="worker-cargo" title="{{ t.cargo }}">{{ t.cargo }}</span>
-                    <div class="card-badges">
-                        {% if t.guardia_asignada %}<span class="badge-sm badge-guardia-{{ t.guardia_asignada|lower }}"><i class="fas fa-clock"></i> Grd. {{ t.guardia_asignada }}</span>{% endif %}
-                        <span class="badge-sm badge-standby"><i class="fas fa-pause-circle"></i> Stand By</span>
+                <div class="side-workers">
+                    {% for t in servicios_geo %}
+                    <div class="worker-node {% if t.es_standby %}standby{% endif %}">
+                        <div class="avatar av-geo">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                        <div class="node-info">
+                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
+                            <span class="node-cargo">{{ t.cargo }}</span>
+                            <div class="nano-badges">
+                                {% if t.guardia_asignada %}<span class="nb nb-g{{ t.guardia_asignada|lower }}">Grd.{{ t.guardia_asignada }}</span>{% endif %}
+                                {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                            </div>
+                        </div>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
-        </div>
-    </div>
-    {% endif %}
+            {% endif %}
 
-</div>
+            <!-- ── PERSONAL AUXILIAR ── -->
+            {% if personal_auxiliar %}
+            <div class="org-col" id="col-aux">
+                <div class="section-node sn-aux" id="sn-aux">
+                    <i class="fas fa-tools"></i> Auxiliar
+                    <span class="sn-count">{{ total_auxiliar }}</span>
+                </div>
+                <div class="side-workers">
+                    {% for t in personal_auxiliar %}
+                    <div class="worker-node {% if t.es_standby %}standby{% endif %}">
+                        <div class="avatar av-aux">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                        <div class="node-info">
+                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
+                            <span class="node-cargo">{{ t.cargo }}</span>
+                            <div class="nano-badges">
+                                {% if t.guardia_asignada %}<span class="nb nb-g{{ t.guardia_asignada|lower }}">Grd.{{ t.guardia_asignada }}</span>{% endif %}
+                                {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ── STAND BY / SIN GRUPO ── -->
+            {% if otros %}
+            <div class="org-col" id="col-std">
+                <div class="section-node sn-std" id="sn-std">
+                    <i class="fas fa-user-clock"></i> Stand By
+                    <span class="sn-count">{{ otros|length }}</span>
+                </div>
+                <div class="side-workers">
+                    {% for t in otros %}
+                    <div class="worker-node standby">
+                        <div class="avatar av-std">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
+                        <div class="node-info">
+                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
+                            <span class="node-cargo">{{ t.cargo }}</span>
+                            <div class="nano-badges">
+                                <span class="nb nb-sb">Stand By</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div><!-- /level1-row -->
+    </div><!-- /org-tree-wrap -->
+</div><!-- /org-page -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/**
+ * Dibuja líneas SVG entre nodos padre e hijo del organigrama.
+ * Se calculan las posiciones reales en el DOM después del render.
+ */
+function drawOrgLines() {
+    const wrap   = document.getElementById('orgTreeWrap');
+    const svg    = document.getElementById('org-svg');
+    if (!wrap || !svg) return;
+
+    svg.innerHTML = '';
+    const wRect = wrap.getBoundingClientRect();
+    svg.setAttribute('viewBox', `0 0 ${wrap.offsetWidth} ${wrap.offsetHeight}`);
+
+    // Conexión padre->hijo: centro-abajo del padre → centro-arriba del hijo
+    function connect(parentEl, childEl, color) {
+        if (!parentEl || !childEl) return;
+
+        const pr = parentEl.getBoundingClientRect();
+        const cr = childEl.getBoundingClientRect();
+
+        const x1 = pr.left + pr.width  / 2 - wRect.left;
+        const y1 = pr.bottom - wRect.top;
+        const x2 = cr.left  + cr.width  / 2 - wRect.left;
+        const y2 = cr.top   - wRect.top;
+        const mid = (y1 + y2) / 2;
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', color || '#94a3b8');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('stroke-dasharray', '0');
+        path.setAttribute('opacity', '0.7');
+        svg.appendChild(path);
+    }
+
+    const root = document.getElementById('node-root');
+
+    // Raíz → secciones
+    ['sn-lm','sn-op','sn-geo','sn-aux','sn-std'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const colors = {
+                'sn-lm':'#0470ac','sn-op':'#16a34a',
+                'sn-geo':'#0369a1','sn-aux':'#6b7280','sn-std':'#d97706'
+            };
+            connect(root, el, colors[id]);
+        }
+    });
+
+    // sn-op → cada guardia-node
+    const snOp = document.getElementById('sn-op');
+    ['A','B','C','SIN_GUARDIA'].forEach(g => {
+        const gn = document.getElementById('gn-' + g);
+        if (gn && snOp) {
+            const colors = {'A':'#1d4ed8','B':'#7c3aed','C':'#065f46','SIN_GUARDIA':'#6b7280'};
+            connect(snOp, gn, colors[g]);
+        }
+    });
+}
+
+// Ejecutar tras render completo
+document.addEventListener('DOMContentLoaded', function() {
+    drawOrgLines();
+    window.addEventListener('resize', drawOrgLines);
+});
+</script>
 {% endblock %}
