@@ -92,8 +92,10 @@ def organigrama_view(request):
     # ── Personal Auxiliar ────────────────────────────────────────────
     personal_auxiliar = [t for t in trabajadores if t.grupo == 'PERSONAL_AUXILIAR']
 
-    # ── Stand By + Sin grupo ─────────────────────────────────────────
-    otros = [t for t in trabajadores if not t.grupo or t.es_standby]
+    # ── Sin grupo asignado (pueden ser standby sin grupo) ────────────
+    # No incluir trabajadores que ya tienen grupo: ellos aparecen en su
+    # sección correspondiente con el badge/borde de Stand By.
+    otros = [t for t in trabajadores if not t.grupo]
 
     context = {
         'contrato': contrato,
