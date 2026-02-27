@@ -3053,6 +3053,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // =============================================
+    // TAB INTELIGENTE EN CORRIDAS
+    // Flujo: Desde → Hasta → Long.Testigo → %Rec → %Agua → Litología → [TAB] → nueva corrida
+    // =============================================
+    document.getElementById('corridas-seccion').addEventListener('keydown', function(event) {
+        if (event.key !== 'Tab' || event.shiftKey) return;
+
+        const target = event.target;
+        const row    = target.closest('.corrida-row');
+        if (!row) return;
+
+        const estaEnUltimoCorrida = !row.nextElementSibling || !row.nextElementSibling.classList.contains('corrida-row');
+        const esTextareaLitologia = target.matches('textarea[name*="litologia_"]');
+
+        // TAB en la textarea litología de la ÚLTIMA corrida → crear nueva y enfocar primer campo
+        if (esTextareaLitologia && estaEnUltimoCorrida) {
+            event.preventDefault();
+            document.getElementById('agregar-corrida-btn').click();
+            return;
+        }
+
+        // TAB en la textarea litología de una corrida intermedia → saltar al Desde de la siguiente
+        if (esTextareaLitologia && !estaEnUltimoCorrida) {
+            event.preventDefault();
+            const siguiente = row.nextElementSibling;
+            if (siguiente) {
+                const primerCampo = siguiente.querySelector('.metro-desde');
+                if (primerCampo) primerCampo.focus();
+            }
+            return;
+        }
+
+        // TAB en %Retorno Agua → enfocar litología de esta misma corrida (orden natural)
+        // (ya lo hace el navegador, pero lo forzamos por si hay campos ocultos en medio)
+        if (target.matches('.pct-retorno-agua')) {
+            event.preventDefault();
+            const textarea = row.querySelector('textarea[name*="litologia_"]');
+            if (textarea) textarea.focus();
+            return;
+        }
+    });
+
     // Función para validar solapamiento de actividades
     function validarSolapamientoActividades() {
         const actividades = Array.from(document.querySelectorAll('.actividad-row')).map(row => {
