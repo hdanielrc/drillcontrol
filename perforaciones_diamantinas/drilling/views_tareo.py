@@ -124,11 +124,31 @@ def tareo_mensual_view(request):
         })
         fecha_actual += timedelta(days=1)
     
-    # Obtener trabajadores activos del contrato ordenados por grupo y guardia
+    # Obtener trabajadores activos del contrato
+    from django.db.models import Case, When, Value, IntegerField as IntF
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).select_related('maquina_asignada').order_by('cargo', 'guardia_asignada', 'apepat', 'nombres')
+    ).select_related('maquina_asignada').annotate(
+        grupo_ord=Case(
+            When(grupo='LINEA_MANDO',          then=Value(1)),
+            When(grupo='OPERADORES',            then=Value(2)),
+            When(grupo='SERVICIOS_GEOLOGICOS',  then=Value(3)),
+            When(grupo='PERSONAL_AUXILIAR',     then=Value(4)),
+            default=Value(5),
+            output_field=IntF()
+        ),
+        cargo_ord=Case(
+            When(cargo__icontains='RESIDENTE',  then=Value(1)),
+            When(cargo__icontains='JEFE',       then=Value(2)),
+            When(cargo__icontains='SUPERVISOR', then=Value(3)),
+            When(cargo__icontains='INGENIERO',  then=Value(4)),
+            When(cargo__icontains='PERFORISTA', then=Value(1)),
+            When(cargo__icontains='AYUDANTE',   then=Value(2)),
+            default=Value(9),
+            output_field=IntF()
+        )
+    ).order_by('grupo_ord', 'guardia_asignada', 'cargo_ord', 'apepat', 'nombres')
     
     # Obtener asistencias del rango
     asistencias = AsistenciaTrabajador.objects.filter(
@@ -150,76 +170,35 @@ def tareo_mensual_view(request):
             'observaciones': asist.observaciones
         }
     
-    # Combinar trabajadores con sus asistencias y agrupar
-    # NUEVA LÓGICA DE AGRUPACIÓN (Por Área Funcional/Máquina -> Guardia)
+    # Combinar trabajadores con sus asistencias y agrupar por campo `grupo`
+    GRUPO_META = {
+        'LINEA_MANDO':         {'nombre': 'Línea de Mando',       'order': 1},
+        'OPERADORES':          {'nombre': 'Operadores',            'order': 2},
+        'SERVICIOS_GEOLOGICOS':{'nombre': 'Servicios Geológicos',  'order': 3},
+        'PERSONAL_AUXILIAR':   {'nombre': 'Personal Auxiliar',     'order': 4},
+        '__SIN_GRUPO__':       {'nombre': 'Sin Grupo Asignado',    'order': 5},
+    }
+
     trabajadores_por_grupo = {}
-    
-    # helper para sorting
-    grupos_sort_map = {} 
-    
+
     for trabajador in trabajadores:
-        # 1. Determinar el GRUPO PRINCIPAL (Área/Máquina)
-        primary_key = ''
-        primary_name = ''
-        order_weight = 99
-        
-        cargo_upper = (trabajador.cargo or '').upper()
-        
-        # Prioridad 1: Línea de Mando (según cargo)
-        CARGOS_LINEA_MANDO = ('RESIDENTE', 'SUPERVISOR', 'JEFE', 'ADMINISTRADOR', 'ING.', 'INGENIERO', 'GERENTE', 'SEGURIDAD', 'SSOMA')
-        if any(c in cargo_upper for c in CARGOS_LINEA_MANDO):
-            primary_key = '00_LINEA_MANDO'
-            primary_name = 'LÍNEA DE MANDO'
-            order_weight = 0
-            
-        # Prioridad 2: Máquina Asignada (si existe) - EXCEPTO STANDBY
-        elif trabajador.maquina_asignada and not trabajador.es_standby:
-            primary_key = f'10_MAQ_{trabajador.maquina_asignada.id}'
-            primary_name = trabajador.maquina_asignada.nombre
-            order_weight = 10
-            
-        # Prioridad 3: Vehículo Asignado (si existe y tiene rol de conductor o auxiliar)
-        elif trabajador.vehiculo_asignado and ('CHOFER' in (trabajador.cargo.upper() if trabajador.cargo else '') or 'CONDUCTOR' in (trabajador.cargo.upper() if trabajador.cargo else '')):
-             primary_key = f'20_VEH_{trabajador.vehiculo_asignado.id}'
-             primary_name = f'VEHÍCULO {trabajador.vehiculo_asignado.placa}' # O nombre
-             order_weight = 20
-             
-        # Prioridad 4: Grupo por defecto basado en cargo
-        else:
-            if trabajador.es_standby:
-                primary_key = '85_PERSONAL_STANDBY'
-                primary_name = 'PERSONAL STANDBY'
-                order_weight = 85
-            else:
-                grupo_raw = cargo_upper or 'SIN_GRUPO'
-                primary_key = f'90_{grupo_raw[:20]}'
-                primary_name = cargo_upper.replace('_', ' ') or 'SIN GRUPO'
-                order_weight = 90
+        primary_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
+        guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
 
-        # Almacenar peso para ordenamiento final
-        if primary_key not in grupos_sort_map:
-            grupos_sort_map[primary_key] = (order_weight, primary_name)
-
-        # 2. Determinar GUARDIA
-        if primary_key == '00_LINEA_MANDO':
-             guardia_key = 'SIN_GUARDIA' # Línea de mando no se divide por guardia visualmente
-        else:
-             guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
-        
-        # Crear estructura de grupos si no existe
         if primary_key not in trabajadores_por_grupo:
+            meta = GRUPO_META.get(primary_key, {'nombre': primary_key, 'order': 99})
             trabajadores_por_grupo[primary_key] = {
-                'nombre': primary_name,
+                'nombre': meta['nombre'],
+                'order': meta['order'],
                 'guardias': {}
             }
-        
-        # Crear estructura de guardias si no existe
+
         if guardia_key not in trabajadores_por_grupo[primary_key]['guardias']:
             trabajadores_por_grupo[primary_key]['guardias'][guardia_key] = {
-                'nombre': f"GUARDIA {trabajador.guardia_asignada}" if trabajador.guardia_asignada else 'SIN GUARDIA',
+                'nombre': f"Guardia {guardia_key}" if guardia_key != 'SIN_GUARDIA' else 'Sin Guardia',
                 'trabajadores': []
             }
-        
+
         # Preparar asistencias del trabajador
         asistencias_trabajador = []
         for dia_info in dias_rango:
@@ -250,33 +229,26 @@ def tareo_mensual_view(request):
     
     # 3. Construir lista ordenada final
     grupos_ordenados = []
-    
-    # Ordenar las keys de grupos basados en (weight, name)
-    ordered_keys = sorted(grupos_sort_map.keys(), key=lambda k: (grupos_sort_map[k][0], k)) # sort by weight then key(name included in key mostly)
-    
+
+    ordered_keys = sorted(
+        trabajadores_por_grupo.keys(),
+        key=lambda k: trabajadores_por_grupo[k]['order']
+    )
+
     for grupo_key in ordered_keys:
         grupo_data = trabajadores_por_grupo[grupo_key]
-        
+
         # Ordenar guardias (A, B, C, luego sin guardia)
         guardias_ordenadas = []
         for guardia_key in ['A', 'B', 'C', 'SIN_GUARDIA']:
             if guardia_key in grupo_data['guardias']:
                 guardia_info = grupo_data['guardias'][guardia_key]
-                # Ordenar trabajadores por cargo (Jerarquía simple) y luego apellido
-                # Simple logic: Perforista antes que Ayudante
-                # Esto ya venía un poco ordenado de la query pero al mezclar puede perderse si no es estricto
-                # Hacemos un sort in-place ligero
-                guardia_info['trabajadores'].sort(key=lambda x: (
-                    0 if 'PERFORISTA' in (x['trabajador'].cargo.upper() if x['trabajador'].cargo else '') else 1,
-                    x['trabajador'].apellidos
-                ))
-                
                 guardias_ordenadas.append({
                     'key': guardia_key,
                     'nombre': guardia_info['nombre'],
                     'trabajadores': guardia_info['trabajadores']
                 })
-        
+
         grupos_ordenados.append({
             'key': grupo_key,
             'nombre': grupo_data['nombre'],
