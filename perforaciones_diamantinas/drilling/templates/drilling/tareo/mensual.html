@@ -340,7 +340,7 @@
                                 
                                 <!-- Trabajadores de esta guardia -->
                                 {% for item in guardia.trabajadores %}
-                                <tr data-trabajador-id="{{ item.trabajador.id }}" data-grupo-id="{{ grupo.key }}" class="trabajador-row">
+                                <tr data-trabajador-id="{{ item.trabajador.id }}" data-grupo-id="{{ grupo.key }}" class="trabajador-row{% if item.trabajador.es_standby %} table-warning{% endif %}">
                                     <td class="sticky-column bg-light text-center p-1" style="z-index: 1000; font-size: 0.75rem; vertical-align: middle;">
                                         {{ forloop.parentloop.parentloop.counter }}{{ forloop.parentloop.counter }}{{ forloop.counter }}
                                     </td>
@@ -350,6 +350,9 @@
                                                 {{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}
                                             </div>
                                             <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
+                                            {% if item.trabajador.es_standby %}
+                                            <span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 1px 4px;"><i class="fas fa-pause-circle me-1"></i>STAND BY</span>
+                                            {% endif %}
                                         </div>
                                     </td>
                                     <td class="text-center p-1" style="font-size: 0.75rem; vertical-align: middle;">
