@@ -425,7 +425,9 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
             queryset = queryset.filter(cargo=cargo)
         
         grupo = self.request.GET.get('grupo')
-        if grupo:
+        if grupo == 'STAND_BY':
+            queryset = queryset.filter(es_standby=True)
+        elif grupo:
             queryset = queryset.filter(grupo=grupo)
         
         # Filtro de activo
@@ -475,7 +477,7 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
             if hasattr(self.request.user, 'contrato') and self.request.user.contrato:
                 qs_cargos = qs_cargos.filter(contrato=self.request.user.contrato)
         context['cargos'] = qs_cargos.order_by('cargo').values_list('cargo', flat=True).distinct()
-        context['grupos'] = Trabajador.GRUPO_CHOICES
+        context['grupos'] = list(Trabajador.GRUPO_CHOICES) + [('STAND_BY', 'Personal Stand By')]
         
         # Filtros con default para activo
         filtros = self.request.GET.copy()
