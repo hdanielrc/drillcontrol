@@ -1828,7 +1828,7 @@
 
         fetch(`/api/trabajadores/${pk}/fecha-inicio-labores/`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
             body: JSON.stringify({fecha_inicio_labores: fecha})
         })
         .then(r => r.json())
