@@ -1576,6 +1576,10 @@ def autocompletar_tareo_por_regimen(request):
                 
                 # Para cada trabajador, determinar su estado ese día
                 for trabajador in trabajadores:
+                    # Respetar fecha_inicio_labores: no crear tareo antes del inicio
+                    if trabajador.fecha_inicio_labores and fecha_actual < trabajador.fecha_inicio_labores:
+                        continue
+
                     # Intenta calcular según régimen configurado (para TODOS, incluida Línea de Mando)
                     estado = trabajador.calcular_estado_regimen(fecha_actual)
                     
