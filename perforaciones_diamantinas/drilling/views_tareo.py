@@ -689,7 +689,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).select_related('cargo').order_by('grupo', 'apellidos', 'nombres')
+    ).order_by('grupo', 'apellidos', 'nombres')
     
     # Obtener asistencias
     asistencias = AsistenciaTrabajador.objects.filter(
@@ -912,7 +912,7 @@ def auto_rellenar_turno_view(request):
             trabajador__contrato_id=contrato_id,
             fecha=fecha,
             estado='TRABAJADO' # Solo los que han ido a trabajar
-        ).select_related('trabajador', 'trabajador__cargo')
+        ).select_related('trabajador')
         
         # 2. Filtrar por guardia.
         # La guardia se puede tomar de la asistencia (parametro 'turno') o del perfil del trabajador.
@@ -943,7 +943,7 @@ def auto_rellenar_turno_view(request):
                 estado='ACTIVO',
                 subestado='EN_OPERACION',
                 guardia_asignada=guardia
-            ).select_related('cargo')
+            )
             
             for t in trabajadores_perfil:
                 # Verificar si hoy le toca trabajar según régimen (opcional, para no sugerir en días libres)
@@ -995,7 +995,7 @@ def auto_rellenar_asistencia(request):
         trabajadores = Trabajador.objects.filter(
             contrato_id=contrato_id,
             estado='ACTIVO'
-        ).select_related('cargo')
+        )
 
         count_updated = 0
         
@@ -1135,7 +1135,7 @@ def auto_rellenar_asistencia(request):
             trabajador__contrato_id=contrato_id,
             fecha__range=[fecha_inicio, fecha_fin],
             estado='TRABAJADO'
-        ).select_related('trabajador', 'trabajador__cargo')
+        ).select_related('trabajador')
 
         # Agrupar por Fecha -> Guardia
         cobertura = {}
@@ -1220,11 +1220,11 @@ def actualizar_grupos_trabajadores(request):
              trabajadores_activos = Trabajador.objects.filter(
                 contrato_id=contrato_id, 
                 estado='ACTIVO'
-            ).select_related('cargo')
+            )
         else:
              trabajadores_activos = Trabajador.objects.filter(
                 estado='ACTIVO'
-            ).select_related('cargo')
+            )
 
         # Estructura para analizar distribución
         distribucion = {g: {'perforistas': [], 'otros': []} for g in guardias_check}
@@ -1294,9 +1294,9 @@ def debug_trabajadores(request):
         
     contrato_id = request.GET.get('contrato')
     if contrato_id:
-        trabajadores = Trabajador.objects.filter(contrato_id=contrato_id).select_related('cargo', 'contrato').order_by('grupo', 'apellidos')
+        trabajadores = Trabajador.objects.filter(contrato_id=contrato_id).select_related('contrato').order_by('grupo', 'apellidos')
     else:
-        trabajadores = Trabajador.objects.all().select_related('cargo', 'contrato').order_by('contrato', 'grupo', 'apellidos')
+        trabajadores = Trabajador.objects.all().select_related('contrato').order_by('contrato', 'grupo', 'apellidos')
         
     html = """
     <html>
@@ -1599,7 +1599,7 @@ def autocompletar_tareo_por_regimen(request):
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).select_related('cargo')
+        )
         
         registros_creados = 0
         registros_actualizados = 0
