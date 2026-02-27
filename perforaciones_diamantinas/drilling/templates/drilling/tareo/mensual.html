@@ -12,12 +12,12 @@
     <div class="page-header-content">
         <h2>Tareo de Asistencia</h2>
         <div class="d-flex align-items-center gap-3 mt-1">
-            <a href="?contrato={{ contrato.id }}&mes_offset=-1" class="btn btn-sm btn-outline-light py-0 px-2" title="Mes anterior">
+            <a href="?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:-1 }}" class="btn btn-sm btn-outline-light py-0 px-2" title="Mes anterior">
                 <i class="fas fa-chevron-left"></i>
             </a>
             <span class="fw-bold" style="font-size:1rem;">{{ nombre_periodo }}</span>
             <span class="badge bg-light text-primary">{{ total_dias }} días operativos</span>
-            <a href="?contrato={{ contrato.id }}&mes_offset=1" class="btn btn-sm btn-outline-light py-0 px-2" title="Mes siguiente">
+            <a href="?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:1 }}" class="btn btn-sm btn-outline-light py-0 px-2" title="Mes siguiente">
                 <i class="fas fa-chevron-right"></i>
             </a>
         </div>
@@ -1197,7 +1197,8 @@
     function cambiarContrato() {
         const selectContrato = document.getElementById('selectContrato');
         const contratoId = selectContrato.value;
-        window.location.href = `?contrato=${contratoId}`;
+        const mesOffset = {{ mes_offset }};
+        window.location.href = `?contrato=${contratoId}&mes_offset=${mesOffset}`;
     }
 
     

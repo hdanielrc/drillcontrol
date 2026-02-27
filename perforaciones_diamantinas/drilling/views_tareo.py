@@ -277,6 +277,7 @@ def tareo_mensual_view(request):
         'total_trabajadores': trabajadores.count(),
         'total_dias': dias_a_mostrar,
         'estados_asistencia': AsistenciaTrabajador.ESTADO_ASISTENCIA_CHOICES,
+        'mes_offset': mes_offset,
     }
     
     return render(request, 'drilling/tareo/mensual.html', context)
