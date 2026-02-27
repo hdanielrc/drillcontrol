@@ -454,7 +454,7 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         # context['cargos'] = Cargo.objects.filter(is_active=True).order_by('nombre')
         # Obtener cargos únicos desde la tabla Trabajador
         context['cargos'] = Trabajador.objects.order_by('cargo').values_list('cargo', flat=True).distinct()
-        context['grupos'] = [] # Trabajador.GRUPO_CHOICES eliminado o no existe en nuevo modelo
+        context['grupos'] = Trabajador.GRUPO_CHOICES
         
         # Filtros con default para activo
         filtros = self.request.GET.copy()

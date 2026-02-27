@@ -104,6 +104,7 @@ urlpatterns = [
     
     # Trabajadores - Hub y CRUD
     path('trabajadores/hub/', views.trabajadores_hub, name='trabajadores-hub'),
+    path('api/trabajadores/<int:pk>/grupo/', api_views.api_actualizar_grupo_trabajador, name='api-trabajador-grupo'),
     path('trabajadores/', views.TrabajadorListView.as_view(), name='trabajador-list'),
     path('trabajadores/nuevo/', views.TrabajadorCreateView.as_view(), name='trabajador-create'),
     path('trabajadores/<int:pk>/editar/', views.TrabajadorUpdateView.as_view(), name='trabajador-update'),

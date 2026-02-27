@@ -424,6 +424,44 @@ def api_crear_sondaje_rapido(request):
 
 
 @login_required
+@require_http_methods(["POST"])
+def api_actualizar_grupo_trabajador(request, pk):
+    """
+    Actualiza el campo 'grupo' de un Trabajador vía AJAX.
+    Body JSON: { "grupo": "OPERADORES" | "SERVICIOS_GEOLOGICOS" | "PERSONAL_AUXILIAR" | "LINEA_MANDO" | "" }
+    """
+    import json
+    from .models import Trabajador
+
+    GRUPOS_VALIDOS = {'OPERADORES', 'SERVICIOS_GEOLOGICOS', 'PERSONAL_AUXILIAR', 'LINEA_MANDO', ''}
+
+    try:
+        data = json.loads(request.body)
+        grupo = data.get('grupo', '').strip()
+        if grupo not in GRUPOS_VALIDOS:
+            return JsonResponse({'success': False, 'error': 'Grupo inválido'}, status=400)
+
+        trabajador = Trabajador.objects.get(pk=pk)
+
+        # Verificar permiso básico de contrato
+        if not request.user.is_staff:
+            if hasattr(request.user, 'contrato') and request.user.contrato != trabajador.contrato:
+                return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        trabajador.grupo = grupo or None
+        trabajador.save(update_fields=['grupo'])
+
+        grupo_display = dict(Trabajador.GRUPO_CHOICES).get(grupo, '-') if grupo else '-'
+        return JsonResponse({'success': True, 'grupo': grupo, 'grupo_display': grupo_display})
+
+    except Trabajador.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Trabajador no encontrado'}, status=404)
+    except Exception as e:
+        logger.error(f"Error actualizando grupo del trabajador {pk}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
 @require_http_methods(["GET"])
 def api_ultima_broca_sondaje(request, sondaje_id):
     """

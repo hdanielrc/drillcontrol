@@ -38,6 +38,15 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <label class="form-label"><i class="fas fa-layer-group text-muted"></i> Grupo Tareo</label>
+                <select name="grupo" class="form-select">
+                    <option value="">Todos los grupos</option>
+                    {% for val, label in grupos %}
+                    <option value="{{ val }}" {% if filtros.grupo == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label"><i class="fas fa-toggle-on text-muted"></i> Estado</label>
                 <select name="activo" class="form-select">
                     <option value="">Todos</option>
@@ -73,6 +82,7 @@
                         <th>Nombre</th>
                         <th>Servicio</th>
                         <th>Cargo</th>
+                        <th>Grupo Tareo</th>
                         <th>Tipo Trabajo</th>
                         <th>Teléfono</th>
                         <th>Email</th>
@@ -110,6 +120,15 @@
                             <span class="badge bg-info">{{ trabajador.cargo }}</span>
                         </td>
                         <td>
+                            <select class="form-select form-select-sm grupo-select" data-id="{{ trabajador.pk }}" style="min-width:140px;font-size:0.78rem;">
+                                <option value="" {% if not trabajador.grupo %}selected{% endif %}>— Sin grupo —</option>
+                                <option value="OPERADORES" {% if trabajador.grupo == 'OPERADORES' %}selected{% endif %}>Operadores</option>
+                                <option value="SERVICIOS_GEOLOGICOS" {% if trabajador.grupo == 'SERVICIOS_GEOLOGICOS' %}selected{% endif %}>Serv. Geológicos</option>
+                                <option value="PERSONAL_AUXILIAR" {% if trabajador.grupo == 'PERSONAL_AUXILIAR' %}selected{% endif %}>Personal Auxiliar</option>
+                                <option value="LINEA_MANDO" {% if trabajador.grupo == 'LINEA_MANDO' %}selected{% endif %}>Línea de Mando</option>
+                            </select>
+                        </td>
+                        <td>
                             {% if trabajador.tipo_trabajo == 'SUBTERRANEA' %}
                                 <span class="badge bg-dark">Interior Mina</span>
                             {% else %}    
@@ -138,7 +157,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9">
+                        <td colspan="10">
                             <div class="empty-state">
                                 <i class="fas fa-users"></i>
                                 <h5>No hay trabajadores registrados</h5>
@@ -181,4 +200,55 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const GRUPO_COLORS = {
+    'OPERADORES':          '#0d6efd',
+    'SERVICIOS_GEOLOGICOS':'#198754',
+    'PERSONAL_AUXILIAR':   '#fd7e14',
+    'LINEA_MANDO':         '#6c757d',
+    '':                    '#dee2e6'
+};
+
+function colorearGrupoSelect(sel) {
+    const color = GRUPO_COLORS[sel.value] || GRUPO_COLORS[''];
+    sel.style.borderColor = color;
+    sel.style.color = sel.value ? color : '#6c757d';
+    sel.style.fontWeight = sel.value ? '600' : 'normal';
+}
+
+document.querySelectorAll('.grupo-select').forEach(sel => {
+    colorearGrupoSelect(sel);
+    sel.addEventListener('change', function () {
+        const id = this.dataset.id;
+        const grupo = this.value;
+        const selEl = this;
+        selEl.disabled = true;
+
+        fetch(`/api/trabajadores/${id}/grupo/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ grupo })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                colorearGrupoSelect(selEl);
+                selEl.style.transition = 'background 0.3s';
+                selEl.style.background = '#d1fae5';
+                setTimeout(() => { selEl.style.background = ''; }, 900);
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo guardar'));
+            }
+        })
+        .catch(() => alert('Error de red al guardar el grupo'))
+        .finally(() => { selEl.disabled = false; });
+    });
+});
+</script>
 {% endblock %}
