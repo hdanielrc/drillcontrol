@@ -1554,20 +1554,19 @@ def autocompletar_tareo_por_regimen(request):
                     
                     # Recalcular inicio de ciclo según guardia (desfase de 7 días por guardia)
                     if trabajador.guardia_asignada == 'A':
-                        # Guardia A: Empieza el primer día del período
-                        trabajador.fecha_inicio_ciclo = fecha_inicio
+                        nueva_fecha_ciclo = fecha_inicio
                     elif trabajador.guardia_asignada == 'B':
-                        # Guardia B: Empieza 7 días antes (para que en fecha_inicio ya lleve 7 días trabajados)
-                        trabajador.fecha_inicio_ciclo = fecha_inicio - timedelta(days=7)
+                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=7)
                     elif trabajador.guardia_asignada == 'C':
-                        # Guardia C: Empieza 14 días antes (para que en fecha_inicio ya lleve 14 días trabajados y esté descansando)
-                        trabajador.fecha_inicio_ciclo = fecha_inicio - timedelta(days=14)
+                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=14)
                     else:
-                        # Sin guardia, usar fecha inicio
-                        trabajador.fecha_inicio_ciclo = fecha_inicio
+                        nueva_fecha_ciclo = fecha_inicio
                     
-                    if fecha_anterior != trabajador.fecha_inicio_ciclo:
-                        trabajador.save()
+                    if fecha_anterior != nueva_fecha_ciclo:
+                        # Usar QuerySet.update() para evitar disparar el save() hook
+                        # (que llama a asignar_grupo_automatico() y sobrescribe el grupo manual)
+                        Trabajador.objects.filter(pk=trabajador.pk).update(fecha_inicio_ciclo=nueva_fecha_ciclo)
+                        trabajador.fecha_inicio_ciclo = nueva_fecha_ciclo  # actualizar instancia en memoria
                         trabajadores_sin_ciclo += 1
             
             # Recorrer cada día del mes
