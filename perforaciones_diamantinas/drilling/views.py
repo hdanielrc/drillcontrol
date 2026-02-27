@@ -411,7 +411,9 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('contrato').order_by('apepat', 'nombres')
+        from django.db.models import Case, When, Value, IntegerField
+
+        queryset = super().get_queryset().select_related('contrato')
         
         # Filtros adicionales
         contrato = self.request.GET.get('contrato')
@@ -428,18 +430,41 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         
         # Filtro de activo
         activo = self.request.GET.get('activo')
-        
-        # SI no viene el parámetro 'activo', asumimos que es carga inicial y filtramos solo ACTIVOS
         if 'activo' not in self.request.GET:
             activo = 'true'
-            
         if activo:
             if activo == 'true':
                 queryset = queryset.filter(estado='ACTIVO')
             elif activo == 'false':
                 queryset = queryset.exclude(estado='ACTIVO')
-            
-        return queryset
+
+        # Orden: 1º Línea de Mando (Residentes primero), 2º Operadores (Perforistas primero),
+        #        3º Servicios Geológicos, 4º Personal Auxiliar, 5º Sin grupo
+        grupo_order = Case(
+            When(grupo='LINEA_MANDO',          then=Value(1)),
+            When(grupo='OPERADORES',            then=Value(2)),
+            When(grupo='SERVICIOS_GEOLOGICOS',  then=Value(3)),
+            When(grupo='PERSONAL_AUXILIAR',     then=Value(4)),
+            default=Value(5),
+            output_field=IntegerField()
+        )
+        # Dentro de cada grupo, priorizar cargos clave por nombre parcial
+        cargo_order = Case(
+            # Línea de mando: Residente al tope
+            When(cargo__icontains='RESIDENTE', then=Value(1)),
+            When(cargo__icontains='JEFE',      then=Value(2)),
+            When(cargo__icontains='SUPERVISOR', then=Value(3)),
+            When(cargo__icontains='INGENIERO',  then=Value(4)),
+            # Operadores: Perforista al tope
+            When(cargo__icontains='PERFORISTA', then=Value(1)),
+            When(cargo__icontains='AYUDANTE',   then=Value(2)),
+            default=Value(9),
+            output_field=IntegerField()
+        )
+        return queryset.annotate(
+            grupo_ord=grupo_order,
+            cargo_ord=cargo_order
+        ).order_by('grupo_ord', 'cargo_ord', 'apepat', 'nombres')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
