@@ -1191,113 +1191,30 @@ def auto_rellenar_asistencia(request):
 @require_http_methods(["POST"])
 def actualizar_grupos_trabajadores(request):
     """
-    Recalcula grupos funcionales y aplica la regla de composición por guardia para OPERADORES:
-      - Máximo 1 PERFORISTA activo por guardia.
-      - Máximo 2 AYUDANTES activos por guardia.
-      - El excedente se marca como es_standby=True (Personal Stand By).
+    Solo lee el estado actual de los trabajadores y devuelve un resumen.
+    NO modifica ningún dato — la tabla del tareo se reconstruye con un reload
+    usando los grupos y el flag es_standby ya guardados en cada trabajador.
     """
-    if not request.user.can_manage_contract_users():
-        return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
-
     try:
         contrato_id = request.POST.get('contrato_id')
 
-        # 1. Guardar todos los trabajadores para disparar auto-asignación de grupo
-        qs_todos = Trabajador.objects.filter(contrato_id=contrato_id) if contrato_id else Trabajador.objects.all()
-        count = 0
+        qs = Trabajador.objects.filter(estado='ACTIVO')
+        if contrato_id:
+            qs = qs.filter(contrato_id=contrato_id)
+
         stats = {}
-        for t in qs_todos:
-            t.save()
-            count += 1
-            grupo = t.grupo or 'SIN_GRUPO'
-            stats[grupo] = stats.get(grupo, 0) + 1
-
-        detalles = ", ".join([f"{k}: {v}" for k, v in stats.items()])
-
-        # 2. Regla de composición para OPERADORES por guardia
-        # Cupo máximo: 1 perforista + 2 ayudantes por guardia.
-        # Criterio: el cargo contiene 'PERFORISTA' (sin 'AYUDANTE') → perforista; resto → ayudante.
-        MAX_PERFORISTAS = 1
-        MAX_AYUDANTES = 2
-        GUARDIAS = ['A', 'B', 'C']
-
-        qs_op = Trabajador.objects.filter(
-            grupo='OPERADORES',
-            estado='ACTIVO',
-            **(dict(contrato_id=contrato_id) if contrato_id else {})
-        )
-
-        # Resetear standby de todos los operadores primero
-        qs_op.update(es_standby=False)
-
-        # Reagrupar por guardia
-        por_guardia = {g: {'perforistas': [], 'ayudantes': []} for g in GUARDIAS}
-        sin_guardia = []
-
-        for t in qs_op.order_by('apepat', 'nombres'):
-            cargo_upper = (t.cargo or '').upper().strip()
-            es_perf = 'PERFORISTA' in cargo_upper and 'AYUDANTE' not in cargo_upper
-            if t.guardia_asignada in GUARDIAS:
-                if es_perf:
-                    por_guardia[t.guardia_asignada]['perforistas'].append(t)
-                else:
-                    por_guardia[t.guardia_asignada]['ayudantes'].append(t)
+        standby_count = 0
+        for t in qs.only('grupo', 'es_standby'):
+            if t.es_standby:
+                standby_count += 1
+                key = 'Stand By'
             else:
-                sin_guardia.append(t)
+                key = t.grupo or 'Sin Grupo'
+            stats[key] = stats.get(key, 0) + 1
 
-        # Aplicar cupos y marcar excedentes como standby
-        standby_ids = []
-        alertas = []
-        resumen_guardias = []
-
-        for g in GUARDIAS:
-            perforistas = por_guardia[g]['perforistas']
-            ayudantes = por_guardia[g]['ayudantes']
-
-            # Perforistas: los primeros MAX_PERFORISTAS quedan activos, el resto → standby
-            activos_perf = perforistas[:MAX_PERFORISTAS]
-            exceso_perf = perforistas[MAX_PERFORISTAS:]
-
-            # Ayudantes: los primeros MAX_AYUDANTES quedan activos, el resto → standby
-            activos_ay = ayudantes[:MAX_AYUDANTES]
-            exceso_ay = ayudantes[MAX_AYUDANTES:]
-
-            for t in exceso_perf + exceso_ay:
-                standby_ids.append(t.id)
-
-            # Generar resumen por guardia
-            total_activos = len(activos_perf) + len(activos_ay)
-            total_exceso = len(exceso_perf) + len(exceso_ay)
-            msg_g = f"G{g}: {len(activos_perf)}P+{len(activos_ay)}A activos"
-            if total_exceso:
-                msg_g += f", {total_exceso} standby"
-            if len(activos_perf) < MAX_PERFORISTAS and perforistas:
-                pass  # no hay suficientes pero no alertar si simplemente no hay
-            if len(activos_perf) == 0 and total_activos > 0:
-                alertas.append(f"Guardia {g}: sin perforista")
-            if len(activos_ay) < MAX_AYUDANTES and len(ayudantes) < MAX_AYUDANTES and len(ayudantes) > 0:
-                alertas.append(f"Guardia {g}: solo {len(activos_ay)} ayudante(s) disponibles")
-            resumen_guardias.append(msg_g)
-
-        # Marcar los excedentes como standby
-        if standby_ids:
-            Trabajador.objects.filter(id__in=standby_ids).update(es_standby=True)
-
-        # Trabajadores sin guardia asignada en OPERADORES → standby por defecto
-        sin_guardia_ids = [t.id for t in sin_guardia]
-        if sin_guardia_ids:
-            Trabajador.objects.filter(id__in=sin_guardia_ids).update(es_standby=True)
-
-        # Construir mensaje final
-        message = f'Se actualizaron {count} trabajadores. Distribución: {detalles}.'
-        if resumen_guardias:
-            message += ' | Operadores por guardia: ' + ' | '.join(resumen_guardias)
-        if standby_ids:
-            message += f' | {len(standby_ids)} marcado(s) como Stand By.'
-        if sin_guardia_ids:
-            message += f' | {len(sin_guardia_ids)} operador(es) sin guardia → Stand By.'
-        if alertas:
-            message += ' | ⚠️ ' + '; '.join(alertas)
+        total = sum(stats.values())
+        detalles = ", ".join([f"{k}: {v}" for k, v in sorted(stats.items())])
+        message = f'Tareo actualizado — {total} trabajadores activos. Distribución: {detalles}.'
 
         return JsonResponse({'success': True, 'message': message})
     except Exception as e:

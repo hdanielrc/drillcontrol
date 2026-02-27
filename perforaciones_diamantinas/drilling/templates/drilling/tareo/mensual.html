@@ -127,7 +127,7 @@
                 <button class="btn btn-sm btn-info text-white me-2" onclick="autocompletarRegimen()" title="Autocompletar tareo según régimen laboral">
                     <i class="fas fa-magic me-1"></i> Autocompletar Régimen
                 </button>
-                <button class="btn btn-sm btn-secondary text-white me-2" onclick="actualizarGrupos()" title="Actualizar grupos funcionales">
+                <button class="btn btn-sm btn-secondary text-white me-2" onclick="actualizarGrupos()" title="Recargar el tareo con los grupos actuales">
                     <i class="fas fa-sync me-1"></i> Actualizar Grupos
                 </button>
                 <button class="btn btn-sm btn-danger text-white" onclick="confirmarLimpiezaMes()" title="Limpiar asistencias del mes">
@@ -1661,14 +1661,10 @@
 
 
     function actualizarGrupos() {
-        if (!confirm('¿Desea recalcular los grupos funcionales (Línea de Mando, Operadores, etc.) para todos los trabajadores?\n\nEsto corregirá la clasificación si ha cambiado cargos recientemente.')) {
-            return;
-        }
-
         const contratoId = {{ contrato.id }};
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        
-        mostrarToast('Actualizando grupos...', 'info');
+
+        mostrarToast('Recargando tareo...', 'info');
 
         const formData = new FormData();
         formData.append('contrato_id', contratoId);
@@ -1684,14 +1680,14 @@
         .then(data => {
             if (data.success) {
                 mostrarToast('✅ ' + data.message, 'success');
-                setTimeout(() => location.reload(), 1500);
+                setTimeout(() => location.reload(), 1200);
             } else {
                 mostrarToast('❌ ' + data.message, 'danger');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            mostrarToast('Error al actualizar grupos', 'danger');
+            mostrarToast('Error al recargar el tareo', 'danger');
         });
     }
 
