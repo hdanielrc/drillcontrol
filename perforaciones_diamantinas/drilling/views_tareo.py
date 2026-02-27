@@ -209,13 +209,17 @@ def tareo_mensual_view(request):
             fecha = dia_info['fecha']
             asist_dia = asistencias_dict.get(trabajador.id, {}).get(fecha)
             
-            # Calcular estado sugerido si no hay asistencia
+            # Celda bloqueada si la fecha es anterior al inicio de labores del trabajador
+            bloqueada = bool(trabajador.fecha_inicio_labores and fecha < trabajador.fecha_inicio_labores)
+
+            # Calcular estado sugerido si no hay asistencia (solo celdas no bloqueadas)
             estado_sugerido = None
-            if not asist_dia:
+            if not asist_dia and not bloqueada:
                 estado_sugerido = trabajador.calcular_estado_regimen(fecha)
 
             asistencias_trabajador.append({
                 'fecha': fecha,
+                'bloqueada': bloqueada,
                 'estado': asist_dia['estado'] if asist_dia else None,
                 'estado_sugerido': estado_sugerido,
                 'estado_display': asist_dia['estado_display'] if asist_dia else '-',

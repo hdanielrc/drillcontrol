@@ -462,6 +462,49 @@ def api_actualizar_grupo_trabajador(request, pk):
 
 
 @login_required
+@require_http_methods(["POST"])
+def api_set_fecha_inicio_labores(request, pk):
+    """
+    Actualiza el campo 'fecha_inicio_labores' de un Trabajador vía AJAX.
+    Body JSON: { "fecha_inicio_labores": "YYYY-MM-DD" | "" }
+    Celdas del tareo anteriores a esta fecha quedarán bloqueadas (sin tareo).
+    """
+    import json
+    from datetime import date
+    from .models import Trabajador
+
+    try:
+        data = json.loads(request.body)
+        fecha_str = data.get('fecha_inicio_labores', '').strip()
+
+        if not request.user.is_staff and not request.user.can_create_basic_data():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        trabajador = Trabajador.objects.get(pk=pk)
+
+        if fecha_str:
+            try:
+                fecha = date.fromisoformat(fecha_str)
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Fecha inválida, use formato YYYY-MM-DD'}, status=400)
+        else:
+            fecha = None
+
+        Trabajador.objects.filter(pk=pk).update(fecha_inicio_labores=fecha)
+
+        return JsonResponse({
+            'success': True,
+            'fecha_inicio_labores': fecha_str or None,
+        })
+
+    except Trabajador.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Trabajador no encontrado'}, status=404)
+    except Exception as e:
+        logger.error(f"Error actualizando fecha_inicio_labores del trabajador {pk}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
 @require_http_methods(["GET"])
 def api_ultima_broca_sondaje(request, sondaje_id):
     """

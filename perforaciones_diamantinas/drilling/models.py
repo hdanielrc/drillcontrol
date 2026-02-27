@@ -1542,6 +1542,11 @@ class Trabajador(models.Model):
     subestado = models.CharField(max_length=30, choices=SUBESTADO_CHOICES, default='EN_OPERACION')
     
     fotocheck_fecha_emision = models.DateField(null=True, blank=True)
+    fecha_inicio_labores = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha Inicio Labores',
+        help_text='Fecha en que el trabajador empieza a aparacer en el tareo. Diferente a la fecha de contratación de la API.'
+    )
     
     # Grupo Funcional (calculado automáticamente desde el cargo API)
     GRUPO_CHOICES = [

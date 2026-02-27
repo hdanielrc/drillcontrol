@@ -374,8 +374,17 @@
                                     </td>
                                     <td class="sticky-column-2 bg-light p-1" style="z-index: 1000; vertical-align: middle;">
                                         <div style="line-height: 1.1;">
-                                            <div class="fw-bold text-truncate" style="font-size: 0.8rem; max-width: 200px;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">
-                                                {{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}
+                                            <div class="d-flex align-items-center gap-1">
+                                                <div class="fw-bold text-truncate" style="font-size: 0.8rem; max-width: 185px;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">
+                                                    {{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}
+                                                </div>
+                                                <button type="button" class="btn btn-xs p-0 border-0 btn-fecha-inicio"
+                                                    data-trabajador-id="{{ item.trabajador.id }}"
+                                                    data-fecha-actual="{{ item.trabajador.fecha_inicio_labores|date:'Y-m-d'|default:'' }}"
+                                                    title="{% if item.trabajador.fecha_inicio_labores %}Inicio labores: {{ item.trabajador.fecha_inicio_labores|date:'d/m/Y' }} — clic para cambiar{% else %}Fijar fecha inicio labores{% endif %}"
+                                                    style="font-size: 0.65rem; line-height:1; color: {% if item.trabajador.fecha_inicio_labores %}#e67e22{% else %}#adb5bd{% endif %};">
+                                                    <i class="fas fa-calendar-day"></i>
+                                                </button>
                                             </div>
                                             <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
                                             {% if item.trabajador.es_standby %}
@@ -402,6 +411,13 @@
                                         {% endif %}
                                     </td>
                                     {% for asist in item.asistencias %}
+                                    {% if asist.bloqueada %}
+                                    <td class="text-center {% if asist.es_domingo %}table-danger{% elif asist.es_sabado %}table-warning{% endif %}"
+                                        title="Sin tareo — antes del inicio de labores"
+                                        style="padding: 2px; font-size: 0.7rem; background: repeating-linear-gradient(45deg, #e9ecef, #e9ecef 3px, #f8f9fa 3px, #f8f9fa 8px); cursor: not-allowed; opacity: 0.6;">
+                                        <span style="color:#adb5bd; font-size:0.65rem;">—</span>
+                                    </td>
+                                    {% else %}
                                     <td class="celda-asistencia text-center {% if asist.es_domingo %}table-danger{% elif asist.es_sabado %}table-warning{% endif %}" 
                                         data-trabajador-id="{{ item.trabajador.id }}"
                                         data-fecha="{{ asist.fecha|date:'Y-m-d' }}"
@@ -440,6 +456,7 @@
                                         <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
+                                    {% endif %}
                                     {% endfor %}
                                     <td class="text-center fw-bold text-dark border-start" style="font-size: 0.75rem; background-color: #e9ecef;">
                                         <span class="resumen-trabajador" data-trabajador-id="{{ item.trabajador.id }}">-</span>
@@ -495,6 +512,27 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Fecha Inicio Labores -->
+<div class="modal fade" id="modalFechaInicioLabores" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fas fa-calendar-day me-2 text-warning"></i>Fecha Inicio Labores</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="font-size:0.8rem;">Las celdas anteriores a esta fecha aparecerán bloqueadas en el tareo. Dejar vacío para quitar el bloqueo.</p>
+                <input type="date" id="inputFechaInicioLabores" class="form-control form-control-sm">
+                <input type="hidden" id="hiddenTrabajadorIdFechaInicio">
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="guardarFechaInicioLabores(true)"><i class="fas fa-times me-1"></i>Quitar fecha</button>
+                <button type="button" class="btn btn-sm btn-warning" onclick="guardarFechaInicioLabores(false)"><i class="fas fa-save me-1"></i>Guardar</button>
             </div>
         </div>
     </div>
@@ -1771,6 +1809,39 @@
         
         // Abrir en nueva pestaña para descargar
         window.open(url, '_blank');
+    }
+    // ========== FECHA INICIO LABORES ==========
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-fecha-inicio');
+        if (!btn) return;
+        const trabajadorId = btn.dataset.trabajadorId;
+        const fechaActual = btn.dataset.fechaActual || '';
+        document.getElementById('hiddenTrabajadorIdFechaInicio').value = trabajadorId;
+        document.getElementById('inputFechaInicioLabores').value = fechaActual;
+        const modal = new bootstrap.Modal(document.getElementById('modalFechaInicioLabores'));
+        modal.show();
+    });
+
+    function guardarFechaInicioLabores(limpiar) {
+        const pk = document.getElementById('hiddenTrabajadorIdFechaInicio').value;
+        const fecha = limpiar ? '' : document.getElementById('inputFechaInicioLabores').value;
+
+        fetch(`/api/trabajadores/${pk}/fecha-inicio-labores/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
+            body: JSON.stringify({fecha_inicio_labores: fecha})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('modalFechaInicioLabores')).hide();
+                mostrarToast(limpiar ? 'Fecha de inicio eliminada. Recargando...' : 'Fecha de inicio guardada. Recargando...', 'success', 1500);
+                setTimeout(() => location.reload(), 1600);
+            } else {
+                mostrarToast('Error: ' + (data.error || 'desconocido'), 'danger', 3000);
+            }
+        })
+        .catch(() => mostrarToast('Error de conexión', 'danger', 3000));
     }
 
 </script>
