@@ -1839,6 +1839,45 @@ class Trabajador(models.Model):
         
         super().save(*args, **kwargs)
 
+    def calcular_estado_regimen(self, fecha):
+        """
+        Determina si una fecha es día de trabajo o día libre según el régimen laboral
+        y la fecha de inicio del ciclo del trabajador.
+
+        Regímenes soportados:
+          '14x7'  → 14 días trabajo, 7 días descanso  (ciclo 21)
+          '20x10' → 20 días trabajo, 10 días descanso (ciclo 30)
+          '28x14' → 28 días trabajo, 14 días descanso (ciclo 42)
+          '5x2'   →  5 días trabajo,  2 días descanso (ciclo  7)
+          '6x1'   →  6 días trabajo,  1 día  descanso (ciclo  7)
+
+        Retorna:
+          'TRABAJADO' | 'DIA_LIBRE' | None (si no hay ciclo configurado)
+        """
+        if not self.fecha_inicio_ciclo or not self.regimen_laboral:
+            return None
+
+        regimenes = {
+            '14x7':  (14, 7),
+            '20x10': (20, 10),
+            '28x14': (28, 14),
+            '5x2':   (5, 2),
+            '6x1':   (6, 1),
+        }
+        if self.regimen_laboral not in regimenes:
+            return None
+
+        dias_trabajo, dias_descanso = regimenes[self.regimen_laboral]
+        ciclo = dias_trabajo + dias_descanso
+
+        delta = (fecha - self.fecha_inicio_ciclo).days
+        # Asegurar que delta sea positivo (por si la fecha es antes del inicio)
+        dia_en_ciclo = delta % ciclo  # 0-indexed dentro del ciclo
+
+        if dia_en_ciclo < dias_trabajo:
+            return 'TRABAJADO'
+        else:
+            return 'DIA_LIBRE'
 
 
 # [CLASE ELIMINADA: TrabajadorAPI (Duplicada)]
