@@ -582,8 +582,7 @@ def inferir_tipo_desde_descripcion(descripcion):
     # --- Marca (en orden de especificidad) ---
     marca = ''
     if 'HARDCORE' in desc:
-        # HARDCORE es una línea de Boart Longyear
-        marca = 'Boart Longyear'
+        marca = 'Hardcore'
     elif 'BOART LONGYEAR' in desc:
         marca = 'Boart Longyear'
     elif 'BOYLES BROS' in desc or re.search(r'BOYLES\s+B[^A-Z]', desc):
