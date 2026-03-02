@@ -72,10 +72,17 @@ migs = [
 print("\nFake-applying migraciones:")
 for app, name in migs:
     cursor.execute(
-        "INSERT INTO django_migrations (app, name, applied) VALUES (%s, %s, NOW()) ON CONFLICT (app, name) DO NOTHING",
+        "SELECT COUNT(*) FROM django_migrations WHERE app = %s AND name = %s",
         [app, name]
     )
-    print(f"  -> {name}")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute(
+            "INSERT INTO django_migrations (app, name, applied) VALUES (%s, %s, NOW())",
+            [app, name]
+        )
+        print(f"  -> {name}")
+    else:
+        print(f"  Ya existe: {name}")
 
 connection.commit()
 print("\nListo. Ahora corre: python manage.py migrate --check")
