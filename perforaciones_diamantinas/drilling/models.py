@@ -593,8 +593,8 @@ def inferir_tipo_desde_descripcion(descripcion):
         marca = 'Boart Longyear'
     elif 'LONGYEAR' in desc:
         marca = 'Boart Longyear'
-    elif 'DIAMANTEC' in desc:
-        marca = 'Diamantec'
+    elif 'DIAMATEC' in desc or 'DIAMANTEC' in desc:
+        marca = 'Diamatec'
     elif 'ATLAS COPCO' in desc:
         marca = 'Atlas Copco'
     elif 'EPIROC' in desc:
