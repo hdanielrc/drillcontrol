@@ -15,7 +15,7 @@ sys.path.append(str(BASE_DIR))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings')
 django.setup()
 
-from drilling.models import Contrato, TipoComplemento, UnidadMedida
+from drilling.models import Contrato, TipoComplemento, UnidadMedida, inferir_tipo_desde_descripcion
 from drilling.api_client import VilbragroupAPIClient
 from django.db import transaction
 from collections import defaultdict
@@ -123,6 +123,10 @@ def cargar_productos_desde_api():
             # Actualizar existentes
             objetos_actualizar.append(serie)
         else:
+            # Inferir tipo, marca y calibre desde la descripción
+            categoria_inf, marca_inf, calibre_inf, altura_inf, serie_bit_inf = inferir_tipo_desde_descripcion(
+                datos['descripcion']
+            )
             # Crear nuevos
             objetos_crear.append(
                 TipoComplemento(
@@ -130,7 +134,11 @@ def cargar_productos_desde_api():
                     codigo=datos['codigo'],
                     nombre=datos['nombre'],
                     descripcion=datos['descripcion'],
-                    categoria='BROCA',
+                    categoria=categoria_inf,
+                    marca=marca_inf,
+                    calibre=calibre_inf,
+                    altura=altura_inf,
+                    serie_bit=serie_bit_inf,
                     estado='NUEVO',
                     contrato=contrato
                 )
@@ -155,12 +163,29 @@ def cargar_productos_desde_api():
         for serie in objetos_actualizar:
             try:
                 datos = productos_unicos[serie]
-                TipoComplemento.objects.filter(serie=serie).update(
-                    codigo=datos['codigo'],
-                    nombre=datos['nombre'],
-                    descripcion=datos['descripcion'],
-                    contrato=contrato
+                categoria_inf, marca_inf, calibre_inf, altura_inf, serie_bit_inf = inferir_tipo_desde_descripcion(
+                    datos['descripcion']
                 )
+                # Obtener el objeto actual para no sobreescribir valores ya definidos
+                obj = TipoComplemento.objects.filter(serie=serie).first()
+                update_kwargs = {
+                    'codigo': datos['codigo'],
+                    'nombre': datos['nombre'],
+                    'descripcion': datos['descripcion'],
+                    'contrato': contrato,
+                }
+                # Solo actualizar categoria/marca/calibre/altura/serie_bit si están vacíos
+                if obj and not obj.categoria:
+                    update_kwargs['categoria'] = categoria_inf
+                if obj and not obj.marca and marca_inf:
+                    update_kwargs['marca'] = marca_inf
+                if obj and not obj.calibre and calibre_inf:
+                    update_kwargs['calibre'] = calibre_inf
+                if obj and not obj.altura and altura_inf:
+                    update_kwargs['altura'] = altura_inf
+                if obj and not obj.serie_bit and serie_bit_inf:
+                    update_kwargs['serie_bit'] = serie_bit_inf
+                TipoComplemento.objects.filter(serie=serie).update(**update_kwargs)
                 actualizados += 1
             except Exception as e:
                 errores += 1

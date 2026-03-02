@@ -1,105 +1,97 @@
 {% extends 'drilling/base_admin.html' %}
 {% load static %}
 
-{% block title %}Brocas Disponibles - {{ contrato.nombre_contrato }}{% endblock %}
+{% block title %}Stock PDD - {{ contrato.nombre_contrato }}{% endblock %}
 
 {% block extra_css %}
 <style>
     .stat-card {
         background: white;
         border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        margin-bottom: 16px;
         border-left: 4px solid;
         transition: transform 0.2s;
     }
-    
-    .stat-card:hover {
-        transform: translateY(-5px);
+    .stat-card:hover { transform: translateY(-3px); }
+    .stat-card h3 { font-size: 2.2rem; font-weight: 700; margin-bottom: 4px; }
+
+    .tipo-section {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 28px;
     }
-    
-    .stat-card.nuevas {
-        border-left-color: #28a745;
+    .tipo-header {
+        padding: 14px 20px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-    
-    .stat-card.en-uso {
-        border-left-color: #007bff;
+    .tipo-header h5 { margin: 0; font-weight: 700; }
+
+    .badge-tipo {
+        padding: 5px 11px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
     }
-    
-    .stat-card h3 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
-    
-    .broca-card {
-        background: white;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 15px;
-        transition: all 0.2s;
-    }
-    
-    .broca-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        transform: translateX(5px);
-    }
-    
+    .badge-NUEVA    { background: #d4edda; color: #155724; }
+    .badge-EN_USO   { background: #d1ecf1; color: #0c5460; }
+
     .serie-badge {
-        background: #e3f2fd;
-        color: #1565c0;
-        padding: 8px 16px;
-        border-radius: 6px;
-        font-size: 1rem;
+        background: #e8f0fe;
+        color: #1a56db;
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.82rem;
         font-family: 'Courier New', monospace;
         font-weight: 700;
     }
-    
-    .estado-badge {
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.85rem;
-    }
-    
-    .estado-NUEVA {
-        background: #d4edda;
-        color: #155724;
-    }
-    
-    .estado-EN_USO {
-        background: #d1ecf1;
-        color: #0c5460;
-    }
-    
-    .section-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 15px 20px;
+
+    .filter-bar {
+        background: white;
         border-radius: 10px;
+        padding: 14px 20px;
         margin-bottom: 20px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
     }
+
+    .table th { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; color: #6c757d; }
+    .table td { vertical-align: middle; font-size: 0.9rem; }
+
+    .calibre-pill {
+        background: #fff3cd;
+        color: #856404;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .marca-text { font-size: 0.82rem; color: #555; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4 py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+
+    <!-- ===== HEADER ===== -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h2 class="fw-bold mb-1">
-                <i class="fas fa-tools me-2"></i>Brocas Disponibles
+                <i class="fas fa-gem me-2 text-primary"></i>Stock PDD
             </h2>
-            <p class="text-muted mb-0">{{ contrato.nombre_contrato }}</p>
+            <p class="text-muted mb-0">{{ contrato.nombre_contrato }} &mdash; Productos Diamantados Disponibles</p>
         </div>
-        <div>
-            <a href="{% url 'lista-abastecimientos' %}?contrato={{ contrato.id }}" 
-               class="btn btn-outline-secondary me-2">
-                <i class="fas fa-box-open me-2"></i>Ver Abastecimientos
+        <div class="d-flex gap-2 align-items-center">
+            <a href="{% url 'lista-abastecimientos' %}?contrato={{ contrato.id }}"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-box-open me-1"></i>Abastecimientos
             </a>
-            <select class="form-select d-inline-block w-auto" onchange="window.location.href='?contrato=' + this.value">
+            <select class="form-select form-select-sm w-auto"
+                    onchange="window.location.href='?contrato=' + this.value">
                 {% for c in contratos %}
                 <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
                     {{ c.nombre_contrato }}
@@ -109,138 +101,204 @@
         </div>
     </div>
 
-    <!-- Estadísticas -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stat-card nuevas">
-                <h3 class="text-success">{{ stats.total_nuevas }}</h3>
-                <p class="text-muted mb-0">Brocas Nuevas</p>
+    <!-- ===== STATS ===== -->
+    <div class="row mb-3">
+        <div class="col-6 col-md-3">
+            <div class="stat-card" style="border-left-color:#28a745;">
+                <h3 class="text-success">{{ stats.total_disponibles }}</h3>
+                <p class="text-muted mb-0 small">Total Disponibles</p>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="stat-card en-uso">
-                <h3 class="text-primary">{{ stats.total_en_uso }}</h3>
-                <p class="text-muted mb-0">Brocas en Uso</p>
+        <div class="col-6 col-md-3">
+            <div class="stat-card" style="border-left-color:#007bff;">
+                <h3 class="text-primary">{{ stats.total_brocas }}</h3>
+                <p class="text-muted mb-0 small">Brocas Diamantadas</p>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="stat-card" style="border-left-color: #FFC248;">
-                <h3 class="text-warning">{{ stats.total_disponibles }}</h3>
-                <p class="text-muted mb-0">Total Disponibles</p>
+        <div class="col-6 col-md-3">
+            <div class="stat-card" style="border-left-color:#fd7e14;">
+                <h3 class="text-warning">{{ stats.total_zapatas }}</h3>
+                <p class="text-muted mb-0 small">Zapatas</p>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="stat-card" style="border-left-color: #764ba2;">
-                <h3 class="text-info">{{ stats.metraje_promedio|floatformat:1 }}m</h3>
-                <p class="text-muted mb-0">Metraje Promedio</p>
+        <div class="col-6 col-md-3">
+            <div class="stat-card" style="border-left-color:#6f42c1;">
+                <h3 class="text-purple" style="color:#6f42c1;">{{ stats.total_reaming }}</h3>
+                <p class="text-muted mb-0 small">Reaming Shells</p>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Brocas Nuevas -->
-        <div class="col-lg-6">
-            <div class="section-header">
-                <h4 class="mb-0">
-                    <i class="fas fa-star me-2"></i>Brocas Nuevas ({{ stats.total_nuevas }})
-                </h4>
+    <!-- ===== FILTROS ===== -->
+    <div class="filter-bar">
+        <form method="get" class="row g-2 align-items-end">
+            <input type="hidden" name="contrato" value="{{ contrato.id }}">
+
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-1">Tipo</label>
+                <select name="tipo" class="form-select form-select-sm">
+                    <option value="">Todos los tipos</option>
+                    <option value="BROCA"         {% if filtro_tipo == 'BROCA' %}selected{% endif %}>Brocas Diamantadas</option>
+                    <option value="ZAPATA"        {% if filtro_tipo == 'ZAPATA' %}selected{% endif %}>Zapatas</option>
+                    <option value="REAMING_SHELL" {% if filtro_tipo == 'REAMING_SHELL' %}selected{% endif %}>Reaming Shells</option>
+                    <option value="CORE_LIFTER"   {% if filtro_tipo == 'CORE_LIFTER' %}selected{% endif %}>Core Lifters</option>
+                </select>
             </div>
 
-            {% if brocas_nuevas %}
-                {% for broca in brocas_nuevas %}
-                <div class="broca-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <span class="serie-badge">{{ broca.serie }}</span>
-                        </div>
-                        <span class="estado-badge estado-NUEVA">Nueva</span>
-                    </div>
-                    
-                    <h5 class="fw-bold mb-2">{{ broca.tipo_complemento.nombre }}</h5>
-                    
-                    <div class="row text-center mt-3">
-                        <div class="col-4">
-                            <small class="text-muted d-block">Metraje</small>
-                            <strong>{{ broca.metraje_acumulado|floatformat:2 }}m</strong>
-                        </div>
-                        <div class="col-4">
-                            <small class="text-muted d-block">Usos</small>
-                            <strong>{{ broca.numero_usos }}</strong>
-                        </div>
-                        <div class="col-4">
-                            <small class="text-muted d-block">Acción</small>
-                            <a href="{% url 'historial-broca-detalle' broca.serie %}" 
-                               class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    No hay brocas nuevas disponibles en este contrato.
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- Brocas en Uso -->
-        <div class="col-lg-6">
-            <div class="section-header" style="background: linear-gradient(135deg, #0470AC 0%, #084163 100%);">
-                <h4 class="mb-0">
-                    <i class="fas fa-cog me-2"></i>Brocas en Uso ({{ stats.total_en_uso }})
-                </h4>
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-1">Estado</label>
+                <select name="estado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="NUEVA"  {% if filtro_estado == 'NUEVA' %}selected{% endif %}>Nuevo</option>
+                    <option value="EN_USO" {% if filtro_estado == 'EN_USO' %}selected{% endif %}>En Uso</option>
+                </select>
             </div>
 
-            {% if brocas_en_uso %}
-                {% for broca in brocas_en_uso %}
-                <div class="broca-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <span class="serie-badge">{{ broca.serie }}</span>
-                        </div>
-                        <span class="estado-badge estado-EN_USO">En Uso</span>
-                    </div>
-                    
-                    <h5 class="fw-bold mb-2">{{ broca.tipo_complemento.nombre }}</h5>
-                    
-                    {% if broca.fecha_ultimo_uso %}
-                    <div class="mb-2">
-                        <small class="text-muted">Último uso: {{ broca.fecha_ultimo_uso|date:"d/m/Y" }}</small>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="row text-center mt-3">
-                        <div class="col-3">
-                            <small class="text-muted d-block">Metraje</small>
-                            <strong class="text-primary">{{ broca.metraje_acumulado|floatformat:2 }}m</strong>
-                        </div>
-                        <div class="col-3">
-                            <small class="text-muted d-block">Usos</small>
-                            <strong>{{ broca.numero_usos }}</strong>
-                        </div>
-                        <div class="col-3">
-                            <small class="text-muted d-block">Promedio</small>
-                            <strong>{{ broca.metraje_promedio_por_uso|floatformat:1 }}m</strong>
-                        </div>
-                        <div class="col-3">
-                            <small class="text-muted d-block">Acción</small>
-                            <a href="{% url 'historial-broca-detalle' broca.serie %}" 
-                               class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    No hay brocas en uso en este contrato.
-                </div>
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-1">Marca</label>
+                <select name="marca" class="form-select form-select-sm">
+                    <option value="">Todas</option>
+                    {% for m in marcas_disponibles %}
+                    <option value="{{ m }}" {% if filtro_marca == m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-filter me-1"></i>Filtrar
+                </button>
+                <a href="?contrato={{ contrato.id }}" class="btn btn-outline-secondary btn-sm ms-1">
+                    <i class="fas fa-times me-1"></i>Limpiar
+                </a>
+            </div>
+            {% if stats.total_nuevas or stats.total_en_uso %}
+            <div class="col-auto ms-auto text-muted small align-self-center">
+                <i class="fas fa-circle text-success me-1"></i>{{ stats.total_nuevas }} Nuevos &nbsp;
+                <i class="fas fa-circle text-primary me-1"></i>{{ stats.total_en_uso }} En Uso &nbsp;
+                <i class="fas fa-tachometer-alt text-secondary me-1"></i>Prom. {{ stats.metraje_promedio|floatformat:1 }}m
+            </div>
             {% endif %}
-        </div>
+        </form>
     </div>
+
+    <!-- ===== SECCIONES POR TIPO ===== -->
+    {% for grupo in productos_por_tipo %}
+    {% if grupo.total > 0 or not filtro_tipo %}
+    <div class="tipo-section">
+        <div class="tipo-header" style="background: {{ grupo.color }};">
+            <h5>
+                <i class="{{ grupo.icono }} me-2"></i>{{ grupo.tipo_label }}
+                <span class="ms-2 badge bg-white text-dark" style="font-size:0.85rem;">{{ grupo.total }}</span>
+            </h5>
+            <div class="d-flex gap-2">
+                <span class="badge-tipo badge-NUEVA">
+                    <i class="fas fa-star me-1"></i>{{ grupo.nuevas }} Nuevos
+                </span>
+                <span class="badge-tipo badge-EN_USO">
+                    <i class="fas fa-cog me-1"></i>{{ grupo.en_uso }} En Uso
+                </span>
+            </div>
+        </div>
+
+        {% if grupo.items %}
+        <div class="bg-white p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Serie</th>
+                            <th>Descripción</th>
+                            <th>Línea</th>
+                            <th>Altura</th>
+                            <th>Serie Bit</th>
+                            <th>Marca</th>
+                            <th>Estado</th>
+                            <th class="text-end">Metraje</th>
+                            <th class="text-center">Usos</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in grupo.items %}
+                        <tr>
+                            <td>
+                                <span class="serie-badge">{{ item.serie }}</span>
+                            </td>
+                            <td>
+                                <span title="{{ item.tipo_complemento.descripcion }}">
+                                    {{ item.tipo_complemento.nombre|truncatechars:55 }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if item.tipo_complemento.calibre %}
+                                <span class="calibre-pill">{{ item.tipo_complemento.calibre }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.tipo_complemento.altura %}
+                                <span class="badge bg-secondary">{{ item.tipo_complemento.altura }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.tipo_complemento.serie_bit %}
+                                <span class="badge bg-info text-dark">{{ item.tipo_complemento.serie_bit }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.tipo_complemento.marca %}
+                                <span class="marca-text">{{ item.tipo_complemento.marca }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge-tipo badge-{{ item.estado }}">
+                                    {{ item.get_estado_display }}
+                                </span>
+                            </td>
+                            <td class="text-end fw-semibold">
+                                {{ item.metraje_acumulado|floatformat:2 }}m
+                            </td>
+                            <td class="text-center">
+                                {{ item.numero_usos }}
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'historial-broca-detalle' item.serie %}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Ver historial">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white p-4 text-muted text-center">
+            <i class="fas fa-inbox me-2"></i>
+            No hay {{ grupo.tipo_label|lower }} disponibles con los filtros actuales.
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {% if not stats.total_disponibles %}
+    <div class="alert alert-info mt-3">
+        <i class="fas fa-info-circle me-2"></i>
+        No hay productos diamantados disponibles para <strong>{{ contrato.nombre_contrato }}</strong>.
+        Verifica que la sincronización de abastecimientos esté actualizada.
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}

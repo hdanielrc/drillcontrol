@@ -810,12 +810,14 @@ def sincronizar_abastecimientos_manual(request):
 @login_required
 def dashboard_brocas_disponibles(request):
     """
-    Dashboard de brocas disponibles (NUEVA o EN_USO) por contrato
+    Dashboard de Stock PDD - Productos Diamantados disponibles por tipo
+    (Brocas, Zapatas, Reaming Shells, Core Lifters)
     """
     from .models import HistorialBroca
-    
+    from django.db.models import Avg, Count
+
     user = request.user
-    
+
     # Determinar contratos accesibles
     if user.is_superuser or user.role in ['GERENCIA', 'CONTROL_PROYECTOS']:
         contratos = Contrato.objects.filter(estado='ACTIVO')
@@ -824,48 +826,103 @@ def dashboard_brocas_disponibles(request):
     else:
         messages.error(request, "No tienes acceso a ningún contrato.")
         return redirect('dashboard')
-    
+
     # Contrato seleccionado
     contrato_id = request.GET.get('contrato')
     if contrato_id:
         contrato = get_object_or_404(Contrato, id=contrato_id)
     else:
         contrato = contratos.first()
-    
+
     if not contrato:
         messages.warning(request, "No hay contratos disponibles.")
         return redirect('dashboard')
-    
-    # Obtener brocas disponibles
-    brocas_nuevas = HistorialBroca.objects.filter(
+
+    # Filtros opcionales
+    filtro_tipo = request.GET.get('tipo', '')      # BROCA, ZAPATA, REAMING_SHELL, CORE_LIFTER
+    filtro_estado = request.GET.get('estado', '')  # NUEVA, EN_USO
+    filtro_marca = request.GET.get('marca', '')
+
+    # Obtener todos los productos disponibles del contrato
+    qs_base = HistorialBroca.objects.filter(
         contrato_actual=contrato,
-        estado='NUEVA'
-    ).select_related('tipo_complemento').order_by('serie')
-    
-    brocas_en_uso = HistorialBroca.objects.filter(
-        contrato_actual=contrato,
-        estado='EN_USO'
-    ).select_related('tipo_complemento').order_by('serie')
-    
-    # Estadísticas
-    from django.db.models import Avg
-    
+        estado__in=['NUEVA', 'EN_USO']
+    ).select_related('tipo_complemento').order_by(
+        'tipo_complemento__categoria',
+        'tipo_complemento__calibre',
+        'tipo_complemento__altura',
+        'tipo_complemento__serie_bit',
+        'tipo_complemento__marca',
+        'serie'
+    )
+
+    if filtro_tipo:
+        qs_base = qs_base.filter(tipo_complemento__categoria=filtro_tipo)
+    if filtro_estado:
+        qs_base = qs_base.filter(estado=filtro_estado)
+    if filtro_marca:
+        qs_base = qs_base.filter(tipo_complemento__marca__icontains=filtro_marca)
+
+    # Agrupar por tipo de producto
+    TIPOS = [
+        ('BROCA', 'Brocas Diamantadas', 'fas fa-circle-notch', '#28a745'),
+        ('ZAPATA', 'Zapatas', 'fas fa-shoe-prints', '#007bff'),
+        ('REAMING_SHELL', 'Reaming Shells', 'fas fa-ring', '#fd7e14'),
+        ('CORE_LIFTER', 'Core Lifters', 'fas fa-compress-arrows-alt', '#6f42c1'),
+    ]
+
+    productos_por_tipo = []
+    for tipo_key, tipo_label, icono, color in TIPOS:
+        items = qs_base.filter(tipo_complemento__categoria=tipo_key)
+        if not filtro_tipo or filtro_tipo == tipo_key:
+            productos_por_tipo.append({
+                'tipo_key': tipo_key,
+                'tipo_label': tipo_label,
+                'icono': icono,
+                'color': color,
+                'items': items,
+                'total': items.count(),
+                'nuevas': items.filter(estado='NUEVA').count(),
+                'en_uso': items.filter(estado='EN_USO').count(),
+            })
+
+    # Marcas disponibles para filtro
+    marcas_disponibles = (
+        HistorialBroca.objects
+        .filter(contrato_actual=contrato, estado__in=['NUEVA', 'EN_USO'])
+        .exclude(tipo_complemento__marca='')
+        .values_list('tipo_complemento__marca', flat=True)
+        .distinct()
+        .order_by('tipo_complemento__marca')
+    )
+
+    # Estadísticas generales
     stats = {
-        'total_nuevas': brocas_nuevas.count(),
-        'total_en_uso': brocas_en_uso.count(),
-        'total_disponibles': brocas_nuevas.count() + brocas_en_uso.count(),
-        'metraje_promedio': brocas_en_uso.aggregate(
+        'total_nuevas': qs_base.filter(estado='NUEVA').count(),
+        'total_en_uso': qs_base.filter(estado='EN_USO').count(),
+        'total_disponibles': qs_base.count(),
+        'metraje_promedio': qs_base.filter(estado='EN_USO').aggregate(
             promedio=Avg('metraje_acumulado')
         )['promedio'] or 0,
+        'total_brocas': qs_base.filter(tipo_complemento__categoria='BROCA').count(),
+        'total_zapatas': qs_base.filter(tipo_complemento__categoria='ZAPATA').count(),
+        'total_reaming': qs_base.filter(tipo_complemento__categoria='REAMING_SHELL').count(),
+        'total_core_lifter': qs_base.filter(tipo_complemento__categoria='CORE_LIFTER').count(),
     }
-    
+
     context = {
         'contratos': contratos,
         'contrato': contrato,
-        'brocas_nuevas': brocas_nuevas,
-        'brocas_en_uso': brocas_en_uso,
+        'productos_por_tipo': productos_por_tipo,
         'stats': stats,
+        'marcas_disponibles': marcas_disponibles,
+        'filtro_tipo': filtro_tipo,
+        'filtro_estado': filtro_estado,
+        'filtro_marca': filtro_marca,
+        # Compat backwards
+        'brocas_nuevas': qs_base.filter(tipo_complemento__categoria='BROCA', estado='NUEVA'),
+        'brocas_en_uso': qs_base.filter(tipo_complemento__categoria='BROCA', estado='EN_USO'),
     }
-    
+
     return render(request, 'drilling/abastecimientos/dashboard_brocas.html', context)
 

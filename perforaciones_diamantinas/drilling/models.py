@@ -534,22 +534,157 @@ class UnidadMedida(models.Model):
     def __str__(self):
         return f"{self.nombre} ({self.simbolo})"
 
+def inferir_tipo_desde_descripcion(descripcion):
+    """
+    Infiere la categoria, marca, calibre, altura y serie_bit de un producto diamantado
+    a partir de su descripcion textual.
+
+    Returns:
+        (categoria, marca, calibre, altura, serie_bit) - tupla de 5 strings
+    """
+    import re
+
+    if not descripcion:
+        return 'BROCA', '', '', '', ''
+
+    desc = descripcion.upper()
+
+    # --- Categoria ---
+    if 'ZAPATA' in desc or 'CASING SHOE' in desc or 'ROD SHOE' in desc or ' SHOE' in desc:
+        categoria = 'ZAPATA'
+    elif 'REAMING' in desc or 'REAMER' in desc or 'RIMADOR' in desc:
+        categoria = 'REAMING_SHELL'
+    elif 'CORE LIFTER' in desc or 'CORE-LIFTER' in desc or 'CATCHER' in desc:
+        categoria = 'CORE_LIFTER'
+    else:
+        categoria = 'BROCA'
+
+    # --- Calibre / Linea (de más específico a menos) ---
+    calibre = ''
+    # 1) Wireline con prefijo completo (PWL, HWL, BWL, NWL, AWL, HWT, BWT, NWT)
+    for lw in ['PWL', 'HWL', 'BWL', 'NWL', 'AWL', 'HWT', 'BWT', 'NWT']:
+        if re.search(r'\b' + lw + r'\b', desc):
+            calibre = lw
+            break
+    if not calibre:
+        # 2) Standard triple (PQ3, HQ3, NQ3, BQ3)
+        for c in ['PQ3', 'HQ3', 'NQ3', 'BQ3']:
+            if re.search(r'\b' + c + r'\b', desc):
+                calibre = c
+                break
+    if not calibre:
+        # 3) Standard (PQ, HQ, NQ, BQ, AQ)
+        for c in ['PQ', 'HQ', 'NQ', 'BQ', 'AQ']:
+            if re.search(r'\b' + c + r'\b', desc):
+                calibre = c
+                break
+
+    # --- Marca (en orden de especificidad) ---
+    marca = ''
+    if 'HARDCORE' in desc:
+        # HARDCORE es una línea de Boart Longyear
+        marca = 'Boart Longyear'
+    elif 'BOART LONGYEAR' in desc:
+        marca = 'Boart Longyear'
+    elif 'BOYLES BROS' in desc or re.search(r'BOYLES\s+B[^A-Z]', desc):
+        marca = 'Boyles Bros'
+    elif 'BOYLES' in desc:
+        marca = 'Boyles Bros'
+    elif 'BOART' in desc:
+        marca = 'Boart Longyear'
+    elif 'LONGYEAR' in desc:
+        marca = 'Boart Longyear'
+    elif 'DIAMANTEC' in desc:
+        marca = 'Diamantec'
+    elif 'ATLAS COPCO' in desc:
+        marca = 'Atlas Copco'
+    elif 'EPIROC' in desc:
+        marca = 'Epiroc'
+    elif 'FORDIA' in desc:
+        marca = 'Fordia'
+    elif 'SANDVIK' in desc:
+        marca = 'Sandvik'
+
+    # --- Altura (en mm) ---
+    altura = ''
+    m_alts = re.findall(r'\b(\d+)MM\b', desc)
+    for alt in m_alts:
+        val = int(alt)
+        if 6 <= val <= 30:  # Alturas de diamantes: 6-25mm típicamente
+            altura = alt + 'mm'
+            break
+
+    # --- Serie de bit (grado/calidad) ---
+    serie_bit = ''
+    # NG series: NG-11A, NG-11, NG-9A, NG-9 (más específico primero)
+    m_ng = re.search(r'\bNG-(\d+[A-Z]?)\b', desc)
+    if m_ng:
+        serie_bit = 'NG-' + m_ng.group(1)
+    else:
+        # UP series: UP 7-10, UP 10-13
+        m_up = re.search(r'\bUP\s+(\d+-\d+)', desc)
+        if m_up:
+            serie_bit = 'UP ' + m_up.group(1)
+        else:
+            # X series: X10, X9, X8, X6, X4, X2 (mayor primero)
+            m_x = re.search(r'\bX(1\d|\d)\b', desc)
+            if m_x:
+                serie_bit = 'X' + m_x.group(1)
+
+    return categoria, marca, calibre, altura, serie_bit
+
+
 class TipoComplemento(models.Model):
     CATEGORIA_CHOICES = [
-        ('BROCA', 'Broca'),
+        ('BROCA', 'Broca Diamantada'),
         ('REAMING_SHELL', 'Reaming Shell'),
         ('ZAPATA', 'Zapata'),
         ('CORE_LIFTER', 'Core Lifter'),
     ]
-    
+
     ESTADO_CHOICES = [
         ('NUEVO', 'Nuevo'),
         ('EN_USO', 'En Uso'),
         ('DESCARTADO', 'Descartado'),
     ]
-    
-    nombre = models.CharField(max_length=100)
-    categoria = models.CharField(max_length=20, choices=CATEGORIA_CHOICES, blank=True, null=True)
+
+    nombre = models.CharField(max_length=100, verbose_name='Nombre')
+    categoria = models.CharField(
+        max_length=20,
+        choices=CATEGORIA_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name='Tipo de Producto',
+        help_text='Broca Diamantada, Zapata, Reaming Shell o Core Lifter'
+    )
+    marca = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name='Marca',
+        help_text='Fabricante del producto (ej: Boart Longyear, Fordia)'
+    )
+    calibre = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        verbose_name='Calibre / Línea',
+        help_text='Línea estándar del producto (HQ, NQ, BQ, PQ, HWL, NWL, etc.)'
+    )
+    altura = models.CharField(
+        max_length=10,
+        blank=True,
+        default='',
+        verbose_name='Altura',
+        help_text='Altura de diamantes en mm (ej: 12mm, 16mm, 20mm)'
+    )
+    serie_bit = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        verbose_name='Serie de Bit',
+        help_text='Grado/serie del bit (ej: X8, X10, NG-9, UP 7-10)'
+    )
     descripcion = models.TextField(blank=True, null=True)
     # Campos de sincronización con API
     codigo = models.CharField(max_length=100, blank=True, null=True, help_text='Código del producto desde API Vilbragroup')
@@ -567,12 +702,23 @@ class TipoComplemento(models.Model):
             models.Index(fields=['estado']),
             models.Index(fields=['contrato']),
             models.Index(fields=['contrato', 'estado']),
+            models.Index(fields=['categoria']),
+            models.Index(fields=['contrato', 'categoria']),
         ]
 
     def __str__(self):
+        partes = [self.nombre]
+        if self.calibre:
+            partes.append(self.calibre)
+        if self.marca:
+            partes.append(self.marca)
         if self.serie:
-            return f"{self.nombre} (Serie: {self.serie})"
-        return self.nombre
+            partes.append(f'S/N:{self.serie}')
+        return ' | '.join(partes)
+
+    def tipo_display(self):
+        """Retorna la etiqueta legible del tipo de producto"""
+        return dict(self.CATEGORIA_CHOICES).get(self.categoria, 'Producto Diamantado')
 
 class TipoAditivo(models.Model):
     CATEGORIA_CHOICES = [
@@ -2747,15 +2893,53 @@ class AbastecimientoArticulo(models.Model):
         from django.utils import timezone
         
         try:
-            # Buscar o crear el tipo de complemento basado en la descripción
-            # Usar filter().first() para evitar error si existen duplicados
-            tipo_complemento = TipoComplemento.objects.filter(nombre=self.descripcion[:100]).first()
+            # Inferir tipo, marca y calibre desde la descripción del producto
+            categoria_inf, marca_inf, calibre_inf, altura_inf, serie_bit_inf = inferir_tipo_desde_descripcion(
+                self.descripcion or ''
+            )
+
+            # Buscar por serie primero (más preciso), luego por nombre
+            tipo_complemento = None
+            if self.serie:
+                tipo_complemento = TipoComplemento.objects.filter(serie=self.serie).first()
+            if not tipo_complemento:
+                tipo_complemento = TipoComplemento.objects.filter(
+                    nombre=self.descripcion[:200]
+                ).first()
+
             if not tipo_complemento:
                 tipo_complemento = TipoComplemento.objects.create(
-                    nombre=self.descripcion[:100],
-                    categoria='BROCA',
-                    descripcion=self.descripcion
+                    nombre=self.descripcion[:200],
+                    categoria=categoria_inf,
+                    marca=marca_inf,
+                    calibre=calibre_inf,
+                    altura=altura_inf,
+                    serie_bit=serie_bit_inf,
+                    descripcion=self.descripcion,
+                    serie=self.serie if self.serie else None,
+                    codigo=self.codigo or None,
+                    contrato=self.contrato,
                 )
+            else:
+                # Actualizar campos si estaban vacíos
+                update_fields = []
+                if not tipo_complemento.categoria:
+                    tipo_complemento.categoria = categoria_inf
+                    update_fields.append('categoria')
+                if not tipo_complemento.marca and marca_inf:
+                    tipo_complemento.marca = marca_inf
+                    update_fields.append('marca')
+                if not tipo_complemento.calibre and calibre_inf:
+                    tipo_complemento.calibre = calibre_inf
+                    update_fields.append('calibre')
+                if not tipo_complemento.altura and altura_inf:
+                    tipo_complemento.altura = altura_inf
+                    update_fields.append('altura')
+                if not tipo_complemento.serie_bit and serie_bit_inf:
+                    tipo_complemento.serie_bit = serie_bit_inf
+                    update_fields.append('serie_bit')
+                if update_fields:
+                    tipo_complemento.save(update_fields=update_fields)
             
             # Buscar o crear el historial de broca
             historial, created = HistorialBroca.objects.get_or_create(
