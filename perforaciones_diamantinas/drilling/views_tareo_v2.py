@@ -829,7 +829,7 @@ def tareo_reporte_nomina(request):
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).order_by('apellidos', 'nombres')
+        ).order_by('apepat', 'apemat', 'nombres')
         
         for trabajador in trabajadores:
             asistencias = AsistenciaDiaria.objects.filter(
@@ -910,7 +910,7 @@ def api_exportar_nomina_excel(request, cierre_id):
     trabajadores = Trabajador.objects.filter(
         contrato=cierre.contrato,
         estado='ACTIVO'
-    ).order_by('apellidos', 'nombres')
+    ).order_by('apepat', 'apemat', 'nombres')
     
     row_num = 2
     for trabajador in trabajadores:

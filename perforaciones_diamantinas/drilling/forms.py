@@ -358,7 +358,7 @@ class AsignacionEquipoForm(forms.ModelForm):
                 self.fields['trabajador'].queryset = Trabajador.objects.filter(
                     contrato=user.contrato,
                     estado='ACTIVO'
-                ).select_related('cargo').order_by('apellidos', 'nombres')
+                ).select_related('cargo').order_by('apepat', 'apemat', 'nombres')
                 
                 # Filtrar equipos disponibles del contrato
                 self.fields['equipo'].queryset = Equipo.objects.filter(

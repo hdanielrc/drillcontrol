@@ -698,7 +698,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     trabajadores = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
-    ).order_by('grupo', 'apellidos', 'nombres')
+    ).order_by('grupo', 'apepat', 'apemat', 'nombres')
     
     # Obtener asistencias
     asistencias = AsistenciaTrabajador.objects.filter(
@@ -1234,9 +1234,9 @@ def debug_trabajadores(request):
         
     contrato_id = request.GET.get('contrato')
     if contrato_id:
-        trabajadores = Trabajador.objects.filter(contrato_id=contrato_id).select_related('contrato').order_by('grupo', 'apellidos')
+        trabajadores = Trabajador.objects.filter(contrato_id=contrato_id).select_related('contrato').order_by('grupo', 'apepat', 'apemat')
     else:
-        trabajadores = Trabajador.objects.all().select_related('contrato').order_by('contrato', 'grupo', 'apellidos')
+        trabajadores = Trabajador.objects.all().select_related('contrato').order_by('contrato', 'grupo', 'apepat', 'apemat')
         
     html = """
     <html>
