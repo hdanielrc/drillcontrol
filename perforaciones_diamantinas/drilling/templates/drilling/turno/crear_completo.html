@@ -3749,6 +3749,45 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.innerHTML = btnText;
         });
     });
+
+    // ============================================
+    // AUTO-RELLENAR HORÓMETRO INICIO SEGÚN MÁQUINA
+    // ============================================
+    const maquinaSelect = document.getElementById('maquina');
+    if (maquinaSelect) {
+        function cargarUltimoHorometro(maquinaId) {
+            if (!maquinaId) return;
+            const hIniEl = document.getElementById('hora_inicio_maq');
+            // Solo rellenar si el campo está vacío (no sobreescribir entrada manual)
+            if (!hIniEl || hIniEl.value.trim() !== '') return;
+            fetch('/api/maquina/' + maquinaId + '/ultimo-horometro/')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.ultimo_horometro !== null) {
+                        // Volver a verificar por si el usuario escribió algo mientras esperaba
+                        if (hIniEl.value.trim() === '') {
+                            hIniEl.value = data.ultimo_horometro;
+                            // Mostrar indicador visual
+                            hIniEl.classList.add('border-success');
+                            hIniEl.title = 'Último horómetro registrado para ' + (data.maquina_nombre || 'esta máquina');
+                            setTimeout(() => { hIniEl.classList.remove('border-success'); }, 3000);
+                        }
+                    }
+                })
+                .catch(err => console.warn('No se pudo obtener el último horómetro:', err));
+        }
+
+        maquinaSelect.addEventListener('change', function() {
+            cargarUltimoHorometro(this.value);
+        });
+
+        // Si ya hay una máquina seleccionada al cargar (modo nuevo con default) y el campo está vacío
+        {% if not edit_mode %}
+        if (maquinaSelect.value) {
+            cargarUltimoHorometro(maquinaSelect.value);
+        }
+        {% endif %}
+    }
 });
 </script>
 {% endblock %}

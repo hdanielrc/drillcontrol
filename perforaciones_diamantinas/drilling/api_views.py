@@ -543,3 +543,42 @@ def api_ultima_broca_sondaje(request, sondaje_id):
     except Exception as e:
         logger.error(f"Error obteniendo última broca del sondaje {sondaje_id}: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_ultimo_horometro_maquina(request, maquina_id):
+    """
+    Retorna el último horómetro registrado para una máquina.
+    Primero busca en TurnoMaquina el último horometro_fin con fecha más reciente;
+    si no existe, devuelve el campo horometro del modelo Maquina.
+    """
+    from .models import Maquina, TurnoMaquina
+    try:
+        maquina = Maquina.objects.get(pk=maquina_id)
+        # Buscar el último TurnoMaquina con horometro_fin registrado
+        ultimo_tm = (
+            TurnoMaquina.objects
+            .filter(maquina=maquina, horometro_fin__isnull=False)
+            .select_related('turno')
+            .order_by('-turno__fecha', '-id')
+            .first()
+        )
+        if ultimo_tm is not None:
+            ultimo_horometro = float(ultimo_tm.horometro_fin)
+        elif maquina.horometro:
+            ultimo_horometro = float(maquina.horometro)
+        else:
+            ultimo_horometro = None
+
+        return JsonResponse({
+            'success': True,
+            'maquina_id': maquina_id,
+            'maquina_nombre': maquina.nombre,
+            'ultimo_horometro': ultimo_horometro,
+        })
+    except Maquina.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Máquina no encontrada'}, status=404)
+    except Exception as e:
+        logger.error(f"Error obteniendo último horómetro de la máquina {maquina_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -202,6 +202,7 @@ urlpatterns = [
     path('api/sondaje/<int:sondaje_id>/estado/', api_views.api_sondaje_estado, name='api-sondaje-estado'),
     path('api/sondaje/<int:sondaje_id>/ultima-broca/', api_views.api_ultima_broca_sondaje, name='api-ultima-broca-sondaje'),
     path('api/sondaje/crear-rapido/', api_views.api_crear_sondaje_rapido, name='api-crear-sondaje-rapido'),
+    path('api/maquina/<int:maquina_id>/ultimo-horometro/', api_views.api_ultimo_horometro_maquina, name='api-ultimo-horometro-maquina'),
     
     # APIs Tareo - Grupos y Trabajadores
     path('api/tareo/grupos-disponibles/', api_views.api_grupos_disponibles_por_fecha, name='api-grupos-disponibles'),
