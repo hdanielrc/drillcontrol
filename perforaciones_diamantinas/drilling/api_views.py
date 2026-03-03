@@ -531,7 +531,8 @@ def api_ultima_broca_sondaje(request, sondaje_id):
                 'serie': comp.codigo_serie or '',
                 'tipo_complemento_id': comp.tipo_complemento_id,
                 'nombre': comp.tipo_complemento.nombre,
-                'categoria': comp.tipo_complemento.categoria,
+                'categoria': comp.tipo_complemento.categoria or 'BROCA',
+                'calibre': comp.tipo_complemento.calibre or '',
                 'metros_fin': float(comp.metros_fin) if comp.metros_fin is not None else None,
             }
 

@@ -2518,11 +2518,15 @@ def get_context_data(request):
         'brocas_disponibles': HistorialBroca.objects.filter(
             contrato_actual=contract,
             estado__in=['NUEVA', 'EN_USO']
-        ).select_related('tipo_complemento').only('id', 'serie', 'estado', 'tipo_complemento__id', 'tipo_complemento__nombre', 'tipo_complemento__descripcion', 'tipo_complemento__categoria'),
+        ).select_related('tipo_complemento').only(
+            'id', 'serie', 'estado',
+            'tipo_complemento__id', 'tipo_complemento__nombre', 'tipo_complemento__descripcion',
+            'tipo_complemento__categoria', 'tipo_complemento__calibre',
+        ),
         'tipos_complemento': TipoComplemento.objects.filter(
             contrato=contract,
             estado__in=['NUEVO', 'EN_USO']
-        ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato', 'descripcion', 'categoria'),
+        ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato', 'descripcion', 'categoria', 'calibre'),
         'tipos_aditivo': _get_tipos_aditivo_desde_abastecimiento(contract),
         'unidades_medida': unidades_data,
         'today': timezone.now().date(),

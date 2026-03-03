@@ -1395,7 +1395,8 @@ document.addEventListener('DOMContentLoaded', function() {
             serie: '{{ broca.serie }}',
             nombre: '{{ broca.tipo_complemento.nombre|escapejs }}',
             descripcion: '{{ broca.tipo_complemento.descripcion|default:""|escapejs }}',
-            categoria: '{{ broca.tipo_complemento.categoria|default:"BROCA" }}'
+            categoria: '{{ broca.tipo_complemento.categoria|default:"BROCA" }}',
+            calibre: '{{ broca.tipo_complemento.calibre|default:""|escapejs }}'
         },
         {% endfor %}
         
@@ -1408,12 +1409,27 @@ document.addEventListener('DOMContentLoaded', function() {
             serie: '', // Sin serie específica
             nombre: '{{ complemento.nombre|escapejs }}',
             descripcion: '{{ complemento.descripcion|default:""|escapejs }}',
-            categoria: '{{ complemento.categoria|default:"" }}'
+            categoria: '{{ complemento.categoria|default:"" }}',
+            calibre: '{{ complemento.calibre|default:""|escapejs }}'
         },
         {% endif %}
         {% endfor %}
     ];
-    
+
+    // Helper: construir badges de tipo y línea para productos diamantados
+    function buildTipoBadge(categoria, calibre) {
+        const catMap = {
+            'BROCA':         { text: 'Broca',         cls: 'bg-primary' },
+            'REAMING_SHELL': { text: 'Reaming Shell',  cls: 'bg-warning text-dark' },
+            'CORE_LIFTER':   { text: 'Core Lifter',    cls: 'bg-success' },
+            'ZAPATA':        { text: 'Zapata',          cls: 'bg-secondary' },
+        };
+        const cat = catMap[categoria] || (categoria ? { text: categoria, cls: 'bg-secondary' } : null);
+        const tipoBadge  = cat ? `<span class="badge ${cat.cls}" style="font-size:0.7rem;">${cat.text}</span>` : '';
+        const lineaBadge = calibre ? `<span class="badge bg-info text-dark ms-1" style="font-size:0.7rem;">${calibre}</span>` : '';
+        return tipoBadge + lineaBadge;
+    }
+
     // Buscar producto por serie cuando se ingresa
     document.getElementById('complementos-seccion').addEventListener('input', function(event) {
         if (event.target.classList.contains('input-serie')) {
@@ -1434,6 +1450,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 row.setAttribute('data-categoria', productoEncontrado.categoria || '');
                 event.target.classList.remove('is-invalid');
                 event.target.classList.add('is-valid');
+                // Actualizar badges de tipo y línea
+                const tipoInfo = row.querySelector('.comp-tipo-info');
+                if (tipoInfo) tipoInfo.innerHTML = buildTipoBadge(productoEncontrado.categoria, productoEncontrado.calibre);
                 
                 // Recalcular metraje del sondaje después de establecer la categoría
                 const subsection = row.closest('.complemento-subsection');
@@ -1649,7 +1668,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function ensureSondajeSubsections(){
+    function ensureSondajeSubsections(skipPrefillar){
         // Crear subsecciones en complementos y aditivos por cada sondaje seleccionado
         const sondajeRows = Array.from(document.querySelectorAll('.sondaje-row'));
         const complementosCont = document.getElementById('complementos-seccion');
@@ -1708,8 +1727,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>`;
                 complementosCont.appendChild(div);
-                // Auto-rellenar broca/rimador del historial si existen
-                prefillarUltimaBroca(s.id, div);
+                // Auto-rellenar broca/rimador del historial si existen (solo en modo crear)
+                if (!skipPrefillar) prefillarUltimaBroca(s.id, div);
             }
             if (!existingAdit[s.id]){
                 const div2 = document.createElement('div');
@@ -1775,7 +1794,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (existingComp[s.id]){
                 try{
                     const header = existingComp[s.id].querySelector('strong');
-                    if (header) header.textContent = 'Productos Diamantados para: ' + s.text;
+                    if (header) header.textContent = s.text; // solo nombre del sondaje
                 }catch(e){ }
             }
             if (existingAdit[s.id]){
@@ -1822,6 +1841,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (metrosInicioInput && item.metros_fin !== null && item.metros_fin !== undefined)
                         metrosInicioInput.value = item.metros_fin;
                     row.setAttribute('data-categoria', item.categoria || 'BROCA');
+                    // Mostrar badge de tipo y línea desde productosData
+                    const pData = productosData.find(p => p.serie && p.serie.toLowerCase() === (item.serie || '').toLowerCase());
+                    const tipoInfoPre = row.querySelector('.comp-tipo-info');
+                    if (tipoInfoPre) tipoInfoPre.innerHTML = buildTipoBadge(item.categoria || 'BROCA', pData ? pData.calibre : '');
 
                     seriesAdded.push(item.serie || item.nombre);
                 });
@@ -1936,6 +1959,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="col-md-3">
                     <label class="form-label fw-semibold"><i class="fas fa-tag text-muted"></i> Descripción</label>
                     <input type="text" name="descripcion_${idx}" class="form-control descripcion-complemento" placeholder="Auto-detectado" readonly>
+                    <div class="comp-tipo-info mt-1" style="min-height:20px;"></div>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-semibold">Metros Inicio</label>
@@ -2369,8 +2393,8 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(function() {
                 // Prefill complementos agrupados por sondaje
                 if (Array.isArray(editData.complementos) && editData.complementos.length > 0) {
-                    // Ensure sondaje subsections exist
-                    ensureSondajeSubsections();
+                    // Ensure sondaje subsections exist — skip prefillar (datos vienen de editData)
+                    ensureSondajeSubsections(true);
                     editData.complementos.forEach(function(c) {
                     var sid = c.sondaje_id || (editData.sondaje_ids && editData.sondaje_ids[0]) || null;
                     if (!sid) return;
@@ -2436,7 +2460,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Prefill aditivos grouped by sondaje
             if (Array.isArray(editData.aditivos) && editData.aditivos.length > 0) {
-                ensureSondajeSubsections();
+                ensureSondajeSubsections(true);
                 editData.aditivos.forEach(function(a) {
                     var sid = a.sondaje_id || (editData.sondaje_ids && editData.sondaje_ids[0]) || null;
                     if (!sid) return;
