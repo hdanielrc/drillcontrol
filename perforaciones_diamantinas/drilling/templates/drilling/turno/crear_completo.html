@@ -1571,8 +1571,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const aditivoCount = document.querySelectorAll('.aditivo-row').length;
         return `
         <div class="aditivo-row border rounded p-3 mb-3 bg-light">
-            <div class="row">
-                <div class="col-md-4">
+            <div class="row align-items-end">
+                <div class="col-md-7">
                     <label class="form-label">Tipo de Aditivo</label>
                     <select name="tipo_aditivo_${aditivoCount}" class="form-select" required>
                         <option value="">Seleccionar aditivo</option>
@@ -1583,18 +1583,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Cantidad Usada</label>
-                    <input type="number" step="0.01" name="cantidad_usada_${aditivoCount}" class="form-control" min="0" required>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Unidad de Medida</label>
-                    <select name="unidad_medida_${aditivoCount}" class="form-select" required>
-                        <option value="">Seleccionar unidad</option>
-                        {% for unidad in unidades_medida %}
-                        <option value="{{ unidad.id }}">{{ unidad.simbolo }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="col-md-4">
+                    <label class="form-label">Cantidad (KG)</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" name="cantidad_usada_${aditivoCount}" class="form-control" min="0" required placeholder="0.00">
+                        <span class="input-group-text fw-bold text-success bg-light" title="Kilogramos">KG</span>
+                    </div>
+                    <input type="hidden" name="unidad_medida_${aditivoCount}" value="{{ unidad_kg_id|default:'' }}">
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
                     <button type="button" class="btn btn-danger btn-sm btn-remove-aditivo">
@@ -1988,7 +1983,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="aditivo-row item-row-sub">
             <input type="hidden" name="ad_sondaje_id_${idx}" value="${sondajeId}" class="ad-sondaje-id">
             <div class="row align-items-end">
-                <div class="col-md-5">
+                <div class="col-md-6">
                     <label class="form-label fw-semibold"><i class="fas fa-flask text-muted"></i> Tipo de Aditivo</label>
                     <select name="tipo_aditivo_${idx}" class="form-select">
                         <option value="">Seleccionar aditivo</option>
@@ -2000,19 +1995,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold">Cantidad Usada</label>
-                    <input type="number" step="0.01" name="cantidad_usada_${idx}" class="form-control" min="0" placeholder="0.00">
+                    <label class="form-label fw-semibold">Cantidad (KG)</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" name="cantidad_usada_${idx}" class="form-control" min="0" placeholder="0.00">
+                        <span class="input-group-text fw-bold text-success bg-light" title="Kilogramos">KG</span>
+                    </div>
+                    <input type="hidden" name="unidad_medida_${idx}" value="{{ unidad_kg_id|default:'' }}">
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Unidad</label>
-                    <select name="unidad_medida_${idx}" class="form-select">
-                        <option value="">Seleccionar unidad</option>
-                        {% for unidad in unidades_medida %}
-                        <option value="{{ unidad.id }}">{{ unidad.nombre }} ({{ unidad.simbolo }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-1 d-flex align-items-end justify-content-center">
+                <div class="col-md-3 d-flex align-items-end justify-content-between">
+                    <div></div>
                     <button type="button" class="btn btn-remove btn-remove-aditivo" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -3553,10 +3544,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.aditivo-row').forEach(row => {
             const tipoAditivoId = row.querySelector('select[name*="tipo_aditivo_"]').value;
             const cantidadUsada = row.querySelector('input[name*="cantidad_"]').value;
-            const unidadMedidaId = row.querySelector('select[name*="unidad_medida_"]').value;
+            // Unidad siempre KG: leer hidden input (ya no hay select)
+            const unidadEl = row.querySelector('input[name*="unidad_medida_"]') || row.querySelector('select[name*="unidad_medida_"]');
+            const unidadMedidaId = unidadEl ? unidadEl.value : '{{ unidad_kg_id|default:"" }}';
             const sondajeId = row.closest('.aditivo-subsection')?.dataset?.sondajeId || null;
             
-            if (tipoAditivoId && cantidadUsada && unidadMedidaId) {
+            if (tipoAditivoId && cantidadUsada) {
                 aditivos.push({
                     tipo_aditivo_id: tipoAditivoId,
                     cantidad_usada: cantidadUsada,

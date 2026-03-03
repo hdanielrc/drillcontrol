@@ -1672,14 +1672,19 @@ def crear_turno_completo(request, pk=None):
                     aditivos_raw = json.loads(aditivos_data)
                     for a in aditivos_raw:
                         try:
+                            # Unidad siempre KG — buscar o crear si no viene en payload
+                            _kg_id = int(a['unidad_medida_id']) if a.get('unidad_medida_id') else None
+                            if not _kg_id:
+                                _kg_id = (UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first() or
+                                          UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first())
                             aditivos_parsed.append({
                                 'tipo_aditivo_id': int(a['tipo_aditivo_id']),
                                 'cantidad_usada': float(a['cantidad_usada']),
-                                'unidad_medida_id': int(a['unidad_medida_id']),
+                                'unidad_medida_id': int(_kg_id),
                                 'sondaje_id': int(a.get('sondaje_id')) if a.get('sondaje_id') else None,
                             })
                         except (KeyError, ValueError):
-                            messages.warning(request, 'Aditivo con datos invÃ¡lidos serÃ¡ omitido')
+                            messages.warning(request, 'Aditivo con datos inválidos será omitido')
                 except json.JSONDecodeError as e:
                     messages.error(request, f'JSON invÃ¡lido en aditivos: {e}')
                     return redirect('crear-turno-completo')
@@ -2529,6 +2534,8 @@ def get_context_data(request):
         ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato', 'descripcion', 'categoria', 'calibre'),
         'tipos_aditivo': _get_tipos_aditivo_desde_abastecimiento(contract),
         'unidades_medida': unidades_data,
+        'unidad_kg_id': (UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first() or
+                         UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first()),
         'today': timezone.now().date(),
     }
 
