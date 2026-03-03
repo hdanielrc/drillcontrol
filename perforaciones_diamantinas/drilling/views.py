@@ -1925,16 +1925,8 @@ def crear_turno_completo(request, pk=None):
 
                 # Crear TurnoMaquina si corresponde
                 if hora_inicio_maq_parsed or hora_fin_maq_parsed or horometro_inicio_val is not None or horometro_fin_val is not None or request.POST.get('estado_bomba'):
-                    # Si estamos editando (pk) y existÃ­a un TurnoMaquina previo, restar sus horas del horometro
-                    if pk:
-                        prev_tm = TurnoMaquina.objects.filter(turno=turno).first()
-                        if prev_tm and prev_tm.horas_trabajadas_calc:
-                            try:
-                                maquina.horometro = maquina.horometro - prev_tm.horas_trabajadas_calc
-                                maquina.save(update_fields=['horometro'])
-                            except Exception:
-                                # No bloquear el flujo si falla la resta
-                                pass
+                    # Al editar: el TurnoMaquina anterior ya fue eliminado arriba (TurnoMaquina.objects.filter(turno=turno).delete())
+                    # No necesitamos restar nada; maquina.horometro se actualizará con el nuevo horometro_fin al final.
 
                     tm = TurnoMaquina.objects.create(
                         turno=turno,
@@ -1948,25 +1940,27 @@ def crear_turno_completo(request, pk=None):
                         comentarios_mantenimiento=request.POST.get('comentarios_mantenimiento', '')
                     )
 
-                    # Después de crear TurnoMaquina, su save() habrá calculado horas_trabajadas_calc.
-                    # Sumar ese valor al horÃ³metro de la mÃ¡quina asociada.
+                    # Después de crear TurnoMaquina, actualizar Maquina.horometro
+                    # con el último valor de horómetro_fin (lectura absoluta del contador).
+                    # Si no hay horometro_fin, acumular horas_trabajadas_calc como antes.
                     try:
-                        if tm.horas_trabajadas_calc and tm.horas_trabajadas_calc > 0:
-                            # usar Decimal para mantener precisiÃ³n
-                            incremento = Decimal(str(tm.horas_trabajadas_calc))
-                            # Actualizar horÃ³metro en un savepoint para evitar marcar la transacciÃ³n si falla
-                            try:
-                                with transaction.atomic():
-                                    horometro_anterior = maquina.horometro or Decimal('0')
-                                    maquina.horometro = horometro_anterior + incremento
+                        try:
+                            with transaction.atomic():
+                                if horometro_fin_val is not None:
+                                    # Guardar la lectura absoluta del horómetro
+                                    maquina.horometro = horometro_fin_val
                                     maquina.save(update_fields=['horometro'])
                                     messages.info(
                                         request,
-                                        f'HorÃ³metro de la mÃ¡quina actualizado: {horometro_anterior} + {incremento} = {maquina.horometro} horas'
+                                        f'Horómetro de la máquina actualizado a: {horometro_fin_val}'
                                     )
-                            except Exception as e:
-                                # Log del error para debugging
-                                messages.warning(request, f'Error al actualizar horÃ³metro: {str(e)}')
+                                elif tm.horas_trabajadas_calc and tm.horas_trabajadas_calc > 0:
+                                    incremento = Decimal(str(tm.horas_trabajadas_calc))
+                                    horometro_anterior = maquina.horometro or Decimal('0')
+                                    maquina.horometro = horometro_anterior + incremento
+                                    maquina.save(update_fields=['horometro'])
+                        except Exception as e:
+                            messages.warning(request, f'Error al actualizar horómetro: {str(e)}')
                     except Exception as e:
                         # Log del error para debugging
                         messages.warning(request, f'Error al calcular incremento de horÃ³metro: {str(e)}')

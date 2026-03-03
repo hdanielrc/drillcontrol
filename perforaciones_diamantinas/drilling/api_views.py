@@ -557,11 +557,12 @@ def api_ultimo_horometro_maquina(request, maquina_id):
     try:
         maquina = Maquina.objects.get(pk=maquina_id)
         # Buscar el último TurnoMaquina con horometro_fin registrado
+        # TurnoMaquina no tiene FK directa a Maquina; se accede via turno__maquina
         ultimo_tm = (
             TurnoMaquina.objects
-            .filter(maquina=maquina, horometro_fin__isnull=False)
+            .filter(turno__maquina=maquina, horometro_fin__isnull=False)
             .select_related('turno')
-            .order_by('-turno__fecha', '-id')
+            .order_by('-turno__fecha', '-turno__tipo_turno__nombre', '-id')
             .first()
         )
         if ultimo_tm is not None:
