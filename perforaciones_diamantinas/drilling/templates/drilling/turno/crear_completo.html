@@ -908,7 +908,6 @@
                 <div class="col-md-2">
                     <label for="hora_inicio_maq" class="form-label fw-bold mb-1">Horómetro Inicio</label>
                     <input type="number" id="hora_inicio_maq" name="hora_inicio_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1200">
-                    <small class="text-muted" style="font-size:0.72rem;">Auto-completado desde historial</small>
                 </div>
                 <div class="col-md-2">
                     <label for="hora_fin_maq" class="form-label fw-bold mb-1">Horómetro Fin</label>
@@ -917,7 +916,6 @@
                 <div class="col-md-2">
                     <label class="form-label fw-bold mb-1 text-info"><i class="fas fa-calculator me-1"></i>Horas Turno</label>
                     <div id="horas-turno-calc" class="form-control text-center fw-bold text-info" style="background:#e7f5ff;border-color:#bee3f8;min-height:38px;display:flex;align-items:center;justify-content:center;">—</div>
-                    <small class="text-muted" style="font-size:0.72rem;">Calculado automático</small>
                 </div>
                 <div class="col-md-2">
                     <label for="estado_bomba" class="form-label fw-bold mb-1">Estado Bomba</label>
@@ -946,7 +944,7 @@
             </div>
             <div class="row mt-1">
                 <div class="col-12">
-                    <small class="text-muted"><i class="fas fa-info-circle"></i> Ingrese la lectura numérica del horómetro (ej: 1200). Las horas del turno se calculan como Fin − Inicio.</small>
+                    <small class="text-muted"><i class="fas fa-info-circle"></i> Ingrese la lectura numérica del horómetro (ej: 1200). Las horas del turno se calculan como Fin − Inicio. <span class="text-primary">Horómetro Inicio se completa automáticamente desde el historial.</span></small>
                 </div>
             </div>
             <div class="row mt-3">
@@ -2611,11 +2609,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         return `
         <div class="actividad-row border rounded p-3 mb-3 bg-light">
-            <div class="row">
+            <div class="row align-items-end">
                 <div class="col-md-3">
                     <label class="form-label">Actividad</label>
                     <div class="actividad-search-wrapper" style="position:relative">
-                        <input type="text" class="form-control form-control-sm actividad-search-input mb-1"
+                        <input type="text" class="form-control actividad-search-input"
                                placeholder="&#128269; Buscar actividad..." autocomplete="off">
                         <div class="actividad-dropdown list-group"
                              style="position:absolute;z-index:1050;width:100%;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,.15);">
