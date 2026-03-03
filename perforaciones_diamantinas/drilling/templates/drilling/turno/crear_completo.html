@@ -904,53 +904,49 @@
             </h5>
         </div>
         <div class="section-card-body">
-            <div class="row">
+            <div class="row g-2 align-items-end">
                 <div class="col-md-2">
-                    <div class="mb-3">
-                        <label for="hora_inicio_maq" class="form-label fw-bold">Horómetro Inicio</label>
-                        <input type="number" id="hora_inicio_maq" name="hora_inicio_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1200">
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="mb-3">
-                        <label for="hora_fin_maq" class="form-label fw-bold">Horómetro Fin</label>
-                        <input type="number" id="hora_fin_maq" name="hora_fin_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1206">
-                    </div>
+                    <label for="hora_inicio_maq" class="form-label fw-bold mb-1">Horómetro Inicio</label>
+                    <input type="number" id="hora_inicio_maq" name="hora_inicio_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1200">
+                    <small class="text-muted" style="font-size:0.72rem;">Auto-completado desde historial</small>
                 </div>
                 <div class="col-md-2">
-                    <div class="mb-3">
-                        <label for="estado_bomba" class="form-label fw-bold">Estado Bomba</label>
-                        <select id="estado_bomba" name="estado_bomba" class="form-select">
-                            <option value="OPERATIVO">Operativo</option>
-                            <option value="DEFICIENTE">Deficiente</option>
-                            <option value="INOPERATIVO">Inoperativo</option>
-                        </select>
-                    </div>
+                    <label for="hora_fin_maq" class="form-label fw-bold mb-1">Horómetro Fin</label>
+                    <input type="number" id="hora_fin_maq" name="hora_fin_maq" class="form-control" step="0.01" min="0" placeholder="Ej: 1206">
                 </div>
-                <div class="col-md-3">
-                    <div class="mb-3">
-                        <label for="estado_unidad" class="form-label fw-bold">Estado Unidad</label>
-                        <select id="estado_unidad" name="estado_unidad" class="form-select">
-                            <option value="OPERATIVO">Operativo</option>
-                            <option value="DEFICIENTE">Deficiente</option>
-                            <option value="INOPERATIVO">Inoperativo</option>
-                        </select>
-                    </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold mb-1 text-info"><i class="fas fa-calculator me-1"></i>Horas Turno</label>
+                    <div id="horas-turno-calc" class="form-control text-center fw-bold text-info" style="background:#e7f5ff;border-color:#bee3f8;min-height:38px;display:flex;align-items:center;justify-content:center;">—</div>
+                    <small class="text-muted" style="font-size:0.72rem;">Calculado automático</small>
                 </div>
-                <div class="col-md-3">
-                    <div class="mb-3">
-                        <label for="estado_rotacion" class="form-label fw-bold">Estado Rotación</label>
-                        <select id="estado_rotacion" name="estado_rotacion" class="form-select">
-                            <option value="OPERATIVO">Operativo</option>
-                            <option value="DEFICIENTE">Deficiente</option>
-                            <option value="INOPERATIVO">Inoperativo</option>
-                        </select>
-                    </div>
+                <div class="col-md-2">
+                    <label for="estado_bomba" class="form-label fw-bold mb-1">Estado Bomba</label>
+                    <select id="estado_bomba" name="estado_bomba" class="form-select">
+                        <option value="OPERATIVO">Operativo</option>
+                        <option value="DEFICIENTE">Deficiente</option>
+                        <option value="INOPERATIVO">Inoperativo</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="estado_unidad" class="form-label fw-bold mb-1">Estado Unidad</label>
+                    <select id="estado_unidad" name="estado_unidad" class="form-select">
+                        <option value="OPERATIVO">Operativo</option>
+                        <option value="DEFICIENTE">Deficiente</option>
+                        <option value="INOPERATIVO">Inoperativo</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="estado_rotacion" class="form-label fw-bold mb-1">Estado Rotación</label>
+                    <select id="estado_rotacion" name="estado_rotacion" class="form-select">
+                        <option value="OPERATIVO">Operativo</option>
+                        <option value="DEFICIENTE">Deficiente</option>
+                        <option value="INOPERATIVO">Inoperativo</option>
+                    </select>
                 </div>
             </div>
-            <div class="row">
+            <div class="row mt-1">
                 <div class="col-12">
-                    <small class="text-muted"><i class="fas fa-info-circle"></i> Ingrese lecturas de horómetro como número decimal (ej. 100.5 = 100 horas y 30 minutos)</small>
+                    <small class="text-muted"><i class="fas fa-info-circle"></i> Ingrese la lectura numérica del horómetro (ej: 1200). Las horas del turno se calculan como Fin − Inicio.</small>
                 </div>
             </div>
             <div class="row mt-3">
@@ -962,13 +958,8 @@
                     </div>
                 </div>
             </div>
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div id="horas-trabajadas-info" class="alert alert-info d-none">
-                        <i class="fas fa-clock"></i> <span id="horas-trabajadas-text"></span>
-                    </div>
-                </div>
-            </div>
+            <!-- horas-trabajadas-info kept hidden for backward compat with mostrarHorasTrabajadas() -->
+            <div id="horas-trabajadas-info" class="d-none"><span id="horas-trabajadas-text"></span></div>
         </div>
     </div>
 
@@ -1939,7 +1930,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="complemento-row item-row-sub">
             <input type="hidden" name="comp_sondaje_id_${idx}" value="${sondajeId}" class="comp-sondaje-id">
             <div class="row align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label fw-semibold"><i class="fas fa-barcode text-muted"></i> Serie</label>
                     <input type="text" name="serie_${idx}" class="form-control input-serie" list="lista-series-brocas" placeholder="Ingrese o busque serie" autocomplete="off" required>
                     <input type="hidden" name="tipo_complemento_${idx}" class="complemento-id">
@@ -1956,9 +1947,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <label class="form-label fw-semibold">Metros Fin</label>
                     <input type="number" step="0.01" name="metros_fin_${idx}" class="form-control" min="0" placeholder="0.00">
                 </div>
-                <div class="col-md-1">
-                    <label class="form-label fw-semibold">Avance</label>
-                    <input type="number" step="0.01" name="metros_turno_${idx}" class="form-control metros-turno text-center fw-bold" readonly>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold"><i class="fas fa-calculator text-success me-1"></i>Avance (m)</label>
+                    <input type="number" step="0.01" name="metros_turno_${idx}" class="form-control metros-turno text-center fw-bold" style="background:#f0fff0;border-color:#a3d9a5;" readonly>
                 </div>
                 <div class="col-md-1 d-flex align-items-end justify-content-center">
                     <button type="button" class="btn btn-remove btn-remove-complemento" title="Eliminar">
@@ -2646,8 +2637,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="number" step="0.1" class="form-control duracion-actividad-input" placeholder="0.0" min="0">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Hora Fin</label>
-                    <input type="time" name="hora_fin_act_${actividadCount}" class="form-control hora-fin-actividad" readonly tabindex="-1" style="background-color: #e9ecef;">
+                    <label class="form-label"><i class="fas fa-calculator text-primary me-1" title="Calculado automático: Inicio + Duración"></i>Hora Fin <small class="text-muted fw-normal">(auto)</small></label>
+                    <input type="time" name="hora_fin_act_${actividadCount}" class="form-control hora-fin-actividad" readonly tabindex="-1" style="background-color:#eef4ff;border-color:#b8d0f8;font-weight:600;color:#1a56db;">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Observaciones</label>
@@ -2904,8 +2895,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const horometroFin = document.getElementById('hora_fin_maq').value;
         const infoDiv = document.getElementById('horas-trabajadas-info');
         const textSpan = document.getElementById('horas-trabajadas-text');
+        const calcBox = document.getElementById('horas-turno-calc');
 
-        if (horometroInicio && horometroFin && infoDiv && textSpan) {
+        if (horometroInicio && horometroFin) {
             // Convertir a números
             const inicio = parseFloat(horometroInicio);
             const fin = parseFloat(horometroFin);
@@ -2925,26 +2917,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     texto += ` • Se sumarán ${horasTrabajadas.toFixed(2)}h al horómetro de la máquina`;
 
-                    textSpan.textContent = texto;
-                    infoDiv.classList.remove('d-none');
-                    infoDiv.classList.remove('alert-danger');
-                    infoDiv.classList.add('alert-info');
+                    // Actualizar el campo calculado inline
+                    if (calcBox) {
+                        calcBox.textContent = `${horasTrabajadas.toFixed(2)} h`;
+                        calcBox.style.color = horasTrabajadas > 0 ? '#0a58ca' : '#dc3545';
+                    }
+
+                    if (textSpan) textSpan.textContent = texto;
+                    if (infoDiv) { infoDiv.classList.remove('d-none'); infoDiv.classList.remove('alert-danger'); infoDiv.classList.add('alert-info'); }
                 } else {
-                    textSpan.textContent = '⚠️ El horómetro fin debe ser mayor que el horómetro inicio';
-                    infoDiv.classList.remove('d-none');
-                    infoDiv.classList.remove('alert-info');
-                    infoDiv.classList.add('alert-danger');
+                    if (calcBox) { calcBox.textContent = '⚠ Fin < Inicio'; calcBox.style.color = '#dc3545'; }
+                    if (textSpan) textSpan.textContent = '⚠️ El horómetro fin debe ser mayor que el horómetro inicio';
+                    if (infoDiv) { infoDiv.classList.remove('d-none'); infoDiv.classList.remove('alert-info'); infoDiv.classList.add('alert-danger'); }
                 }
             } else {
-                infoDiv.classList.add('d-none');
+                if (calcBox) { calcBox.textContent = '—'; calcBox.style.color = ''; }
+                if (infoDiv) infoDiv.classList.add('d-none');
             }
-        } else if (infoDiv) {
-            infoDiv.classList.add('d-none');
+        } else {
+            if (calcBox) { calcBox.textContent = '—'; calcBox.style.color = ''; }
+            if (infoDiv) infoDiv.classList.add('d-none');
         }
     }
 
-    // Escuchar cambios en horas de máquina
+    // Escuchar cambios en horas de máquina (input para feedback inmediato, change como backup)
+    document.getElementById('hora_inicio_maq').addEventListener('input', mostrarHorasTrabajadas);
     document.getElementById('hora_inicio_maq').addEventListener('change', mostrarHorasTrabajadas);
+    document.getElementById('hora_fin_maq').addEventListener('input', mostrarHorasTrabajadas);
     document.getElementById('hora_fin_maq').addEventListener('change', mostrarHorasTrabajadas);
 
     // [ELIMINADO] Antigua funcion crearActividadRowMejorada y su override. 
@@ -3776,6 +3775,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             hIniEl.classList.add('border-success');
                             hIniEl.title = 'Último horómetro registrado para ' + (data.maquina_nombre || 'esta máquina');
                             setTimeout(() => { hIniEl.classList.remove('border-success'); }, 3000);
+                            // Recalcular horas si ya hay horómetro fin
+                            mostrarHorasTrabajadas();
                         }
                     }
                 })
