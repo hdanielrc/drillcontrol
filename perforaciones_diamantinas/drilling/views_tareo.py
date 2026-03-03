@@ -537,13 +537,21 @@ def exportar_asistencias_excel(request):
             dias_a_mostrar = 15
             fecha_fin = fecha_inicio + timedelta(days=dias_a_mostrar - 1)
         elif modo == 'mes':
-            primer_dia = fecha_inicio.replace(day=1)
-            if primer_dia.month == 12:
-                ultimo_dia = primer_dia.replace(year=primer_dia.year + 1, month=1, day=1) - timedelta(days=1)
+            # Si vienen ambas fechas (mes operativo 26→25), usarlas directamente.
+            # Solo recalcular al mes calendario cuando NO viene fecha_fin.
+            if fecha_fin_str:
+                try:
+                    fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+                except Exception:
+                    fecha_fin = fecha_inicio.replace(day=25)
             else:
-                ultimo_dia = primer_dia.replace(month=primer_dia.month + 1, day=1) - timedelta(days=1)
-            fecha_inicio = primer_dia
-            fecha_fin = ultimo_dia
+                # Fallback: mes calendario (día 1 → último día del mes)
+                primer_dia = fecha_inicio.replace(day=1)
+                if primer_dia.month == 12:
+                    fecha_fin = primer_dia.replace(year=primer_dia.year + 1, month=1, day=1) - timedelta(days=1)
+                else:
+                    fecha_fin = primer_dia.replace(month=primer_dia.month + 1, day=1) - timedelta(days=1)
+                fecha_inicio = primer_dia
             dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
         else:  # personalizado
             if fecha_fin_str:
