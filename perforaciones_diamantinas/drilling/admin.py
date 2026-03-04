@@ -2,6 +2,11 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib import messages
+from django.urls import path
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.html import format_html
+from datetime import date, timedelta
+from collections import Counter
 from .models import *
 from .auth_views import send_activation_email
 
@@ -160,7 +165,7 @@ class ContratoServicioInline(admin.TabularInline):
 class ContratoAdmin(admin.ModelAdmin):
     list_display = [
         'nombre_contrato', 'cliente', 'codigo_centro_costo', 'codigo_almacen',
-        'duracion_turno', 'get_dia_cambio_guardia', 'estado'
+        'duracion_turno', 'get_dia_cambio_guardia', 'estado', 'btn_setup_ciclos'
     ]
     list_filter = ['estado', 'cliente', 'dia_cambio_guardia']
     search_fields = ['nombre_contrato', 'cliente__nombre']
@@ -182,6 +187,16 @@ class ContratoAdmin(admin.ModelAdmin):
         }),
     )
 
+    # ── Columna con botón ────────────────────────────────────────────────────
+    def btn_setup_ciclos(self, obj):
+        url = f'/admin/drilling/contrato/{obj.pk}/setup-ciclos/'
+        return format_html(
+            '<a href="{}" class="button" style="padding:4px 10px;font-size:.8rem;"»>'
+            '⚙️ Ciclos de guardia</a>', url
+        )
+    btn_setup_ciclos.short_description = 'Ciclos'
+    btn_setup_ciclos.allow_tags = True
+
     def get_dia_cambio_guardia(self, obj):
         if obj.dia_cambio_guardia is None:
             return '— No definido —'
@@ -189,6 +204,128 @@ class ContratoAdmin(admin.ModelAdmin):
         return f'📅 {dias[obj.dia_cambio_guardia]}'
     get_dia_cambio_guardia.short_description = 'Cambio de Guardia'
     get_dia_cambio_guardia.admin_order_field = 'dia_cambio_guardia'
+
+    # ── URL personalizada ─────────────────────────────────────────────────────
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                '<int:pk>/setup-ciclos/',
+                self.admin_site.admin_view(self.setup_ciclos_view),
+                name='setup_ciclos_guardia',
+            ),
+        ]
+        return custom + urls
+
+    # ── Vista: GET muestra form / POST aplica ─────────────────────────────────
+    def setup_ciclos_view(self, request, pk):
+        contrato = get_object_or_404(Contrato, pk=pk)
+        dias_nombre = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+        nombre_dia = dias_nombre[contrato.dia_cambio_guardia] if contrato.dia_cambio_guardia is not None else 'No definido'
+
+        # Operadores activos del contrato
+        operadores = Trabajador.objects.filter(
+            contrato=contrato,
+            estado='ACTIVO',
+            grupo='OPERADORES',
+        ).order_by('guardia_asignada', 'apepat')
+
+        # Régimen más común entre operadores
+        regimenes = [t.regimen_laboral for t in operadores if t.regimen_laboral]
+        regimen_comun = Counter(regimenes).most_common(1)[0][0] if regimenes else '14x7'
+        CICLOS = {'14x7':(14,7),'20x10':(20,10),'28x14':(28,14),'5x2':(5,2),'6x1':(6,1)}
+        trabajo_dias = CICLOS.get(regimen_comun, (14,7))[0]
+
+        # Info por guardia
+        guardias_info = []
+        for g_code in ['A','B','C']:
+            workers = [t for t in operadores if t.guardia_asignada == g_code]
+            if not workers:
+                continue
+            regimenes_g = [t.regimen_laboral for t in workers if t.regimen_laboral]
+            reg_g = Counter(regimenes_g).most_common(1)[0][0] if regimenes_g else regimen_comun
+            guardias_info.append({
+                'guardia': g_code,
+                'total': len(workers),
+                'regimen': reg_g,
+                'fecha_sugerida': None,  # se rellena en GET si se quiere pre-calcular
+            })
+
+        if request.method == 'POST':
+            resultado = {'detalle': [], 'errores': []}
+            dia_cambio = contrato.dia_cambio_guardia
+
+            for g_code in ['A','B','C']:
+                fecha_str = request.POST.get(f'fecha_guardia_{g_code}', '').strip()
+                if not fecha_str:
+                    continue
+                try:
+                    fecha = date.fromisoformat(fecha_str)
+                except ValueError:
+                    resultado['errores'].append(f'Guardia {g_code}: fecha inválida "{fecha_str}"')
+                    continue
+
+                # Validar que la fecha caiga en el día de cambio del contrato
+                if dia_cambio is not None and fecha.weekday() != dia_cambio:
+                    resultado['errores'].append(
+                        f'Guardia {g_code}: la fecha {fecha_str} no cae en {nombre_dia}. '
+                        f'Cae en {dias_nombre[fecha.weekday()]}. Se aplicó igualmente pero verifica.'
+                    )
+
+                # Aplicar a todos los operadores de esta guardia
+                actualizados = Trabajador.objects.filter(
+                    contrato=contrato,
+                    estado='ACTIVO',
+                    grupo='OPERADORES',
+                    guardia_asignada=g_code,
+                ).update(fecha_inicio_ciclo=fecha)
+
+                resultado['detalle'].append({
+                    'guardia': g_code,
+                    'fecha': fecha,
+                    'actualizados': actualizados,
+                })
+
+            self.message_user(
+                request,
+                f'Ciclos actualizados para contrato "{contrato}". '
+                f'{sum(r["actualizados"] for r in resultado["detalle"])} trabajadores modificados.',
+                messages.SUCCESS if not resultado['errores'] else messages.WARNING,
+            )
+
+            return render(request, 'admin/drilling/contrato/setup_ciclos_guardia.html', {
+                'contrato': contrato,
+                'nombre_dia_cambio': nombre_dia,
+                'guardias_info': guardias_info,
+                'regimen_comun': regimen_comun,
+                'resultado': resultado,
+                **self.admin_site.each_context(request),
+            })
+
+        # GET: pre-calcular sugerencias
+        # Si hay al menos una guardia A con fecha conocida, sugerir B y C
+        trabajadores_A = [t for t in operadores if t.guardia_asignada == 'A']
+        fecha_sugerida_A = None
+        if trabajadores_A and trabajadores_A[0].fecha_inicio_ciclo:
+            fecha_sugerida_A = trabajadores_A[0].fecha_inicio_ciclo
+        elif contrato.dia_cambio_guardia is not None:
+            # Sugerir el último día de cambio que haya pasado
+            hoy = date.today()
+            delta = (hoy.weekday() - contrato.dia_cambio_guardia) % 7
+            fecha_sugerida_A = hoy - timedelta(days=delta)
+
+        for i, gi in enumerate(guardias_info):
+            if fecha_sugerida_A:
+                gi['fecha_sugerida'] = fecha_sugerida_A + timedelta(days=trabajo_dias * i)
+
+        return render(request, 'admin/drilling/contrato/setup_ciclos_guardia.html', {
+            'contrato': contrato,
+            'nombre_dia_cambio': nombre_dia,
+            'guardias_info': guardias_info,
+            'regimen_comun': regimen_comun,
+            'resultado': None,
+            **self.admin_site.each_context(request),
+        })
 
 
 @admin.register(ContratoServicio)

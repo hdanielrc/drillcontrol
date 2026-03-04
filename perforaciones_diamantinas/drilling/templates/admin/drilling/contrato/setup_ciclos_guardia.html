@@ -1,0 +1,142 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Configurar Ciclos de Guardia — {{ contrato }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Inicio</a> ›
+    <a href="{% url 'admin:drilling_contrato_changelist' %}">Contratos</a> ›
+    <a href="{% url 'admin:drilling_contrato_change' contrato.pk %}">{{ contrato }}</a> ›
+    Configurar Ciclos de Guardia
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+  .ciclos-box { background:#fff; border:1px solid #ddd; border-radius:6px; padding:24px; max-width:700px; }
+  .ciclos-box h2 { margin-top:0; color:#333; font-size:1.2rem; }
+  .info-banner { background:#e8f4fd; border-left:4px solid #3498db; padding:12px 16px; border-radius:4px; margin-bottom:20px; font-size:.93rem; }
+  .warn-banner { background:#fff8e1; border-left:4px solid #f39c12; padding:12px 16px; border-radius:4px; margin-bottom:20px; font-size:.93rem; }
+  .guardia-row { display:flex; align-items:center; gap:16px; margin-bottom:14px; padding:12px; border:1px solid #eee; border-radius:6px; background:#fafafa; }
+  .guardia-label { font-weight:bold; font-size:1.05rem; width:90px; }
+  .guardia-label.A { color:#27ae60; }
+  .guardia-label.B { color:#2980b9; }
+  .guardia-label.C { color:#8e44ad; }
+  .guardia-info { font-size:.82rem; color:#666; flex:1; }
+  .guardia-row input[type=date] { padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:.95rem; }
+  .guardia-row .auto-tag { font-size:.75rem; color:#aaa; }
+  .btn-apply { background:#2ecc71; color:#fff; border:none; padding:10px 28px; border-radius:5px; font-size:1rem; cursor:pointer; font-weight:bold; }
+  .btn-apply:hover { background:#27ae60; }
+  .btn-cancel { background:#95a5a6; color:#fff; border:none; padding:10px 20px; border-radius:5px; font-size:1rem; cursor:pointer; margin-left:10px; }
+  .result-ok   { background:#d5f5e3; border-left:4px solid #27ae60; padding:12px 16px; border-radius:4px; margin-bottom:16px; }
+  .result-warn { background:#fef9e7; border-left:4px solid #f39c12; padding:12px 16px; border-radius:4px; margin-bottom:16px; }
+  table.resumen { width:100%; border-collapse:collapse; margin-top:14px; font-size:.9rem; }
+  table.resumen th { background:#f0f0f0; padding:6px 10px; text-align:left; }
+  table.resumen td { padding:6px 10px; border-bottom:1px solid #eee; }
+</style>
+
+<h1>⚙️ Configurar Ciclos de Guardia</h1>
+<h2 style="color:#555;font-weight:400;">Contrato: <strong>{{ contrato }}</strong></h2>
+
+{% if resultado %}
+  {% if resultado.errores %}
+  <div class="result-warn">
+    <strong>⚠️ Completado con advertencias:</strong>
+    <ul>{% for e in resultado.errores %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% else %}
+  <div class="result-ok">
+    <strong>✅ Ciclos actualizados correctamente.</strong>
+  </div>
+  {% endif %}
+  <table class="resumen">
+    <thead><tr><th>Guardia</th><th>Fecha inicio ciclo aplicada</th><th>Trabajadores actualizados</th></tr></thead>
+    <tbody>
+      {% for r in resultado.detalle %}
+      <tr>
+        <td><strong>{{ r.guardia }}</strong></td>
+        <td>{{ r.fecha|default:"—" }}</td>
+        <td>{{ r.actualizados }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <br>
+  <a href="{% url 'admin:drilling_contrato_change' contrato.pk %}" class="btn-cancel" style="text-decoration:none;display:inline-block;">← Volver al contrato</a>
+  <a href="{% url 'admin:setup_ciclos_guardia' contrato.pk %}" class="btn-apply" style="text-decoration:none;display:inline-block;margin-left:10px;">Configurar de nuevo</a>
+{% else %}
+
+<div class="ciclos-box">
+
+  {% if not contrato.dia_cambio_guardia and contrato.dia_cambio_guardia != 0 %}
+  <div class="warn-banner">
+    ⚠️ <strong>Este contrato no tiene configurado el Día de Cambio de Guardia.</strong>
+    Configúralo primero en la <a href="{% url 'admin:drilling_contrato_change' contrato.pk %}">edición del contrato</a>.
+  </div>
+  {% else %}
+  <div class="info-banner">
+    📅 <strong>Día de cambio de guardia:</strong> <strong style="color:#2980b9;">{{ nombre_dia_cambio }}</strong><br>
+    Ingresa la fecha en la que cada guardia <strong>entró a mina</strong> por última vez (o en cualquier fecha histórica conocida).
+    La fecha debe caer en <strong>{{ nombre_dia_cambio }}</strong>.<br><br>
+    💡 <em>El sistema sugiere las fechas de B y C automáticamente según el régimen más común del contrato.
+    Puedes ajustarlas si las guardias tienen fechas reales distintas.</em>
+  </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% for guardia_info in guardias_info %}
+    <div class="guardia-row">
+      <div class="guardia-label {{ guardia_info.guardia }}">
+        Guardia {{ guardia_info.guardia }}
+      </div>
+      <div>
+        <input type="date" name="fecha_guardia_{{ guardia_info.guardia }}"
+               id="fecha_{{ guardia_info.guardia }}"
+               value="{{ guardia_info.fecha_sugerida|date:'Y-m-d'|default:'' }}"
+               {% if guardia_info.guardia == 'A' %}required{% endif %}>
+        {% if guardia_info.guardia != 'A' %}
+        <div class="auto-tag" id="auto_tag_{{ guardia_info.guardia }}">
+          (calculada automáticamente — puedes cambiarla)
+        </div>
+        {% endif %}
+      </div>
+      <div class="guardia-info">
+        {{ guardia_info.total }} operador{{ guardia_info.total|pluralize }}<br>
+        <small>Régimen más común: <strong>{{ guardia_info.regimen }}</strong></small>
+      </div>
+    </div>
+    {% endfor %}
+
+    <input type="hidden" name="regimen_comun" value="{{ regimen_comun }}">
+
+    <div style="margin-top:20px;">
+      <button type="submit" class="btn-apply">✅ Aplicar a todos los operadores</button>
+      <a href="{% url 'admin:drilling_contrato_change' contrato.pk %}" class="btn-cancel" style="text-decoration:none;display:inline-block;margin-left:10px;">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+const regimen = "{{ regimen_comun }}";
+const CICLOS = {'14x7':21,'20x10':30,'28x14':42,'5x2':7,'6x1':7};
+const ciclo = CICLOS[regimen] || 21;
+const guardias = ['B','C'];
+
+document.getElementById('fecha_A').addEventListener('change', function () {
+    const fechaA = new Date(this.value + 'T00:00:00');
+    if (isNaN(fechaA)) return;
+    // B = A + trabajo_dias, C = A + 2*trabajo_dias (según regimen)
+    const partes = regimen.split('x');
+    const trabajo = parseInt(partes[0]) || 14;
+    guardias.forEach((g, i) => {
+        const el = document.getElementById('fecha_' + g);
+        if (!el) return;
+        const nueva = new Date(fechaA);
+        nueva.setDate(nueva.getDate() + trabajo * (i + 1));
+        el.value = nueva.toISOString().slice(0, 10);
+    });
+});
+</script>
+{% endif %}
+{% endblock %}
