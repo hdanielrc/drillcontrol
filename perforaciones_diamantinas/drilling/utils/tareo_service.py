@@ -301,7 +301,7 @@ class TareoService:
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).select_related('cargo', 'maquina_asignada').order_by(
+        ).select_related('maquina_asignada').order_by(
             'guardia_asignada', 'apepat', 'apemat', 'nombres'
         )
         
