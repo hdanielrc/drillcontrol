@@ -100,6 +100,11 @@ def sync_trabajadores():
             grupo_calculado = Trabajador.calcular_grupo_desde_cargo(cargo_api)
             tipo_servicio_calculado = Trabajador.calcular_tipo_servicio_desde_cargo(cargo_api)
             
+            estado_api = worker.get('estado', '')
+            # Si la API marca al trabajador como standby, reflejarlo en el flag.
+            # Cualquier otro estado (ACTIVO, INACTIVO, etc.) → es_standby=False.
+            es_standby_api = estado_api.upper() in ('STAND_BY_CLIENTE', 'STAND_BY_ROCKDRILL', 'STAND_BY')
+
             defaults = {
                 'nombres': worker.get('nombres', ''),
                 'apepat': worker.get('apepat', ''),
@@ -110,8 +115,9 @@ def sync_trabajadores():
                 'centro_costo': worker.get('centro_costo', ''),
                 'contrato_nombre': worker.get('contrato', ''),
                 'fecha_contratacion': worker.get('fecha_contratacion'), 
-                'estado': worker.get('estado', ''),
-                'estado_api': worker.get('estado', ''),
+                'estado': estado_api,
+                'estado_api': estado_api,
+                'es_standby': es_standby_api,  # sincronizar con API
                 'synced': True
             }
 
