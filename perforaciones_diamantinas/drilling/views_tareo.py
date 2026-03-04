@@ -1342,9 +1342,7 @@ def generar_guardias_automaticas(request):
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).order_by('cargo', 'apepat', 'nombres')
-        
-        # .exclude(grupo='LINEA_MANDO') # TODO: Restaurar cuando el campo grupo exista
+        ).exclude(grupo='LINEA_MANDO').order_by('cargo', 'apepat', 'nombres')
         
         if not trabajadores.exists():
             return JsonResponse({
@@ -1505,8 +1503,6 @@ def generar_guardias_automaticas(request):
 
 @login_required
 @require_http_methods(["POST"])
-@login_required
-@require_http_methods(["POST"])
 def autocompletar_tareo_por_regimen(request):
     """
     Autocompleta el tareo del mes según el régimen laboral de cada trabajador.
@@ -1554,20 +1550,32 @@ def autocompletar_tareo_por_regimen(request):
         trabajadores_sin_ciclo = 0
         
         with transaction.atomic():
-            # Recalcular fecha_inicio_ciclo para TODOS los operadores según su guardia
-            # Para régimen 14x7 (ciclo de 21 días), con 3 guardias, el desfase es 7 días
-            # Esto garantiza que siempre haya 2 guardias trabajando y 1 descansando
+            # Recalcular fecha_inicio_ciclo para los trabajadores NO línea de mando.
+            # El desfase entre guardias = ciclo_total / 3 (proporcional al régimen).
+            # Ejemplo: 14x7 → ciclo 21 → desfase 7 días | 20x10 → ciclo 30 → desfase 10 días
+            # Esto garantiza que siempre haya 2 guardias trabajando y 1 descansando.
+            REGIMENES_CICLO = {
+                '14x7':  21,
+                '20x10': 30,
+                '28x14': 42,
+                '5x2':   7,
+                '6x1':   7,
+            }
             for trabajador in trabajadores:
-                if not any(c in (trabajador.cargo or '').upper() for c in ('RESIDENTE','SUPERVISOR','JEFE','ADMINISTRADOR','INGENIERO','GERENTE')):
+                if trabajador.grupo != 'LINEA_MANDO':
                     fecha_anterior = trabajador.fecha_inicio_ciclo
-                    
-                    # Recalcular inicio de ciclo según guardia (desfase de 7 días por guardia)
+
+                    # Calcular desfase proporcional al ciclo del trabajador
+                    ciclo_total = REGIMENES_CICLO.get(trabajador.regimen_laboral or '', 21)
+                    desfase = ciclo_total // 3  # 1/3 del ciclo por cada guardia
+
+                    # Recalcular inicio de ciclo según guardia
                     if trabajador.guardia_asignada == 'A':
                         nueva_fecha_ciclo = fecha_inicio
                     elif trabajador.guardia_asignada == 'B':
-                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=7)
+                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=desfase)
                     elif trabajador.guardia_asignada == 'C':
-                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=14)
+                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=desfase * 2)
                     else:
                         nueva_fecha_ciclo = fecha_inicio
                     
@@ -1593,11 +1601,11 @@ def autocompletar_tareo_por_regimen(request):
                     
                     # Si no tiene régimen configurado (return None), aplicar defaults por grupo
                     if not estado:
-                        if any(c in (trabajador.cargo or '').upper() for c in ('RESIDENTE','SUPERVISOR','JEFE','ADMINISTRADOR','INGENIERO','GERENTE')):
-                            # Default para oficina: Lunes a Viernes
+                        if trabajador.grupo == 'LINEA_MANDO':
+                            # Default para línea de mando sin régimen: Lunes a Viernes
                             estado = 'TRABAJADO' if fecha_actual.weekday() < 5 else 'DIA_LIBRE'
                         else:
-                            # Default para operativos: Siempre Trabajo
+                            # Default para operativos sin régimen: Siempre Trabajo
                             estado = 'TRABAJADO'
                     
                     # Verificar si ya existe registro
