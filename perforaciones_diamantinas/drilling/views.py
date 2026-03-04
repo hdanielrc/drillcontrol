@@ -413,7 +413,7 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
     def get_queryset(self):
         from django.db.models import Case, When, Value, IntegerField
 
-        queryset = super().get_queryset().select_related('contrato')
+        queryset = super().get_queryset().select_related('contrato', 'maquina_asignada')
         
         # Filtros adicionales
         contrato = self.request.GET.get('contrato')
@@ -478,6 +478,16 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
                 qs_cargos = qs_cargos.filter(contrato=self.request.user.contrato)
         context['cargos'] = qs_cargos.order_by('cargo').values_list('cargo', flat=True).distinct()
         context['grupos'] = list(Trabajador.GRUPO_CHOICES) + [('STAND_BY', 'Personal Stand By')]
+
+        # Máquinas del contrato del usuario (o todas para admins)
+        from .models import Maquina
+        if self.request.user.has_access_to_all_contracts():
+            context['maquinas'] = Maquina.objects.filter(estado='OPERATIVO').select_related('contrato').order_by('contrato__nombre_contrato', 'nombre')
+        else:
+            context['maquinas'] = Maquina.objects.filter(
+                contrato=self.request.user.contrato,
+                estado='OPERATIVO'
+            ).order_by('nombre')
         
         # Filtros con default para activo
         filtros = self.request.GET.copy()

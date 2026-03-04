@@ -107,6 +107,7 @@ urlpatterns = [
     # Trabajadores - Hub y CRUD
     path('trabajadores/hub/', views.trabajadores_hub, name='trabajadores-hub'),
     path('api/trabajadores/<int:pk>/grupo/', api_views.api_actualizar_grupo_trabajador, name='api-trabajador-grupo'),
+    path('api/trabajadores/<int:pk>/maquina/', api_views.api_asignar_maquina_trabajador, name='api-trabajador-maquina'),
     path('api/trabajadores/<int:pk>/fecha-inicio-labores/', api_views.api_set_fecha_inicio_labores, name='api-trabajador-fecha-inicio-labores'),
     path('trabajadores/', views.TrabajadorListView.as_view(), name='trabajador-list'),
     path('trabajadores/nuevo/', views.TrabajadorCreateView.as_view(), name='trabajador-create'),

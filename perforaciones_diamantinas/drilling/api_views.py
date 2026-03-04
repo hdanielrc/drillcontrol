@@ -463,7 +463,36 @@ def api_actualizar_grupo_trabajador(request, pk):
 
 @login_required
 @require_http_methods(["POST"])
-def api_set_fecha_inicio_labores(request, pk):
+def api_asignar_maquina_trabajador(request, pk):
+    """
+    Asigna o desasigna la máquina de un Trabajador vía AJAX.
+    Body JSON: { "maquina_id": <int> | null | "" }
+    """
+    import json
+    from .models import Trabajador, Maquina
+
+    try:
+        data = json.loads(request.body)
+        maquina_id = data.get('maquina_id')
+
+        trabajador = get_object_or_404(Trabajador, pk=pk)
+
+        if not request.user.is_staff and not request.user.can_create_basic_data():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        if maquina_id:
+            maquina = get_object_or_404(Maquina, pk=int(maquina_id))
+            Trabajador.objects.filter(pk=pk).update(maquina_asignada=maquina)
+            return JsonResponse({'success': True, 'maquina_id': maquina.id, 'maquina_nombre': maquina.nombre})
+        else:
+            Trabajador.objects.filter(pk=pk).update(maquina_asignada=None)
+            return JsonResponse({'success': True, 'maquina_id': None, 'maquina_nombre': ''})
+
+    except Trabajador.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Trabajador no encontrado'}, status=404)
+    except Exception as e:
+        logger.error(f"Error asignando máquina al trabajador {pk}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
     """
     Actualiza el campo 'fecha_inicio_labores' de un Trabajador vía AJAX.
     Body JSON: { "fecha_inicio_labores": "YYYY-MM-DD" | "" }

@@ -72,6 +72,7 @@
                         <th>Servicio</th>
                         <th>Cargo</th>
                         <th>Grupo Tareo</th>
+                        <th>Máquina</th>
                         <th>Teléfono</th>
                         <th>Teléfono</th>
                         <th>Email</th>
@@ -126,6 +127,20 @@
                             </select>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if request.user.can_create_basic_data or request.user.is_staff %}
+                            <select class="form-select form-select-sm maquina-select" data-id="{{ trabajador.pk }}" style="min-width:140px;font-size:0.78rem;">
+                                <option value="" {% if not trabajador.maquina_asignada_id %}selected{% endif %}>— Sin máquina —</option>
+                                {% for maq in maquinas %}
+                                {% if maq.contrato_id == trabajador.contrato_id %}
+                                <option value="{{ maq.id }}" {% if trabajador.maquina_asignada_id == maq.id %}selected{% endif %}>{{ maq.nombre }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <span style="font-size:0.82rem;">{{ trabajador.maquina_asignada.nombre|default:"-" }}</span>
+                            {% endif %}
+                        </td>
                         <td>{{ trabajador.telefono|default:"-" }}</td>
                         <td>{{ trabajador.email|default:"-" }}</td>
                         <td>
@@ -148,7 +163,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9">
+                        <td colspan="10">
                             <div class="empty-state">
                                 <i class="fas fa-users"></i>
                                 <h5>No hay trabajadores registrados</h5>
@@ -267,6 +282,41 @@ document.querySelectorAll('.grupo-select').forEach(sel => {
     });
     // Guardar valor inicial
     sel.dataset.prevValue = sel.value;
+});
+
+document.querySelectorAll('.maquina-select').forEach(sel => {
+    sel.dataset.prevValue = sel.value;
+    sel.addEventListener('change', function () {
+        const id = this.dataset.id;
+        const maquina_id = this.value ? parseInt(this.value) : null;
+        const selEl = this;
+        const prevValue = selEl.dataset.prevValue;
+        selEl.disabled = true;
+
+        fetch(`/api/trabajadores/${id}/maquina/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ maquina_id })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToastLista('Máquina guardada: ' + (data.maquina_nombre || '—'), 'success');
+                selEl.dataset.prevValue = selEl.value;
+            } else {
+                selEl.value = prevValue;
+                mostrarToastLista('Error: ' + (data.error || 'No se pudo guardar'), 'danger');
+            }
+        })
+        .catch(() => {
+            selEl.value = prevValue;
+            mostrarToastLista('Error de red. Intenta de nuevo.', 'danger');
+        })
+        .finally(() => { selEl.disabled = false; });
+    });
 });
 </script>
 {% endblock %}
