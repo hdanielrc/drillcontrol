@@ -1831,9 +1831,9 @@ class Trabajador(models.Model):
 
         Grupos:
         - OPERADORES          : Perforistas, Ayudantes DDH/Perforación, Operadores de equipo
-        - SERVICIOS_GEOLOGICOS: Muestreros, Geólogos, QA/QC, Topógrafos, Geotecnistas
+        - SERVICIOS_GEOLOGICOS: Muestreros (y ayudantes), Geólogos, QA/QC, Topógrafos, Geotecnistas, Geomecánicos
         - PERSONAL_AUXILIAR   : Conductores, Mecánicos, Electricistas, Almaceneros, Operadores de cisterna
-        - LINEA_MANDO         : Todo lo demás (Supervisores, Residentes, Ingenieros, Admin, SSOMA, etc.)
+        - LINEA_MANDO         : Supervisores, Residentes, Ingenieros, Seguridad/SSOMA, Admin, Logísticos, Gerentes, Jefes, etc.
         """
         if not cargo_texto:
             return 'LINEA_MANDO'
@@ -1862,35 +1862,66 @@ class Trabajador(models.Model):
 
         # ── SERVICIOS GEOLÓGICOS ───────────────────────────────────────────────
         if any(k in c for k in [
-            'MUESTRERO',            # MUESTRERO, MAESTRO MUESTRERO, AYUDANTE MUESTRERO, MAESTRO MUESTRERO II
+            # Muestreo — captura MUESTRERO, MAESTRO MUESTRERO, AYUDANTE MUESTRERO, MAESTRO MUESTRERO II
+            'MUESTRERO',
             'CORTADOR DE TESTIGOS',
+            # Geología
             'GEOLOGO',              # GEOLOGO DE LOGUEO, GEOLOGO JUNIOR, GEOLOGO SUPERVISOR, etc.
             'GEÓLOGO',              # Con tilde
             'LOGUEO',               # Captura variantes con LOGUEO
+            'AYUDANTE DE LOGUEO',
+            'ASISTENTE DE LOGUEO',
+            'AYUDANTE DE GEOLOGIA',
+            # Geotecnia / Geomecánica — captura GEOMECANICO, GEOMECÁNICO, AYUDANTE GEOMEC
             'GEOTECNISTA',
-            'GEOMECANI',            # GEOMECANICO / GEOMECÁNICO
+            'GEOMECANI',
+            'GEOMECÁNI',
+            'AYUDANTE GEOMEC',
+            'ASISTENTE GEOMEC',
+            # Topografía
             'TOPOGRAFO',
             'TOPÓGRAFO',
+            # QA/QC y densidad
             'QA/QC',
             'QA & QC',
             'AUXILIAR QA',
             'ASISTENTE DE DENSIDAD',
             'ANALISTA DE DENSIDAD',
+            'DENSIDAD HIDROSTATICA',
             'TECNICO DE MEDICION',
             'TÉCNICO DE MEDICIÓN',
             'TECNICO DE MAPEO',
+            # Hidrogeología / laboratorio / ore control
             'HIDROGEOLOGO',
-            'AYUDANTE DE LOGUEO',
-            'ASISTENTE DE LOGUEO',
-            'AYUDANTE DE GEOLOGIA',
-            'AYUDANTE GEOMEC',
+            'HIDROGEÓLOGO',
             'ORE CONTROL',
             'LABORATORIO',
-            'DENSIDAD HIDROSTATICA',
         ]):
             return 'SERVICIOS_GEOLOGICOS'
 
+        # ── LÍNEA DE MANDO EXPLÍCITA (guardarrail) ───────────────────────────
+        # Se evalúa ANTES de PERSONAL_AUXILIAR para que cargos como
+        # 'SUPERVISOR MECANICO', 'INGENIERO DE SEGURIDAD', 'AYUDANTE DE SEGURIDAD'
+        # no sean capturados erróneamente por keywords de PERSONAL_AUXILIAR.
+        if any(k in c for k in [
+            'SUPERVISOR',           # SUPERVISOR DDH, SUPERVISOR DE TURNO, SUPERVISOR MECANICO, etc.
+            'SEGURIDAD',            # INGENIERO DE SEGURIDAD, TECNICO DE SEGURIDAD, PREVENCIONISTA DE SEGURIDAD
+            'SSOMA',                # SSOMA, ASISTENTE SSOMA
+            'PREVENCIONISTA',       # PREVENCIONISTA DE RIESGOS
+            'RESIDENTE',            # RESIDENTE DE OBRA, RESIDENTE DDH
+            'INGENIERO',            # INGENIERO DE PERFORACION, INGENIERO DE CAMPO, etc.
+            'JEFE',                 # JEFE DE GUARDIA, JEFE DE OPERACIONES
+            'GERENTE',
+            'ADMINISTRADOR',
+            'COORDINADOR',
+            'ANALISTA',             # ANALISTA DE OPERACIONES, ANALISTA ADMINISTRATIVO
+        ]):
+            return 'LINEA_MANDO'
+
         # ── PERSONAL AUXILIAR ─────────────────────────────────────────────────
+        # NOTA: 'LOGISTICO'/'LOGÍSTICO' se excluye intencionalmente — todos los
+        # cargos logísticos (ASISTENTE LOGISTICO, COORDINADOR LOGISTICO, etc.)
+        # son Línea de Mando y caen al bloque anterior por defecto.
         if any(k in c for k in [
             'CONDUCTOR',            # CONDUCTOR, CONDUCTOR MULTIPLE, CONDUCTOR DE CAMIONETA
             'CHOFER',
@@ -1905,14 +1936,12 @@ class Trabajador(models.Model):
             'AYUDANTE MECANICO',
             'MAESTRO DE SERVICIO',
             'AYUDANTE DE SERVICIO',
-            'LOGISTICO',            # ASISTENTE LOGISTICO, LOGISTICO
-            'LOGÍSTICO',
             'ALMACEN',
         ]):
             return 'PERSONAL_AUXILIAR'
 
         # ── LÍNEA DE MANDO ────────────────────────────────────────────────────
-        # Todo lo demás: supervisores, residentes, ingenieros, admin, SSOMA, etc.
+        # Todo lo demás que no matcheó ningún grupo anterior.
         return 'LINEA_MANDO'
 
     def asignar_grupo_automatico(self):
