@@ -28,7 +28,7 @@ from calendar import monthrange
 import json
 import logging
 
-from .models import Contrato, Trabajador, AsistenciaDiaria, CierreMensualTareo, HistorialCambioAsistencia, Maquina
+from .models import Contrato, Trabajador, AsistenciaTrabajador, AsistenciaDiaria, CierreMensualTareo, HistorialCambioAsistencia, Maquina
 from .utils.tareo_service import TareoService, CierreMensualService
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -732,6 +732,56 @@ def api_reabrir_mes(request):
     except Exception as e:
         logger.error(f"Error reabriendo mes: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_importar_desde_v1(request):
+    """
+    API para importar registros de AsistenciaTrabajador (V1) a AsistenciaDiaria (V2).
+    Respeta correcciones manuales (es_proyeccion=False).
+    Sólo actualiza/crea proyecciones.
+    """
+    from calendar import monthrange
+    from datetime import date
+    from .utils.tareo_service import TareoService
+
+    try:
+        contrato_id = request.POST.get('contrato_id')
+        anio = int(request.POST.get('anio'))
+        mes = int(request.POST.get('mes'))
+
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+
+        # El periodo operativo es del 26 del mes anterior al 25 del mes en curso
+        if mes > 1:
+            mes_ant = mes - 1
+            anio_ant = anio
+        else:
+            mes_ant = 12
+            anio_ant = anio - 1
+
+        fecha_inicio = date(anio_ant, mes_ant, 26)
+        fecha_fin = date(anio, mes, 25)
+
+        resultado = TareoService.importar_desde_v1(
+            contrato=contrato,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            usuario=request.user,
+        )
+
+        logger.info(
+            f"Importación V1→V2: contrato={contrato_id} periodo={fecha_inicio}/{fecha_fin} "
+            f"creados={resultado['importados']} actualizados={resultado['actualizados']} "
+            f"omitidos_manual={resultado['omitidos_manual']} sin_mapeo={resultado['sin_mapeo']}"
+        )
+
+        return JsonResponse({'success': True, 'data': resultado})
+
+    except Exception as e:
+        logger.error(f"Error importando desde V1: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required

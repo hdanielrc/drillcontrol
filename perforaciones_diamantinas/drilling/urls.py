@@ -34,6 +34,7 @@ from .views_tareo_v2 import (
     api_cerrar_mes,
     api_reabrir_mes,
     api_exportar_nomina_excel,
+    api_importar_desde_v1,
 )
 
 urlpatterns = [
@@ -100,6 +101,7 @@ urlpatterns = [
     # APIs de Cierre
     path('tareo/v2/api/cerrar-mes/', api_cerrar_mes, name='api_cerrar_mes'),
     path('tareo/v2/api/reabrir-mes/', api_reabrir_mes, name='api_reabrir_mes'),
+    path('tareo/v2/api/importar-v1/', api_importar_desde_v1, name='api_importar_desde_v1'),
     path('tareo/v2/exportar-nomina/<int:cierre_id>/', api_exportar_nomina_excel, name='api_exportar_nomina_excel'),
     
     # Trabajadores - Hub y CRUD

@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from calendar import monthrange
 from django.db import transaction
 from django.db.models import Q, Case, When, Value, IntegerField
-from ..models import Trabajador, AsistenciaDiaria
+from ..models import Trabajador, AsistenciaDiaria, AsistenciaTrabajador
 import logging
 
 logger = logging.getLogger(__name__)
@@ -480,6 +480,118 @@ class TareoService:
         except Exception as e:
             stats['errores'].append(f"Error en operación masiva: {str(e)}")
         
+        return stats
+
+    @staticmethod
+    @transaction.atomic
+    def importar_desde_v1(contrato, fecha_inicio, fecha_fin, usuario=None, sobrescribir_proyecciones=True):
+        """
+        Importa los registros de AsistenciaTrabajador (V1) a AsistenciaDiaria (V2).
+        - Respeta correcciones manuales (es_proyeccion=False): nunca las sobreescribe.
+        - Proyecciones existentes: las actualiza si sobrescribir_proyecciones=True.
+        - Nuevos registros: los crea con es_proyeccion=True.
+        Retorna stats: importados, actualizados, omitidos_manual, sin_mapeo, errores.
+        """
+        ESTADO_MAP = {
+            'TRABAJADO':              'TRABAJO',
+            'DIA_LIBRE':              'DESCANSO',
+            'DIA_APOYO':              'DIA_APOYO',
+            'PERMISO_PATERNIDAD':     'PERMISO',
+            'DESCANSO_MEDICO':        'DM',
+            'STAND_BY':               'STAND_BY',
+            'SUBSIDIO':               'DM',
+            'INDUCCION':              'INDUCCION',
+            'INDUCCION_VIRTUAL':      'INDUCCION',
+            'RECORRIDO':              'TRABAJO',
+            'FALTA':                  'FALTA',
+            'PERMISO':                'PERMISO',
+            'SUSPENSION':             'SUSPENSION',
+            'VACACIONES':             'VACACIONES',
+            'LICENCIA_SIN_GOCE':      'LICENCIA',
+            'LICENCIA_CON_GOCE':      'LICENCIA',
+            'LICENCIA_FALLECIMIENTO': 'LICENCIA',
+            'TRABAJO_CALIENTE':       'TRABAJO',
+            'CESADO':                 None,  # omitir
+        }
+
+        stats = {
+            'importados': 0,
+            'actualizados': 0,
+            'omitidos_manual': 0,
+            'sin_mapeo': 0,
+            'errores': [],
+        }
+
+        # Todos los registros V1 del contrato en el rango
+        registros_v1 = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato=contrato,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin,
+        ).select_related('trabajador')
+
+        if not registros_v1.exists():
+            return stats
+
+        # Pre-cargar registros V2 existentes
+        existentes = {
+            (a.empleado_id, a.fecha): a
+            for a in AsistenciaDiaria.objects.filter(
+                empleado__contrato=contrato,
+                fecha__gte=fecha_inicio,
+                fecha__lte=fecha_fin,
+            )
+        }
+
+        crear = []
+        actualizar = []
+
+        for reg in registros_v1:
+            try:
+                estado_v2 = ESTADO_MAP.get(reg.estado)
+                if estado_v2 is None:
+                    # Estado sin mapeo (CESADO u otro desconocido) — omitir
+                    stats['sin_mapeo'] += 1
+                    continue
+
+                key = (reg.trabajador_id, reg.fecha)
+                existente = existentes.get(key)
+
+                if existente:
+                    if not existente.es_proyeccion:
+                        # Corrección manual guardada → no tocar
+                        stats['omitidos_manual'] += 1
+                        continue
+                    if sobrescribir_proyecciones:
+                        existente.estado = estado_v2
+                        existente.guardia_snapshot = reg.guardia_snapshot
+                        existente.observaciones = reg.observaciones or ''
+                        existente.registrado_por = usuario
+                        actualizar.append(existente)
+                else:
+                    crear.append(AsistenciaDiaria(
+                        empleado=reg.trabajador,
+                        fecha=reg.fecha,
+                        estado=estado_v2,
+                        guardia_snapshot=reg.guardia_snapshot,
+                        es_proyeccion=True,
+                        observaciones=reg.observaciones or '',
+                        registrado_por=usuario,
+                    ))
+            except Exception as e:
+                stats['errores'].append(f"{reg.trabajador_id}/{reg.fecha}: {str(e)}")
+
+        if crear:
+            AsistenciaDiaria.objects.bulk_create(crear, batch_size=500)
+            stats['importados'] = len(crear)
+
+        if actualizar:
+            AsistenciaDiaria.objects.bulk_update(
+                actualizar,
+                ['estado', 'guardia_snapshot', 'observaciones', 'registrado_por'],
+                batch_size=500,
+            )
+            stats['actualizados'] = len(actualizar)
+
         return stats
 
 
