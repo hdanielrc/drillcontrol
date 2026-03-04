@@ -1829,11 +1829,16 @@ class Trabajador(models.Model):
         Calcula el grupo funcional basado en el texto del cargo (proveniente de la API).
         Usa matching parcial robusto, insensible a espacios extra, guiones y variaciones.
 
-        Grupos:
-        - OPERADORES          : Perforistas, Ayudantes DDH/Perforación, Operadores de equipo
-        - SERVICIOS_GEOLOGICOS: Muestreros (y ayudantes), Geólogos, QA/QC, Topógrafos, Geotecnistas, Geomecánicos
-        - PERSONAL_AUXILIAR   : Conductores, Mecánicos, Electricistas, Almaceneros, Operadores de cisterna
-        - LINEA_MANDO         : Supervisores, Residentes, Ingenieros, Seguridad/SSOMA, Admin, Logísticos, Gerentes, Jefes, etc.
+        Orden de evaluación (importante para evitar falsos positivos):
+        1. OPERADORES          : Perforistas, Ayudantes DDH/Perforación, Simba, Técnicos de Perforación
+        2. SERVICIOS_GEOLOGICOS: Muestreros, Geólogos, Logueo, Geotécnicos, Geomecánicos,
+                                 Topógrafos, QA/QC, Densidad, Hidrogeología, Laboratorio
+        3. LINEA_MANDO (guard) : Supervisores, Jefes, Ingenieros, Seguridad/SSOMA, Prevención,
+                                 Monitores, Inspectores, Administración, Logística, Médicos,
+                                 Psicólogos, Enfermeros, RRHH, Relaciones Comunitarias
+        4. PERSONAL_AUXILIAR   : Conductores, Mecánicos, Electricistas, Almaceneros, Soldadores,
+                                 Operadores de Cisterna
+        5. LINEA_MANDO (default): Todo lo demás sin match
         """
         if not cargo_texto:
             return 'LINEA_MANDO'
@@ -1862,25 +1867,38 @@ class Trabajador(models.Model):
 
         # ── SERVICIOS GEOLÓGICOS ───────────────────────────────────────────────
         if any(k in c for k in [
-            # Muestreo — captura MUESTRERO, MAESTRO MUESTRERO, AYUDANTE MUESTRERO, MAESTRO MUESTRERO II
+            # Muestreo — MUESTRERO / MAESTRO MUESTRERO / AYUDANTE MUESTRERO / MUEST. (abrev.)
             'MUESTRERO',
-            'CORTADOR DE TESTIGOS',
-            # Geología
+            'MUEST.',               # abreviatura: MUEST. I, MUEST. II
+            'MUESTREO',             # TECNICO DE MUESTREO, ASISTENTE DE MUESTREO
+            'CORTADOR DE TESTIGO',  # singular y plural
+            # Geología y logueo
             'GEOLOGO',              # GEOLOGO DE LOGUEO, GEOLOGO JUNIOR, GEOLOGO SUPERVISOR, etc.
-            'GEÓLOGO',              # Con tilde
-            'LOGUEO',               # Captura variantes con LOGUEO
+            'GEÓLOGO',              # con tilde
+            'GEOLOGA',              # forma femenina
+            'GEÓLOGA',
+            'LOGUEO',               # cualquier variante con LOGUEO
             'AYUDANTE DE LOGUEO',
             'ASISTENTE DE LOGUEO',
             'AYUDANTE DE GEOLOGIA',
-            # Geotecnia / Geomecánica — captura GEOMECANICO, GEOMECÁNICO, AYUDANTE GEOMEC
-            'GEOTECNISTA',
+            'ASISTENTE GEOLOGICO',
+            'ASISTENTE GEOLÓGICO',
+            'ASISTENTE DE GEOLOGIA',
+            'PRACTICANTE DE GEOLOGIA',
+            # Geotecnia — captura GEOTECNICO, GEOTECNICA, GEOTECNISTA, AYUDANTE GEOTECNI
+            'GEOTECNI',             # substring: GEOTECNICO / GEOTECNICA / GEOTECNISTA
+            'AYUDANTE GEOTECNI',
+            'ASISTENTE GEOTECNI',
+            # Geomecánica — captura GEOMECANICO, GEOMECÁNICO, AYUDANTE GEOMEC, GEOMECANICA
             'GEOMECANI',
             'GEOMECÁNI',
+            'GEOMEC',               # substring más corto: cubre GEOMECANICA, GEOMECÁNICA
             'AYUDANTE GEOMEC',
             'ASISTENTE GEOMEC',
             # Topografía
             'TOPOGRAFO',
             'TOPÓGRAFO',
+            'TOPOGRAFIA',           # ASISTENTE DE TOPOGRAFIA, TECNICO DE TOPOGRAFIA
             # QA/QC y densidad
             'QA/QC',
             'QA & QC',
@@ -1901,20 +1919,35 @@ class Trabajador(models.Model):
 
         # ── LÍNEA DE MANDO EXPLÍCITA (guardarrail) ───────────────────────────
         # Se evalúa ANTES de PERSONAL_AUXILIAR para que cargos como
-        # 'SUPERVISOR MECANICO', 'INGENIERO DE SEGURIDAD', 'AYUDANTE DE SEGURIDAD'
+        # 'SUPERVISOR MECANICO', 'INGENIERO DE SEGURIDAD', 'AYUDANTE DE SEGURIDAD',
+        # 'ASISTENTE LOGISTICO', 'MONITOR DE SEGURIDAD', 'MEDICO DE CAMPAMENTO', etc.
         # no sean capturados erróneamente por keywords de PERSONAL_AUXILIAR.
         if any(k in c for k in [
-            'SUPERVISOR',           # SUPERVISOR DDH, SUPERVISOR DE TURNO, SUPERVISOR MECANICO, etc.
-            'SEGURIDAD',            # INGENIERO DE SEGURIDAD, TECNICO DE SEGURIDAD, PREVENCIONISTA DE SEGURIDAD
-            'SSOMA',                # SSOMA, ASISTENTE SSOMA
-            'PREVENCIONISTA',       # PREVENCIONISTA DE RIESGOS
+            'SUPERVISOR',           # SUPERVISOR DDH, SUPERVISOR DE TURNO, SUPERVISOR MECANICO
+            'JEFE',                 # JEFE DE GUARDIA, JEFE DE OPERACIONES
+            'GERENTE',              # GERENTE DE PROYECTO
             'RESIDENTE',            # RESIDENTE DE OBRA, RESIDENTE DDH
             'INGENIERO',            # INGENIERO DE PERFORACION, INGENIERO DE CAMPO, etc.
-            'JEFE',                 # JEFE DE GUARDIA, JEFE DE OPERACIONES
-            'GERENTE',
-            'ADMINISTRADOR',
-            'COORDINADOR',
-            'ANALISTA',             # ANALISTA DE OPERACIONES, ANALISTA ADMINISTRATIVO
+            'SEGURIDAD',            # CUALQUIER cargo con SEGURIDAD: TECNICO, INGENIERO, AYUDANTE
+            'SSOMA',                # SSOMA, ASISTENTE SSOMA, TECNICO SSOMA
+            'PREVENCIONISTA',       # PREVENCIONISTA DE RIESGOS
+            'PREVENCION',           # TECNICO DE PREVENCION, ASISTENTE DE PREVENCION
+            'MONITOR',              # MONITOR DE SEGURIDAD, MONITOR HSE
+            'INSPECTOR',            # INSPECTOR DE SEGURIDAD, INSPECTOR DE CALIDAD
+            'ADMINISTRADOR',        # ADMINISTRADOR DE CONTRATO, ADMINISTRADOR DE CAMPO
+            'ADMINISTRATIVO',       # ASISTENTE ADMINISTRATIVO, TECNICO ADMINISTRATIVO
+            'COORDINADOR',          # COORDINADOR LOGISTICO, COORDINADOR DE CAMPO
+            'LOGISTICO',            # ASISTENTE LOGISTICO, COORDINADOR LOGISTICO
+            'LOGÍSTICO',            # con tilde
+            'ANALISTA',             # ANALISTA DE OPERACIONES (no de densidad, ese ya salió antes)
+            'MEDICO',               # MEDICO DE CAMPAMENTO, MEDICO OCUPACIONAL
+            'MÉDICO',
+            'ENFERMERO',            # ENFERMERO, ENFERMERA DE CAMPAMENTO
+            'ENFERMERA',
+            'PSICOLOGO',            # PSICOLOGO OCUPACIONAL
+            'PSICÓLOGO',
+            'RECURSOS HUMANOS',     # ASISTENTE DE RECURSOS HUMANOS
+            'RELACIONES',           # RELACIONES COMUNITARIAS, RELACIONES LABORALES
         ]):
             return 'LINEA_MANDO'
 
@@ -1960,12 +1993,19 @@ class Trabajador(models.Model):
         import re
         c = re.sub(r'\s+', ' ', cargo_texto.upper().strip())
 
-        # SGEOL — Servicios Geológicos
+        # SGEOL — Servicios Geológicos (mismo conjunto de keywords que calcular_grupo_desde_cargo)
         if any(k in c for k in [
-            'MUESTRERO', 'CORTADOR DE TESTIGOS', 'GEOLOGO', 'GEÓLOGO',
-            'LOGUEO', 'GEOTECNISTA', 'GEOMECANI', 'TOPOGRAFO', 'TOPÓGRAFO',
+            'MUESTRERO', 'MUEST.', 'MUESTREO',
+            'CORTADOR DE TESTIGO',
+            'GEOLOGO', 'GEÓLOGO', 'GEOLOGA', 'GEÓLOGA',
+            'LOGUEO', 'AYUDANTE DE LOGUEO', 'ASISTENTE DE LOGUEO',
+            'AYUDANTE DE GEOLOGIA', 'ASISTENTE GEOLOGICO', 'ASISTENTE GEOLÓGICO',
+            'ASISTENTE DE GEOLOGIA', 'PRACTICANTE DE GEOLOGIA',
+            'GEOTECNI', 'AYUDANTE GEOTECNI', 'ASISTENTE GEOTECNI',
+            'GEOMECANI', 'GEOMECÁNI', 'GEOMEC',
+            'AYUDANTE GEOMEC', 'ASISTENTE GEOMEC',
+            'TOPOGRAFO', 'TOPÓGRAFO', 'TOPOGRAFIA',
             'QA/QC', 'QA & QC', 'AUXILIAR QA', 'DENSIDAD', 'HIDROGEOLOGO',
-            'AYUDANTE DE LOGUEO', 'ASISTENTE DE LOGUEO', 'AYUDANTE DE GEOLOGIA',
             'ORE CONTROL', 'LABORATORIO', 'MAPEO', 'SGEOL',
         ]):
             return 'SGEOL'
