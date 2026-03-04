@@ -56,13 +56,19 @@ def _cargo_order(cargo):
     return 5
 
 
-def _semana_desde_offset(offset: int):
-    """Devuelve (lunes, domingo) de la semana indicada por offset (0=actual)."""
+def _semana_desde_offset(offset: int, dia_inicio: int = 0):
+    """
+    Devuelve (inicio, fin) de la semana indicada por offset (0=semana actual).
+    dia_inicio: día que arranca la semana según contrato (0=Lun … 6=Dom).
+    Ej: dia_inicio=2 → semana Mié–Mar.
+    """
     hoy = date.today()
-    lunes_actual = hoy - timedelta(days=hoy.weekday())  # weekday(): lunes=0
-    lunes = lunes_actual + timedelta(weeks=offset)
-    domingo = lunes + timedelta(days=6)
-    return lunes, domingo
+    # Cuántos días retroceder desde hoy para llegar al inicio de la semana actual
+    dias_desde_inicio = (hoy.weekday() - dia_inicio) % 7
+    inicio_actual = hoy - timedelta(days=dias_desde_inicio)
+    inicio = inicio_actual + timedelta(weeks=offset)
+    fin    = inicio + timedelta(days=6)
+    return inicio, fin
 
 
 def _build_worker_dict(t, tareo_dict, dias_semana):
@@ -116,9 +122,13 @@ def organigrama_view(request):
         messages.warning(request, 'No hay contratos activos disponibles')
         return redirect('dashboard')
 
+    # Día que inicia la "semana de guardia" según el contrato (0=Lun…6=Dom).
+    # Fallback: lunes (0) si no está configurado.
+    dia_inicio_semana = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 0
+
     # ── Semana a mostrar ─────────────────────────────────────────
     semana_offset = int(request.GET.get('semana_offset', 0))
-    semana_inicio, semana_fin = _semana_desde_offset(semana_offset)
+    semana_inicio, semana_fin = _semana_desde_offset(semana_offset, dia_inicio_semana)
     dias_semana = [semana_inicio + timedelta(days=i) for i in range(7)]
 
     meses_es = {
