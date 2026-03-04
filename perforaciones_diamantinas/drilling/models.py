@@ -1982,40 +1982,19 @@ class Trabajador(models.Model):
         return 'DDH'
 
     def save(self, *args, **kwargs):
-        """Override save para asignar automáticamente el grupo y máquina"""
-        # Asignar grupo y tipo_servicio automáticamente
+        """Override save para asignar automáticamente el grupo y tipo_servicio.
+
+        NOTA: es_standby NUNCA se modifica automáticamente aquí.
+        El standby es un estado poco frecuente que debe asignarse de forma manual
+        desde el organigrama o la administración de trabajadores.
+        """
+        # Asignar grupo y tipo_servicio automáticamente según cargo
         if self.cargo:
             grupo_calculado = self.asignar_grupo_automatico()
             if grupo_calculado:
                 self.grupo = grupo_calculado
             self.tipo_servicio = self.calcular_tipo_servicio_desde_cargo(self.cargo)
-        
-        # Asignar máquina por defecto si no tiene una asignada
-        # y es perforista o ayudante
-        if not self.maquina_asignada and self.cargo:
-            try:
-                # Verificar si es personal operativo
-                cargo_upper = self.cargo.upper()
-                es_operativo = 'PERFORISTA' in cargo_upper or 'AYUDANTE' in cargo_upper
-                
-                if es_operativo:
-                    maquina_sugerida = self.asignar_maquina_por_defecto()
-                    if maquina_sugerida:
-                        self.maquina_asignada = maquina_sugerida
-                        # Si se asignó máquina, ya no es standby (salvo que sea explícito)
-                        if self.es_standby and not self.pk: # Solo al crear
-                             self.es_standby = False
-                    else:
-                        # Si NO hay cupo en ninguna máquina, se marca como STANDBY automáticamente
-                        if not self.maquina_asignada:
-                            self.es_standby = True
-                            # Actualizar grupo a Personal Auxiliar
-                            nuevo_grupo = self.asignar_grupo_automatico()
-                            if nuevo_grupo:
-                                self.grupo = nuevo_grupo
-            except Exception:
-                pass # Evitar errores bloqueantes en save()
-        
+
         super().save(*args, **kwargs)
 
     def calcular_estado_regimen(self, fecha):
