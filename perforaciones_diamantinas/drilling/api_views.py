@@ -493,6 +493,11 @@ def api_asignar_maquina_trabajador(request, pk):
     except Exception as e:
         logger.error(f"Error asignando máquina al trabajador {pk}: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_set_fecha_inicio_labores(request, pk):
     """
     Actualiza el campo 'fecha_inicio_labores' de un Trabajador vía AJAX.
     Body JSON: { "fecha_inicio_labores": "YYYY-MM-DD" | "" }
