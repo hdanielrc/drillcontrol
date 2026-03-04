@@ -14,7 +14,7 @@ Fecha: Enero 2026
 from datetime import date, timedelta
 from calendar import monthrange
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Case, When, Value, IntegerField
 from ..models import Trabajador, AsistenciaDiaria
 import logging
 
@@ -298,12 +298,27 @@ class TareoService:
                 ]
         """
         # Obtener trabajadores activos del contrato
+        # Anotamos orden por grupo para agrupar igual que V1
+        GRUPO_ORDER = {
+            'LINEA_MANDO':          1,
+            'OPERADORES':           2,
+            'SERVICIOS_GEOLOGICOS': 3,
+            'PERSONAL_AUXILIAR':    4,
+        }
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).select_related('maquina_asignada').order_by(
-            'guardia_asignada', 'apepat', 'apemat', 'nombres'
-        )
+        ).select_related('maquina_asignada').annotate(
+            grupo_ord=Case(
+                When(es_standby=True,                       then=Value(5)),
+                When(grupo='LINEA_MANDO',                   then=Value(1)),
+                When(grupo='OPERADORES',                    then=Value(2)),
+                When(grupo='SERVICIOS_GEOLOGICOS',          then=Value(3)),
+                When(grupo='PERSONAL_AUXILIAR',             then=Value(4)),
+                default=Value(6),
+                output_field=IntegerField()
+            )
+        ).order_by('grupo_ord', 'guardia_asignada', 'apepat', 'apemat', 'nombres')
         
         # Obtener asistencias del rango
         asistencias = AsistenciaDiaria.objects.filter(
@@ -328,15 +343,46 @@ class TareoService:
                 'maquina_nombre': asist.maquina_snapshot.nombre if asist.maquina_snapshot else None
             }
         
-        # Construir matriz
-        matriz = []
+        # Construir matriz agrupada por grupo
+        GRUPO_META = {
+            'LINEA_MANDO':          ('Línea de Mando',       'lm'),
+            'OPERADORES':           ('Operadores',            'op'),
+            'SERVICIOS_GEOLOGICOS': ('Servicios Geológicos',  'geo'),
+            'PERSONAL_AUXILIAR':    ('Personal Auxiliar',     'aux'),
+            '__STAND_BY__':         ('Personal Stand By',     'sb'),
+            '__SIN_GRUPO__':        ('Sin Grupo Asignado',    'sin'),
+        }
+
+        grupos_dict = {}  # grupo_key -> {'grupo_nombre': str, 'order': int, 'rows': []}
         for trabajador in trabajadores:
-            matriz.append({
+            if trabajador.es_standby:
+                grupo_key = '__STAND_BY__'
+                orden = 5
+            elif trabajador.grupo:
+                grupo_key = trabajador.grupo
+                orden = trabajador.grupo_ord
+            else:
+                grupo_key = '__SIN_GRUPO__'
+                orden = 6
+
+            if grupo_key not in grupos_dict:
+                meta_nombre, meta_css = GRUPO_META.get(grupo_key, (grupo_key, 'sin'))
+                grupos_dict[grupo_key] = {
+                    'grupo': grupo_key,
+                    'grupo_nombre': meta_nombre,
+                    'grupo_css': meta_css,
+                    'order': orden,
+                    'rows': []
+                }
+
+            grupos_dict[grupo_key]['rows'].append({
                 'trabajador': trabajador,
                 'guardia': trabajador.guardia_asignada or 'N/A',
                 'asistencias': asistencias_dict.get(trabajador.id, {})
             })
-        
+
+        # Devolver lista ordenada por grupo
+        matriz = sorted(grupos_dict.values(), key=lambda g: g['order'])
         return matriz
     
     @staticmethod

@@ -35,20 +35,24 @@
         flex-wrap: wrap;
     }
     
-    .btn-proyeccion {
-        background: #3498db;
+    .grupo-header-row td {
+        background: #2c3e50;
         color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: background 0.3s;
+        font-weight: 700;
+        font-size: 13px;
+        padding: 10px 15px;
+        letter-spacing: .5px;
+        border-top: 3px solid #1abc9c;
+        position: sticky;
+        left: 0;
     }
-    
-    .btn-proyeccion:hover {
-        background: #2980b9;
-    }
+    .grupo-header-row.grupo-lm  td { background: #1a5276; border-color: #0470ac; }
+    .grupo-header-row.grupo-op  td { background: #1e8449; border-color: #27ae60; }
+    .grupo-header-row.grupo-geo td { background: #154360; border-color: #0369a1; }
+    .grupo-header-row.grupo-aux td { background: #424949; border-color: #6b7280; }
+    .grupo-header-row.grupo-sb  td { background: #7d5a00; border-color: #f39c12; }
+    .grupo-header-row.grupo-sin td { background: #6b7280; border-color: #94a3b8; }
+
     
     .btn-guardar-tareo {
         background: #27ae60;
@@ -329,13 +333,26 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in matriz_tareo %}
-                    <tr>
+                    {% for grupo in matriz_tareo %}
+                    {# ── Fila cabecera de grupo ── #}
+                    <tr class="grupo-header-row grupo-{{ grupo.grupo_css }}"
+                        style="cursor:pointer" onclick="toggleGrupo('{{ grupo.grupo }}')">
+                        <td colspan="100">
+                            <span id="arrow-{{ grupo.grupo }}">▼</span>
+                            {{ grupo.grupo_nombre }}
+                            <small style="opacity:.75;font-weight:400;margin-left:8px;">
+                                ({{ grupo.rows|length }} persona{{ grupo.rows|length|pluralize }})
+                            </small>
+                        </td>
+                    </tr>
+                    {# ── Filas de trabajadores ── #}
+                    {% for row in grupo.rows %}
+                    <tr class="grupo-rows-{{ grupo.grupo }}">
                         <!-- Columna Trabajador (fija) -->
                         <td class="col-trabajador">
                             {{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}
                             <br>
-                            <small style="color: #7f8c8d;">{{ row.trabajador.cargo.nombre }}</small>
+                            <small style="color: #7f8c8d;">{{ row.trabajador.cargo }}</small>
                             {% if row.trabajador.maquina_asignada %}
                             <br>
                             <small style="color: #3498db;">🚜 {{ row.trabajador.maquina_asignada.nombre }}</small>
@@ -399,16 +416,16 @@
                             <div style="margin-top: 3px; font-size: 10px;">
                                 {% if data %}
                                     {% if data.es_proyeccion %}
-                                        <span class="proyeccion-indicator es-proyeccion" title="Proyección automática - Click en generar proyección para crear registros">P</span>
+                                        <span class="proyeccion-indicator es-proyeccion" title="Proyección automática">P</span>
                                     {% else %}
                                         <span class="proyeccion-indicator es-correccion" title="Registro manual confirmado">✓</span>
                                     {% endif %}
                                 {% else %}
-                                    <span style="background: #fff3cd; color: #856404; padding: 2px 4px; border-radius: 3px; font-size: 9px;" title="Sin registro - Usar 'Generar Proyección' o guardar manualmente">⚠️ Sin reg</span>
+                                    <span style="background: #fff3cd; color: #856404; padding: 2px 4px; border-radius: 3px; font-size: 9px;" title="Sin registro">⚠️</span>
                                 {% endif %}
                             </div>
                             
-                            <!-- Campo oculto para observaciones (opcional) -->
+                            <!-- Campo oculto para observaciones -->
                             <input type="hidden" 
                                    name="observaciones_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
                                    data-tipo="observaciones"
@@ -418,6 +435,7 @@
                         {% endwith %}
                         {% endfor %}
                     </tr>
+                    {% endfor %}
                     {% empty %}
                     <tr>
                         <td colspan="100" style="text-align: center; padding: 40px;">
@@ -626,6 +644,15 @@ document.getElementById('tareoForm').addEventListener('change', function() {
     }, 5000); // 5 segundos después del último cambio
 });
 */
+
+// Toggle de grupos de trabajadores
+function toggleGrupo(grupoKey) {
+    const rows = document.querySelectorAll(`.grupo-rows-${grupoKey}`);
+    const arrow = document.getElementById(`arrow-${grupoKey}`);
+    const collapsed = rows.length > 0 && rows[0].style.display === 'none';
+    rows.forEach(r => r.style.display = collapsed ? '' : 'none');
+    if (arrow) arrow.textContent = collapsed ? '▼' : '▶';
+}
 
 // Atajos de teclado para navegación rápida
 document.addEventListener('keydown', function(e) {
