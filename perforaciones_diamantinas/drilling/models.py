@@ -57,24 +57,41 @@ class Contrato(models.Model):
         ('SUSPENDIDO', 'Suspendido'),
         ('FINALIZADO', 'Finalizado'),
     ]
-    
+
+    DIA_SEMANA_CHOICES = [
+        (0, 'Lunes'),
+        (1, 'Martes'),
+        (2, 'Miércoles'),
+        (3, 'Jueves'),
+        (4, 'Viernes'),
+        (5, 'Sábado'),
+        (6, 'Domingo'),
+    ]
+
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='contratos')
     nombre_contrato = models.CharField(max_length=200)
     codigo_centro_costo = models.CharField(
-        max_length=50, 
-        blank=True, 
+        max_length=50,
+        blank=True,
         null=True,
         verbose_name='Código Centro de Costo',
         help_text='Código del centro de costo (ej: 000035)'
     )
     codigo_almacen = models.CharField(
-        max_length=50, 
-        blank=True, 
+        max_length=50,
+        blank=True,
         null=True,
         verbose_name='Código Almacén API',
         help_text='Código utilizado en la API de Consumos (ej: 15)'
     )
     duracion_turno = models.PositiveIntegerField(default=8)
+    dia_cambio_guardia = models.SmallIntegerField(
+        choices=DIA_SEMANA_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name='Día de Cambio de Guardia',
+        help_text='Día de la semana en que se realiza el cambio de guardia en este contrato (entrada y salida de mina).'
+    )
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ACTIVO')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

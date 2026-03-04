@@ -158,12 +158,37 @@ class ContratoServicioInline(admin.TabularInline):
 
 @admin.register(Contrato)
 class ContratoAdmin(admin.ModelAdmin):
-    list_display = ['nombre_contrato', 'cliente', 'codigo_centro_costo', 'codigo_almacen', 'duracion_turno', 'estado']
-    list_filter = ['estado', 'cliente']
+    list_display = [
+        'nombre_contrato', 'cliente', 'codigo_centro_costo', 'codigo_almacen',
+        'duracion_turno', 'get_dia_cambio_guardia', 'estado'
+    ]
+    list_filter = ['estado', 'cliente', 'dia_cambio_guardia']
     search_fields = ['nombre_contrato', 'cliente__nombre']
     ordering = ['nombre_contrato']
     raw_id_fields = ['cliente']
     inlines = [ContratoServicioInline]
+    fieldsets = (
+        ('Información General', {
+            'fields': ('cliente', 'nombre_contrato', 'estado')
+        }),
+        ('Códigos de Integración', {
+            'fields': ('codigo_centro_costo', 'codigo_almacen'),
+            'description': 'Códigos usados para sincronización con APIs externas.'
+        }),
+        ('Configuración Operativa', {
+            'fields': ('duracion_turno', 'dia_cambio_guardia'),
+            'description': '⛏️ CRÍTICO: El día de cambio de guardia determina cuándo se produce el relevo de personal en mina. '
+                           'Este valor es utilizado para la lógica de tareo y control de guardias.'
+        }),
+    )
+
+    def get_dia_cambio_guardia(self, obj):
+        if obj.dia_cambio_guardia is None:
+            return '— No definido —'
+        dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+        return f'📅 {dias[obj.dia_cambio_guardia]}'
+    get_dia_cambio_guardia.short_description = 'Cambio de Guardia'
+    get_dia_cambio_guardia.admin_order_field = 'dia_cambio_guardia'
 
 
 @admin.register(ContratoServicio)
