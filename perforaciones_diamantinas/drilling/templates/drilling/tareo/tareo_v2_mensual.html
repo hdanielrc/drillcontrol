@@ -69,6 +69,21 @@
     .btn-guardar-tareo:hover {
         background: #229954;
     }
+
+    .btn-proyeccion {
+        background: #2980b9;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        transition: background 0.3s;
+    }
+    .btn-proyeccion:hover {
+        background: #1a6492;
+    }
     
     /* Tabla principal - Scroll horizontal para muchas columnas */
     .tareo-table-wrapper {
@@ -164,13 +179,18 @@
         box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
     }
     
-    /* Colores por estado */
-    .estado-TRABAJO { background-color: #d5f4e6; color: #27ae60; }
-    .estado-DESCANSO { background-color: #fef9e7; color: #f39c12; }
-    .estado-FALTA { background-color: #fadbd8; color: #e74c3c; }
-    .estado-DM { background-color: #ebf5fb; color: #3498db; }
-    .estado-VACACIONES { background-color: #e8daef; color: #9b59b6; }
-    .estado-PERMISO { background-color: #fdeaea; color: #e67e22; }
+    /* Colores por estado — fondo sólido + texto de alto contraste */
+    .estado-TRABAJO     { background-color: #27ae60; color: #ffffff; border-color: #1e8449; }
+    .estado-DESCANSO    { background-color: #f0c030; color: #3d2b00; border-color: #c9a020; }
+    .estado-FALTA       { background-color: #e74c3c; color: #ffffff; border-color: #c0392b; }
+    .estado-DM          { background-color: #2980b9; color: #ffffff; border-color: #1a6492; }
+    .estado-VACACIONES  { background-color: #8e44ad; color: #ffffff; border-color: #6c3483; }
+    .estado-PERMISO     { background-color: #e67e22; color: #ffffff; border-color: #b9590c; }
+    .estado-SUSPENSION  { background-color: #c0392b; color: #ffffff; border-color: #922b21; }
+    .estado-LICENCIA    { background-color: #7f8c8d; color: #ffffff; border-color: #616a6b; }
+    .estado-INDUCCION   { background-color: #f39c12; color: #ffffff; border-color: #b7770d; }
+    .estado-STAND_BY    { background-color: #16a085; color: #ffffff; border-color: #0e6655; }
+    .estado-DIA_APOYO   { background-color: #2471a3; color: #ffffff; border-color: #1a5276; }
     
     /* Indicador de proyección vs corrección */
     .proyeccion-indicator {
@@ -458,20 +478,20 @@
     <!-- Leyenda -->
     <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <h4 style="margin-bottom: 15px;">📖 Leyenda de Estados</h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 15px;">
-            <div style="padding: 8px; background: #d5f4e6; border-radius: 4px; font-weight: 600;"><strong>T</strong> = Trabajo</div>
-            <div style="padding: 8px; background: #fef9e7; border-radius: 4px; font-weight: 600;"><strong>D</strong> = Descanso</div>
-            <div style="padding: 8px; background: #fadbd8; border-radius: 4px; font-weight: 600;"><strong>F</strong> = Falta</div>
-            <div style="padding: 8px; background: #ebf5fb; border-radius: 4px; font-weight: 600;"><strong>DM</strong> = Descanso Médico</div>
-            <div style="padding: 8px; background: #e8daef; border-radius: 4px; font-weight: 600;"><strong>V</strong> = Vacaciones</div>
-            <div style="padding: 8px; background: #fdeaea; border-radius: 4px; font-weight: 600;"><strong>P</strong> = Permiso</div>
-            <div style="padding: 8px; background: #e0e0e0; border-radius: 4px; font-weight: 600;"><strong>S</strong> = Suspensión</div>
-            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px; font-weight: 600;"><strong>L</strong> = Licencia</div>
-            <div style="padding: 8px; background: #fff3cd; border-radius: 4px; font-weight: 600;"><strong>I</strong> = Inducción</div>
-            <div style="padding: 8px; background: #cfe2ff; border-radius: 4px; font-weight: 600;"><strong>SB</strong> = Stand By</div>
-            <div style="padding: 8px; background: #d1e7dd; border-radius: 4px; font-weight: 600;"><strong>DA</strong> = Día de Apoyo</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 15px;">
+            <div style="padding: 8px 12px; background: #27ae60; color: #fff; border-radius: 4px; font-weight: 700;"><strong>T</strong> = Trabajo</div>
+            <div style="padding: 8px 12px; background: #f0c030; color: #3d2b00; border-radius: 4px; font-weight: 700;"><strong>D</strong> = Descanso</div>
+            <div style="padding: 8px 12px; background: #e74c3c; color: #fff; border-radius: 4px; font-weight: 700;"><strong>F</strong> = Falta</div>
+            <div style="padding: 8px 12px; background: #2980b9; color: #fff; border-radius: 4px; font-weight: 700;"><strong>DM</strong> = Descanso Médico</div>
+            <div style="padding: 8px 12px; background: #8e44ad; color: #fff; border-radius: 4px; font-weight: 700;"><strong>V</strong> = Vacaciones</div>
+            <div style="padding: 8px 12px; background: #e67e22; color: #fff; border-radius: 4px; font-weight: 700;"><strong>P</strong> = Permiso</div>
+            <div style="padding: 8px 12px; background: #c0392b; color: #fff; border-radius: 4px; font-weight: 700;"><strong>S</strong> = Suspensión</div>
+            <div style="padding: 8px 12px; background: #7f8c8d; color: #fff; border-radius: 4px; font-weight: 700;"><strong>L</strong> = Licencia</div>
+            <div style="padding: 8px 12px; background: #f39c12; color: #fff; border-radius: 4px; font-weight: 700;"><strong>I</strong> = Inducción</div>
+            <div style="padding: 8px 12px; background: #16a085; color: #fff; border-radius: 4px; font-weight: 700;"><strong>SB</strong> = Stand By</div>
+            <div style="padding: 8px 12px; background: #2471a3; color: #fff; border-radius: 4px; font-weight: 700;"><strong>DA</strong> = Día de Apoyo</div>
         </div>
-        <div style="display: flex; gap: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
+        <div style="display: flex; gap: 20px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 13px;">
             <div><span class="proyeccion-indicator es-proyeccion">P</span> = Proyección automática</div>
             <div><span class="proyeccion-indicator es-correccion">✓</span> = Corrección manual</div>
             <div>💾 = Guardar día específico</div>
