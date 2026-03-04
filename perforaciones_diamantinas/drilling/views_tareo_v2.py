@@ -221,7 +221,28 @@ def tareo_v2_mensual_view(request):
             messages.error(request, f"Error al guardar: {str(e)}")
     
     # =========================================================================
-    # 6. OBTENER DATOS PARA VISUALIZACIÓN (GET)
+    # 6. PRE-CARGAR DATOS DE V1 → V2 (GET AUTOMÁTICO)
+    # =========================================================================
+    # Importar registros de AsistenciaTrabajador (V1) que aún no existen en
+    # AsistenciaDiaria (V2). Solo crea/actualiza proyecciones; nunca toca
+    # correcciones manuales (es_proyeccion=False).
+    try:
+        resultado_v1 = TareoService.importar_desde_v1(
+            contrato=contrato,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            usuario=request.user,
+        )
+        if resultado_v1['importados'] > 0 or resultado_v1['actualizados'] > 0:
+            logger.info(
+                f"Pre-carga V1→V2: contrato={contrato.id} "
+                f"creados={resultado_v1['importados']} actualizados={resultado_v1['actualizados']}"
+            )
+    except Exception as e:
+        logger.warning(f"Error en pre-carga V1→V2: {str(e)}")
+
+    # =========================================================================
+    # 7. OBTENER DATOS PARA VISUALIZACIÓN (GET)
     # =========================================================================
     # Usar el servicio para obtener matriz pivoteada
     matriz_tareo = TareoService.obtener_matriz_tareo(contrato, fecha_inicio, fecha_fin)
@@ -233,7 +254,7 @@ def tareo_v2_mensual_view(request):
     ).order_by('nombre')
     
     # =========================================================================
-    # 7. CONTEXTO PARA EL TEMPLATE
+    # 8. CONTEXTO PARA EL TEMPLATE
     # =========================================================================
     context = {
         'contrato': contrato,

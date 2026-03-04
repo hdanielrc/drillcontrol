@@ -289,12 +289,9 @@
                 </a>
             </div>
             
-            <!-- Botones de proyección e importación -->
+            <!-- Botón de proyección -->
             <button type="button" class="btn-proyeccion" onclick="generarProyeccion()">
                 🔄 Generar Proyección Automática
-            </button>
-            <button type="button" class="btn-proyeccion" style="background:#8e44ad;" onclick="importarDesdeV1()">
-                📥 Importar desde V1
             </button>
             
             <!-- Selector de contrato (solo para superusers) -->
@@ -545,57 +542,6 @@ function generarProyeccion() {
         } else {
             alert('❌ Error: ' + data.error);
             console.error('Error en respuesta:', data);
-        }
-    })
-    .catch(error => {
-        hideLoading();
-        alert('❌ Error de conexión: ' + error);
-        console.error('Error:', error);
-    });
-}
-
-// Importar datos desde Tareo V1 (AsistenciaTrabajador)
-function importarDesdeV1() {
-    if (!confirm('¿Importar datos de Tareo V1 al periodo actual?\n\nSe respetarán las correcciones manuales ya guardadas.\nSolo se crearán/actualizarán proyecciones automáticas.')) {
-        return;
-    }
-
-    showLoading();
-
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-    const params = new URLSearchParams({
-        'contrato_id': '{{ contrato.id }}',
-        'anio': '{{ anio_operativo }}',
-        'mes': '{{ mes_operativo }}',
-    });
-
-    fetch('/tareo/v2/api/importar-v1/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': csrftoken
-        },
-        body: params
-    })
-    .then(response => response.json())
-    .then(data => {
-        hideLoading();
-        if (data.success) {
-            const d = data.data;
-            const msg = `✅ Importación completada!\n\n` +
-                `Registros nuevos:      ${d.importados}\n` +
-                `Actualizados:          ${d.actualizados}\n` +
-                `Omitidos (manual):     ${d.omitidos_manual}\n` +
-                `Sin mapeo (omitidos):  ${d.sin_mapeo}` +
-                (d.errores && d.errores.length ? `\n\nErrores: ${d.errores.length}` : '');
-            alert(msg);
-            if (d.importados > 0 || d.actualizados > 0) {
-                location.reload();
-            }
-        } else {
-            alert('❌ Error: ' + data.error);
-            console.error('Error importando desde V1:', data);
         }
     })
     .catch(error => {
