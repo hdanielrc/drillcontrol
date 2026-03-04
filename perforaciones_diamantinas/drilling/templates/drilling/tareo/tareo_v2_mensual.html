@@ -371,6 +371,9 @@
                         <!-- Columna Trabajador (fija) -->
                         <td class="col-trabajador">
                             {{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}
+                            {% if row.ciclo_alineado == False %}
+                            <span title="⚠️ El ciclo de este trabajador (fecha_inicio_ciclo) no está alineado al día de cambio de guardia del contrato. Corrija en Admin." style="color:#e67e22;cursor:help;">⚠️</span>
+                            {% endif %}
                             <br>
                             <small style="color: #7f8c8d;">{{ row.trabajador.cargo }}</small>
                             {% if row.trabajador.maquina_asignada %}

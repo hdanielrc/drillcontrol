@@ -36,6 +36,39 @@ class TareoService:
     }
     
     @staticmethod
+    def _snap_a_dia_cambio(fecha_ref, dia_cambio_guardia):
+        """
+        Retrocede fecha_ref hasta el día de semana == dia_cambio_guardia
+        más reciente (o la misma fecha si ya cae en ese día).
+        
+        Ej: fecha_ref=Viernes, dia_cambio_guardia=2(Mié) → retrocede 2 días → Mié.
+        """
+        delta = (fecha_ref.weekday() - dia_cambio_guardia) % 7
+        return fecha_ref - timedelta(days=delta)
+
+    @staticmethod
+    def _verificar_alineacion_ciclo(trabajador, contrato):
+        """
+        Verifica si la fecha_inicio_ciclo del trabajador cae en el
+        dia_cambio_guardia del contrato.
+
+        Returns:
+            True  → alineado correctamente
+            False → desalineado (debe corregirse)
+            None  → no verificable (faltan datos)
+        """
+        dia_cambio = contrato.dia_cambio_guardia
+        if dia_cambio is None:
+            return None  # contrato sin día configurado
+
+        fecha_ciclo = trabajador.fecha_inicio_ciclo
+        if not fecha_ciclo:
+            # Sin fecha manual → el sistema aplicará snap automático (considerado alineado)
+            return None
+
+        return fecha_ciclo.weekday() == dia_cambio
+
+    @staticmethod
     def calcular_estado_dia(trabajador, fecha_consulta):
         """
         Calcula el estado esperado de un trabajador para una fecha específica
@@ -56,13 +89,19 @@ class TareoService:
             return 'TRABAJO'
             
         # Si no tiene fecha de inicio, intentar usar un default razonable 
-        # para permitir que patrones como 14x7 funcionen
+        # Para que el ciclo quede anclado al día de cambio de guardia del contrato
         if not fecha_inicio_ciclo:
             if trabajador.fecha_ingreso:
-                fecha_inicio_ciclo = trabajador.fecha_ingreso
+                fecha_ref = trabajador.fecha_ingreso
             else:
-                # Fallback: 1 de Enero de 2024 como ancla
-                fecha_inicio_ciclo = date(2024, 1, 1)
+                fecha_ref = date(2024, 1, 1)
+
+            # Anclar al dia_cambio_guardia del contrato si está disponible
+            dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
+            if dia_cambio is not None:
+                fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_ref, dia_cambio)
+            else:
+                fecha_inicio_ciclo = fecha_ref
         
         # Si la fecha de consulta es anterior al inicio del ciclo, no aplica
         if fecha_consulta < fecha_inicio_ciclo:
@@ -308,7 +347,7 @@ class TareoService:
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
             estado='ACTIVO'
-        ).select_related('maquina_asignada').annotate(
+        ).select_related('contrato', 'maquina_asignada').annotate(
             grupo_ord=Case(
                 When(es_standby=True,                       then=Value(5)),
                 When(grupo='LINEA_MANDO',                   then=Value(1)),
@@ -378,7 +417,10 @@ class TareoService:
             grupos_dict[grupo_key]['rows'].append({
                 'trabajador': trabajador,
                 'guardia': trabajador.guardia_asignada or 'N/A',
-                'asistencias': asistencias_dict.get(trabajador.id, {})
+                'asistencias': asistencias_dict.get(trabajador.id, {}),
+                # True si fecha_inicio_ciclo cae en el dia_cambio_guardia del contrato
+                # None si no hay suficientes datos para verificar
+                'ciclo_alineado': TareoService._verificar_alineacion_ciclo(trabajador, contrato),
             })
 
         # Devolver lista ordenada por grupo
