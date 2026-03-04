@@ -147,6 +147,11 @@ def tareo_v2_mensual_view(request):
     # =========================================================================
     # 4. GENERAR LISTA DE DÍAS DEL MES
     # =========================================================================
+    # Día de cambio de guardia según contrato (0=Lun … 6=Dom).
+    # Si no está configurado en el contrato, se usa domingo (6) como fallback.
+    dia_cambio_guardia = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 6
+    dia_previo_cambio  = (dia_cambio_guardia - 1) % 7  # día anterior = amarillo
+
     dias_rango = []
     fecha_actual = fecha_inicio
     while fecha_actual <= fecha_fin:
@@ -154,12 +159,13 @@ def tareo_v2_mensual_view(request):
             0: 'Lun', 1: 'Mar', 2: 'Mié', 3: 'Jue', 
             4: 'Vie', 5: 'Sáb', 6: 'Dom'
         }
+        wd = fecha_actual.weekday()
         dias_rango.append({
             'fecha': fecha_actual,
             'dia': fecha_actual.day,
-            'nombre_dia': nombres_dias[fecha_actual.weekday()],
-            'es_domingo': fecha_actual.weekday() == 6,
-            'es_sabado': fecha_actual.weekday() == 5,
+            'nombre_dia': nombres_dias[wd],
+            'es_domingo': wd == dia_cambio_guardia,   # rojo  → día cambio de guardia
+            'es_sabado':  wd == dia_previo_cambio,    # amarillo → día previo al cambio
         })
         fecha_actual += timedelta(days=1)
     
