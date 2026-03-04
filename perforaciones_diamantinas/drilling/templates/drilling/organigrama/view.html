@@ -6,7 +6,7 @@
 {% block extra_css %}
 <style>
 /* ═══════════════════════════════════════════════════════════
-   ORGANIGRAMA TIPO ÁRBOL – drillcontrol
+   ORGANIGRAMA CON TAREO SEMANAL – drillcontrol
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -37,7 +37,7 @@ html, body { height: 100%; }
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     flex-wrap: wrap;
     gap: 12px;
 }
@@ -60,6 +60,54 @@ html, body { height: 100%; }
     min-width: 200px;
     background: #fff;
 }
+
+/* ── Barra de navegación semanal ─────────────────── */
+.semana-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+.semana-nav .nav-btn {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--lm-color);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background .15s;
+}
+.semana-nav .nav-btn:hover { background: #e2e8f0; color: var(--lm-color); }
+.semana-nav .semana-label {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: .97rem;
+    min-width: 200px;
+    text-align: center;
+}
+.semana-nav .hoy-btn { background: var(--lm-color); color: #fff; border-color: var(--lm-color); margin-left: 8px; }
+.semana-nav .hoy-btn:hover { background: #0470ac; color: #fff; }
+.semana-dias { display: flex; gap: 4px; margin-left: auto; }
+.semana-dias .dia-head {
+    width: 26px; height: 26px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 700;
+    background: #f1f5f9; color: #475569;
+}
+.semana-dias .dia-head.hoy { background: var(--lm-color); color: #fff; }
+.semana-dias .dia-head.fin-semana { background: #fee2e2; color: #991b1b; }
 
 /* ── Stats strip ─────────────────────────────────── */
 .org-stats {
@@ -173,8 +221,8 @@ html, body { height: 100%; }
     font-size: .75rem;
 }
 
-/* ── Workers de Línea de Mando ───────────────────── */
-.lm-workers {
+/* ── Workers ────────────────────────────────────── */
+.lm-workers, .side-workers {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -186,16 +234,17 @@ html, body { height: 100%; }
     background: #fff;
     border: 1px solid var(--card-border);
     border-radius: 10px;
-    padding: 8px 12px;
+    padding: 8px 10px 6px;
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 4px;
     box-shadow: 0 1px 4px rgba(0,0,0,.06);
     transition: transform .15s, box-shadow .15s;
     position: relative;
     z-index: 1;
-    width: 200px;
+    width: 220px;
 }
+.wn-top { display: flex; align-items: center; gap: 8px; }
 .worker-node:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,.12);
@@ -203,10 +252,10 @@ html, body { height: 100%; }
 .worker-node.standby { border-left: 4px solid #fbbf24; }
 
 .avatar {
-    width: 34px; height: 34px;
+    width: 32px; height: 32px;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: .85rem; font-weight: 700; color: #fff;
+    font-size: .82rem; font-weight: 700; color: #fff;
     flex-shrink: 0;
 }
 .av-lm  { background: #0470ac; }
@@ -217,7 +266,7 @@ html, body { height: 100%; }
 
 .node-info { min-width: 0; flex: 1; }
 .node-name  {
-    font-weight: 600; font-size: .82rem; color: #1e293b;
+    font-weight: 600; font-size: .8rem; color: #1e293b;
     line-height: 1.2; display: block;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -230,8 +279,37 @@ html, body { height: 100%; }
     display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px;
 }
 .nb {
-    font-size: .62rem; padding: 1px 5px; border-radius: 8px; font-weight: 600;
+    font-size: .6rem; padding: 1px 5px; border-radius: 8px; font-weight: 600;
 }
+
+/* ── Tareo week bar ─────────────────────────────── */
+.tareo-week {
+    display: flex;
+    gap: 3px;
+    justify-content: center;
+    padding-top: 4px;
+    border-top: 1px solid #f0f4f8;
+    flex-wrap: nowrap;
+}
+.tw-day { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }
+.tw-lbl { font-size: .58rem; color: #94a3b8; font-weight: 600; }
+.tw-badge {
+    font-size: .58rem; font-weight: 700; border-radius: 4px;
+    padding: 1px 2px; text-align: center; min-width: 18px; display: block;
+}
+/* Colores de estado */
+.sb-t   { background: #d1fae5; color: #065f46; }   /* TRABAJADO */
+.sb-dl  { background: #f1f5f9; color: #94a3b8; }   /* DIA LIBRE */
+.sb-f   { background: #fee2e2; color: #991b1b; }   /* FALTA */
+.sb-dm  { background: #fef3c7; color: #92400e; }   /* DESC MEDICO */
+.sb-v   { background: #dbeafe; color: #1d4ed8; }   /* VACACIONES */
+.sb-p   { background: #ede9fe; color: #7c3aed; }   /* PERMISO */
+.sb-sb  { background: #fef9c3; color: #713f12; }   /* STAND BY */
+.sb-i   { background: #cffafe; color: #0e7490; }   /* INDUCCION */
+.sb-r   { background: #e0f2fe; color: #0369a1; }   /* RECORRIDO */
+.sb-da  { background: #f0fdf4; color: #16a34a; }   /* DIA APOYO */
+.sb-sus { background: #fee2e2; color: #991b1b; }   /* SUSPENSION */
+.sb-nd  { background: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; }  /* Sin registro */
 .nb-ga { background: #dbeafe; color: #1d4ed8; }
 .nb-gb { background: #ede9fe; color: #7c3aed; }
 .nb-gc { background: #d1fae5; color: #065f46; }
@@ -283,7 +361,7 @@ html, body { height: 100%; }
     background: #fef3c7; border: 1px solid #fde68a;
     border-radius: 8px; padding: 2px 8px;
     margin-bottom: 6px; display: inline-flex; align-items: center; gap: 4px;
-    width: 200px; box-sizing: border-box;
+    width: 220px; box-sizing: border-box;
 }
 .maquina-group .worker-node { margin-bottom: 6px; }
 .maquina-group .worker-node:last-child { margin-bottom: 0; }
@@ -292,21 +370,14 @@ html, body { height: 100%; }
 .sin-maquina-label {
     font-size: .7rem; color: #94a3b8; margin-bottom: 4px;
     font-style: italic; display: block; text-align: center;
-    width: 200px;
-}
-
-/* ── Sección lateral (Geo, Aux) ───────────────────── */
-.side-workers {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
+    width: 220px;
 }
 
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 900px) {
     .level1-row { flex-wrap: wrap; gap: 30px; }
     .org-page   { padding: 12px; }
+    .semana-dias { display: none; }
 }
 </style>
 {% endblock %}
@@ -320,13 +391,36 @@ html, body { height: 100%; }
         {% if contratos_disponibles %}
         <div class="contract-sel">
             <label><i class="fas fa-hard-hat"></i></label>
-            <select onchange="location='?contrato='+this.value">
+            <select onchange="location='?contrato='+this.value+'&semana_offset={{ semana_offset }}'">
                 {% for c in contratos_disponibles %}
                 <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>{{ c.nombre_contrato }}</option>
                 {% endfor %}
             </select>
         </div>
         {% endif %}
+    </div>
+
+    <!-- Navegación semanal -->
+    <div class="semana-nav">
+        <a href="?contrato={{ contrato.id }}&semana_offset={{ semana_offset|add:-1 }}" class="nav-btn">
+            <i class="fas fa-chevron-left"></i> Anterior
+        </a>
+        <span class="semana-label"><i class="fas fa-calendar-week"></i> {{ label_semana }}</span>
+        <a href="?contrato={{ contrato.id }}&semana_offset={{ semana_offset|add:1 }}" class="nav-btn">
+            Siguiente <i class="fas fa-chevron-right"></i>
+        </a>
+        {% if semana_offset != 0 %}
+        <a href="?contrato={{ contrato.id }}&semana_offset=0" class="nav-btn hoy-btn">
+            <i class="fas fa-dot-circle"></i> Semana actual
+        </a>
+        {% endif %}
+        <div class="semana-dias">
+            {% for d in dias_semana %}
+            <div class="dia-head{% if d == today %} hoy{% elif d.weekday >= 5 %} fin-semana{% endif %}">
+                {{ d.day }}
+            </div>
+            {% endfor %}
+        </div>
     </div>
 
     <!-- Stats -->
@@ -336,6 +430,20 @@ html, body { height: 100%; }
         <div class="stat-chip"><span class="dot" style="background:var(--op-color)"></span> {{ total_operadores }} Operadores</div>
         <div class="stat-chip"><span class="dot" style="background:var(--geo-color)"></span> {{ total_servicios_geo }} Serv. Geol.</div>
         <div class="stat-chip"><span class="dot" style="background:var(--aux-color)"></span> {{ total_auxiliar }} Auxiliar</div>
+        {% if total_standby %}<div class="stat-chip"><span class="dot" style="background:#d97706"></span> {{ total_standby }} Stand By</div>{% endif %}
+    </div>
+
+    <!-- Leyenda -->
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:18px;font-size:.68rem;">
+        <span class="tw-badge sb-t">T = Trabajado</span>
+        <span class="tw-badge sb-dl">DL = Día Libre</span>
+        <span class="tw-badge sb-f">F = Falta</span>
+        <span class="tw-badge sb-dm">DM = Desc.Méd.</span>
+        <span class="tw-badge sb-v">V = Vacaciones</span>
+        <span class="tw-badge sb-p">P = Permiso/Lic.</span>
+        <span class="tw-badge sb-sb">SB = Stand By</span>
+        <span class="tw-badge sb-i">I = Inducción</span>
+        <span class="tw-badge sb-nd">— = Sin registro</span>
     </div>
 
     <!-- ═══ ÁRBOL ══════════════════════════════════════════════ -->
@@ -346,7 +454,7 @@ html, body { height: 100%; }
         <div class="root-row">
             <div class="node-root" id="node-root">
                 <div class="root-title"><i class="fas fa-industry"></i> {{ contrato.nombre_contrato }}</div>
-                <div class="root-sub">{{ total_trabajadores }} trabajadores activos</div>
+                <div class="root-sub">{{ total_trabajadores }} trabajadores activos &nbsp;·&nbsp; {{ label_semana }}</div>
             </div>
         </div>
 
@@ -361,16 +469,27 @@ html, body { height: 100%; }
                     <span class="sn-count">{{ total_linea_mando }}</span>
                 </div>
                 <div class="lm-workers">
-                    {% for t in linea_mando %}
-                    <div class="worker-node {% if t.es_standby %}standby{% endif %}">
-                        <div class="avatar av-lm">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                        <div class="node-info">
-                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
-                            <span class="node-cargo">{{ t.cargo }}</span>
-                            <div class="nano-badges">
-                                {% if t.guardia_asignada %}<span class="nb nb-g{{ t.guardia_asignada|lower }}">Grd.{{ t.guardia_asignada }}</span>{% endif %}
-                                {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                    {% for wd in linea_mando %}
+                    <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
+                        <div class="wn-top">
+                            <div class="avatar av-lm">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                            <div class="node-info">
+                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
+                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
+                                <div class="nano-badges">
+                                    {% if wd.obj.guardia_asignada %}<span class="nb nb-g{{ wd.obj.guardia_asignada|lower }}">Grd.{{ wd.obj.guardia_asignada }}</span>{% endif %}
+                                    {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
+                                </div>
                             </div>
+                        </div>
+                        <div class="tareo-week">
+                            {% for dia in wd.semana %}
+                            <div class="tw-day">
+                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
+                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                     {% endfor %}
@@ -391,27 +510,36 @@ html, body { height: 100%; }
 
                         <div class="guardia-node gn-{{ bloque.guardia|lower }}" id="gn-{{ bloque.guardia }}">
                             <i class="fas fa-shield-alt"></i> {{ bloque.label }}
-                            <span style="opacity:.7;font-size:.72rem">({{ bloque.trabajadores|length }})</span>
+                            <span style="opacity:.7;font-size:.72rem">({{ bloque.total }})</span>
                         </div>
 
-                        <!-- Agrupar por máquina -->
-                        {% regroup bloque.trabajadores by maquina_asignada as por_maquina %}
-                        {% for mq_group in por_maquina %}
-                            {% if mq_group.grouper %}
+                        {% for mq_group in bloque.maquinas %}
+                            {% if mq_group.maquina %}
                             <div class="maquina-group">
                                 <div class="maquina-label">
-                                    <i class="fas fa-cog"></i> {{ mq_group.grouper.nombre }}
+                                    <i class="fas fa-cog"></i> {{ mq_group.maquina.nombre }}
                                 </div>
-                                {% for t in mq_group.list %}
-                                <div class="worker-node {% if t.es_standby %}standby{% endif %}">
-                                    <div class="avatar av-op">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                                    <div class="node-info">
-                                        <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
-                                        <span class="node-cargo">{{ t.cargo }}</span>
-                                        <div class="nano-badges">
-                                            <span class="nb nb-mq"><i class="fas fa-cog"></i> {{ mq_group.grouper.nombre }}</span>
-                                            {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                {% for wd in mq_group.workers %}
+                                <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
+                                    <div class="wn-top">
+                                        <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                                        <div class="node-info">
+                                            <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
+                                            <span class="node-cargo">{{ wd.obj.cargo }}</span>
+                                            <div class="nano-badges">
+                                                <span class="nb nb-mq">{{ mq_group.maquina.nombre }}</span>
+                                                {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                                <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div class="tareo-week">
+                                        {% for dia in wd.semana %}
+                                        <div class="tw-day">
+                                            <span class="tw-lbl">{{ dia.dia_corto }}</span>
+                                            <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
+                                        </div>
+                                        {% endfor %}
                                     </div>
                                 </div>
                                 {% endfor %}
@@ -419,15 +547,26 @@ html, body { height: 100%; }
                             {% else %}
                             <div class="maquina-group">
                                 <span class="sin-maquina-label">Sin máquina asignada</span>
-                                {% for t in mq_group.list %}
-                                <div class="worker-node {% if t.es_standby %}standby{% endif %}">
-                                    <div class="avatar av-op">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                                    <div class="node-info">
-                                        <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
-                                        <span class="node-cargo">{{ t.cargo }}</span>
-                                        <div class="nano-badges">
-                                            {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                {% for wd in mq_group.workers %}
+                                <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
+                                    <div class="wn-top">
+                                        <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                                        <div class="node-info">
+                                            <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
+                                            <span class="node-cargo">{{ wd.obj.cargo }}</span>
+                                            <div class="nano-badges">
+                                                {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                                <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div class="tareo-week">
+                                        {% for dia in wd.semana %}
+                                        <div class="tw-day">
+                                            <span class="tw-lbl">{{ dia.dia_corto }}</span>
+                                            <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
+                                        </div>
+                                        {% endfor %}
                                     </div>
                                 </div>
                                 {% endfor %}
@@ -449,16 +588,27 @@ html, body { height: 100%; }
                     <span class="sn-count">{{ total_servicios_geo }}</span>
                 </div>
                 <div class="side-workers">
-                    {% for t in servicios_geo %}
-                    <div class="worker-node {% if t.es_standby %}standby{% endif %}">
-                        <div class="avatar av-geo">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                        <div class="node-info">
-                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
-                            <span class="node-cargo">{{ t.cargo }}</span>
-                            <div class="nano-badges">
-                                {% if t.guardia_asignada %}<span class="nb nb-g{{ t.guardia_asignada|lower }}">Grd.{{ t.guardia_asignada }}</span>{% endif %}
-                                {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                    {% for wd in servicios_geo %}
+                    <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
+                        <div class="wn-top">
+                            <div class="avatar av-geo">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                            <div class="node-info">
+                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
+                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
+                                <div class="nano-badges">
+                                    {% if wd.obj.guardia_asignada %}<span class="nb nb-g{{ wd.obj.guardia_asignada|lower }}">Grd.{{ wd.obj.guardia_asignada }}</span>{% endif %}
+                                    {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
+                                </div>
                             </div>
+                        </div>
+                        <div class="tareo-week">
+                            {% for dia in wd.semana %}
+                            <div class="tw-day">
+                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
+                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                     {% endfor %}
@@ -474,16 +624,27 @@ html, body { height: 100%; }
                     <span class="sn-count">{{ total_auxiliar }}</span>
                 </div>
                 <div class="side-workers">
-                    {% for t in personal_auxiliar %}
-                    <div class="worker-node {% if t.es_standby %}standby{% endif %}">
-                        <div class="avatar av-aux">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                        <div class="node-info">
-                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
-                            <span class="node-cargo">{{ t.cargo }}</span>
-                            <div class="nano-badges">
-                                {% if t.guardia_asignada %}<span class="nb nb-g{{ t.guardia_asignada|lower }}">Grd.{{ t.guardia_asignada }}</span>{% endif %}
-                                {% if t.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                    {% for wd in personal_auxiliar %}
+                    <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
+                        <div class="wn-top">
+                            <div class="avatar av-aux">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                            <div class="node-info">
+                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
+                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
+                                <div class="nano-badges">
+                                    {% if wd.obj.guardia_asignada %}<span class="nb nb-g{{ wd.obj.guardia_asignada|lower }}">Grd.{{ wd.obj.guardia_asignada }}</span>{% endif %}
+                                    {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
+                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
+                                </div>
                             </div>
+                        </div>
+                        <div class="tareo-week">
+                            {% for dia in wd.semana %}
+                            <div class="tw-day">
+                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
+                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                     {% endfor %}
@@ -491,23 +652,34 @@ html, body { height: 100%; }
             </div>
             {% endif %}
 
-            <!-- ── STAND BY / SIN GRUPO ── -->
-            {% if otros %}
+            <!-- ── STAND BY ── -->
+            {% if stand_by %}
             <div class="org-col" id="col-std">
                 <div class="section-node sn-std" id="sn-std">
                     <i class="fas fa-user-clock"></i> Stand By
-                    <span class="sn-count">{{ otros|length }}</span>
+                    <span class="sn-count">{{ total_standby }}</span>
                 </div>
                 <div class="side-workers">
-                    {% for t in otros %}
+                    {% for wd in stand_by %}
                     <div class="worker-node standby">
-                        <div class="avatar av-std">{{ t.nombres|slice:":1" }}{{ t.apepat|slice:":1" }}</div>
-                        <div class="node-info">
-                            <span class="node-name">{{ t.apepat }}, {{ t.nombres }}</span>
-                            <span class="node-cargo">{{ t.cargo }}</span>
-                            <div class="nano-badges">
-                                <span class="nb nb-sb">Stand By</span>
+                        <div class="wn-top">
+                            <div class="avatar av-std">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                            <div class="node-info">
+                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
+                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
+                                <div class="nano-badges">
+                                    <span class="nb nb-sb">Stand By</span>
+                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
+                                </div>
                             </div>
+                        </div>
+                        <div class="tareo-week">
+                            {% for dia in wd.semana %}
+                            <div class="tw-day">
+                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
+                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                     {% endfor %}

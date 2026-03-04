@@ -1,37 +1,102 @@
 """
-Vista para el organigrama organizacional - Solo visualización.
+Vista para el organigrama organizacional con vista semanal de tareo.
 
 Estructura basada en el campo `grupo` del trabajador:
-  - LINEA_MANDO   → Línea de Mando (Residente, Jefes, Ingenieros, Supervisores)
-  - OPERADORES    → Operadores, agrupados por guardia A/B/C con máquina asignada
+  - LINEA_MANDO          → Línea de Mando
+  - OPERADORES           → Operadores, agrupados por guardia A/B/C con máquina
   - SERVICIOS_GEOLOGICOS → Servicios Geológicos
-  - PERSONAL_AUXILIAR   → Personal Auxiliar
+  - PERSONAL_AUXILIAR    → Personal Auxiliar
   - Stand By / Sin grupo → al final
+
+Con semana seleccionada se superpone el estado de tareo de cada día
+sobre cada tarjeta de trabajador.
 """
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Contrato, Trabajador
+from datetime import date, timedelta
+from .models import Contrato, Trabajador, AsistenciaTrabajador
+
+
+# Días de la semana abreviados (lunes=0)
+DIAS_CORTOS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
+
+# Código corto y clase CSS por estado de asistencia
+ESTADO_BADGE = {
+    'TRABAJADO':           ('T',   'sb-t'),
+    'DIA_LIBRE':           ('DL',  'sb-dl'),
+    'FALTA':               ('F',   'sb-f'),
+    'DESCANSO_MEDICO':     ('DM',  'sb-dm'),
+    'VACACIONES':          ('V',   'sb-v'),
+    'PERMISO':             ('P',   'sb-p'),
+    'STAND_BY':            ('SB',  'sb-sb'),
+    'INDUCCION':           ('I',   'sb-i'),
+    'INDUCCION_VIRTUAL':   ('IV',  'sb-i'),
+    'RECORRIDO':           ('R',   'sb-r'),
+    'DIA_APOYO':           ('DA',  'sb-da'),
+    'SUSPENSION':          ('S',   'sb-f'),
+    'LICENCIA_SIN_GOCE':   ('LSG', 'sb-p'),
+    'LICENCIA_CON_GOCE':   ('LCG', 'sb-p'),
+    'LICENCIA_FALLECIMIENTO': ('LF', 'sb-p'),
+    'PERMISO_PATERNIDAD':  ('PT',  'sb-p'),
+    'SUBSIDIO':            ('SUB', 'sb-dm'),
+    'CESADO':              ('C',   'sb-f'),
+    'TRABAJO_CALIENTE':    ('TC',  'sb-t'),
+}
 
 
 def _cargo_order(cargo):
-    """Retorna un número de prioridad para ordenar dentro de Línea de Mando."""
     c = (cargo or '').upper()
-    if 'RESIDENTE' in c:        return 1
-    if 'JEFE' in c:             return 2
-    if 'GERENTE' in c:          return 2
-    if 'ADMINISTRADOR' in c:    return 3
-    if 'INGENIERO' in c:        return 3
-    if 'SUPERVISOR' in c:       return 4
+    if 'RESIDENTE' in c:      return 1
+    if 'JEFE' in c:           return 2
+    if 'GERENTE' in c:        return 2
+    if 'ADMINISTRADOR' in c:  return 3
+    if 'INGENIERO' in c:      return 3
+    if 'SUPERVISOR' in c:     return 4
     return 5
+
+
+def _semana_desde_offset(offset: int):
+    """Devuelve (lunes, domingo) de la semana indicada por offset (0=actual)."""
+    hoy = date.today()
+    lunes_actual = hoy - timedelta(days=hoy.weekday())  # weekday(): lunes=0
+    lunes = lunes_actual + timedelta(weeks=offset)
+    domingo = lunes + timedelta(days=6)
+    return lunes, domingo
+
+
+def _build_worker_dict(t, tareo_dict, dias_semana):
+    """Construye el dict que el template usa para pintar un trabajador."""
+    semana = []
+    trabajado_count = 0
+    for d in dias_semana:
+        asist = tareo_dict.get(t.id, {}).get(d)
+        if asist:
+            codigo, css = ESTADO_BADGE.get(asist, (asist[:2], 'sb-dl'))
+            if asist in ('TRABAJADO', 'TRABAJO_CALIENTE', 'DIA_APOYO',
+                         'INDUCCION', 'INDUCCION_VIRTUAL', 'RECORRIDO'):
+                trabajado_count += 1
+        else:
+            codigo, css = '—', 'sb-nd'
+        semana.append({
+            'dia_corto': DIAS_CORTOS[d.weekday()],
+            'fecha': d,
+            'codigo': codigo,
+            'css': css,
+        })
+    return {
+        'obj': t,
+        'semana': semana,
+        'trabajado_count': trabajado_count,
+    }
 
 
 @login_required
 def organigrama_view(request):
-    """Vista para mostrar el organigrama del contrato - Solo visualización."""
+    """Vista del organigrama con navegación semanal de tareo."""
     user = request.user
 
-    # Determinar contratos accesibles
+    # ── Contratos accesibles ─────────────────────────────────────
     if user.has_access_to_all_contracts():
         contrato_id = request.GET.get('contrato')
         if contrato_id:
@@ -51,66 +116,109 @@ def organigrama_view(request):
         messages.warning(request, 'No hay contratos activos disponibles')
         return redirect('dashboard')
 
-    trabajadores = Trabajador.objects.filter(
+    # ── Semana a mostrar ─────────────────────────────────────────
+    semana_offset = int(request.GET.get('semana_offset', 0))
+    semana_inicio, semana_fin = _semana_desde_offset(semana_offset)
+    dias_semana = [semana_inicio + timedelta(days=i) for i in range(7)]
+
+    meses_es = {
+        1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',
+        7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic'
+    }
+    label_semana = (
+        f"{semana_inicio.day} {meses_es[semana_inicio.month]} "
+        f"– {semana_fin.day} {meses_es[semana_fin.month]} {semana_fin.year}"
+    )
+
+    # ── Trabajadores activos ─────────────────────────────────────
+    trabajadores_qs = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
     ).select_related('maquina_asignada').order_by('apepat', 'nombres')
 
-    # ── Línea de Mando ──────────────────────────────────────────────
-    linea_mando = sorted(
-        [t for t in trabajadores if t.grupo == 'LINEA_MANDO'],
+    # ── Tareo de la semana ───────────────────────────────────────
+    # tareo_dict[trabajador_id][fecha] = estado
+    asistencias = AsistenciaTrabajador.objects.filter(
+        trabajador__contrato=contrato,
+        fecha__gte=semana_inicio,
+        fecha__lte=semana_fin,
+    ).values('trabajador_id', 'fecha', 'estado')
+
+    tareo_dict = {}
+    for a in asistencias:
+        tareo_dict.setdefault(a['trabajador_id'], {})[a['fecha']] = a['estado']
+
+    # ── Construir listas por grupo con datos de tareo ───────────
+    linea_mando_raw = sorted(
+        [t for t in trabajadores_qs if t.grupo == 'LINEA_MANDO'],
         key=lambda t: (_cargo_order(t.cargo), t.apepat)
     )
+    linea_mando = [_build_worker_dict(t, tareo_dict, dias_semana) for t in linea_mando_raw]
 
-    # ── Operadores agrupados por guardia A/B/C ───────────────────────
-    # Sorted por (guardia, maquina_id, apepat) para que {% regroup %} funcione
-    operadores_raw = [t for t in trabajadores if t.grupo == 'OPERADORES']
-    guardias_operadores = {}
+    operadores_raw = [t for t in trabajadores_qs if t.grupo == 'OPERADORES']
+    guardias_dict = {}
     for t in sorted(
         operadores_raw,
-        key=lambda x: (
-            x.guardia_asignada or 'Z',
-            x.maquina_asignada_id or 0,
-            x.apepat,
-        )
+        key=lambda x: (x.guardia_asignada or 'Z', x.maquina_asignada_id or 0, x.apepat)
     ):
         g = t.guardia_asignada or 'SIN_GUARDIA'
-        guardias_operadores.setdefault(g, []).append(t)
+        guardias_dict.setdefault(g, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
 
     operadores_por_guardia = []
     for key in ['A', 'B', 'C', 'SIN_GUARDIA']:
-        if key in guardias_operadores:
+        if key in guardias_dict:
+            # sub-agrupar por máquina
+            maquinas_sub = {}
+            for wd in guardias_dict[key]:
+                mq = wd['obj'].maquina_asignada
+                mq_key = mq.id if mq else None
+                maquinas_sub.setdefault(mq_key, {'maquina': mq, 'workers': []})['workers'].append(wd)
+            maquinas_list = []
+            for mk, mv in sorted(maquinas_sub.items(), key=lambda x: (x[0] is None, x[0] or 0)):
+                maquinas_list.append(mv)
             operadores_por_guardia.append({
                 'guardia': key,
                 'label': f'Guardia {key}' if key != 'SIN_GUARDIA' else 'Sin Guardia',
-                'trabajadores': guardias_operadores[key],
+                'maquinas': maquinas_list,
+                'total': len(guardias_dict[key]),
             })
 
-    # ── Servicios Geológicos ─────────────────────────────────────────
-    servicios_geo = [t for t in trabajadores if t.grupo == 'SERVICIOS_GEOLOGICOS']
+    servicios_geo_raw = [t for t in trabajadores_qs if t.grupo == 'SERVICIOS_GEOLOGICOS']
+    servicios_geo = [_build_worker_dict(t, tareo_dict, dias_semana) for t in servicios_geo_raw]
 
-    # ── Personal Auxiliar ────────────────────────────────────────────
-    personal_auxiliar = [t for t in trabajadores if t.grupo == 'PERSONAL_AUXILIAR']
+    personal_auxiliar_raw = [t for t in trabajadores_qs if t.grupo == 'PERSONAL_AUXILIAR']
+    personal_auxiliar = [_build_worker_dict(t, tareo_dict, dias_semana) for t in personal_auxiliar_raw]
 
-    # ── Sin grupo asignado (pueden ser standby sin grupo) ────────────
-    # No incluir trabajadores que ya tienen grupo: ellos aparecen en su
-    # sección correspondiente con el badge/borde de Stand By.
-    otros = [t for t in trabajadores if not t.grupo]
+    stand_by_raw = [t for t in trabajadores_qs if t.es_standby]
+    stand_by = [_build_worker_dict(t, tareo_dict, dias_semana) for t in stand_by_raw]
+
+    otros_raw = [t for t in trabajadores_qs if not t.grupo and not t.es_standby]
+    otros = [_build_worker_dict(t, tareo_dict, dias_semana) for t in otros_raw]
 
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
-        'total_trabajadores': trabajadores.count(),
+        'total_trabajadores': trabajadores_qs.count(),
         'linea_mando': linea_mando,
         'operadores_por_guardia': operadores_por_guardia,
         'servicios_geo': servicios_geo,
         'personal_auxiliar': personal_auxiliar,
+        'stand_by': stand_by,
         'otros': otros,
         'total_operadores': len(operadores_raw),
-        'total_linea_mando': len(linea_mando),
-        'total_servicios_geo': len(servicios_geo),
-        'total_auxiliar': len(personal_auxiliar),
+        'total_linea_mando': len(linea_mando_raw),
+        'total_servicios_geo': len(servicios_geo_raw),
+        'total_auxiliar': len(personal_auxiliar_raw),
+        'total_standby': len(stand_by_raw),
+        # Semana
+        'semana_offset': semana_offset,
+        'semana_inicio': semana_inicio,
+        'semana_fin': semana_fin,
+        'dias_semana': dias_semana,
+        'label_semana': label_semana,
+        'today': date.today(),
     }
 
     return render(request, 'drilling/organigrama/view.html', context)
+
 
