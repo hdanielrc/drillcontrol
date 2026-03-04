@@ -302,7 +302,7 @@ class TareoService:
             contrato=contrato,
             estado='ACTIVO'
         ).select_related('cargo', 'maquina_asignada').order_by(
-            'guardia_asignada', 'apellidos', 'nombres'
+            'guardia_asignada', 'apepat', 'apemat', 'nombres'
         )
         
         # Obtener asistencias del rango
