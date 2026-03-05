@@ -164,8 +164,8 @@ def tareo_v2_mensual_view(request):
             'fecha': fecha_actual,
             'dia': fecha_actual.day,
             'nombre_dia': nombres_dias[wd],
-            'es_domingo': wd == dia_cambio_guardia,   # rojo  → día cambio de guardia
-            'es_sabado':  wd == dia_previo_cambio,    # amarillo → día previo al cambio
+            'es_cambio_guardia': wd == dia_cambio_guardia,   # rojo  → día cambio de guardia
+            'es_previo_cambio':  wd == dia_previo_cambio,    # amarillo → día previo al cambio
         })
         fecha_actual += timedelta(days=1)
     

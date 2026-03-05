@@ -213,11 +213,11 @@
     }
     
     /* Días de cambio de guardia (según contrato) */
-    .dia-domingo {
+    .dia-cambio-guardia {
         background-color: #ffebee !important;  /* rojo claro → día cambio de guardia */
     }
     
-    .dia-sabado {
+    .dia-previo-cambio {
         background-color: #fff8e1 !important;  /* amarillo claro → día previo al cambio */
     }
     
@@ -338,7 +338,7 @@
                         <th class="col-trabajador">Trabajador</th>
                         <th class="col-guardia">Guardia</th>
                         {% for dia in dias_rango %}
-                        <th class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}">
+                        <th class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}">
                             <div>{{ dia.nombre_dia }}</div>
                             <div style="font-size: 16px; font-weight: 700;">{{ dia.dia }}</div>
                             <button type="button" 
@@ -391,7 +391,7 @@
                         {% for dia in dias_rango %}
                         {% with asist=row.asistencias %}
                         {% with data=asist|get_item:dia.fecha %}
-                        <td class="{% if dia.es_domingo %}dia-domingo{% elif dia.es_sabado %}dia-sabado{% endif %}" 
+                        <td class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}" 
                             data-trabajador-id="{{ row.trabajador.id }}" 
                             data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
                             <!-- Select de Estado -->
