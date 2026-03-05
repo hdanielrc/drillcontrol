@@ -40,9 +40,16 @@
                     <div class="row g-3">
                         <!-- Contrato -->
                         <div class="col-md-6">
-                            <label for="{{ form.contrato.id_for_label }}" class="form-label required">
+                            <label class="form-label required">
                                 <i class="fas fa-file-contract me-1"></i> Contrato
                             </label>
+                            {% if contrato_preseleccionado %}
+                            <div class="form-control bg-light">
+                                <i class="fas fa-lock me-1 text-muted"></i>
+                                <strong>{{ contrato_preseleccionado.nombre_contrato }}</strong>
+                            </div>
+                            <input type="hidden" name="contrato" value="{{ contrato_preseleccionado.pk }}">
+                            {% else %}
                             {{ form.contrato }}
                             {% if form.contrato.errors %}
                             <div class="invalid-feedback d-block">
@@ -50,6 +57,7 @@
                             </div>
                             {% endif %}
                             <small class="form-text text-muted">Seleccione el contrato al que aplica</small>
+                            {% endif %}
                         </div>
                         
                         <!-- Cargo -->
@@ -78,20 +86,6 @@
                             </div>
                             {% endif %}
                             <small class="form-text text-muted">Número de personas requeridas</small>
-                        </div>
-                        
-                        <!-- Máquina (opcional) -->
-                        <div class="col-md-6">
-                            <label for="{{ form.maquina.id_for_label }}" class="form-label">
-                                <i class="fas fa-cog me-1"></i> Máquina <span class="text-muted">(Opcional)</span>
-                            </label>
-                            {{ form.maquina }}
-                            {% if form.maquina.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.maquina.errors }}
-                            </div>
-                            {% endif %}
-                            <small class="form-text text-muted">Asignar a una máquina específica (opcional)</small>
                         </div>
                         
                         <!-- Observaciones -->
@@ -211,58 +205,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkbox = document.querySelector('#headcountForm input[type="checkbox"]');
     if (checkbox) {
         checkbox.classList.add('form-check-input');
-    }
-    
-    // Cargar máquinas dinámicamente cuando se selecciona un contrato
-    const contratoSelect = document.querySelector('select[name="contrato"]');
-    const maquinaSelect = document.querySelector('select[name="maquina"]');
-    
-    console.log('Contrato select:', contratoSelect);
-    console.log('Maquina select:', maquinaSelect);
-    
-    function cargarMaquinas(contratoId) {
-        console.log('Cargando máquinas para contrato:', contratoId);
-        
-        // Limpiar select de máquinas
-        maquinaSelect.innerHTML = '<option value="">Sin asignar a máquina específica</option>';
-        
-        if (contratoId) {
-            // Cargar máquinas del contrato
-            fetch(`/headcount/api/maquinas/?contrato_id=${contratoId}`)
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Máquinas recibidas:', data);
-                    if (data.maquinas && data.maquinas.length > 0) {
-                        data.maquinas.forEach(maquina => {
-                            const option = document.createElement('option');
-                            option.value = maquina.id;
-                            option.textContent = maquina.nombre;
-                            maquinaSelect.appendChild(option);
-                        });
-                        console.log(`${data.maquinas.length} máquinas cargadas`);
-                    } else {
-                        console.log('No hay máquinas para este contrato');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error al cargar máquinas:', error);
-                });
-        }
-    }
-    
-    if (contratoSelect && maquinaSelect) {
-        contratoSelect.addEventListener('change', function() {
-            cargarMaquinas(this.value);
-        });
-        
-        // Si ya hay un contrato seleccionado al cargar la página, cargar sus máquinas
-        if (contratoSelect.value) {
-            console.log('Contrato preseleccionado:', contratoSelect.value);
-            cargarMaquinas(contratoSelect.value);
-        }
     }
     
     // Validación en tiempo real para cantidad

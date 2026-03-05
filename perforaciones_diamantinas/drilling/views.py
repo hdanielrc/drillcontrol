@@ -474,7 +474,8 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         context = super().get_context_data(**kwargs)
 
         # Cargos por contrato (para el select Cargo HC)
-        rows = (Trabajador.objects.filter(estado='ACTIVO')
+        # Se obtienen del modelo HeadCount, gestionado manualmente por el usuario headcount
+        rows = (HeadCount.objects.filter(activo=True)
                 .exclude(cargo='')
                 .values('contrato_id', 'cargo')
                 .distinct()

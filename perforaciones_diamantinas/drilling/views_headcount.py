@@ -241,6 +241,14 @@ def headcount_create(request):
     
     if request.method == 'POST':
         form = HeadCountForm(request.POST, user=request.user)
+        # Recuperar contrato preseleccionado para re-mostrar en el form si hay error
+        contrato_preseleccionado = None
+        contrato_id_post = request.POST.get('contrato', '').strip()
+        if contrato_id_post:
+            try:
+                contrato_preseleccionado = Contrato.objects.get(pk=contrato_id_post, estado='ACTIVO')
+            except Contrato.DoesNotExist:
+                pass
         if form.is_valid():
             try:
                 # Verificar si ya existe un headcount activo con los mismos datos
@@ -272,13 +280,23 @@ def headcount_create(request):
                 for error in errors:
                     messages.error(request, f'{field}: {error}')
     else:
-        form = HeadCountForm(user=request.user)
-    
+        contrato_id = request.GET.get('contrato', '').strip()
+        initial = {}
+        contrato_preseleccionado = None
+        if contrato_id:
+            try:
+                contrato_preseleccionado = Contrato.objects.get(pk=contrato_id, estado='ACTIVO')
+                initial['contrato'] = contrato_preseleccionado
+            except Contrato.DoesNotExist:
+                pass
+        form = HeadCountForm(user=request.user, initial=initial)
+
     context = {
         'form': form,
         'is_edit': False,
+        'contrato_preseleccionado': contrato_preseleccionado,
     }
-    
+
     return render(request, 'drilling/headcount/form.html', context)
 
 
