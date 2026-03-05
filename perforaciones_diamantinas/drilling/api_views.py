@@ -497,6 +497,40 @@ def api_asignar_maquina_trabajador(request, pk):
 
 @login_required
 @require_http_methods(["POST"])
+def api_set_cargo_headcount_trabajador(request, pk):
+    """
+    Actualiza el campo 'cargo_headcount' de un Trabajador vía AJAX.
+    Body JSON: { "cargo_headcount": "RESIDENTE" | "" }
+    Si se envía vacío se limpia el override y se usa el cargo de la API.
+    """
+    import json
+    from .models import Trabajador
+
+    try:
+        data = json.loads(request.body)
+        cargo_hc = data.get('cargo_headcount', '').strip()
+
+        trabajador = get_object_or_404(Trabajador, pk=pk)
+
+        if not request.user.is_staff and not request.user.can_create_basic_data():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        Trabajador.objects.filter(pk=pk).update(cargo_headcount=cargo_hc or None)
+
+        return JsonResponse({
+            'success': True,
+            'cargo_headcount': cargo_hc or '',
+        })
+
+    except Trabajador.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Trabajador no encontrado'}, status=404)
+    except Exception as e:
+        logger.error(f"Error actualizando cargo_headcount del trabajador {pk}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
 def api_set_fecha_inicio_labores(request, pk):
     """
     Actualiza el campo 'fecha_inicio_labores' de un Trabajador vía AJAX.

@@ -1661,6 +1661,13 @@ class Trabajador(models.Model):
     
     # --- DATOS LABORALES (Sincronizados) ---
     cargo = models.CharField(max_length=200, blank=True, verbose_name='Cargo')
+    cargo_headcount = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='Cargo para Headcount',
+        help_text='Override manual: si se especifica, este cargo se usa para cuadrar el headcount en lugar del cargo oficial de la API. Útil cuando la persona es contratada con un cargo distinto al puesto que cubre.'
+    )
     centro_costo = models.CharField(max_length=50, blank=True, null=True, verbose_name='Centro Costo')
     contrato_nombre = models.CharField(max_length=200, blank=True, verbose_name='Contrato (Texto)')
     fecha_contratacion = models.DateField(null=True, blank=True, verbose_name='Fecha Contratación')
@@ -4655,19 +4662,18 @@ class HeadCount(models.Model):
     
     def __str__(self):
         maquina_str = f" - {self.maquina.nombre}" if self.maquina else ""
-        return f"{self.contrato.nombre_contrato} - {self.cargo.nombre}: {self.cantidad_requerida}{maquina_str}"
+        return f"{self.contrato.nombre_contrato} - {self.cargo}: {self.cantidad_requerida}{maquina_str}"
     
     def get_personal_actual(self):
-        """Obtiene el personal activo que cumple con este headcount"""
-        filtros = {
-            'contrato': self.contrato,
-            'cargo': self.cargo,
-            'estado': 'ACTIVO'
-        }
+        """Obtiene el personal activo que cumple con este headcount.
+        Considera tanto el cargo oficial (API) como el cargo_headcount (override).
+        """
+        from django.db.models import Q
+        q_cargo = Q(cargo=self.cargo) | Q(cargo_headcount=self.cargo)
+        q_base = Q(contrato=self.contrato, estado='ACTIVO')
         if self.maquina:
-            filtros['maquina_asignada'] = self.maquina
-        
-        return Trabajador.objects.filter(**filtros)
+            q_base &= Q(maquina_asignada=self.maquina)
+        return Trabajador.objects.filter(q_base & q_cargo)
     
     def get_cantidad_actual(self):
         """Retorna la cantidad actual de personal"""
@@ -4686,6 +4692,13 @@ class HeadCount(models.Model):
     def esta_completo(self):
         """Verifica si el headcount está completo"""
         return self.get_cantidad_actual() >= self.cantidad_requerida
+
+    def get_overrides_count(self):
+        """Retorna cuántos trabajadores cubren esta posición mediante cargo_headcount (override documentario)"""
+        q_base = {'contrato': self.contrato, 'cargo_headcount': self.cargo, 'estado': 'ACTIVO'}
+        if self.maquina:
+            q_base['maquina_asignada'] = self.maquina
+        return Trabajador.objects.filter(**q_base).count()
 
 
 # =============================================================================

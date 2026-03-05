@@ -9,7 +9,8 @@ class TrabajadorForm(forms.ModelForm):
     class Meta:
         model = Trabajador
         fields = [
-            'contrato', 'dni', 'nombres', 'apepat', 'apemat', 'cargo', 
+            'contrato', 'dni', 'nombres', 'apepat', 'apemat', 'cargo',
+            'cargo_headcount',
             'area', 'maquina_asignada', 'guardia_asignada', 
             'vehiculo_asignado', 'tipo_trabajo', 'regimen_laboral', 'fecha_inicio_ciclo',
             'telefono', 'email', 
@@ -38,6 +39,10 @@ class TrabajadorForm(forms.ModelForm):
                 'class': 'form-control', 
                 'placeholder': 'Cargo',
                 'readonly': True
+            }),
+            'cargo_headcount': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: RESIDENTE (dejar vacío si coincide con el cargo oficial)'
             }),
             'area': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Área de trabajo'}),
             'maquina_asignada': forms.Select(attrs={'class': 'form-select'}),
@@ -460,9 +465,6 @@ class HeadCountForm(forms.ModelForm):
                 self.fields['contrato'].queryset = Contrato.objects.filter(estado='ACTIVO')
             else:
                 self.fields['contrato'].queryset = Contrato.objects.filter(id=user.contrato.id, estado='ACTIVO')
-        
-        # Ordenar cargos alfabéticamente
-        self.fields['cargo'].queryset = Cargo.objects.all().order_by('nombre')
         
         # Si hay un contrato en la instancia, filtrar máquinas por ese contrato
         if self.instance and self.instance.pk and self.instance.contrato:

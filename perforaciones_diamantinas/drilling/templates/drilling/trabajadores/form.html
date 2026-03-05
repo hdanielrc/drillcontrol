@@ -81,6 +81,17 @@
                                 {% if form.cargo.errors %}<div class="text-danger small">{{ form.cargo.errors.0 }}</div>{% endif %}
                             </div>
                             <div class="col-md-4 form-group-compact">
+                                <label class="form-label">
+                                    <i class="fas fa-exchange-alt me-1 text-warning"></i> Cargo para Headcount
+                                </label>
+                                {{ form.cargo_headcount }}
+                                <small class="form-text text-warning">
+                                    <i class="fas fa-info-circle"></i>
+                                    Solo si el cargo documentario difiere del puesto que cubre
+                                </small>
+                                {% if form.cargo_headcount.errors %}<div class="text-danger small">{{ form.cargo_headcount.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 form-group-compact">
                                 <label class="form-label">Fecha de Ingreso</label>
                                 {{ form.fecha_contratacion }}
                                 <small class="text-muted">Sincronizado desde API</small>

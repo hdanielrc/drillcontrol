@@ -47,8 +47,8 @@
                     <select name="cargo" id="cargo" class="form-select">
                         <option value="">Todos los cargos</option>
                         {% for cargo in cargos %}
-                        <option value="{{ cargo.id }}" {% if request.GET.cargo == cargo.id|stringformat:"s" %}selected{% endif %}>
-                            {{ cargo.nombre }}
+                        <option value="{{ cargo }}" {% if request.GET.cargo == cargo %}selected{% endif %}>
+                            {{ cargo }}
                         </option>
                         {% endfor %}
                     </select>
@@ -136,7 +136,7 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                             <small class="text-muted">{{ headcount.contrato.cliente.nombre }}</small>
                         </td>
                         <td>
-                            <span class="badge bg-secondary">{{ headcount.cargo.nombre }}</span>
+                            <span class="badge bg-secondary">{{ headcount.cargo }}</span>
                             {% if headcount.es_no_planificado %}
                             <span class="badge bg-warning text-dark ms-1" title="Este cargo no está planificado en el headcount">
                                 <i class="fas fa-exclamation-triangle"></i> No planificado
@@ -159,6 +159,14 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                         </td>
                         <td class="text-center">
                             <span class="badge bg-success">{{ headcount.get_cantidad_actual }}</span>
+                            {% with overrides=headcount.get_overrides_count %}
+                            {% if overrides > 0 %}
+                            <span class="badge bg-warning text-dark ms-1"
+                                  title="{{ overrides }} persona(s) cubren este puesto con cargo documentario diferente (override headcount)">
+                                <i class="fas fa-exchange-alt"></i> {{ overrides }}
+                            </span>
+                            {% endif %}
+                            {% endwith %}
                         </td>
                         <td class="text-center">
                             {% with diferencia=headcount.get_diferencia %}
@@ -222,7 +230,7 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                         </td>
                         <td class="text-center">
                             {% if headcount.es_no_planificado %}
-                            <a href="{% url 'headcount-create' %}?contrato={{ headcount.contrato.id }}&cargo={{ headcount.cargo.id_cargo }}" 
+                            <a href="{% url 'headcount-create' %}?contrato={{ headcount.contrato.id }}" 
                                class="btn btn-sm btn-primary"
                                title="Agregar al headcount">
                                 <i class="fas fa-plus-circle"></i> Planificar
@@ -261,7 +269,7 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                                     <p>¿Está seguro que desea eliminar este headcount?</p>
                                     <div class="alert alert-warning">
                                         <strong>Contrato:</strong> {{ headcount.contrato.nombre_contrato }}<br>
-                                        <strong>Cargo:</strong> {{ headcount.cargo.nombre }}<br>
+                                        <strong>Cargo:</strong> {{ headcount.cargo }}<br>
                                         <strong>Cantidad:</strong> {{ headcount.cantidad_requerida }}
                                     </div>
                                     <p class="text-muted mb-0">Esta acción desactivará el registro.</p>

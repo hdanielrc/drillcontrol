@@ -108,6 +108,27 @@
                         </td>
                         <td>
                             <span class="badge bg-info">{{ trabajador.cargo }}</span>
+                            {% if request.user.can_create_basic_data or request.user.is_staff %}
+                            <div class="mt-1 d-flex align-items-center gap-1">
+                                <input type="text"
+                                       class="form-control form-control-sm cargo-hc-input"
+                                       data-id="{{ trabajador.pk }}"
+                                       value="{{ trabajador.cargo_headcount|default:'' }}"
+                                       placeholder="Override headcount…"
+                                       title="Cargo para headcount (dejar vacío si coincide con el cargo oficial)"
+                                       style="min-width:140px;max-width:180px;font-size:0.78rem;">
+                                <button class="btn btn-sm btn-outline-warning cargo-hc-btn"
+                                        data-id="{{ trabajador.pk }}"
+                                        title="Guardar cargo headcount"
+                                        style="padding:2px 7px;font-size:0.78rem;">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                            </div>
+                            {% elif trabajador.cargo_headcount %}
+                            <span class="badge bg-warning text-dark ms-1" title="Override headcount">
+                                <i class="fas fa-exchange-alt"></i> {{ trabajador.cargo_headcount }}
+                            </span>
+                            {% endif %}
                         </td>
                         <td>
                             {% if trabajador.es_standby %}
@@ -316,6 +337,53 @@ document.querySelectorAll('.maquina-select').forEach(sel => {
             mostrarToastLista('Error de red. Intenta de nuevo.', 'danger');
         })
         .finally(() => { selEl.disabled = false; });
+    });
+});
+
+// --- Cargo Headcount inline ---
+function guardarCargoHc(id, valor, btnEl) {
+    if (btnEl) btnEl.disabled = true;
+    fetch(`/api/trabajadores/${id}/cargo-headcount/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ cargo_headcount: valor })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToastLista(
+                valor ? 'Override headcount: ' + valor : 'Override de headcount eliminado',
+                'success'
+            );
+        } else {
+            mostrarToastLista('Error: ' + (data.error || 'No se pudo guardar'), 'danger');
+        }
+    })
+    .catch(() => mostrarToastLista('Error de red. Intenta de nuevo.', 'danger'))
+    .finally(() => { if (btnEl) btnEl.disabled = false; });
+}
+
+document.querySelectorAll('.cargo-hc-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const id = this.dataset.id;
+        const input = document.querySelector(`.cargo-hc-input[data-id="${id}"]`);
+        guardarCargoHc(id, input.value.trim().toUpperCase(), this);
+        input.value = input.value.trim().toUpperCase();
+    });
+});
+
+document.querySelectorAll('.cargo-hc-input').forEach(input => {
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const id = this.dataset.id;
+            const btn = document.querySelector(`.cargo-hc-btn[data-id="${id}"]`);
+            guardarCargoHc(id, this.value.trim().toUpperCase(), btn);
+            this.value = this.value.trim().toUpperCase();
+        }
     });
 });
 </script>

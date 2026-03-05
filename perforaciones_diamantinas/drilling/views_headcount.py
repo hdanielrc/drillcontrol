@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponseRedirect
 from django.db.models import Sum, Count, Q
 from django.urls import reverse
+from django.db.models import QuerySet
 from .models import HeadCount, Contrato, Trabajador, Maquina
 from .forms import HeadCountForm
 
@@ -16,7 +17,7 @@ from .forms import HeadCountForm
 def headcount_dashboard(request):
     """Dashboard principal de headcount"""
     # Verificar permisos
-    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']:
+    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT', 'GERENTE_GENERAL']:
         messages.error(request, 'No tienes permisos para acceder a esta sección')
         return redirect('dashboard')
     
@@ -75,7 +76,7 @@ def headcount_dashboard(request):
 def headcount_list(request):
     """Lista de headcount por contrato"""
     # Verificar permisos
-    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']:
+    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT', 'GERENTE_GENERAL']:
         messages.error(request, 'No tienes permisos para acceder a esta sección')
         return redirect('dashboard')
     
@@ -111,41 +112,32 @@ def headcount_list(request):
         activo=True
     )
     
-    # Debug inicial
-    count_inicial = headcounts_query.count()
-    messages.info(request, f'Headcounts activos en {contrato.nombre_contrato}: {count_inicial}')
-    
     # Aplicar filtros adicionales
     if cargo_id:
         headcounts_query = headcounts_query.filter(cargo__icontains=cargo_id)
-        messages.info(request, f'Después de filtrar por cargo: {headcounts_query.count() if hasattr(headcounts_query, "count") else len(headcounts_query)}')
     
     if estado_filtro == 'completo':
-        # Filtrar solo los que están completos
         headcounts_query = [hc for hc in headcounts_query if hc.esta_completo()]
-        messages.info(request, f'Después de filtrar completos: {len(headcounts_query)}')
     elif estado_filtro == 'incompleto':
-        # Filtrar los que no están completos
         headcounts_query = [hc for hc in headcounts_query if not hc.esta_completo()]
-        messages.info(request, f'Después de filtrar incompletos: {len(headcounts_query)}')
     
     if maquina_id:
-        if maquina_id == 'sin_asignar':
-            headcounts_query = headcounts_query.filter(maquina__isnull=True) if isinstance(headcounts_query, type(HeadCount.objects.all())) else [hc for hc in headcounts_query if hc.maquina is None]
+        if isinstance(headcounts_query, QuerySet):
+            if maquina_id == 'sin_asignar':
+                headcounts_query = headcounts_query.filter(maquina__isnull=True)
+            else:
+                headcounts_query = headcounts_query.filter(maquina_id=maquina_id)
         else:
-            headcounts_query = headcounts_query.filter(maquina_id=maquina_id) if isinstance(headcounts_query, type(HeadCount.objects.all())) else [hc for hc in headcounts_query if hc.maquina_id == int(maquina_id)]
-        messages.info(request, f'Después de filtrar por máquina: {headcounts_query.count() if hasattr(headcounts_query, "count") else len(headcounts_query)}')
+            if maquina_id == 'sin_asignar':
+                headcounts_query = [hc for hc in headcounts_query if hc.maquina is None]
+            else:
+                headcounts_query = [hc for hc in headcounts_query if hc.maquina_id == int(maquina_id)]
     
     # Convertir a lista si aún es QuerySet
-    if hasattr(headcounts_query, 'select_related'):
+    if isinstance(headcounts_query, QuerySet):
         headcounts = headcounts_query.select_related('maquina').order_by('cargo', 'maquina__nombre')
     else:
         headcounts = sorted(headcounts_query, key=lambda x: (x.cargo, x.maquina.nombre if x.maquina else ''))
-    
-    # Debug: contar todos los headcounts del contrato (incluso inactivos)
-    total_headcounts = HeadCount.objects.filter(contrato=contrato).count()
-    if total_headcounts > len(headcounts):
-        messages.info(request, f'Hay {total_headcounts - len(headcounts)} headcount(s) inactivo(s) para este contrato')
     
     # Obtener cargos con trabajadores activos que NO están en el headcount
     cargos_en_headcount = set(hc.cargo for hc in headcounts)
@@ -161,8 +153,7 @@ def headcount_list(request):
     # Crear objetos "virtuales" de HeadCount para cargos sin planificar
     headcounts_list = list(headcounts)
     for item in trabajadores_sin_headcount:
-        cargo_obj = Cargo.objects.get(id_cargo=item['cargo'])
-        # Crear un objeto mock de HeadCount
+        cargo_str = item['cargo']
         class MockHeadCount:
             def __init__(self, contrato, cargo, cantidad_actual):
                 self.id = None
@@ -179,10 +170,10 @@ def headcount_list(request):
                 return self._cantidad_actual
             
             def get_diferencia(self):
-                return 0 - self._cantidad_actual  # Negativo porque sobran
+                return 0 - self._cantidad_actual
             
             def get_porcentaje_cumplimiento(self):
-                return 0  # No hay meta
+                return 0
             
             def get_personal_actual(self):
                 return Trabajador.objects.filter(
@@ -194,11 +185,11 @@ def headcount_list(request):
             def esta_completo(self):
                 return False
         
-        mock_hc = MockHeadCount(contrato, cargo_obj, item['cantidad'])
+        mock_hc = MockHeadCount(contrato, cargo_str, item['cantidad'])
         headcounts_list.append(mock_hc)
     
     # Ordenar incluyendo los no planificados
-    headcounts_list = sorted(headcounts_list, key=lambda x: (x.cargo.nombre, x.maquina.nombre if x.maquina else ''))
+    headcounts_list = sorted(headcounts_list, key=lambda x: (x.cargo, x.maquina.nombre if x.maquina else ''))
     
     # Agregar datos calculados
     headcounts_data = []
@@ -218,8 +209,10 @@ def headcount_list(request):
     total_diferencia = total_requerido - total_actual
     porcentaje_general = int((total_actual / total_requerido * 100)) if total_requerido > 0 else 0
     
-    # Obtener cargos y máquinas para los filtros
-    cargos = Cargo.objects.all().order_by('nombre')
+    # Obtener cargos únicos (de trabajadores + headcounts) para los filtros
+    cargos_hc = HeadCount.objects.filter(contrato=contrato).values_list('cargo', flat=True).distinct()
+    cargos_trab = Trabajador.objects.filter(contrato=contrato).values_list('cargo', flat=True).distinct()
+    cargos = sorted(set(cargos_hc) | set(cargos_trab))
     maquinas = Maquina.objects.filter(contrato=contrato, estado='OPERATIVO').order_by('nombre')
     
     context = {
@@ -242,7 +235,7 @@ def headcount_list(request):
 def headcount_create(request):
     """Crear nuevo headcount"""
     # Verificar permisos
-    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']:
+    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT', 'GERENTE_GENERAL']:
         messages.error(request, 'No tienes permisos para realizar esta acción')
         return redirect('headcount-dashboard')
     
@@ -263,7 +256,7 @@ def headcount_create(request):
                 ).exists()
                 
                 if existe:
-                    messages.warning(request, f'Ya existe un headcount activo para {cargo.nombre} en {contrato.nombre_contrato}. '
+                    messages.warning(request, f'Ya existe un headcount activo para {cargo} en {contrato.nombre_contrato}. '
                                               f'Edite el existente en lugar de crear uno nuevo.')
                     url = reverse('headcount-list') + f'?contrato={contrato.id}'
                     return HttpResponseRedirect(url)
@@ -295,7 +288,7 @@ def headcount_update(request, pk):
     headcount = get_object_or_404(HeadCount, pk=pk)
     
     # Verificar permisos
-    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']:
+    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT', 'GERENTE_GENERAL']:
         messages.error(request, 'No tienes permisos para realizar esta acción')
         return redirect('headcount-dashboard')
     
@@ -332,7 +325,7 @@ def headcount_delete(request, pk):
     headcount = get_object_or_404(HeadCount, pk=pk)
     
     # Verificar permisos
-    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']:
+    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT', 'GERENTE_GENERAL']:
         return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
     
     headcount.activo = False
@@ -365,7 +358,7 @@ def get_maquinas_by_contrato(request):
 @login_required
 def debug_headcounts(request):
     """Vista de debug para ver todos los headcounts"""
-    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT']:
+    if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT', 'GERENTE_GENERAL']:
         messages.error(request, 'No tienes permisos')
         return redirect('dashboard')
     
@@ -382,7 +375,7 @@ def debug_headcounts(request):
         data.append({
             'id': hc.id,
             'contrato': str(hc.contrato),
-            'cargo': hc.cargo.nombre,
+            'cargo': hc.cargo,
             'cantidad': hc.cantidad_requerida,
             'maquina': hc.maquina.nombre if hc.maquina else 'Sin asignar',
             'activo': hc.activo,
