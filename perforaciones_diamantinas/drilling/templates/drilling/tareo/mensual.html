@@ -116,7 +116,7 @@
                                     <th class="text-center" style="min-width: 120px;">Máquina</th>
                                     <th class="text-center" style="min-width: 60px;">Guardia</th>
                                     {% for dia in dias_rango %}
-                                    <th class="text-center {% if dia.es_domingo %}table-danger{% elif dia.es_sabado %}table-warning{% endif %}" 
+                                    <th class="text-center {% if dia.es_cambio_guardia %}table-danger{% elif dia.es_previo_cambio %}table-warning{% endif %}" 
                                         style="min-width: 50px; font-size: 0.8rem; position:relative; padding: 4px 2px;">
                                         {{ dia.dia }}
                                         <div class="dropdown mt-1">
@@ -374,13 +374,13 @@
                                     </td>
                                     {% for asist in item.asistencias %}
                                     {% if asist.bloqueada %}
-                                    <td class="text-center {% if asist.es_domingo %}table-danger{% elif asist.es_sabado %}table-warning{% endif %}"
+                                    <td class="text-center {% if asist.es_cambio_guardia %}table-danger{% elif asist.es_previo_cambio %}table-warning{% endif %}"
                                         title="Sin tareo — antes del inicio de labores"
                                         style="padding: 2px; font-size: 0.7rem; background: repeating-linear-gradient(45deg, #e9ecef, #e9ecef 3px, #f8f9fa 3px, #f8f9fa 8px); cursor: not-allowed; opacity: 0.6;">
                                         <span style="color:#adb5bd; font-size:0.65rem;">—</span>
                                     </td>
                                     {% else %}
-                                    <td class="celda-asistencia text-center {% if asist.es_domingo %}table-danger{% elif asist.es_sabado %}table-warning{% endif %}" 
+                                    <td class="celda-asistencia text-center {% if asist.es_cambio_guardia %}table-danger{% elif asist.es_previo_cambio %}table-warning{% endif %}" 
                                         data-trabajador-id="{{ item.trabajador.id }}"
                                         data-fecha="{{ asist.fecha|date:'Y-m-d' }}"
                                         data-estado="{{ asist.estado }}"

@@ -107,6 +107,9 @@ def tareo_mensual_view(request):
     nombre_periodo = f"{meses_es[fecha_base.month]} {fecha_base.year}"
     
     # Generar lista de días del rango
+    dia_cambio_guardia = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 6
+    dia_previo_cambio  = (dia_cambio_guardia - 1) % 7
+
     dias_rango = []
     fecha_actual = fecha_inicio
     while fecha_actual <= fecha_fin:
@@ -115,12 +118,13 @@ def tareo_mensual_view(request):
             0: 'Lun', 1: 'Mar', 2: 'Mié', 3: 'Jue', 
             4: 'Vie', 5: 'Sáb', 6: 'Dom'
         }
+        wd = fecha_actual.weekday()
         dias_rango.append({
             'fecha': fecha_actual,
             'dia': fecha_actual.day,
-            'nombre_dia': nombres_dias[fecha_actual.weekday()],
-            'es_domingo': fecha_actual.weekday() == 6,
-            'es_sabado': fecha_actual.weekday() == 5,
+            'nombre_dia': nombres_dias[wd],
+            'es_cambio_guardia': wd == dia_cambio_guardia,
+            'es_previo_cambio':  wd == dia_previo_cambio,
         })
         fecha_actual += timedelta(days=1)
     
@@ -226,8 +230,8 @@ def tareo_mensual_view(request):
                 'tipo': asist_dia['tipo'] if asist_dia else 'PAGABLE',
                 'tipo_display': asist_dia['tipo_display'] if asist_dia else 'Pagable',
                 'observaciones': asist_dia['observaciones'] if asist_dia else '',
-                'es_domingo': dia_info['es_domingo'],
-                'es_sabado': dia_info['es_sabado']
+                'es_cambio_guardia': dia_info['es_cambio_guardia'],
+                'es_previo_cambio':  dia_info['es_previo_cambio']
             })
         
         trabajadores_por_grupo[primary_key]['guardias'][guardia_key]['trabajadores'].append({
