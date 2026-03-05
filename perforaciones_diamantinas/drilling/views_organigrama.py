@@ -15,7 +15,8 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import Contrato, Trabajador, AsistenciaTrabajador
+from collections import defaultdict
+from .models import Contrato, Trabajador, AsistenciaTrabajador, HeadCount
 
 
 # Días de la semana abreviados (lunes=0)
@@ -43,6 +44,22 @@ ESTADO_BADGE = {
     'CESADO':              ('C',   'sb-f'),
     'TRABAJO_CALIENTE':    ('TC',  'sb-t'),
 }
+
+
+def _grupo_para_cargo(cargo):
+    """Clasifica un cargo en uno de los 4 grupos del organigrama usando keywords."""
+    c = (cargo or '').upper()
+    if any(k in c for k in ['PERFORISTA', 'AYUDANTE DDH', 'AYUDANTE PERFORISTA',
+                             'TECNICO MECANICO', 'OPERADOR EQUIPO']):
+        return 'OPERADORES'
+    if any(k in c for k in ['GEOLOGO', 'GEOLOG', 'MUESTRERO', 'GEOMECANICO',
+                             'GEOLOGICO', 'GEOLOGICA']):
+        return 'SERVICIOS_GEOLOGICOS'
+    if any(k in c for k in ['RESIDENTE', 'SUPERVISOR', 'INGENIERO', 'ADMINISTRADOR',
+                             'SEGURIDAD', 'JEFE', 'GERENTE', 'PREVENCION', 'SSOMA',
+                             'LOGISTIC', 'COORDINADOR', 'INSPECTOR', 'MONITOR']):
+        return 'LINEA_MANDO'
+    return 'PERSONAL_AUXILIAR'
 
 
 def _cargo_order(cargo):
@@ -205,6 +222,16 @@ def organigrama_view(request):
     otros_raw = [t for t in trabajadores_qs if not t.grupo and not t.es_standby]
     otros = [_build_worker_dict(t, tareo_dict, dias_semana) for t in otros_raw]
 
+    # ── Slots Vacantes (HeadCount faltantes) ────────────────────
+    slots_por_grupo = defaultdict(list)
+    for hc in HeadCount.objects.filter(contrato=contrato, activo=True):
+        diferencia = hc.get_diferencia()
+        if diferencia > 0:
+            grupo = _grupo_para_cargo(hc.cargo)
+            for _ in range(diferencia):
+                slots_por_grupo[grupo].append({'cargo': hc.cargo})
+    total_vacantes = sum(len(v) for v in slots_por_grupo.values())
+
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
@@ -220,6 +247,8 @@ def organigrama_view(request):
         'total_servicios_geo': len(servicios_geo_raw),
         'total_auxiliar': len(personal_auxiliar_raw),
         'total_standby': len(stand_by_raw),
+        'slots_vacantes': dict(slots_por_grupo),
+        'total_vacantes': total_vacantes,
         # Semana
         'semana_offset': semana_offset,
         'semana_inicio': semana_inicio,

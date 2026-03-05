@@ -263,6 +263,14 @@ html, body { height: 100%; }
 .av-geo { background: #0369a1; }
 .av-aux { background: #6b7280; }
 .av-std { background: #d97706; }
+.av-vacante { background: #fee2e2; color: #dc2626; border: 2px dashed #dc2626; }
+
+/* Slot vacante */
+.worker-node.slot-vacante {
+    border: 2px dashed #dc2626;
+    background: #fff8f8;
+    opacity: .9;
+}
 
 .node-info { min-width: 0; flex: 1; }
 .node-name  {
@@ -431,6 +439,7 @@ html, body { height: 100%; }
         <div class="stat-chip"><span class="dot" style="background:var(--geo-color)"></span> {{ total_servicios_geo }} Serv. Geol.</div>
         <div class="stat-chip"><span class="dot" style="background:var(--aux-color)"></span> {{ total_auxiliar }} Auxiliar</div>
         {% if total_standby %}<div class="stat-chip"><span class="dot" style="background:#d97706"></span> {{ total_standby }} Stand By</div>{% endif %}
+        {% if total_vacantes %}<div class="stat-chip"><span class="dot" style="background:#dc2626"></span> {{ total_vacantes }} Vacante{{ total_vacantes|pluralize:"s" }}</div>{% endif %}
     </div>
 
     <!-- Leyenda -->
@@ -462,7 +471,7 @@ html, body { height: 100%; }
         <div class="level1-row" id="level1Row">
 
             <!-- ── LÍNEA DE MANDO ── -->
-            {% if linea_mando %}
+            {% if linea_mando or slots_vacantes.LINEA_MANDO %}
             <div class="org-col" id="col-lm">
                 <div class="section-node sn-lm" id="sn-lm">
                     <i class="fas fa-crown"></i> Línea de Mando
@@ -493,12 +502,26 @@ html, body { height: 100%; }
                         </div>
                     </div>
                     {% endfor %}
+                    {% for slot in slots_vacantes.LINEA_MANDO %}
+                    <div class="worker-node slot-vacante">
+                        <div class="wn-top">
+                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
+                            <div class="node-info">
+                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
+                                <span class="node-cargo">{{ slot.cargo }}</span>
+                                <div class="nano-badges">
+                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
             {% endif %}
 
             <!-- ── OPERADORES por guardia ── -->
-            {% if operadores_por_guardia %}
+            {% if operadores_por_guardia or slots_vacantes.OPERADORES %}
             <div class="org-col" id="col-op">
                 <div class="section-node sn-op" id="sn-op">
                     <i class="fas fa-hard-hat"></i> Operadores
@@ -576,12 +599,34 @@ html, body { height: 100%; }
 
                     </div><!-- /guardia-col -->
                     {% endfor %}
+                    {% if slots_vacantes.OPERADORES %}
+                    <div class="guardia-col" id="gcol-vacantes-op">
+                        <div class="guardia-node" style="background:#dc2626" id="gn-vacantes-op">
+                            <i class="fas fa-user-plus"></i> Vacantes
+                            <span style="opacity:.7;font-size:.72rem">({{ slots_vacantes.OPERADORES|length }})</span>
+                        </div>
+                        {% for slot in slots_vacantes.OPERADORES %}
+                        <div class="worker-node slot-vacante" style="margin-bottom:6px">
+                            <div class="wn-top">
+                                <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
+                                <div class="node-info">
+                                    <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
+                                    <span class="node-cargo">{{ slot.cargo }}</span>
+                                    <div class="nano-badges">
+                                        <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div><!-- /guardias-wrap -->
             </div><!-- /col-op -->
             {% endif %}
 
             <!-- ── SERVICIOS GEOLÓGICOS ── -->
-            {% if servicios_geo %}
+            {% if servicios_geo or slots_vacantes.SERVICIOS_GEOLOGICOS %}
             <div class="org-col" id="col-geo">
                 <div class="section-node sn-geo" id="sn-geo">
                     <i class="fas fa-flask"></i> Serv. Geológicos
@@ -612,12 +657,26 @@ html, body { height: 100%; }
                         </div>
                     </div>
                     {% endfor %}
+                    {% for slot in slots_vacantes.SERVICIOS_GEOLOGICOS %}
+                    <div class="worker-node slot-vacante">
+                        <div class="wn-top">
+                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
+                            <div class="node-info">
+                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
+                                <span class="node-cargo">{{ slot.cargo }}</span>
+                                <div class="nano-badges">
+                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
             {% endif %}
 
             <!-- ── PERSONAL AUXILIAR ── -->
-            {% if personal_auxiliar %}
+            {% if personal_auxiliar or slots_vacantes.PERSONAL_AUXILIAR %}
             <div class="org-col" id="col-aux">
                 <div class="section-node sn-aux" id="sn-aux">
                     <i class="fas fa-tools"></i> Auxiliar
@@ -645,6 +704,20 @@ html, body { height: 100%; }
                                 <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
                             </div>
                             {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% for slot in slots_vacantes.PERSONAL_AUXILIAR %}
+                    <div class="worker-node slot-vacante">
+                        <div class="wn-top">
+                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
+                            <div class="node-info">
+                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
+                                <span class="node-cargo">{{ slot.cargo }}</span>
+                                <div class="nano-badges">
+                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
