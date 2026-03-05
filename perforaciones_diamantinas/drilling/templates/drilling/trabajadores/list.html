@@ -71,9 +71,9 @@
                         <th>Nombre</th>
                         <th>Servicio</th>
                         <th>Cargo</th>
+                        <th>Cargo HC</th>
                         <th>Grupo Tareo</th>
                         <th>Máquina</th>
-                        <th>Teléfono</th>
                         <th>Teléfono</th>
                         <th>Email</th>
                         <th>Estado</th>
@@ -108,26 +108,19 @@
                         </td>
                         <td>
                             <span class="badge bg-info">{{ trabajador.cargo }}</span>
+                        </td>
+                        <td>
                             {% if request.user.can_create_basic_data or request.user.is_staff %}
-                            <div class="mt-1 d-flex align-items-center gap-1">
-                                <input type="text"
-                                       class="form-control form-control-sm cargo-hc-input"
-                                       data-id="{{ trabajador.pk }}"
-                                       value="{{ trabajador.cargo_headcount|default:'' }}"
-                                       placeholder="Override headcount…"
-                                       title="Cargo para headcount (dejar vacío si coincide con el cargo oficial)"
-                                       style="min-width:140px;max-width:180px;font-size:0.78rem;">
-                                <button class="btn btn-sm btn-outline-warning cargo-hc-btn"
-                                        data-id="{{ trabajador.pk }}"
-                                        title="Guardar cargo headcount"
-                                        style="padding:2px 7px;font-size:0.78rem;">
-                                    <i class="fas fa-save"></i>
-                                </button>
-                            </div>
-                            {% elif trabajador.cargo_headcount %}
-                            <span class="badge bg-warning text-dark ms-1" title="Override headcount">
-                                <i class="fas fa-exchange-alt"></i> {{ trabajador.cargo_headcount }}
-                            </span>
+                            <select class="form-select form-select-sm cargo-hc-select" data-id="{{ trabajador.pk }}" style="min-width:150px;font-size:0.78rem;">
+                                <option value="" {% if not trabajador.cargo_headcount %}selected{% endif %}>— Sin override —</option>
+                                {% for cargo_nombre in cargos %}
+                                {% if cargo_nombre %}
+                                <option value="{{ cargo_nombre }}" {% if trabajador.cargo_headcount == cargo_nombre %}selected{% endif %}>{{ cargo_nombre }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <span style="font-size:0.82rem;">{{ trabajador.cargo_headcount|default:"-" }}</span>
                             {% endif %}
                         </td>
                         <td>
@@ -184,7 +177,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10">
+                        <td colspan="11">
                             <div class="empty-state">
                                 <i class="fas fa-users"></i>
                                 <h5>No hay trabajadores registrados</h5>
@@ -340,50 +333,42 @@ document.querySelectorAll('.maquina-select').forEach(sel => {
     });
 });
 
-// --- Cargo Headcount inline ---
-function guardarCargoHc(id, valor, btnEl) {
-    if (btnEl) btnEl.disabled = true;
-    fetch(`/api/trabajadores/${id}/cargo-headcount/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: JSON.stringify({ cargo_headcount: valor })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            mostrarToastLista(
-                valor ? 'Override headcount: ' + valor : 'Override de headcount eliminado',
-                'success'
-            );
-        } else {
-            mostrarToastLista('Error: ' + (data.error || 'No se pudo guardar'), 'danger');
-        }
-    })
-    .catch(() => mostrarToastLista('Error de red. Intenta de nuevo.', 'danger'))
-    .finally(() => { if (btnEl) btnEl.disabled = false; });
-}
-
-document.querySelectorAll('.cargo-hc-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
+// --- Cargo Headcount select ---
+document.querySelectorAll('.cargo-hc-select').forEach(sel => {
+    sel.dataset.prevValue = sel.value;
+    sel.addEventListener('change', function () {
         const id = this.dataset.id;
-        const input = document.querySelector(`.cargo-hc-input[data-id="${id}"]`);
-        guardarCargoHc(id, input.value.trim().toUpperCase(), this);
-        input.value = input.value.trim().toUpperCase();
-    });
-});
+        const cargo_headcount = this.value;
+        const selEl = this;
+        const prevValue = selEl.dataset.prevValue;
+        selEl.disabled = true;
 
-document.querySelectorAll('.cargo-hc-input').forEach(input => {
-    input.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const id = this.dataset.id;
-            const btn = document.querySelector(`.cargo-hc-btn[data-id="${id}"]`);
-            guardarCargoHc(id, this.value.trim().toUpperCase(), btn);
-            this.value = this.value.trim().toUpperCase();
-        }
+        fetch(`/api/trabajadores/${id}/cargo-headcount/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ cargo_headcount })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToastLista(
+                    cargo_headcount ? 'Override HC: ' + cargo_headcount : 'Override eliminado',
+                    'success'
+                );
+                selEl.dataset.prevValue = selEl.value;
+            } else {
+                selEl.value = prevValue;
+                mostrarToastLista('Error: ' + (data.error || 'No se pudo guardar'), 'danger');
+            }
+        })
+        .catch(() => {
+            selEl.value = prevValue;
+            mostrarToastLista('Error de red. Intenta de nuevo.', 'danger');
+        })
+        .finally(() => { selEl.disabled = false; });
     });
 });
 </script>
