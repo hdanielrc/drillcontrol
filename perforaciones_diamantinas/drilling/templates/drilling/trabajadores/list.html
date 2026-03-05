@@ -111,13 +111,12 @@
                         </td>
                         <td>
                             {% if request.user.can_create_basic_data or request.user.is_staff %}
-                            <select class="form-select form-select-sm cargo-hc-select" data-id="{{ trabajador.pk }}" style="min-width:150px;font-size:0.78rem;">
-                                <option value="" {% if not trabajador.cargo_headcount %}selected{% endif %}>— Sin override —</option>
-                                {% for cargo_nombre in cargos %}
-                                {% if cargo_nombre %}
-                                <option value="{{ cargo_nombre }}" {% if trabajador.cargo_headcount == cargo_nombre %}selected{% endif %}>{{ cargo_nombre }}</option>
-                                {% endif %}
-                                {% endfor %}
+                            <select class="form-select form-select-sm cargo-hc-select"
+                                    data-id="{{ trabajador.pk }}"
+                                    data-contrato="{{ trabajador.contrato_id }}"
+                                    data-current="{{ trabajador.cargo_headcount|default:'' }}"
+                                    style="min-width:150px;font-size:0.78rem;">
+                                <option value="">— Sin override —</option>
                             </select>
                             {% else %}
                             <span style="font-size:0.82rem;">{{ trabajador.cargo_headcount|default:"-" }}</span>
@@ -333,9 +332,21 @@ document.querySelectorAll('.maquina-select').forEach(sel => {
     });
 });
 
-// --- Cargo Headcount select ---
+// --- Cargo Headcount select: poblar opciones por contrato ---
+const cargosPorContrato = {{ cargos_por_contrato_json|safe }};
 document.querySelectorAll('.cargo-hc-select').forEach(sel => {
-    sel.dataset.prevValue = sel.value;
+    const contratoId = parseInt(sel.dataset.contrato);
+    const currentVal = sel.dataset.current || '';
+    const opciones = cargosPorContrato[contratoId] || [];
+    opciones.forEach(cargo => {
+        const opt = document.createElement('option');
+        opt.value = cargo;
+        opt.textContent = cargo;
+        if (cargo === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+    });
+    if (!currentVal) sel.options[0].selected = true;
+    sel.dataset.prevValue = currentVal;
     sel.addEventListener('change', function () {
         const id = this.dataset.id;
         const cargo_headcount = this.value;

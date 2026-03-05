@@ -469,14 +469,21 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         ).order_by('grupo_ord', 'cargo_ord', 'apepat', 'nombres')
     
     def get_context_data(self, **kwargs):
+        import json
+        from collections import defaultdict
         context = super().get_context_data(**kwargs)
-        
-        # Cargos únicos de trabajadores ACTIVOS del contrato del usuario actual
-        qs_cargos = Trabajador.objects.filter(estado='ACTIVO')
-        if not self.request.user.has_access_to_all_contracts():
-            if hasattr(self.request.user, 'contrato') and self.request.user.contrato:
-                qs_cargos = qs_cargos.filter(contrato=self.request.user.contrato)
-        context['cargos'] = qs_cargos.order_by('cargo').values_list('cargo', flat=True).distinct()
+
+        # Cargos por contrato (para el select Cargo HC)
+        rows = (Trabajador.objects.filter(estado='ACTIVO')
+                .exclude(cargo='')
+                .values('contrato_id', 'cargo')
+                .distinct()
+                .order_by('cargo'))
+        cargos_map = defaultdict(list)
+        for row in rows:
+            if row['cargo']:
+                cargos_map[row['contrato_id']].append(row['cargo'])
+        context['cargos_por_contrato_json'] = json.dumps(cargos_map)
         context['grupos'] = list(Trabajador.GRUPO_CHOICES) + [('STAND_BY', 'Personal Stand By')]
 
         # Máquinas del contrato del usuario (o todas para admins)
