@@ -1565,6 +1565,14 @@ def autocompletar_tareo_por_regimen(request):
                 '5x2':   7,
                 '6x1':   7,
             }
+
+            # Anclar el inicio del ciclo al día de cambio de guardia del contrato
+            # más cercano anterior o igual a fecha_inicio.
+            # Así el ciclo siempre arranca en un día de cambio real (ej: viernes para Cuculí).
+            dia_cambio = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 6
+            dias_hasta_cambio = (fecha_inicio.weekday() - dia_cambio) % 7
+            fecha_ancla_ciclo = fecha_inicio - timedelta(days=dias_hasta_cambio)
+
             for trabajador in trabajadores:
                 if trabajador.grupo != 'LINEA_MANDO':
                     fecha_anterior = trabajador.fecha_inicio_ciclo
@@ -1573,15 +1581,15 @@ def autocompletar_tareo_por_regimen(request):
                     ciclo_total = REGIMENES_CICLO.get(trabajador.regimen_laboral or '', 21)
                     desfase = ciclo_total // 3  # 1/3 del ciclo por cada guardia
 
-                    # Recalcular inicio de ciclo según guardia
+                    # Recalcular inicio de ciclo según guardia, anclado al día de cambio
                     if trabajador.guardia_asignada == 'A':
-                        nueva_fecha_ciclo = fecha_inicio
+                        nueva_fecha_ciclo = fecha_ancla_ciclo
                     elif trabajador.guardia_asignada == 'B':
-                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=desfase)
+                        nueva_fecha_ciclo = fecha_ancla_ciclo - timedelta(days=desfase)
                     elif trabajador.guardia_asignada == 'C':
-                        nueva_fecha_ciclo = fecha_inicio - timedelta(days=desfase * 2)
+                        nueva_fecha_ciclo = fecha_ancla_ciclo - timedelta(days=desfase * 2)
                     else:
-                        nueva_fecha_ciclo = fecha_inicio
+                        nueva_fecha_ciclo = fecha_ancla_ciclo
                     
                     if fecha_anterior != nueva_fecha_ciclo:
                         # Usar QuerySet.update() para evitar disparar el save() hook
