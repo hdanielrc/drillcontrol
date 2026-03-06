@@ -305,10 +305,41 @@ def tareo_mensual_view(request):
                     'trabajadores': guardia_info['trabajadores']
                 })
 
+        # Para OPERADORES: construir sub-agrupación por máquina
+        maquinas_list = []
+        if grupo_key == 'OPERADORES':
+            import re as _re
+            maquinas_dict = {}
+            for gd in guardias_ordenadas:
+                for item in gd['trabajadores']:
+                    maq = item['trabajador'].maquina_asignada
+                    maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
+                    maq_nombre = maq.nombre if maq else 'Sin Máquina Asignada'
+                    maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+                    if maq_key not in maquinas_dict:
+                        maquinas_dict[maq_key] = {'nombre': maq_nombre, 'css_key': maq_css, 'guardias': {}}
+                    if gd['key'] not in maquinas_dict[maq_key]['guardias']:
+                        maquinas_dict[maq_key]['guardias'][gd['key']] = {'nombre': gd['nombre'], 'trabajadores': []}
+                    maquinas_dict[maq_key]['guardias'][gd['key']]['trabajadores'].append(item)
+
+            for maq_key in sorted(maquinas_dict.keys(), key=lambda k: (k == '__SIN_MAQUINA__', k)):
+                md = maquinas_dict[maq_key]
+                guardias_maq = []
+                for gk in ['A', 'B', 'C', 'SIN_GUARDIA']:
+                    if gk in md['guardias']:
+                        guardias_maq.append({'key': gk, 'nombre': md['guardias'][gk]['nombre'],
+                                             'trabajadores': md['guardias'][gk]['trabajadores']})
+                maquinas_list.append({
+                    'nombre': md['nombre'], 'css_key': md['css_key'],
+                    'guardias': guardias_maq,
+                    'total_personas': sum(len(g['trabajadores']) for g in guardias_maq),
+                })
+
         grupos_ordenados.append({
             'key': grupo_key,
             'nombre': grupo_data['nombre'],
             'guardias': guardias_ordenadas,
+            'maquinas': maquinas_list,
             'total_trabajadores': sum(len(g['trabajadores']) for g in guardias_ordenadas)
         })
 

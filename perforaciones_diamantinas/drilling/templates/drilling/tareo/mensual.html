@@ -315,23 +315,33 @@
                                 </tr>
                                 {% endif %}
                                 
-                                {% for guardia in grupo.guardias %}
-                                <!-- Separador de Guardia -->
+                                {% if grupo.key == 'OPERADORES' and grupo.maquinas %}
+                                {# ── OPERADORES: iterar por máquina → guardia → trabajadores ── #}
+                                {% for maquina in grupo.maquinas %}
+                                <!-- Cabecera de Máquina -->
+                                <tr style="background-color:#1565c0;color:white;border-left:5px solid #0d47a1;cursor:pointer;"
+                                    onclick="toggleMaquinaV1('{{ maquina.css_key }}')">
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-3 py-1" style="font-size:0.85rem;">
+                                        <span id="arrow-maq1-{{ maquina.css_key }}" style="margin-right:6px;">&#9660;</span>
+                                        <i class="fas fa-industry me-2" style="opacity:.75;"></i>
+                                        <strong>{{ maquina.nombre }}</strong>
+                                        <span class="badge bg-white text-primary ms-2" style="font-size:0.7rem;">{{ maquina.total_personas }} persona{{ maquina.total_personas|pluralize }}</span>
+                                    </td>
+                                </tr>
+                                {% for guardia in maquina.guardias %}
+                                <!-- Sub-cabecera de Guardia -->
                                 {% if guardia.key != 'SIN_GUARDIA' %}
-                                <tr class="bg-white" style="border-left: 4px solid {% if grupo.key == 'OPERADORES' %}#0d6efd{% elif grupo.key == 'LINEA_MANDO' %}#495057{% elif grupo.key == 'SERVICIOS_GEOLOGICOS' %}#198754{% elif grupo.key == 'PERSONAL_AUXILIAR' %}#fd7e14{% elif grupo.key == '__STAND_BY__' %}#e0a800{% else %}#adb5bd{% endif %};">
-                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-4 p-1" style="font-size: 0.8rem; background-color: #f1f3f5;">
-                                        <div class="d-flex align-items-center">
-                                            <span class="badge rounded-pill bg-light text-dark border me-2" style="font-weight: 600;">{{ guardia.key }}</span>
-                                            <strong class="text-secondary">{{ guardia.nombre }}</strong>
-                                            <span class="text-muted ms-auto" style="font-size: 0.7rem;">{{ guardia.trabajadores|length }} personas</span>
-                                        </div>
+                                <tr class="maquina-rows-v1-{{ maquina.css_key }}" style="border-left:4px solid #0d6efd;">
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-5 py-1" style="font-size:0.78rem;background-color:#e3f2fd;">
+                                        <span class="badge rounded-pill me-2" style="background:#1a237e;color:white;font-weight:700;">{{ guardia.key }}</span>
+                                        <strong class="text-secondary">{{ guardia.nombre }}</strong>
+                                        <span class="text-muted ms-auto float-end" style="font-size:0.7rem;">{{ guardia.trabajadores|length }} personas</span>
                                     </td>
                                 </tr>
                                 {% endif %}
-                                
-                                <!-- Trabajadores de esta guardia -->
+                                <!-- Trabajadores de esta guardia/máquina -->
                                 {% for item in guardia.trabajadores %}
-                                <tr data-trabajador-id="{{ item.trabajador.id }}" data-grupo-id="{{ grupo.key }}" class="trabajador-row{% if item.trabajador.es_standby %} table-warning{% endif %}">
+                                <tr data-trabajador-id="{{ item.trabajador.id }}" data-grupo-id="{{ grupo.key }}" class="trabajador-row maquina-rows-v1-{{ maquina.css_key }}{% if item.trabajador.es_standby %} table-warning{% endif %}">
                                     <td class="sticky-column bg-light text-center p-1" style="z-index: 1000; font-size: 0.75rem; vertical-align: middle;">
                                         {{ forloop.parentloop.parentloop.counter }}{{ forloop.parentloop.counter }}{{ forloop.counter }}
                                     </td>
@@ -428,8 +438,67 @@
                                         <span class="racha-trabajador" data-trabajador-id="{{ item.trabajador.id }}" data-dias-previos="{{ item.dias_previos }}">-</span>
                                     </td>
                                 </tr>
-                                {% endfor %}
-                                {% endfor %}
+                                {% endfor %}{# fin item loop maquina #}
+                                {% endfor %}{# fin guardia loop maquina #}
+                                {% endfor %}{# fin maquina loop #}
+                                {% else %}
+                                {# ── Otros grupos: guardia → trabajadores ── #}
+                                {% for guardia in grupo.guardias %}
+                                {% if guardia.key != 'SIN_GUARDIA' %}
+                                <tr class="bg-white" style="border-left: 4px solid {% if grupo.key == 'LINEA_MANDO' %}#495057{% elif grupo.key == 'SERVICIOS_GEOLOGICOS' %}#198754{% elif grupo.key == 'PERSONAL_AUXILIAR' %}#fd7e14{% elif grupo.key == '__STAND_BY__' %}#e0a800{% else %}#adb5bd{% endif %};">
+                                    <td colspan="{{ total_dias|add:6 }}" class="text-start ps-4 p-1" style="font-size: 0.8rem; background-color: #f1f3f5;">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge rounded-pill bg-light text-dark border me-2" style="font-weight: 600;">{{ guardia.key }}</span>
+                                            <strong class="text-secondary">{{ guardia.nombre }}</strong>
+                                            <span class="text-muted ms-auto" style="font-size: 0.7rem;">{{ guardia.trabajadores|length }} personas</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% for item in guardia.trabajadores %}
+                                <tr data-trabajador-id="{{ item.trabajador.id }}" data-grupo-id="{{ grupo.key }}" class="trabajador-row{% if item.trabajador.es_standby %} table-warning{% endif %}">
+                                    <td class="sticky-column bg-light text-center p-1" style="z-index: 1000; font-size: 0.75rem; vertical-align: middle;">
+                                        {{ forloop.parentloop.parentloop.counter }}{{ forloop.parentloop.counter }}{{ forloop.counter }}
+                                    </td>
+                                    <td class="sticky-column-2 bg-light p-0" style="z-index: 1000; vertical-align: middle;">
+                                        <div style="display: flex; align-items: stretch;">
+                                            <div style="flex: 1; min-width: 0; padding: 3px 4px; line-height: 1.1;">
+                                                <div class="fw-bold text-truncate" style="font-size: 0.8rem;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">{{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}</div>
+                                                <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
+                                                {% if item.trabajador.es_standby %}<span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 1px 4px;"><i class="fas fa-pause-circle me-1"></i>STAND BY</span>{% endif %}
+                                            </div>
+                                            <button type="button" class="btn-fecha-inicio"
+                                                data-trabajador-id="{{ item.trabajador.id }}"
+                                                data-fecha-actual="{{ item.trabajador.fecha_inicio_labores|date:'Y-m-d'|default:'' }}"
+                                                title="{% if item.trabajador.fecha_inicio_labores %}Inicio labores: {{ item.trabajador.fecha_inicio_labores|date:'d/m/Y' }} — clic para cambiar{% else %}Fijar fecha inicio labores{% endif %}"
+                                                style="flex-shrink: 0; width: 22px; border: none; border-left: 1px solid #dee2e6; background: {% if item.trabajador.fecha_inicio_labores %}#fff3cd{% else %}#f8f9fa{% endif %}; color: {% if item.trabajador.fecha_inicio_labores %}#e67e22{% else %}#adb5bd{% endif %}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; padding: 0;">
+                                                <i class="fas fa-calendar-day"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="text-center p-1" style="font-size: 0.75rem; vertical-align: middle;">
+                                        {% if item.trabajador.maquina_asignada %}<span class="badge bg-primary" style="font-size: 0.7rem;" title="{{ item.trabajador.maquina_asignada.nombre }}"><i class="fas fa-industry me-1"></i>{{ item.trabajador.maquina_asignada.nombre|truncatechars:12 }}</span>{% else %}<span class="text-muted" style="font-size: 0.65rem;">-</span>{% endif %}
+                                    </td>
+                                    <td class="text-center p-1" style="font-size: 0.7rem; vertical-align: middle; cursor: pointer;" onclick="toggleGuardia(this, {{ item.trabajador.id }})" title="Clic para cambiar guardia (A -> B -> C -> -)">
+                                        {% if item.trabajador.guardia_asignada %}<span class="badge bg-info" style="font-size: 0.65rem; padding: 2px 4px;">{{ item.trabajador.guardia_asignada }}</span>{% else %}<span class="text-muted">-</span>{% endif %}
+                                    </td>
+                                    {% for asist in item.asistencias %}
+                                    {% if asist.bloqueada %}
+                                    <td class="text-center {% if asist.es_cambio_guardia %}table-danger{% elif asist.es_previo_cambio %}table-warning{% endif %}" title="Sin tareo — antes del inicio de labores" style="padding: 2px; font-size: 0.7rem; background: repeating-linear-gradient(45deg, #e9ecef, #e9ecef 3px, #f8f9fa 3px, #f8f9fa 8px); cursor: not-allowed; opacity: 0.6;"><span style="color:#adb5bd; font-size:0.65rem;">—</span></td>
+                                    {% else %}
+                                    <td class="celda-asistencia text-center {% if asist.es_cambio_guardia %}table-danger{% elif asist.es_previo_cambio %}table-warning{% endif %}" data-trabajador-id="{{ item.trabajador.id }}" data-fecha="{{ asist.fecha|date:'Y-m-d' }}" data-estado="{{ asist.estado|default:'' }}" data-tipo="{{ asist.tipo }}" data-sugerido="{{ asist.estado_sugerido|default:'' }}" title="{{ asist.estado_display }} - {{ asist.tipo_display }}{% if asist.observaciones %} | {{ asist.observaciones }}{% endif %}" style="cursor: cell; padding: 2px; font-size: 0.7rem; {% if not asist.estado and asist.estado_sugerido == 'DIA_LIBRE' %}background-color: #f0f0f0;{% endif %}">
+                                        {% if asist.estado %}<span class="badge-estado" data-estado="{{ asist.estado }}">{% if asist.estado == 'TRABAJADO' %}T{% elif asist.estado == 'DIA_LIBRE' %}DL{% elif asist.estado == 'DIA_APOYO' %}DA{% elif asist.estado == 'PERMISO_PATERNIDAD' %}PT{% elif asist.estado == 'DESCANSO_MEDICO' %}DM{% elif asist.estado == 'STAND_BY' %}SB{% elif asist.estado == 'SUBSIDIO' %}SUB{% elif asist.estado == 'INDUCCION' %}I{% elif asist.estado == 'INDUCCION_VIRTUAL' %}IV{% elif asist.estado == 'RECORRIDO' %}R{% elif asist.estado == 'FALTA' %}F{% elif asist.estado == 'PERMISO' %}P{% elif asist.estado == 'SUSPENSION' %}S{% elif asist.estado == 'VACACIONES' %}V{% else %}{{ asist.estado_display|truncatewords:1|slice:":3" }}{% endif %}</span>{% if user.role in 'GERENCIA,CONTROL_PROYECTOS' and asist.tipo == 'PAGABLE' %}<small class="text-success" style="font-size: 0.6rem;">&#128176;</small>{% endif %}
+                                        {% elif asist.estado_sugerido %}<span class="text-muted small" style="opacity: 0.5;">{% if asist.estado_sugerido == 'TRABAJADO' %}T?{% elif asist.estado_sugerido == 'DIA_LIBRE' %}DL?{% endif %}</span>
+                                        {% else %}<span class="text-muted">-</span>{% endif %}
+                                    </td>
+                                    {% endif %}
+                                    {% endfor %}
+                                    <td class="text-center fw-bold text-dark border-start" style="font-size: 0.75rem; background-color: #e9ecef;"><span class="resumen-trabajador" data-trabajador-id="{{ item.trabajador.id }}">-</span></td>
+                                    <td class="text-center border-start" style="font-size: 0.75rem; background-color: #f8f9fa; min-width: 70px;"><span class="racha-trabajador" data-trabajador-id="{{ item.trabajador.id }}" data-dias-previos="{{ item.dias_previos }}">-</span></td>
+                                </tr>
+                                {% endfor %}{# fin item loop otros grupos #}
+                                {% endfor %}{# fin guardia loop otros grupos #}
+                                {% endif %}{# fin if OPERADORES #}
                                 {% empty %}
                                 <tr>
                                     <td colspan="{{ total_dias|add:6 }}" class="text-center py-5">
@@ -1519,6 +1588,15 @@
     }
     
 
+
+    // Toggle máquina sub-sección (dentro de OPERADORES)
+    function toggleMaquinaV1(maqCssKey) {
+        const rows = document.querySelectorAll(`.maquina-rows-v1-${maqCssKey}`);
+        const arrow = document.getElementById(`arrow-maq1-${maqCssKey}`);
+        const collapsed = rows.length > 0 && rows[0].style.display === 'none';
+        rows.forEach(r => r.style.display = collapsed ? '' : 'none');
+        if (arrow) arrow.innerHTML = collapsed ? '&#9660;' : '&#9654;';
+    }
 
     // Selección masiva por grupo (selecciona/deselecciona y aplica estado/turno)
     function seleccionarTodoGrupo(grupoId) {
