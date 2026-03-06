@@ -132,7 +132,7 @@
                                     </th>
                                     {% endfor %}
                                     <th class="text-center" style="min-width: 80px;">Total Días</th>
-                                    <th class="text-center" style="min-width: 70px;" title="Días consecutivos trabajados desde el último día libre">🔥 Racha</th>
+                                    <th class="text-center" style="min-width: 70px;" title="Días consecutivos trabajados desde el último día libre">Días en Mina</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1284,14 +1284,21 @@
         // Estados que CONTINÚAN la racha (días activos)
         const activos = new Set(['TRABAJADO', 'DIA_APOYO', 'STAND_BY', 'INDUCCION', 'INDUCCION_VIRTUAL', 'RECORRIDO']);
         let count = 0;
-        // Recorrer de derecha a izquierda hasta encontrar un corte o una celda vacía
+        let started = false;
+        // Recorrer de derecha a izquierda
+        // - saltar celdas vacías del futuro (sin estado registrado)
+        // - contar días activos consecutivos desde el último día registrado
         for (let i = celdas.length - 1; i >= 0; i--) {
             const estado = celdas[i].dataset.estado;
-            if (!estado) break;            // celda sin registrar: corta
+            if (!estado) {
+                if (started) break;  // ya contando: celda vacía corta la racha
+                continue;            // aún no empezamos: saltar días futuros sin registro
+            }
+            started = true;
             if (activos.has(estado)) {
                 count++;
             } else {
-                break;                     // DIA_LIBRE, FALTA, DM, VACACIONES, etc.: corta
+                break;               // DIA_LIBRE, FALTA, DM, VACACIONES, etc.: corta
             }
         }
         // Actualizar badge con color
