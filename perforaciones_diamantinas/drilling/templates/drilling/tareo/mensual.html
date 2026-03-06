@@ -384,7 +384,7 @@
                                     <td class="celda-asistencia text-center {% if asist.es_cambio_guardia %}table-danger{% elif asist.es_previo_cambio %}table-warning{% endif %}" 
                                         data-trabajador-id="{{ item.trabajador.id }}"
                                         data-fecha="{{ asist.fecha|date:'Y-m-d' }}"
-                                        data-estado="{{ asist.estado }}"
+                                        data-estado="{{ asist.estado|default:'' }}"
                                         data-tipo="{{ asist.tipo }}"
                                         data-sugerido="{{ asist.estado_sugerido|default:'' }}"
                                         title="{{ asist.estado_display }} - {{ asist.tipo_display }}{% if asist.observaciones %} | {{ asist.observaciones }}{% endif %}"
@@ -1293,7 +1293,7 @@
         // - contar días activos consecutivos desde el último día registrado
         for (let i = celdas.length - 1; i >= 0; i--) {
             const estado = celdas[i].dataset.estado;
-            if (!estado) {
+            if (!estado || estado === 'None') {
                 if (started) break;  // ya contando: celda vacía corta la racha
                 continue;            // aún no empezamos: saltar días futuros sin registro
             }
