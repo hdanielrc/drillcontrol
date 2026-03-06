@@ -303,6 +303,32 @@
         }
     }
     
+    /* ── Sub-secciones por máquina (dentro de OPERADORES) ──────────────────── */
+    .maquina-header-row td {
+        background: #1565c0;
+        color: white;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 7px 15px 7px 30px;
+        border-top: 2px solid #0d47a1;
+        position: sticky;
+        left: 0;
+        letter-spacing: .3px;
+    }
+    .maquina-header-row:hover td { background: #0d47a1; }
+
+    /* Sub-sub-sección por guardia */
+    .guardia-subheader-row td {
+        background: #e3f2fd;
+        color: #1a237e;
+        font-weight: 700;
+        font-size: 11px;
+        padding: 4px 15px 4px 50px;
+        border-top: 1px solid #bbdefb;
+        position: sticky;
+        left: 0;
+    }
+
     /* Spinner de carga */
     .loading-overlay {
         position: fixed;
@@ -408,13 +434,34 @@
                             <span id="arrow-{{ grupo.grupo }}">▼</span>
                             {{ grupo.grupo_nombre }}
                             <small style="opacity:.75;font-weight:400;margin-left:8px;">
-                                ({{ grupo.rows|length }} persona{{ grupo.rows|length|pluralize }})
+                                ({{ grupo.total_trabajadores }} persona{{ grupo.total_trabajadores|pluralize }})
                             </small>
                         </td>
                     </tr>
-                    {# ── Filas de trabajadores ── #}
+                    {# ── Filas (trabajadores + cabeceras máq/guardia para OPERADORES) ── #}
                     {% for row in grupo.rows %}
-                    <tr class="grupo-rows-{{ grupo.grupo }}">
+                    {% if row.is_maquina_header %}
+                    <tr class="maquina-header-row grupo-rows-{{ grupo.grupo }}"
+                        style="cursor:pointer"
+                        onclick="toggleMaquina('{{ row.maquina_key_css }}', '{{ grupo.grupo }}')">
+                        <td colspan="100">
+                            <span id="arrow-maq-{{ row.maquina_key_css }}">&#9660;</span>
+                            &#128668; {{ row.maquina_nombre }}
+                            <small style="opacity:.75;font-weight:400;margin-left:8px;">
+                                ({{ row.total_personas }} persona{{ row.total_personas|pluralize }})
+                            </small>
+                        </td>
+                    </tr>
+                    {% elif row.is_guardia_header %}
+                    <tr class="guardia-subheader-row grupo-rows-{{ grupo.grupo }} maquina-rows-{{ row.maquina_key_css }}">
+                        <td colspan="100">
+                            <span style="background:#1a5276;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;margin-right:8px;">{{ row.guardia }}</span>
+                            Guardia {{ row.guardia }}
+                            <small style="opacity:.75;font-weight:400;margin-left:6px;">({{ row.count }} persona{{ row.count|pluralize }})</small>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr class="grupo-rows-{{ grupo.grupo }}{% if row.maquina_key_css %} maquina-rows-{{ row.maquina_key_css }}{% endif %}">
                         <!-- Columna Trabajador (fija) -->
                         <td class="col-trabajador">
                             {{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}
@@ -508,6 +555,7 @@
                         {% endwith %}
                         {% endfor %}
                     </tr>
+                    {% endif %}
                     {% endfor %}
                     {% empty %}
                     <tr>
@@ -728,7 +776,14 @@ function toggleGrupo(grupoKey) {
     rows.forEach(r => r.style.display = collapsed ? '' : 'none');
     if (arrow) arrow.textContent = collapsed ? '▼' : '▶';
 }
-
+// Toggle de sub-sección por máquina (dentro de OPERADORES)
+function toggleMaquina(maqCssKey, grupoKey) {
+    const rows = document.querySelectorAll(`.maquina-rows-${maqCssKey}`);
+    const arrow = document.getElementById(`arrow-maq-${maqCssKey}`);
+    const collapsed = rows.length > 0 && rows[0].style.display === 'none';
+    rows.forEach(r => r.style.display = collapsed ? '' : 'none');
+    if (arrow) arrow.textContent = collapsed ? '\u25bc' : '\u25ba';
+}
 // Atajos de teclado para navegación rápida
 document.addEventListener('keydown', function(e) {
     // Alt + ← = Mes anterior

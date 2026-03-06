@@ -411,7 +411,8 @@ class TareoService:
                     'grupo_nombre': meta_nombre,
                     'grupo_css': meta_css,
                     'order': orden,
-                    'rows': []
+                    'rows': [],
+                    'total_trabajadores': 0,
                 }
 
             grupos_dict[grupo_key]['rows'].append({
@@ -422,6 +423,50 @@ class TareoService:
                 # None si no hay suficientes datos para verificar
                 'ciclo_alineado': TareoService._verificar_alineacion_ciclo(trabajador, contrato),
             })
+            grupos_dict[grupo_key]['total_trabajadores'] += 1
+
+        # Reconstruir OPERADORES: intercalar cabeceras de máquina y guardia en las filas
+        if 'OPERADORES' in grupos_dict:
+            import re as _re
+            op = grupos_dict['OPERADORES']
+            maquinas_op = {}
+            for row in op['rows']:
+                maq = row['trabajador'].maquina_asignada
+                maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
+                maq_nombre = maq.nombre if maq else 'Sin Máquina Asignada'
+                maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+                if maq_key not in maquinas_op:
+                    maquinas_op[maq_key] = {
+                        'maquina_nombre': maq_nombre,
+                        'maquina_key_css': maq_css,
+                        'guardias': {}
+                    }
+                row['maquina_key_css'] = maq_css
+                guardia = row['guardia']
+                if guardia not in maquinas_op[maq_key]['guardias']:
+                    maquinas_op[maq_key]['guardias'][guardia] = []
+                maquinas_op[maq_key]['guardias'][guardia].append(row)
+
+            new_rows = []
+            for maq_key in sorted(maquinas_op.keys(), key=lambda k: (k == '__SIN_MAQUINA__', k)):
+                md = maquinas_op[maq_key]
+                total_maq = sum(len(r) for r in md['guardias'].values())
+                new_rows.append({
+                    'is_maquina_header': True,
+                    'maquina_nombre': md['maquina_nombre'],
+                    'maquina_key_css': md['maquina_key_css'],
+                    'total_personas': total_maq,
+                })
+                for guardia in sorted(md['guardias'].keys()):
+                    g_rows = md['guardias'][guardia]
+                    new_rows.append({
+                        'is_guardia_header': True,
+                        'guardia': guardia,
+                        'maquina_key_css': md['maquina_key_css'],
+                        'count': len(g_rows),
+                    })
+                    new_rows.extend(g_rows)
+            op['rows'] = new_rows
 
         # Devolver lista ordenada por grupo
         matriz = sorted(grupos_dict.values(), key=lambda g: g['order'])
