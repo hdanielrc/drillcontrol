@@ -35,6 +35,47 @@ except:
         pass  # Usar locale por defecto si no se puede configurar español
 
 
+# Estados que cuentan como días activos en mina
+ESTADOS_ACTIVOS_MINA = {
+    'TRABAJADO', 'DIA_APOYO', 'STAND_BY',
+    'INDUCCION', 'INDUCCION_VIRTUAL', 'RECORRIDO'
+}
+
+
+def _calcular_dias_previos_al_rango(trabajador_id, fecha_inicio_rango, limite_dias=90):
+    """
+    Cuenta cuántos días activos consecutivos tuvo el trabajador
+    INMEDIATAMENTE antes de fecha_inicio_rango (sin límite mensual).
+    Se consulta hasta `limite_dias` hacia atrás para cubrir casos extremos.
+    """
+    fecha_hasta = fecha_inicio_rango - timedelta(days=1)
+    fecha_minima = fecha_hasta - timedelta(days=limite_dias)
+
+    asists = (
+        AsistenciaTrabajador.objects
+        .filter(
+            trabajador_id=trabajador_id,
+            fecha__gte=fecha_minima,
+            fecha__lte=fecha_hasta,
+        )
+        .order_by('-fecha')
+        .values('fecha', 'estado')
+    )
+
+    count = 0
+    fecha_esperada = fecha_hasta
+    for a in asists:
+        if a['fecha'] == fecha_esperada:
+            if a['estado'] in ESTADOS_ACTIVOS_MINA:
+                count += 1
+                fecha_esperada -= timedelta(days=1)
+            else:
+                break  # encontró un día de descanso/libre → corta
+        elif a['fecha'] < fecha_esperada:
+            break  # hueco sin registro → corta
+    return count
+
+
 @login_required
 def tareo_mensual_view(request):
     """Vista principal del tareo por semanas/rango personalizado"""
@@ -234,9 +275,12 @@ def tareo_mensual_view(request):
                 'es_previo_cambio':  dia_info['es_previo_cambio']
             })
         
+        dias_previos = _calcular_dias_previos_al_rango(trabajador.id, fecha_inicio)
+
         trabajadores_por_grupo[primary_key]['guardias'][guardia_key]['trabajadores'].append({
             'trabajador': trabajador,
-            'asistencias': asistencias_trabajador
+            'asistencias': asistencias_trabajador,
+            'dias_previos': dias_previos,
         })
     
     # 3. Construir lista ordenada final

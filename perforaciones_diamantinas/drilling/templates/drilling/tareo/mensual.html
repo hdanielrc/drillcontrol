@@ -425,7 +425,7 @@
                                         <span class="resumen-trabajador" data-trabajador-id="{{ item.trabajador.id }}">-</span>
                                     </td>
                                     <td class="text-center border-start" style="font-size: 0.75rem; background-color: #f8f9fa; min-width: 70px;">
-                                        <span class="racha-trabajador" data-trabajador-id="{{ item.trabajador.id }}">-</span>
+                                        <span class="racha-trabajador" data-trabajador-id="{{ item.trabajador.id }}" data-dias-previos="{{ item.dias_previos }}">-</span>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -1281,10 +1281,13 @@
         const fila = racha.closest('tr');
         if (!fila) return;
         const celdas = Array.from(fila.querySelectorAll('.celda-asistencia'));
+        // Días activos pre-calculados por el servidor (antes del rango visible)
+        const diasPrevios = parseInt(racha.dataset.diasPrevios || '0', 10);
         // Estados que CONTINÚAN la racha (días activos)
         const activos = new Set(['TRABAJADO', 'DIA_APOYO', 'STAND_BY', 'INDUCCION', 'INDUCCION_VIRTUAL', 'RECORRIDO']);
         let count = 0;
         let started = false;
+        let llegoAlInicio = false;
         // Recorrer de derecha a izquierda
         // - saltar celdas vacías del futuro (sin estado registrado)
         // - contar días activos consecutivos desde el último día registrado
@@ -1297,16 +1300,25 @@
             started = true;
             if (activos.has(estado)) {
                 count++;
+                if (i === 0) llegoAlInicio = true;  // llegué al primer día del rango visible
             } else {
                 break;               // DIA_LIBRE, FALTA, DM, VACACIONES, etc.: corta
             }
         }
+        // Si la racha alcanzó el inicio del rango visible, sumar los días del mes anterior
+        if (llegoAlInicio && diasPrevios > 0) {
+            count += diasPrevios;
+        }
         // Actualizar badge con color
+        const exceso = count > 14 ? count - 14 : 0;
+        const titulo = exceso > 0
+            ? `${count} días en mina ⚠ ${exceso} día(s) extra sobre el ciclo de 14`
+            : `${count} días consecutivos en mina`;
         if (count === 0) {
             racha.innerHTML = '<span class="racha-badge racha-zero">—</span>';
         } else {
             const cls = count >= 14 ? 'racha-danger' : count >= 8 ? 'racha-alert' : 'racha-normal';
-            racha.innerHTML = `<span class="racha-badge ${cls}" title="${count} días seguidos trabajando">${count}d</span>`;
+            racha.innerHTML = `<span class="racha-badge ${cls}" title="${titulo}">${count}d</span>`;
         }
     }
 
