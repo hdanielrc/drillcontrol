@@ -673,20 +673,72 @@
     }
     
     /* Códigos estilo Romina */
-    .badge-estado[data-estado="TRABAJADO"] { background: #d1e7dd; color: #0f5132; }
-    .badge-estado[data-estado="DIA_LIBRE"] { background: #cfe2ff; color: #084298; }
-    .badge-estado[data-estado="DIA_APOYO"] { background: #e7f1ff; color: #052c65; }
-    .badge-estado[data-estado="PERMISO_PATERNIDAD"] { background: #fff3cd; color: #664d03; }
-    .badge-estado[data-estado="DESCANSO_MEDICO"] { background: #f8d7da; color: #842029; }
-    .badge-estado[data-estado="STAND_BY"] { background: #f8f9fa; color: #495057; }
-    .badge-estado[data-estado="SUBSIDIO"] { background: #fff3cd; color: #997404; }
-    .badge-estado[data-estado="INDUCCION"] { background: #d1ecf1; color: #0c5460; }
-    .badge-estado[data-estado="INDUCCION_VIRTUAL"] { background: #d1ecf1; color: #0c5460; }
-    .badge-estado[data-estado="RECORRIDO"] { background: #e2e3e5; color: #383d41; }
-    .badge-estado[data-estado="FALTA"] { background: #f8d7da; color: #721c24; }
-    .badge-estado[data-estado="PERMISO"] { background: #fff3cd; color: #856404; }
-    .badge-estado[data-estado="SUSPENSION"] { background: #f5c6cb; color: #721c24; }
-    .badge-estado[data-estado="VACACIONES"] { background: #d4edda; color: #155724; }
+    /* =====================================================================
+       COLORES VIVOS POR ESTADO — badge + CELDA ENTERA
+       ===================================================================== */
+
+    /* Badge (texto sobre la celda coloreada) */
+    .badge-estado { color: #fff !important; text-shadow: 0 1px 2px rgba(0,0,0,.45); }
+
+    /* Verde brillante — Trabajado */
+    .badge-estado[data-estado="TRABAJADO"]          { background: #00c853; }
+    .celda-asistencia[data-estado="TRABAJADO"]       { background-color: #00c853 !important; }
+
+    /* Azul eléctrico — Día Libre */
+    .badge-estado[data-estado="DIA_LIBRE"]           { background: #2979ff; }
+    .celda-asistencia[data-estado="DIA_LIBRE"]       { background-color: #2979ff !important; }
+
+    /* Azul marino — Día Apoyo */
+    .badge-estado[data-estado="DIA_APOYO"]           { background: #1565c0; }
+    .celda-asistencia[data-estado="DIA_APOYO"]       { background-color: #1565c0 !important; }
+
+    /* Ámbar — Permiso Paternidad */
+    .badge-estado[data-estado="PERMISO_PATERNIDAD"]  { background: #f57f17; }
+    .celda-asistencia[data-estado="PERMISO_PATERNIDAD"] { background-color: #f57f17 !important; }
+
+    /* Rojo vivo — Descanso Médico */
+    .badge-estado[data-estado="DESCANSO_MEDICO"]     { background: #d50000; }
+    .celda-asistencia[data-estado="DESCANSO_MEDICO"] { background-color: #d50000 !important; }
+
+    /* Teal — Stand By */
+    .badge-estado[data-estado="STAND_BY"]            { background: #00bfa5; }
+    .celda-asistencia[data-estado="STAND_BY"]        { background-color: #00bfa5 !important; }
+
+    /* Marrón — Subsidio */
+    .badge-estado[data-estado="SUBSIDIO"]            { background: #6d4c41; }
+    .celda-asistencia[data-estado="SUBSIDIO"]        { background-color: #6d4c41 !important; }
+
+    /* Naranja brillante — Inducción */
+    .badge-estado[data-estado="INDUCCION"]           { background: #ff6d00; }
+    .celda-asistencia[data-estado="INDUCCION"]       { background-color: #ff6d00 !important; }
+    .badge-estado[data-estado="INDUCCION_VIRTUAL"]   { background: #ff6d00; }
+    .celda-asistencia[data-estado="INDUCCION_VIRTUAL"] { background-color: #ff6d00 !important; }
+
+    /* Verde oscuro — Recorrido */
+    .badge-estado[data-estado="RECORRIDO"]           { background: #558b2f; }
+    .celda-asistencia[data-estado="RECORRIDO"]       { background-color: #558b2f !important; }
+
+    /* Rojo sangre — Falta */
+    .badge-estado[data-estado="FALTA"]               { background: #b71c1c; }
+    .celda-asistencia[data-estado="FALTA"]           { background-color: #b71c1c !important; }
+
+    /* Naranja oscuro — Permiso */
+    .badge-estado[data-estado="PERMISO"]             { background: #e65100; }
+    .celda-asistencia[data-estado="PERMISO"]         { background-color: #e65100 !important; }
+
+    /* Fucsia — Suspensión */
+    .badge-estado[data-estado="SUSPENSION"]          { background: #880e4f; }
+    .celda-asistencia[data-estado="SUSPENSION"]      { background-color: #880e4f !important; }
+
+    /* Violeta — Vacaciones */
+    .badge-estado[data-estado="VACACIONES"]          { background: #6a1b9a; }
+    .celda-asistencia[data-estado="VACACIONES"]      { background-color: #6a1b9a !important; }
+
+    /* Texto blanco en celdas coloreadas */
+    .celda-asistencia[data-estado] .badge-estado,
+    .celda-asistencia[data-estado] small {
+        color: #fff !important;
+    }
     
     /* Leyenda de códigos */
     .leyenda-codigos {
@@ -1765,10 +1817,10 @@
         const fechaInicio = '{{ fecha_inicio|date:"Y-m-d" }}';
         const fechaFin = '{{ fecha_fin|date:"Y-m-d" }}';
         
-        // Construir URL de exportación
-        const url = `/tareo/exportar-excel/?contrato=${contratoId}&modo=mes&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+        // Construir URL incluyendo mes anterior automáticamente
+        const url = `/tareo/exportar-excel/?contrato=${contratoId}&modo=mes&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}&include_mes_anterior=1`;
         
-        mostrarToast('Descargando tareo del mes...', 'info', 2000);
+        mostrarToast('Descargando tareo (mes actual + mes anterior)...', 'info', 2500);
         
         // Abrir en nueva pestaña para descargar
         window.open(url, '_blank');

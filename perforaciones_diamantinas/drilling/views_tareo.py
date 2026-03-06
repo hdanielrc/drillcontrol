@@ -483,6 +483,29 @@ LEYENDA = {
     'LCG': 'LICENCIA CON GOCE',
 }
 
+# Colores vivos por código para el Excel (formato ARGB sin #)
+COLORES_EXCEL = {
+    'T':   'FF00C853',  # Verde brillante — Trabajado
+    'DL':  'FF2979FF',  # Azul eléctrico — Día Libre
+    'DA':  'FF1565C0',  # Azul marino — Día Apoyo
+    'PT':  'FFF57F17',  # Ámbar — Permiso Paternidad
+    'DM':  'FFD50000',  # Rojo vivo — Descanso Médico
+    'SB':  'FF00BFA5',  # Teal — Stand By
+    'SUB': 'FF6D4C41',  # Marrón — Subsidio
+    'I':   'FFFF6D00',  # Naranja brillante — Inducción
+    'IV':  'FFFF6D00',  # Naranja brillante — Inducción Virtual
+    'R':   'FF558B2F',  # Verde oscuro — Recorrido
+    'F':   'FFB71C1C',  # Rojo sangre — Falta
+    'P':   'FFE65100',  # Naranja oscuro — Permiso
+    'S':   'FF880E4F',  # Fucsia — Suspensión
+    'V':   'FF6A1B9A',  # Violeta — Vacaciones
+    'LSG': 'FF37474F',  # Gris oscuro — Licencia Sin Goce
+    'LCG': 'FF455A64',  # Gris azulado — Licencia Con Goce
+    'C':   'FF212121',  # Negro — Cesado
+    'TC':  'FFFF1744',  # Rojo neón — Trabajo en Caliente
+    'LF':  'FF4A148C',  # Morado oscuro — Licencia por Fallecimiento
+}
+
 
 @login_required
 def exportar_asistencias_excel(request):
@@ -572,17 +595,35 @@ def exportar_asistencias_excel(request):
         # Crear workbook
         wb = Workbook()
         wb.remove(wb.active)  # Remover hoja por defecto
-        
-        # 1. CREAR HOJA TAREO
-        ws_tareo = wb.create_sheet("Tareo", 0)
+
+        include_mes_anterior = request.GET.get('include_mes_anterior') == '1'
+
+        if include_mes_anterior:
+            # Calcular mes operativo anterior (restar 1 mes al inicio y fin)
+            if fecha_inicio.month == 1:
+                fi_ant = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12)
+            else:
+                fi_ant = fecha_inicio.replace(month=fecha_inicio.month - 1)
+            if fecha_fin.month == 1:
+                ff_ant = fecha_fin.replace(year=fecha_fin.year - 1, month=12)
+            else:
+                ff_ant = fecha_fin.replace(month=fecha_fin.month - 1)
+            nd_ant = (ff_ant - fi_ant).days + 1
+
+            # Hoja mes anterior (1ª)
+            ws_ant = wb.create_sheet(f"Tareo {fi_ant.strftime('%b %Y').upper()}", 0)
+            _crear_hoja_tareo(ws_ant, contrato, fi_ant, ff_ant, nd_ant)
+
+        # 1. CREAR HOJA TAREO (mes actual — se agrega al final)
+        ws_tareo = wb.create_sheet(f"Tareo {fecha_inicio.strftime('%b %Y').upper()}")
         _crear_hoja_tareo(ws_tareo, contrato, fecha_inicio, fecha_fin, num_dias)
-        
+
         # 2. CREAR HOJA LEYENDA
-        ws_leyenda = wb.create_sheet("LEYENDA", 1)
+        ws_leyenda = wb.create_sheet("LEYENDA")
         _crear_hoja_leyenda(ws_leyenda)
-        
+
         # 3. CREAR HOJA INFORME
-        ws_informe = wb.create_sheet("Informe", 2)
+        ws_informe = wb.create_sheet("Informe")
         _crear_hoja_informe(ws_informe, contrato, fecha_inicio, fecha_fin)
         
         # Preparar respuesta
@@ -590,7 +631,8 @@ def exportar_asistencias_excel(request):
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         mes_nombre = fecha_inicio.strftime('%B').capitalize()
-        filename = f"Tareo_{contrato.nombre_contrato.replace(' ', '_')}_{mes_nombre}_{fecha_inicio.year}.xlsx"
+        sufijo = '_con_MesAnterior' if include_mes_anterior else ''
+        filename = f"Tareo_{contrato.nombre_contrato.replace(' ', '_')}_{mes_nombre}_{fecha_inicio.year}{sufijo}.xlsx"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
         wb.save(response)
@@ -745,12 +787,19 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
             asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
             if asist:
                 codigo = MAPEO_CODIGOS.get(asist.estado, asist.estado)
-                ws.cell(row=row_num, column=col_num).value = codigo
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = codigo
+                # Aplicar color de fondo vivo según estado
+                hex_color = COLORES_EXCEL.get(codigo)
+                if hex_color:
+                    cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type='solid')
+                    cell.font = Font(bold=True, color='FFFFFF', size=10)
                 # Contar para resumen
                 if codigo in contadores:
                     contadores[codigo] += 1
             else:
-                ws.cell(row=row_num, column=col_num).value = ""
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = ""
             
             ws.cell(row=row_num, column=col_num).alignment = Alignment(horizontal='center', vertical='center')
             ws.cell(row=row_num, column=col_num).border = border_thin
