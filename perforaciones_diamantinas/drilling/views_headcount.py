@@ -344,12 +344,15 @@ def headcount_delete(request, pk):
     
     # Verificar permisos
     if not request.user.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'HEADCOUNT', 'GERENTE_GENERAL']:
-        return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
+        messages.error(request, 'Sin permisos para eliminar headcount')
+        return redirect('headcount-list')
     
+    contrato_id = headcount.contrato_id
     headcount.activo = False
     headcount.save()
     
-    return JsonResponse({'success': True, 'message': 'Headcount desactivado correctamente'})
+    messages.success(request, f'Headcount desactivado correctamente')
+    return redirect(f"{reverse('headcount-list')}?contrato={contrato_id}")
 
 
 @login_required
