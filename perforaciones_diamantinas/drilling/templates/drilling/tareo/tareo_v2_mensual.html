@@ -151,46 +151,93 @@
         vertical-align: middle;
     }
     
-    /* Select de estado */
+    /* =================================================================
+       COLORES POR ESTADO — aplicados a la CELDA ENTERA (td)
+       Cada actividad tiene un color único, vívido e identificable
+       ================================================================= */
+
+    /* Verde esmeralda — Trabajo productivo */
+    .celda-TRABAJO     { background-color: #27ae60 !important; }
+    /* Azul cielo — Día Libre / Descanso */
+    .celda-DESCANSO    { background-color: #2980b9 !important; }
+    /* Rojo — Falta */
+    .celda-FALTA       { background-color: #e74c3c !important; }
+    /* Azul marino — Descanso Médico */
+    .celda-DM          { background-color: #1a5276 !important; }
+    /* Violeta — Vacaciones */
+    .celda-VACACIONES  { background-color: #8e44ad !important; }
+    /* Naranja — Permiso */
+    .celda-PERMISO     { background-color: #d35400 !important; }
+    /* Rojo oscuro — Suspensión */
+    .celda-SUSPENSION  { background-color: #922b21 !important; }
+    /* Gris — Licencia */
+    .celda-LICENCIA    { background-color: #5d6d7e !important; }
+    /* Ámbar — Inducción */
+    .celda-INDUCCION   { background-color: #d68910 !important; }
+    /* Verde azulado — Stand By */
+    .celda-STAND_BY    { background-color: #148f77 !important; }
+    /* Azul acero — Día de Apoyo */
+    .celda-DIA_APOYO   { background-color: #1f618d !important; }
+    /* Gris azulado — Subsidio */
+    .celda-SUBSIDIO    { background-color: #616a6b !important; }
+    /* Rosa fucsia — Permiso Paternidad */
+    .celda-PERMISO_PATERNIDAD { background-color: #a93226 !important; }
+    /* Verde lima — Recorrido */
+    .celda-RECORRIDO   { background-color: #1e8449 !important; }
+
+    /* Select transparente dentro de celda coloreada */
     .estado-select {
         width: 100%;
-        padding: 8px 4px;
-        border: 2px solid #bdc3c7;
+        padding: 6px 2px;
+        border: 2px solid rgba(255,255,255,0.5);
         border-radius: 4px;
-        font-size: 14px;
-        font-weight: 700;
+        font-size: 13px;
+        font-weight: 800;
         text-align: center;
         cursor: pointer;
-        transition: all 0.2s;
-        appearance: auto;
-        -webkit-appearance: menulist;
-        -moz-appearance: menulist;
+        transition: border-color 0.2s;
+        background: transparent !important;
+        color: #ffffff !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
     }
-    
-    .estado-select option {
-        padding: 8px;
-        font-weight: 600;
-        font-size: 13px;
-    }
-    
+
     .estado-select:focus {
         outline: none;
-        border-color: #3498db;
-        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        border-color: rgba(255,255,255,0.9);
+        box-shadow: 0 0 0 3px rgba(255,255,255,0.25);
     }
-    
-    /* Colores por estado — fondo sólido + texto de alto contraste */
-    .estado-TRABAJO     { background-color: #27ae60; color: #ffffff; border-color: #1e8449; }
-    .estado-DESCANSO    { background-color: #f0c030; color: #3d2b00; border-color: #c9a020; }
-    .estado-FALTA       { background-color: #e74c3c; color: #ffffff; border-color: #c0392b; }
-    .estado-DM          { background-color: #2980b9; color: #ffffff; border-color: #1a6492; }
-    .estado-VACACIONES  { background-color: #8e44ad; color: #ffffff; border-color: #6c3483; }
-    .estado-PERMISO     { background-color: #e67e22; color: #ffffff; border-color: #b9590c; }
-    .estado-SUSPENSION  { background-color: #c0392b; color: #ffffff; border-color: #922b21; }
-    .estado-LICENCIA    { background-color: #7f8c8d; color: #ffffff; border-color: #616a6b; }
-    .estado-INDUCCION   { background-color: #f39c12; color: #ffffff; border-color: #b7770d; }
-    .estado-STAND_BY    { background-color: #16a085; color: #ffffff; border-color: #0e6655; }
-    .estado-DIA_APOYO   { background-color: #2471a3; color: #ffffff; border-color: #1a5276; }
+
+    /* Colores fallback en el select (navegadores que lo soporten) */
+    .estado-select option { font-weight: 700; font-size: 13px; }
+    .estado-select option[value="TRABAJO"]    { background: #27ae60; color: #fff; }
+    .estado-select option[value="DESCANSO"]   { background: #2980b9; color: #fff; }
+    .estado-select option[value="FALTA"]      { background: #e74c3c; color: #fff; }
+    .estado-select option[value="DM"]         { background: #1a5276; color: #fff; }
+    .estado-select option[value="VACACIONES"] { background: #8e44ad; color: #fff; }
+    .estado-select option[value="PERMISO"]    { background: #d35400; color: #fff; }
+    .estado-select option[value="SUSPENSION"] { background: #922b21; color: #fff; }
+    .estado-select option[value="LICENCIA"]   { background: #5d6d7e; color: #fff; }
+    .estado-select option[value="INDUCCION"]  { background: #d68910; color: #fff; }
+    .estado-select option[value="STAND_BY"]   { background: #148f77; color: #fff; }
+    .estado-select option[value="DIA_APOYO"]  { background: #1f618d; color: #fff; }
+    .estado-select option[value="SUBSIDIO"]   { background: #616a6b; color: #fff; }
+    .estado-select option[value="RECORRIDO"]  { background: #1e8449; color: #fff; }
+
+    /* Clases legado para compatibilidad (mantienen el color en el select si se usa directo) */
+    .estado-TRABAJO     { background-color: #27ae60; color: #fff; border-color: #1e8449; }
+    .estado-DESCANSO    { background-color: #2980b9; color: #fff; border-color: #1a6492; }
+    .estado-FALTA       { background-color: #e74c3c; color: #fff; border-color: #c0392b; }
+    .estado-DM          { background-color: #1a5276; color: #fff; border-color: #154360; }
+    .estado-VACACIONES  { background-color: #8e44ad; color: #fff; border-color: #6c3483; }
+    .estado-PERMISO     { background-color: #d35400; color: #fff; border-color: #a04000; }
+    .estado-SUSPENSION  { background-color: #922b21; color: #fff; border-color: #7b241c; }
+    .estado-LICENCIA    { background-color: #5d6d7e; color: #fff; border-color: #4d5d6b; }
+    .estado-INDUCCION   { background-color: #d68910; color: #fff; border-color: #b7770d; }
+    .estado-STAND_BY    { background-color: #148f77; color: #fff; border-color: #0e6655; }
+    .estado-DIA_APOYO   { background-color: #1f618d; color: #fff; border-color: #1a5276; }
     
     /* Indicador de proyección vs corrección */
     .proyeccion-indicator {
@@ -391,7 +438,8 @@
                         {% for dia in dias_rango %}
                         {% with asist=row.asistencias %}
                         {% with data=asist|get_item:dia.fecha %}
-                        <td class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}" 
+                        <td class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% else %}celda-{{ data.estado|default:'TRABAJO' }}{% endif %}" 
+                            data-estado="{{ data.estado|default:'TRABAJO' }}"
                             data-trabajador-id="{{ row.trabajador.id }}" 
                             data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
                             <!-- Select de Estado -->
@@ -399,20 +447,22 @@
                                 name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
                                 class="estado-select estado-{{ data.estado|default:'TRABAJO' }}"
                                 data-tipo="estado"
-                                onchange="this.className='estado-select estado-' + this.value"
+                                onchange="(function(sel){ sel.className='estado-select'; var td=sel.closest('td'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); })(this)"
                                 title="{{ data.estado|default:'TRABAJO' }}"
                             >
-                                <option value="TRABAJO" {% if data.estado == 'TRABAJO' or not data.estado %}selected{% endif %}>T</option>
-                                <option value="DESCANSO" {% if data.estado == 'DESCANSO' %}selected{% endif %}>D</option>
-                                <option value="FALTA" {% if data.estado == 'FALTA' %}selected{% endif %}>F</option>
-                                <option value="DM" {% if data.estado == 'DM' %}selected{% endif %}>DM</option>
+                                <option value="TRABAJO"    {% if data.estado == 'TRABAJO'    or not data.estado %}selected{% endif %}>T</option>
+                                <option value="DESCANSO"   {% if data.estado == 'DESCANSO'   %}selected{% endif %}>DL</option>
+                                <option value="FALTA"      {% if data.estado == 'FALTA'      %}selected{% endif %}>F</option>
+                                <option value="DM"         {% if data.estado == 'DM'         %}selected{% endif %}>DM</option>
                                 <option value="VACACIONES" {% if data.estado == 'VACACIONES' %}selected{% endif %}>V</option>
-                                <option value="PERMISO" {% if data.estado == 'PERMISO' %}selected{% endif %}>P</option>
+                                <option value="PERMISO"    {% if data.estado == 'PERMISO'    %}selected{% endif %}>P</option>
                                 <option value="SUSPENSION" {% if data.estado == 'SUSPENSION' %}selected{% endif %}>S</option>
-                                <option value="LICENCIA" {% if data.estado == 'LICENCIA' %}selected{% endif %}>L</option>
-                                <option value="INDUCCION" {% if data.estado == 'INDUCCION' %}selected{% endif %}>I</option>
-                                <option value="STAND_BY" {% if data.estado == 'STAND_BY' %}selected{% endif %}>SB</option>
-                                <option value="DIA_APOYO" {% if data.estado == 'DIA_APOYO' %}selected{% endif %}>DA</option>
+                                <option value="LICENCIA"   {% if data.estado == 'LICENCIA'   %}selected{% endif %}>L</option>
+                                <option value="INDUCCION"  {% if data.estado == 'INDUCCION'  %}selected{% endif %}>IND</option>
+                                <option value="STAND_BY"   {% if data.estado == 'STAND_BY'   %}selected{% endif %}>SB</option>
+                                <option value="DIA_APOYO"  {% if data.estado == 'DIA_APOYO'  %}selected{% endif %}>DA</option>
+                                <option value="SUBSIDIO"   {% if data.estado == 'SUBSIDIO'   %}selected{% endif %}>SUB</option>
+                                <option value="RECORRIDO"  {% if data.estado == 'RECORRIDO'  %}selected{% endif %}>REC</option>
                             </select>
                             
                             <!-- Select de Máquina (siempre visible) -->
@@ -481,18 +531,20 @@
     <!-- Leyenda -->
     <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <h4 style="margin-bottom: 15px;">📖 Leyenda de Estados</h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 15px;">
-            <div style="padding: 8px 12px; background: #27ae60; color: #fff; border-radius: 4px; font-weight: 700;"><strong>T</strong> = Trabajo</div>
-            <div style="padding: 8px 12px; background: #f0c030; color: #3d2b00; border-radius: 4px; font-weight: 700;"><strong>D</strong> = Descanso</div>
-            <div style="padding: 8px 12px; background: #e74c3c; color: #fff; border-radius: 4px; font-weight: 700;"><strong>F</strong> = Falta</div>
-            <div style="padding: 8px 12px; background: #2980b9; color: #fff; border-radius: 4px; font-weight: 700;"><strong>DM</strong> = Descanso Médico</div>
-            <div style="padding: 8px 12px; background: #8e44ad; color: #fff; border-radius: 4px; font-weight: 700;"><strong>V</strong> = Vacaciones</div>
-            <div style="padding: 8px 12px; background: #e67e22; color: #fff; border-radius: 4px; font-weight: 700;"><strong>P</strong> = Permiso</div>
-            <div style="padding: 8px 12px; background: #c0392b; color: #fff; border-radius: 4px; font-weight: 700;"><strong>S</strong> = Suspensión</div>
-            <div style="padding: 8px 12px; background: #7f8c8d; color: #fff; border-radius: 4px; font-weight: 700;"><strong>L</strong> = Licencia</div>
-            <div style="padding: 8px 12px; background: #f39c12; color: #fff; border-radius: 4px; font-weight: 700;"><strong>I</strong> = Inducción</div>
-            <div style="padding: 8px 12px; background: #16a085; color: #fff; border-radius: 4px; font-weight: 700;"><strong>SB</strong> = Stand By</div>
-            <div style="padding: 8px 12px; background: #2471a3; color: #fff; border-radius: 4px; font-weight: 700;"><strong>DA</strong> = Día de Apoyo</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 8px; margin-bottom: 15px;">
+            <div style="padding: 9px 12px; background: #27ae60; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #1e8449;"><strong>T</strong> — Trabajado</div>
+            <div style="padding: 9px 12px; background: #2980b9; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #1a6492;"><strong>DL</strong> — Día Libre</div>
+            <div style="padding: 9px 12px; background: #e74c3c; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #c0392b;"><strong>F</strong> — Falta</div>
+            <div style="padding: 9px 12px; background: #1a5276; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #154360;"><strong>DM</strong> — Desc. Médico</div>
+            <div style="padding: 9px 12px; background: #8e44ad; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #6c3483;"><strong>V</strong> — Vacaciones</div>
+            <div style="padding: 9px 12px; background: #d35400; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #a04000;"><strong>P</strong> — Permiso</div>
+            <div style="padding: 9px 12px; background: #922b21; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #7b241c;"><strong>S</strong> — Suspensión</div>
+            <div style="padding: 9px 12px; background: #5d6d7e; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #4d5d6b;"><strong>L</strong> — Licencia</div>
+            <div style="padding: 9px 12px; background: #d68910; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #b7770d;"><strong>IND</strong> — Inducción</div>
+            <div style="padding: 9px 12px; background: #148f77; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #0e6655;"><strong>SB</strong> — Stand By</div>
+            <div style="padding: 9px 12px; background: #1f618d; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #1a5276;"><strong>DA</strong> — Día de Apoyo</div>
+            <div style="padding: 9px 12px; background: #616a6b; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #4d5d6b;"><strong>SUB</strong> — Subsidio</div>
+            <div style="padding: 9px 12px; background: #1e8449; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #196f3d;"><strong>REC</strong> — Recorrido</div>
         </div>
         <div style="display: flex; gap: 20px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 13px;">
             <div><span class="proyeccion-indicator es-proyeccion">P</span> = Proyección automática</div>
