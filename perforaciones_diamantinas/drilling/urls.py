@@ -5,23 +5,26 @@ from . import auth_views
 from . import views_gestion_proyectos
 from . import views_stock
 from . import views_consumo
-from . import views_tareo
-from . import views_tareo_v2
+from . import views_tareo          # módulo unificado V1 + V2
 from . import views_headcount
 from . import views_gerencia
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
-    guardar_asignaciones_masivas, marcar_stand_by, 
+    guardar_asignaciones_masivas, marcar_stand_by,
     guardar_guardias_conductores, eliminar_asignacion,
     guardar_asignaciones_equipos
 )
+# ── Tareo (todas las funciones V1 y V2 viven en views_tareo) ─────────────────
 from .views_tareo import (
-    tareo_mensual_view, guardar_asistencia, 
-    guardar_asistencias_masivas as guardar_asistencias_masivas_tareo, 
-    exportar_asistencias_excel, auto_rellenar_asistencia,
-    actualizar_grupos_trabajadores, debug_trabajadores
-)
-from .views_tareo_v2 import (
+    # V1 / legacy
+    tareo_mensual_view,
+    guardar_asistencia,
+    guardar_asistencias_masivas as guardar_asistencias_masivas_tareo,
+    exportar_asistencias_excel,
+    auto_rellenar_asistencia,
+    actualizar_grupos_trabajadores,
+    debug_trabajadores,
+    # V2 / normalizado
     tareo_v2_mensual_view,
     api_generar_proyeccion,
     api_corregir_asistencia,

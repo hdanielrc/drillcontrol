@@ -16,7 +16,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from datetime import date, timedelta
 from collections import defaultdict
-from .models import Contrato, Trabajador, AsistenciaTrabajador, HeadCount
+from .models import Contrato, Trabajador, AsistenciaTrabajador, AsistenciaDiaria, HeadCount
+
+# Mapeo de estados V2 (AsistenciaDiaria) a estados V1 para reutilizar los badges
+V2_A_V1 = {
+    'TRABAJO':    'TRABAJADO',
+    'DESCANSO':   'DIA_LIBRE',
+    'FALTA':      'FALTA',
+    'DM':         'DESCANSO_MEDICO',
+    'VACACIONES': 'VACACIONES',
+    'PERMISO':    'PERMISO',
+    'SUSPENSION': 'SUSPENSION',
+    'LICENCIA':   'LICENCIA_SIN_GOCE',
+    'INDUCCION':  'INDUCCION',
+    'STAND_BY':   'STAND_BY',
+    'DIA_APOYO':  'DIA_APOYO',
+}
 
 
 # Días de la semana abreviados (lunes=0)
@@ -163,17 +178,29 @@ def organigrama_view(request):
         estado='ACTIVO'
     ).select_related('maquina_asignada').order_by('apepat', 'nombres')
 
-    # ── Tareo de la semana ───────────────────────────────────────
+    # ── Tareo de la semana ──────────────────────────────────────
     # tareo_dict[trabajador_id][fecha] = estado
-    asistencias = AsistenciaTrabajador.objects.filter(
+    # Fuente 1: modelo V1 (AsistenciaTrabajador) – estados granulares
+    tareo_dict = {}
+    for a in AsistenciaTrabajador.objects.filter(
         trabajador__contrato=contrato,
         fecha__gte=semana_inicio,
         fecha__lte=semana_fin,
-    ).values('trabajador_id', 'fecha', 'estado')
-
-    tareo_dict = {}
-    for a in asistencias:
+    ).values('trabajador_id', 'fecha', 'estado'):
         tareo_dict.setdefault(a['trabajador_id'], {})[a['fecha']] = a['estado']
+
+    # Fuente 2: modelo V2 (AsistenciaDiaria) – correcciones manuales tienen
+    # prioridad sobre V1; proyecciones solo se usan si no hay dato V1.
+    for a in AsistenciaDiaria.objects.filter(
+        empleado__contrato=contrato,
+        fecha__gte=semana_inicio,
+        fecha__lte=semana_fin,
+    ).values('empleado_id', 'fecha', 'estado', 'es_proyeccion'):
+        v1_equiv = V2_A_V1.get(a['estado'], a['estado'])
+        existing = tareo_dict.get(a['empleado_id'], {}).get(a['fecha'])
+        # Corrección manual V2 siempre gana; proyección V2 solo si no hay V1
+        if not a['es_proyeccion'] or existing is None:
+            tareo_dict.setdefault(a['empleado_id'], {})[a['fecha']] = v1_equiv
 
     # ── Construir listas por grupo con datos de tareo ───────────
     linea_mando_raw = sorted(
