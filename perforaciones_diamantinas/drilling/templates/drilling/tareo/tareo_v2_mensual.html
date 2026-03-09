@@ -329,6 +329,80 @@
         left: 0;
     }
 
+    /* ── Vista toggle (Mes / Semana de Guardia) ────────────────────────────── */
+    .vista-toggle-bar {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 14px;
+    }
+    .btn-vista-toggle {
+        padding: 7px 18px;
+        background: white;
+        color: #2980b9;
+        border: 2px solid #2980b9;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.2s;
+        line-height: 1.4;
+        text-decoration: none;
+    }
+    .btn-vista-toggle:first-child { border-radius: 20px 0 0 20px; }
+    .btn-vista-toggle:last-child  { border-radius: 0 20px 20px 0; border-left: none; }
+    .btn-vista-toggle.active      { background: #2980b9; color: white; }
+    .btn-vista-toggle:hover:not(.active) { background: #ebf5fb; }
+
+    /* ── Fila de resumen de cobertura por grupo ─────────────────────────────── */
+    .summary-row td {
+        background: #f1f8ff !important;
+        border-top: 2px solid #90cdf4 !important;
+        font-size: 12px;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    .summary-row td.col-trabajador,
+    .summary-row td.col-guardia {
+        background: #dbeafe !important;
+        font-size: 11px;
+        color: #1e3a5f;
+    }
+
+    /* ── Control de relleno rápido por fila ─────────────────────────────────── */
+    .quick-fill-row {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        margin-top: 5px;
+    }
+    .quick-fill-select {
+        font-size: 10px;
+        padding: 2px 3px;
+        border-radius: 3px;
+        background: #e8f4f8;
+        border: 1px solid #90cdf4;
+        cursor: pointer;
+        width: 52px;
+        font-weight: 700;
+        color: #1e3a5f;
+    }
+    .quick-fill-btn {
+        font-size: 10px;
+        padding: 2px 6px;
+        background: #2980b9;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .quick-fill-btn:hover { background: #1a6492; }
+
+    /* ── Hoy resaltado en cabecera ──────────────────────────────────────────── */
+    .col-hoy { background: #fff9c4 !important; border-bottom: 3px solid #f39c12 !important; }
+    .col-hoy > div { color: #7d5a00 !important; }
+
     /* Spinner de carga */
     .loading-overlay {
         position: fixed;
@@ -367,29 +441,51 @@
 <div class="tareo-container">
     <!-- HEADER -->
     <div class="tareo-header">
-        <h2>📋 Tareo Mensual V2 - {{ nombre_periodo }}</h2>
-        <p><strong>Contrato:</strong> {{ contrato.nombre_contrato }}</p>
-        
+        <h2>📋 Tareo Mensual V2 — {{ nombre_periodo }}</h2>
+        <p><strong>Contrato:</strong> {{ contrato.nombre_contrato }}
+           &nbsp;|&nbsp; <small style="color:#7f8c8d;">Día cambio guardia: <strong>{{ nombre_dia_cambio }}</strong></small>
+        </p>
+
+        <!-- Toggle de vista: Mes ↔ Semana de Guardia -->
+        <div class="vista-toggle-bar">
+            <a href="?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset }}" class="btn-vista-toggle {% if vista == 'mes' %}active{% endif %}">
+                📅 Vista Mes
+            </a>
+            <a href="?contrato={{ contrato.id }}&vista=semana&semana_offset=0" class="btn-vista-toggle {% if vista == 'semana' %}active{% endif %}">
+                📋 Semana de Guardia
+            </a>
+        </div>
+
         <div class="tareo-controls">
-            <!-- Navegación de meses -->
+            <!-- Navegación de período -->
             <div class="mes-navegacion">
-                <a href="?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:'-1' }}">
+                {% if vista == 'semana' %}
+                <a href="?contrato={{ contrato.id }}&vista=semana&semana_offset={{ semana_offset|add:'-1' }}">
+                    <button type="button">◀ Semana Anterior</button>
+                </a>
+                <span style="font-weight: 600; font-size: 14px;">{{ nombre_periodo }}</span>
+                <a href="?contrato={{ contrato.id }}&vista=semana&semana_offset={{ semana_offset|add:'1' }}">
+                    <button type="button">Semana Siguiente ▶</button>
+                </a>
+                {% else %}
+                <a href="?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset|add:'-1' }}">
                     <button type="button">◀ Mes Anterior</button>
                 </a>
-                <span style="font-weight: 600;">{{ nombre_periodo }}</span>
-                <a href="?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:'1' }}">
+                <span style="font-weight: 600; font-size: 14px;">{{ nombre_periodo }}</span>
+                <a href="?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset|add:'1' }}">
                     <button type="button">Mes Siguiente ▶</button>
                 </a>
+                {% endif %}
             </div>
-            
+
             <!-- Botón de proyección -->
             <button type="button" class="btn-proyeccion" onclick="generarProyeccion()">
                 🔄 Generar Proyección Automática
             </button>
-            
+
             <!-- Selector de contrato (solo para superusers) -->
             {% if contratos_disponibles %}
-            <select onchange="window.location.href='?contrato=' + this.value" class="form-control" style="max-width: 300px;">
+            <select onchange="window.location.href='?contrato='+this.value+'&vista={{ vista }}&mes_offset={{ mes_offset }}&semana_offset={{ semana_offset }}'" class="form-control" style="max-width: 300px;">
                 {% for c in contratos_disponibles %}
                 <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>
                     {{ c.nombre_contrato }}
@@ -411,7 +507,7 @@
                         <th class="col-trabajador">Trabajador</th>
                         <th class="col-guardia">Guardia</th>
                         {% for dia in dias_rango %}
-                        <th class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}">
+                        <th class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}" data-fecha-th="{{ dia.fecha|date:'Y-m-d' }}">
                             <div>{{ dia.nombre_dia }}</div>
                             <div style="font-size: 16px; font-weight: 700;">{{ dia.dia }}</div>
                             <button type="button" 
@@ -474,6 +570,23 @@
                             <br>
                             <small style="color: #3498db;">🚜 {{ row.trabajador.maquina_asignada.nombre }}</small>
                             {% endif %}
+                            <!-- Relleno rápido de fila -->
+                            <div class="quick-fill-row">
+                                <select class="quick-fill-select" title="Estado para rellenar toda la fila">
+                                    <option value="TRABAJO">T</option>
+                                    <option value="DESCANSO">DL</option>
+                                    <option value="FALTA">F</option>
+                                    <option value="DM">DM</option>
+                                    <option value="VACACIONES">V</option>
+                                    <option value="PERMISO">P</option>
+                                    <option value="SUSPENSION">S</option>
+                                    <option value="LICENCIA">L</option>
+                                    <option value="INDUCCION">IND</option>
+                                    <option value="STAND_BY">SB</option>
+                                    <option value="DIA_APOYO">DA</option>
+                                </select>
+                                <button type="button" class="quick-fill-btn" title="Aplicar a toda la fila">→ Fila</button>
+                            </div>
                         </td>
                         
                         <!-- Columna Guardia (fija) -->
@@ -494,7 +607,7 @@
                                 name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
                                 class="estado-select estado-{{ data.estado|default:'TRABAJO' }}"
                                 data-tipo="estado"
-                                onchange="(function(sel){ sel.className='estado-select'; var td=sel.closest('td'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); })(this)"
+                                onchange="(function(sel){ sel.className='estado-select'; var td=sel.closest('td'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); actualizarSummaryRows(); })(this)"
                                 title="{{ data.estado|default:'TRABAJO' }}"
                             >
                                 <option value="TRABAJO"    {% if data.estado == 'TRABAJO'    or not data.estado %}selected{% endif %}>T</option>
@@ -557,6 +670,23 @@
                     </tr>
                     {% endif %}
                     {% endfor %}
+
+                    {# ── Fila de resumen: T trabajando por día ── #}
+                    <tr class="summary-row grupo-rows-{{ grupo.grupo }}">
+                        <td class="col-trabajador" style="text-align: right; padding-right: 10px;">
+                            👷 Trabajando / Total
+                        </td>
+                        <td class="col-guardia"></td>
+                        {% for dia in dias_rango %}
+                        <td class="summary-day-cell {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
+                            data-grupo="{{ grupo.grupo }}"
+                            data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
+                            style="text-align: center; padding: 4px; font-size: 11px;">
+                            —
+                        </td>
+                        {% endfor %}
+                    </tr>
+
                     {% empty %}
                     <tr>
                         <td colspan="100" style="text-align: center; padding: 40px;">
@@ -744,6 +874,34 @@ document.addEventListener('DOMContentLoaded', function() {
             guardarDia(fecha);
         });
     });
+
+    // ── Resaltar columna de hoy ───────────────────────────────────────────────
+    const hoy = new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
+    document.querySelectorAll('th[data-fecha-th="' + hoy + '"]').forEach(th => {
+        th.classList.add('col-hoy');
+    });
+
+    // ── Relleno rápido por fila ───────────────────────────────────────────────
+    document.querySelectorAll('.quick-fill-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const row = this.closest('tr');
+            const select = row.querySelector('.quick-fill-select');
+            const estado = select ? select.value : 'TRABAJO';
+            const estadoSelects = row.querySelectorAll('select[data-tipo="estado"]');
+            estadoSelects.forEach(estadoSelect => {
+                estadoSelect.value = estado;
+                // Actualizar color de celda (replicate inline onchange)
+                estadoSelect.className = 'estado-select';
+                const td = estadoSelect.closest('td');
+                td.className = td.className.replace(/\bcelda-\S+/g, '').trim() + ' celda-' + estado;
+                td.setAttribute('data-estado', estado);
+            });
+            actualizarSummaryRows();
+        });
+    });
+
+    // ── Calcular resúmenes al cargar ─────────────────────────────────────────
+    actualizarSummaryRows();
 });
 
 // Validación antes de enviar el formulario
@@ -776,6 +934,7 @@ function toggleGrupo(grupoKey) {
     rows.forEach(r => r.style.display = collapsed ? '' : 'none');
     if (arrow) arrow.textContent = collapsed ? '▼' : '▶';
 }
+
 // Toggle de sub-sección por máquina (dentro de OPERADORES)
 function toggleMaquina(maqCssKey, grupoKey) {
     const rows = document.querySelectorAll(`.maquina-rows-${maqCssKey}`);
@@ -784,20 +943,53 @@ function toggleMaquina(maqCssKey, grupoKey) {
     rows.forEach(r => r.style.display = collapsed ? '' : 'none');
     if (arrow) arrow.textContent = collapsed ? '\u25bc' : '\u25ba';
 }
+
+// ── Resumen de cobertura por grupo y día ─────────────────────────────────────
+function actualizarSummaryRows() {
+    document.querySelectorAll('.summary-day-cell').forEach(cell => {
+        const grupoKey = cell.getAttribute('data-grupo');
+        const fecha    = cell.getAttribute('data-fecha');
+        const allCells = document.querySelectorAll(
+            `.grupo-rows-${grupoKey} td[data-fecha="${fecha}"]`
+        );
+        let countT = 0, total = 0;
+        allCells.forEach(c => {
+            // Skip cells that belong to summary rows themselves
+            if (c.classList.contains('summary-day-cell')) return;
+            total++;
+            if (c.getAttribute('data-estado') === 'TRABAJO') countT++;
+        });
+        if (total > 0) {
+            cell.textContent = countT + '/' + total;
+            cell.style.color = countT === total ? '#1e8449' : (countT > 0 ? '#1a6492' : '#922b21');
+            cell.style.fontWeight = '700';
+        } else {
+            cell.textContent = '—';
+            cell.style.color = '#95a5a6';
+        }
+    });
+}
+
 // Atajos de teclado para navegación rápida
 document.addEventListener('keydown', function(e) {
-    // Alt + ← = Mes anterior
+    // Alt + ← = Período anterior
     if (e.altKey && e.key === 'ArrowLeft') {
         e.preventDefault();
-        window.location.href = '?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:"-1" }}';
+        {% if vista == 'semana' %}
+        window.location.href = '?contrato={{ contrato.id }}&vista=semana&semana_offset={{ semana_offset|add:"-1" }}';
+        {% else %}
+        window.location.href = '?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset|add:"-1" }}';
+        {% endif %}
     }
-    
-    // Alt + → = Mes siguiente
+    // Alt + → = Período siguiente
     if (e.altKey && e.key === 'ArrowRight') {
         e.preventDefault();
-        window.location.href = '?contrato={{ contrato.id }}&mes_offset={{ mes_offset|add:"1" }}';
+        {% if vista == 'semana' %}
+        window.location.href = '?contrato={{ contrato.id }}&vista=semana&semana_offset={{ semana_offset|add:"1" }}';
+        {% else %}
+        window.location.href = '?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset|add:"1" }}';
+        {% endif %}
     }
-    
     // Ctrl + S = Guardar
     if (e.ctrlKey && e.key === 's') {
         e.preventDefault();

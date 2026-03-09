@@ -1886,53 +1886,67 @@ def tareo_v2_mensual_view(request):
         return redirect('dashboard')
     
     # =========================================================================
-    # 3. CALCULAR RANGO DE FECHAS (MES COMPLETO)
+    # 3. CALCULAR RANGO DE FECHAS
     # =========================================================================
+    vista = request.GET.get('vista', 'mes')               # 'mes' | 'semana'
     mes_offset = int(request.GET.get('mes_offset', 0))
-    
-    # Calcular el mes a mostrar
-    hoy = datetime.now().date()
-    fecha_base = hoy
-    
-    # Navegación por meses
-    if mes_offset != 0:
-        for _ in range(abs(mes_offset)):
-            if mes_offset > 0:
-                # Mes siguiente
-                if fecha_base.month == 12:
-                    fecha_base = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
-                else:
-                    fecha_base = fecha_base.replace(month=fecha_base.month + 1, day=1)
-            else:
-                # Mes anterior
-                if fecha_base.month == 1:
-                    fecha_base = fecha_base.replace(year=fecha_base.year - 1, month=12, day=1)
-                else:
-                    fecha_base = fecha_base.replace(month=fecha_base.month - 1, day=1)
-    
-    # Mes operativo: del 26 del mes anterior al 25 del mes actual
-    # Enero 2026 operativo = 26/12/2025 al 25/01/2026
-    mes_anterior = fecha_base.month - 1 if fecha_base.month > 1 else 12
-    anio_anterior = fecha_base.year if fecha_base.month > 1 else fecha_base.year - 1
-    
-    fecha_inicio = date(anio_anterior, mes_anterior, 26)
-    fecha_fin = date(fecha_base.year, fecha_base.month, 25)
-    
-    # Nombre del período para mostrar (mes operativo)
+    semana_offset = int(request.GET.get('semana_offset', 0))
+
+    # Día de cambio de guardia (necesario para ambos modos de vista)
+    dia_cambio_guardia = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 6
+    dia_previo_cambio  = (dia_cambio_guardia - 1) % 7
+
     meses_es = {
         1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
         5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
         9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
     }
-    nombre_periodo = f"{meses_es[fecha_base.month]} {fecha_base.year}"
-    
+    dias_abrev = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    hoy = datetime.now().date()
+
+    if vista == 'semana':
+        # Semana de guardia: ventana de 7 días que arranca en el dia_cambio_guardia
+        # más próximo anterior (o hoy mismo si coincide) desplazada por semana_offset
+        dias_desde_cambio = (hoy.weekday() - dia_cambio_guardia) % 7
+        inicio_semana_actual = hoy - timedelta(days=dias_desde_cambio)
+        fecha_inicio = inicio_semana_actual + timedelta(weeks=semana_offset)
+        fecha_fin    = fecha_inicio + timedelta(days=6)
+        nombre_periodo = (
+            f"Semana de Guardia: "
+            f"{dias_abrev[fecha_inicio.weekday()]} {fecha_inicio.strftime('%d/%m')} "
+            f"– {dias_abrev[fecha_fin.weekday()]} {fecha_fin.strftime('%d/%m/%Y')}"
+        )
+        fecha_base     = fecha_fin
+        mes_operativo  = fecha_base.month
+        anio_operativo = fecha_base.year
+    else:
+        # Mes operativo: del 26 del mes anterior al 25 del mes actual
+        # Por ejemplo: Enero 2026 operativo = 26/12/2025 al 25/01/2026
+        fecha_base = hoy
+        if mes_offset != 0:
+            for _ in range(abs(mes_offset)):
+                if mes_offset > 0:
+                    if fecha_base.month == 12:
+                        fecha_base = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
+                    else:
+                        fecha_base = fecha_base.replace(month=fecha_base.month + 1, day=1)
+                else:
+                    if fecha_base.month == 1:
+                        fecha_base = fecha_base.replace(year=fecha_base.year - 1, month=12, day=1)
+                    else:
+                        fecha_base = fecha_base.replace(month=fecha_base.month - 1, day=1)
+
+        mes_anterior   = fecha_base.month - 1 if fecha_base.month > 1 else 12
+        anio_anterior  = fecha_base.year      if fecha_base.month > 1 else fecha_base.year - 1
+        fecha_inicio   = date(anio_anterior, mes_anterior, 26)
+        fecha_fin      = date(fecha_base.year, fecha_base.month, 25)
+        nombre_periodo = f"{meses_es[fecha_base.month]} {fecha_base.year}"
+        mes_operativo  = fecha_base.month
+        anio_operativo = fecha_base.year
+
     # =========================================================================
     # 4. GENERAR LISTA DE DÍAS DEL MES
     # =========================================================================
-    # Día de cambio de guardia según contrato (0=Lun … 6=Dom).
-    # Si no está configurado en el contrato, se usa domingo (6) como fallback.
-    dia_cambio_guardia = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 6
-    dia_previo_cambio  = (dia_cambio_guardia - 1) % 7  # día anterior = amarillo
 
     dias_rango = []
     fecha_actual = fecha_inicio
@@ -2003,7 +2017,7 @@ def tareo_v2_mensual_view(request):
                     )
                 
                 # Redirigir para evitar reenvío de formulario
-                return redirect(f"{request.path}?contrato={contrato.id}&mes_offset={mes_offset}")
+                return redirect(f"{request.path}?contrato={contrato.id}&mes_offset={mes_offset}&vista={vista}&semana_offset={semana_offset}")
                 
         except Exception as e:
             messages.error(request, f"Error al guardar: {str(e)}")
@@ -2053,10 +2067,12 @@ def tareo_v2_mensual_view(request):
         'dias_rango': dias_rango,
         'matriz_tareo': matriz_tareo,
         'mes_offset': mes_offset,
+        'vista': vista,
+        'semana_offset': semana_offset,
         'estados_choices': AsistenciaDiaria.ESTADO_CHOICES,
         'maquinas_disponibles': maquinas_disponibles,
-        'mes_operativo': fecha_base.month,
-        'anio_operativo': fecha_base.year,
+        'mes_operativo': mes_operativo,
+        'anio_operativo': anio_operativo,
         'dia_cambio_guardia': dia_cambio_guardia,
         'dia_previo_cambio': dia_previo_cambio,
         'nombre_dia_cambio': ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][dia_cambio_guardia],
