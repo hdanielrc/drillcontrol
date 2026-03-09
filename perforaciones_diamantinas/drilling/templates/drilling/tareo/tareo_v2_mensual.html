@@ -259,14 +259,15 @@
         font-weight: 600;
     }
     
-    /* Días de cambio de guardia (según contrato) */
-    .dia-cambio-guardia {
-        background-color: #ffebee !important;  /* rojo claro → día cambio de guardia */
-    }
-    
-    .dia-previo-cambio {
-        background-color: #fff8e1 !important;  /* amarillo claro → día previo al cambio */
-    }
+    /* Días de cambio de guardia — CABECERA: fondo completo */
+    thead th.dia-cambio-guardia { background-color: #ffcdd2 !important; color: #c62828 !important; }
+    thead th.dia-previo-cambio  { background-color: #fff8e1 !important; color: #7d5a00 !important; }
+
+    /* Días de cambio de guardia — CELDAS DE DATOS:
+       El color de estado sigue siendo el fondo; el marcador de guardia
+       se muestra como una franja lateral izquierda de color. */
+    tbody td.dia-cambio-guardia { box-shadow: inset 5px 0 0 #e53935 !important; }
+    tbody td.dia-previo-cambio  { box-shadow: inset 5px 0 0 #fb8c00 !important; }
     
     /* Navegación de meses */
     .mes-navegacion {
@@ -400,8 +401,8 @@
     .quick-fill-btn:hover { background: #1a6492; }
 
     /* ── Hoy resaltado en cabecera ──────────────────────────────────────────── */
-    .col-hoy { background: #fff9c4 !important; border-bottom: 3px solid #f39c12 !important; }
-    .col-hoy > div { color: #7d5a00 !important; }
+    .col-hoy { background: #fff176 !important; border-bottom: 3px solid #f9a825 !important; }
+    .col-hoy > div { color: #5d4037 !important; font-weight: 800 !important; }
 
     /* Spinner de carga */
     .loading-overlay {
@@ -598,7 +599,7 @@
                         {% for dia in dias_rango %}
                         {% with asist=row.asistencias %}
                         {% with data=asist|get_item:dia.fecha %}
-                        <td class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% else %}celda-{{ data.estado|default:'TRABAJO' }}{% endif %}" 
+                        <td class="celda-{{ data.estado|default:'TRABAJO' }} {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
                             data-estado="{{ data.estado|default:'TRABAJO' }}"
                             data-trabajador-id="{{ row.trabajador.id }}" 
                             data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
