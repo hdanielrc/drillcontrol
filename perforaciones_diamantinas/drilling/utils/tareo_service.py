@@ -66,7 +66,10 @@ class TareoService:
             # Sin fecha manual → el sistema aplicará snap automático (considerado alineado)
             return None
 
-        return fecha_ciclo.weekday() == dia_cambio
+        # El sistema aplica snap automático en calcular_estado_dia y generar_proyeccion_mensual,
+        # por lo que una fecha_inicio_ciclo desalineada queda corregida internamente.
+        # No es necesario advertir al usuario.
+        return None
 
     @staticmethod
     def calcular_estado_dia(trabajador, fecha_consulta, forzar_alineacion=False):
