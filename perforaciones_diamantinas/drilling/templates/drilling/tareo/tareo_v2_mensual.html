@@ -538,6 +538,14 @@
                 🔄 Generar Proyección Automática
             </button>
 
+            {% if user.is_staff or user.is_superuser %}
+            <!-- Botón proyección todos los contratos (admin) -->
+            <button type="button" class="btn-proyeccion" style="background:#6c3483;" onclick="generarProyeccionTodos()"
+                    title="Genera/actualiza proyecciones del mes operativo actual para TODOS los contratos activos">
+                🌐 Proyectar Todos los Contratos
+            </button>
+            {% endif %}
+
             <!-- Selector de contrato (solo para superusers) -->
             {% if contratos_disponibles %}
             <select onchange="window.location.href='?contrato='+this.value+'&vista={{ vista }}&mes_offset={{ mes_offset }}&semana_offset={{ semana_offset }}'" class="form-control" style="max-width: 300px;">
@@ -892,6 +900,38 @@ function generarProyeccion() {
         alert('❌ Error de conexión: ' + error);
         console.error('Error:', error);
     });
+}
+
+// Generar proyección para TODOS los contratos (admin)
+function generarProyeccionTodos() {
+    if (!confirm('¿Generar/actualizar la proyección del mes operativo actual para TODOS los contratos activos?\n\nEsto calculará trabajo/descanso desde el 26 del mes anterior hasta el 25 del mes en curso para cada contrato.')) {
+        return;
+    }
+
+    showLoading();
+    const tokenEl = document.querySelector('[name=csrfmiddlewaretoken]');
+
+    fetch('/tareo/v2/api/generar-proyeccion-todos/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': tokenEl ? tokenEl.value : ''
+        },
+        body: new URLSearchParams({'sobrescribir': 'false'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            const d = data.data;
+            const msg = `✅ Proyección generada para todos los contratos!\n\nRegistros nuevos: ${d.registros_creados || 0}\nRegistros actualizados: ${d.registros_actualizados || 0}\nTrabajadores procesados: ${d.trabajadores_procesados}\nRegistros manuales respetados: ${d.registros_existentes_respetados}`;
+            alert(msg);
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(err => { hideLoading(); alert('❌ Error de conexión: ' + err); });
 }
 
 // Guardar asistencia de un día específico

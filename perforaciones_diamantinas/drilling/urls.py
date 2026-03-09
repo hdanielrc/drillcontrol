@@ -27,6 +27,7 @@ from .views_tareo import (
     # V2 / normalizado
     tareo_v2_mensual_view,
     api_generar_proyeccion,
+    api_generar_proyeccion_todos,
     api_corregir_asistencia,
     api_guardar_dia_tareo,
     api_guardar_seleccion,
@@ -84,6 +85,7 @@ urlpatterns = [
     
     # API para proyección mensual automática (AJAX)
     path('tareo/v2/api/generar-proyeccion/', api_generar_proyeccion, name='api-generar-proyeccion'),
+    path('tareo/v2/api/generar-proyeccion-todos/', api_generar_proyeccion_todos, name='api-generar-proyeccion-todos'),
     
     # API para corrección individual de asistencia (AJAX)
     path('tareo/v2/api/corregir/', api_corregir_asistencia, name='api-corregir-asistencia'),

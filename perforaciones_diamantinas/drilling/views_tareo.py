@@ -2136,6 +2136,58 @@ def api_generar_proyeccion(request):
         }, status=500)
 
 
+@login_required
+@require_http_methods(["POST"])
+def api_generar_proyeccion_todos(request):
+    """
+    Endpoint AJAX para generar/actualizar proyección mensual para TODOS los
+    contratos activos a la vez.
+
+    Calcula automáticamente el mes operativo actual (26 del mes anterior al
+    25 del mes en curso) basándose en la fecha del servidor.  No requiere
+    pasar contrato_id — usa contrato=None en TareoService para procesar
+    todos los trabajadores activos.
+
+    POST params (todos opcionales):
+        - sobrescribir: 'true' | 'false' (default: 'false')
+          Si es true, elimina todas las proyecciones existentes del período
+          antes de regenerarlas.
+
+    Returns:
+        JSON con estadísticas agregadas de la operación.
+    """
+    try:
+        if not request.user.can_manage_contract_users():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        sobrescribir = request.POST.get('sobrescribir', 'false').lower() == 'true'
+
+        # Determinar mes operativo actual
+        hoy = date.today()
+        # El mes operativo "X" abarca del 26 del mes X-1 al 25 del mes X.
+        # Si hoy está entre el 1 y el 25 → operativo = mes actual.
+        # Si hoy está entre el 26 y el 31 → operativo = mes siguiente.
+        if hoy.day >= 26:
+            mes_op = hoy.month + 1 if hoy.month < 12 else 1
+            anio_op = hoy.year if hoy.month < 12 else hoy.year + 1
+        else:
+            mes_op = hoy.month
+            anio_op = hoy.year
+
+        resultado = TareoService.generar_proyeccion_mensual(
+            anio=anio_op,
+            mes=mes_op,
+            contrato=None,        # ← todos los contratos
+            sobrescribir=sobrescribir,
+        )
+
+        return JsonResponse({'success': True, 'data': resultado})
+
+    except Exception as e:
+        logger.error(f"Error en proyección todos los contratos: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 # =============================================================================
 # API PARA CORRECCIÓN INDIVIDUAL (AJAX)
 # =============================================================================
