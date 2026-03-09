@@ -1944,6 +1944,23 @@ def tareo_v2_mensual_view(request):
         mes_operativo  = fecha_base.month
         anio_operativo = fecha_base.year
 
+    # ―― LÍMITE MÍNIMO: nunca mostrar periodos anteriores al 26 Feb 2026 ―――――――
+    FECHA_MIN_OPERATIVA = date(2026, 2, 26)
+    # El período operativo mínimo es Marzo 2026 (inicia 26 Feb 2026).
+    # Calculamos cuántos meses hacia atrás desde hoy llega hasta ese período.
+    _min_op_year  = FECHA_MIN_OPERATIVA.year  if FECHA_MIN_OPERATIVA.month < 12 else FECHA_MIN_OPERATIVA.year + 1
+    _min_op_month = FECHA_MIN_OPERATIVA.month + 1 if FECHA_MIN_OPERATIVA.month < 12 else 1
+    min_mes_offset = (_min_op_year * 12 + _min_op_month) - (hoy.year * 12 + hoy.month)
+
+    if vista == 'mes' and mes_offset < min_mes_offset:
+        # Si alguien fuerza un offset menor (URL manual), redirigir al mínimo
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(
+            f"{request.path}?contrato={contrato.id}&vista=mes&mes_offset={min_mes_offset}"
+        )
+
+    es_mes_minimo = (vista == 'mes' and mes_offset <= min_mes_offset)
+
     # =========================================================================
     # 4. GENERAR LISTA DE DÍAS DEL MES
     # =========================================================================
@@ -2076,6 +2093,7 @@ def tareo_v2_mensual_view(request):
         'dia_cambio_guardia': dia_cambio_guardia,
         'dia_previo_cambio': dia_previo_cambio,
         'nombre_dia_cambio': ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][dia_cambio_guardia],
+        'es_mes_minimo': es_mes_minimo,
     }
     
     return render(request, 'drilling/tareo/tareo_v2_mensual.html', context)

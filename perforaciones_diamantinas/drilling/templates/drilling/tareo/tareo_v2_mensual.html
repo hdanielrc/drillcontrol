@@ -523,9 +523,11 @@
                     <button type="button">Semana Siguiente ▶</button>
                 </a>
                 {% else %}
+                {% if not es_mes_minimo %}
                 <a href="?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset|add:'-1' }}">
                     <button type="button">◀ Mes Anterior</button>
                 </a>
+                {% endif %}
                 <span style="font-weight: 600; font-size: 14px;">{{ nombre_periodo }}</span>
                 <a href="?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset|add:'1' }}">
                     <button type="button">Mes Siguiente ▶</button>
@@ -1229,7 +1231,7 @@ document.addEventListener('keydown', function(e) {
         e.preventDefault();
         {% if vista == 'semana' %}
         window.location.href = '?contrato={{ contrato.id }}&vista=semana&semana_offset={{ semana_offset|add:"-1" }}';
-        {% else %}
+        {% elif not es_mes_minimo %}
         window.location.href = '?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset|add:"-1" }}';
         {% endif %}
     }
