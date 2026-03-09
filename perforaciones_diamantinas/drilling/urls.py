@@ -32,6 +32,7 @@ from .views_tareo import (
     api_guardar_dia_tareo,
     api_guardar_seleccion,
     api_obtener_maquinas,
+    api_actualizar_guardia,
     tareo_v2_estadisticas,
     tareo_cierre_mensual,
     tareo_historial_trabajador,
@@ -98,6 +99,9 @@ urlpatterns = [
     
     # API para obtener máquinas del contrato
     path('tareo/v2/api/maquinas/', api_obtener_maquinas, name='api-obtener-maquinas'),
+
+    # API para actualizar guardia de un trabajador
+    path('tareo/v2/api/actualizar-guardia/', api_actualizar_guardia, name='api-actualizar-guardia'),
     
     # Dashboard de estadísticas del tareo
     path('tareo/v2/estadisticas/', tareo_v2_estadisticas, name='tareo-v2-estadisticas'),

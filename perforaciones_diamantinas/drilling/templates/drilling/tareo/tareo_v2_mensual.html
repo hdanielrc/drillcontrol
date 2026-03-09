@@ -142,6 +142,22 @@
         max-width: 80px;
         text-align: center;
     }
+
+    .select-guardia {
+        width: 52px;
+        padding: 2px 4px;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color .15s;
+    }
+    .select-guardia:focus { outline: none; border-color: #3498db; }
+    .select-guardia.saved  { border-color: #27ae60; background: #eafaf1; }
+    .select-guardia.error  { border-color: #e74c3c; background: #fdf2f2; }
     
     /* Celdas de día */
     .tareo-table td {
@@ -690,7 +706,15 @@
                         
                         <!-- Columna Guardia (fija) -->
                         <td class="col-guardia">
-                            <strong>{{ row.guardia }}</strong>
+                            <select class="select-guardia"
+                                    data-trabajador-id="{{ row.trabajador.id }}"
+                                    onchange="actualizarGuardia(this)"
+                                    title="Guardia asignada">
+                                <option value="" {% if not row.guardia %}selected{% endif %}>—</option>
+                                <option value="A" {% if row.guardia == 'A' %}selected{% endif %}>A</option>
+                                <option value="B" {% if row.guardia == 'B' %}selected{% endif %}>B</option>
+                                <option value="C" {% if row.guardia == 'C' %}selected{% endif %}>C</option>
+                            </select>
                         </td>
                         
                         <!-- Celdas de días -->
@@ -850,6 +874,32 @@ function showLoading() {
 
 function hideLoading() {
     document.getElementById('loadingOverlay').classList.remove('active');
+}
+
+// Actualizar guardia asignada (A/B/C) de un trabajador
+async function actualizarGuardia(sel) {
+    const trabajadorId = sel.dataset.trabajadorId;
+    const guardia      = sel.value;
+    const csrftoken    = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    sel.classList.remove('saved', 'error');
+    try {
+        const resp = await fetch('/tareo/v2/api/actualizar-guardia/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ trabajador_id: parseInt(trabajadorId), guardia: guardia })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            sel.classList.add('saved');
+            setTimeout(() => sel.classList.remove('saved'), 2000);
+        } else {
+            sel.classList.add('error');
+            alert('❌ ' + (data.error || 'Error al guardar guardia'));
+        }
+    } catch(e) {
+        sel.classList.add('error');
+        alert('❌ Error de conexión: ' + e);
+    }
 }
 
 // Generar proyección automática

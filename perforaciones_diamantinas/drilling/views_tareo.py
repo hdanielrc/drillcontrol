@@ -2435,6 +2435,46 @@ def api_guardar_seleccion(request):
 
 
 # =============================================================================
+# API PARA ACTUALIZAR GUARDIA DE UN TRABAJADOR
+# =============================================================================
+@login_required
+@require_http_methods(["POST"])
+def api_actualizar_guardia(request):
+    """
+    Actualiza la guardia asignada (A/B/C) de un trabajador.
+
+    POST body (JSON):
+        { "trabajador_id": int, "guardia": "A"|"B"|"C"|"" }
+    """
+    try:
+        if not request.user.can_manage_contract_users():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        payload      = json.loads(request.body)
+        trabajador_id = int(payload['trabajador_id'])
+        guardia       = payload.get('guardia', '').strip().upper()
+
+        if guardia and guardia not in ('A', 'B', 'C'):
+            return JsonResponse({'success': False, 'error': 'Guardia inválida'}, status=400)
+
+        trabajador = get_object_or_404(Trabajador, id=trabajador_id)
+
+        if not request.user.has_contract_permission(trabajador.contrato):
+            return JsonResponse({'success': False, 'error': 'Sin permiso sobre ese contrato'}, status=403)
+
+        trabajador.guardia_asignada = guardia or None
+        trabajador.save(update_fields=['guardia_asignada'])
+
+        return JsonResponse({'success': True, 'guardia': trabajador.guardia_asignada or ''})
+
+    except (KeyError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Datos inválidos'}, status=400)
+    except Exception as e:
+        logger.error(f"Error en api_actualizar_guardia: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# =============================================================================
 # API PARA OBTENER MÁQUINAS DEL CONTRATO
 # =============================================================================
 @login_required
