@@ -593,7 +593,7 @@
                     <tr class="grupo-toolbar-row grupo-rows-{{ grupo.grupo }}">
                         <td colspan="100">
                             <div class="grupo-toolbar">
-                                <span class="grupo-toolbar-label">Aplicar a todo el grupo:</span>
+                                <span class="grupo-toolbar-label">Aplicar a visibles:</span>
                                 <select class="grupo-fill-select" id="grupo-select-{{ grupo.grupo }}">
                                     <option value="TRABAJO">T — Trabajo</option>
                                     <option value="DESCANSO">DL — Día Libre</option>
@@ -1054,6 +1054,7 @@ function aplicarGrupo(grupoKey) {
     if (!select) return;
     const estado = select.value;
     document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => {
+        if (tr.style.display === 'none') return;   // saltar subsecciones colapsadas
         if (tr.classList.contains('grupo-toolbar-row') ||
             tr.classList.contains('maquina-header-row') ||
             tr.classList.contains('guardia-subheader-row') ||
@@ -1132,21 +1133,22 @@ function guardarFila(trabajadorId, contratoId, btn) {
     });
 }
 
-// Guardar grupo completo
+// Guardar grupo completo (solo filas visibles)
 function guardarGrupo(grupoKey, contratoId, btn) {
     const registros = [];
     document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => {
+        if (tr.style.display === 'none') return;   // saltar subsecciones colapsadas
         if (tr.classList.contains('grupo-toolbar-row') ||
             tr.classList.contains('maquina-header-row') ||
             tr.classList.contains('guardia-subheader-row') ||
             tr.classList.contains('summary-row')) return;
         registros.push(..._recolectarFila(tr));
     });
-    if (!registros.length) { alert('No hay datos en este grupo.'); return; }
+    if (!registros.length) { alert('No hay datos visibles en este grupo.'); return; }
     _enviarSeleccion(contratoId, registros, btn, '💾 Guardar Grupo').then(data => {
         if (data) {
             document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => tr.classList.remove('dirty-row'));
-            alert(`✅ Grupo guardado!\n\nActualizados: ${data.data.actualizados}  Creados: ${data.data.creados}`);
+            alert(`✅ Grupo guardado (filas visibles)!\n\nActualizados: ${data.data.actualizados}  Creados: ${data.data.creados}`);
             setTimeout(() => {
                 if (btn) { btn.textContent = '💾 Guardar Grupo'; btn.disabled = false; btn.style.background = ''; }
             }, 1500);
