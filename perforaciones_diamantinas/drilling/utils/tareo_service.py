@@ -113,10 +113,6 @@ class TareoService:
             # el snap para que el ciclo quede siempre anclado al contrato.
             fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_inicio_ciclo, dia_cambio)
         
-        # Si la fecha de consulta es anterior al inicio del ciclo, no aplica
-        if fecha_consulta < fecha_inicio_ciclo:
-            return 'DESCANSO'
-        
         # Obtener configuración del régimen
         if regimen not in TareoService.REGIMEN_CONFIG:
             logger.warning(f"Régimen '{regimen}' no reconocido para trabajador {trabajador.id}")
