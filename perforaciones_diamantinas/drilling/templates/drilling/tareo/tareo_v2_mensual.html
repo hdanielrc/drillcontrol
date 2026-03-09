@@ -878,7 +878,8 @@ function generarProyeccion() {
         hideLoading();
         console.log('Response data:', data);
         if (data.success) {
-            const msg = `✅ Proyección generada exitosamente!\n\nRegistros creados: ${data.data.registros_creados}\nTrabajadores procesados: ${data.data.trabajadores_procesados}\nRegistros existentes respetados: ${data.data.registros_existentes_respetados}`;
+            const d = data.data;
+            const msg = `✅ Proyección generada exitosamente!\n\nRegistros nuevos: ${d.registros_creados || 0}\nRegistros actualizados (estado+máquina): ${d.registros_actualizados || 0}\nTrabajadores procesados: ${d.trabajadores_procesados}\nRegistros manuales respetados: ${d.registros_existentes_respetados}`;
             alert(msg);
             location.reload();
         } else {

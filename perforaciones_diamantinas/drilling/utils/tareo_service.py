@@ -69,7 +69,7 @@ class TareoService:
         return fecha_ciclo.weekday() == dia_cambio
 
     @staticmethod
-    def calcular_estado_dia(trabajador, fecha_consulta):
+    def calcular_estado_dia(trabajador, fecha_consulta, forzar_alineacion=False):
         """
         Calcula el estado esperado de un trabajador para una fecha específica
         basándose en su régimen laboral y fecha de inicio de ciclo.
@@ -77,6 +77,10 @@ class TareoService:
         Args:
             trabajador (Trabajador): Instancia del trabajador
             fecha_consulta (date): Fecha a evaluar
+            forzar_alineacion (bool): Si True, snapea fecha_inicio_ciclo al
+                dia_cambio_guardia del contrato aunque ya esté seteada.
+                Útsese en la generación de proyecciones para garantizar que
+                el ciclo siempre quede alineado al contrato.
             
         Returns:
             str: 'TRABAJO' o 'DESCANSO'
@@ -87,21 +91,27 @@ class TareoService:
         # Si no tiene régimen, asumir trabajo
         if not regimen:
             return 'TRABAJO'
-            
-        # Si no tiene fecha de inicio, intentar usar un default razonable 
-        # Para que el ciclo quede anclado al día de cambio de guardia del contrato
+
+        # Obtener dia_cambio_guardia del contrato una sola vez
+        dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
+
+        # Si no tiene fecha de inicio, anclar al dia_cambio_guardia del contrato
         if not fecha_inicio_ciclo:
             if trabajador.fecha_ingreso:
                 fecha_ref = trabajador.fecha_ingreso
             else:
                 fecha_ref = date(2024, 1, 1)
 
-            # Anclar al dia_cambio_guardia del contrato si está disponible
-            dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
             if dia_cambio is not None:
                 fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_ref, dia_cambio)
             else:
                 fecha_inicio_ciclo = fecha_ref
+
+        elif forzar_alineacion and dia_cambio is not None:
+            # La fecha_inicio_ciclo está seteada pero puede no alinear con el
+            # dia_cambio_guardia del contrato.  Al generar proyecciones forzamos
+            # el snap para que el ciclo quede siempre anclado al contrato.
+            fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_inicio_ciclo, dia_cambio)
         
         # Si la fecha de consulta es anterior al inicio del ciclo, no aplica
         if fecha_consulta < fecha_inicio_ciclo:
@@ -195,73 +205,113 @@ class TareoService:
             ).delete()
             logger.info(f"Proyecciones previas del mes {mes}/{anio} eliminadas")
         
-        # Obtener registros ya existentes (correcciones manuales o excepciones)
-        registros_existentes = set(
+        # Obtener registros ya existentes que NO deben tocarse
+        # (correcciones manuales: es_proyeccion=False)
+        registros_manuales = set(
             AsistenciaDiaria.objects.filter(
                 fecha__gte=primer_dia,
                 fecha__lte=ultimo_dia,
-                es_proyeccion=False
+                es_proyeccion=False,
+                **(({'empleado__contrato': contrato}) if contrato else {})
             ).values_list('empleado_id', 'fecha')
         )
-        
-        # Lista para bulk_create
-        registros_a_crear = []
-        
+
+        # Proyecciones ya existentes (es_proyeccion=True) que tal vez hay que
+        # actualizar (estado corregido, máquina, guardia)
+        proyecciones_existentes = {}
+        for p in AsistenciaDiaria.objects.filter(
+            fecha__gte=primer_dia,
+            fecha__lte=ultimo_dia,
+            es_proyeccion=True,
+            **(({'empleado__contrato': contrato}) if contrato else {})
+        ):
+            proyecciones_existentes[(p.empleado_id, p.fecha)] = p
+
+        # Listas para operaciones bulk
+        registros_a_crear     = []
+        registros_a_actualizar = []
+
         # Iterar sobre trabajadores
         for trabajador in trabajadores_query:
             try:
                 stats['trabajadores_procesados'] += 1
-                
-                # Iterar sobre cada día del mes
+                maquina  = trabajador.maquina_asignada
+                guardia  = trabajador.guardia_asignada
+
+                # Iterar sobre cada día del período
                 fecha_actual = primer_dia
                 while fecha_actual <= ultimo_dia:
-                    # Verificar si ya existe un registro manual/corrección
-                    if (trabajador.id, fecha_actual) in registros_existentes:
+                    # Nunca tocar correcciones manuales
+                    if (trabajador.id, fecha_actual) in registros_manuales:
                         stats['registros_existentes_respetados'] += 1
                         fecha_actual += timedelta(days=1)
                         continue
-                    
-                    # Calcular estado esperado según régimen laboral
-                    estado_esperado = TareoService.calcular_estado_dia(trabajador, fecha_actual)
-                    
-                    # Crear registro de proyección con máquina asignada
-                    registro = AsistenciaDiaria(
-                        empleado=trabajador,
-                        fecha=fecha_actual,
-                        estado=estado_esperado,
-                        guardia_snapshot=trabajador.guardia_asignada,
-                        maquina_snapshot=trabajador.maquina_asignada,  # Copiar máquina asignada
-                        es_proyeccion=True,
-                        registrado_por=None  # Sistema automático
+
+                    # Calcular estado respetando el dia_cambio_guardia del contrato
+                    estado_esperado = TareoService.calcular_estado_dia(
+                        trabajador, fecha_actual, forzar_alineacion=True
                     )
-                    registros_a_crear.append(registro)
-                    
+
+                    clave = (trabajador.id, fecha_actual)
+                    if clave in proyecciones_existentes:
+                        # Actualizar proyección existente (corrige estado,
+                        # máquina y guardia sin perder el id del registro)
+                        p = proyecciones_existentes[clave]
+                        p.estado           = estado_esperado
+                        p.guardia_snapshot = guardia
+                        p.maquina_snapshot = maquina
+                        registros_a_actualizar.append(p)
+                    else:
+                        # Registro nuevo
+                        registros_a_crear.append(AsistenciaDiaria(
+                            empleado=trabajador,
+                            fecha=fecha_actual,
+                            estado=estado_esperado,
+                            guardia_snapshot=guardia,
+                            maquina_snapshot=maquina,
+                            es_proyeccion=True,
+                            registrado_por=None
+                        ))
+
                     fecha_actual += timedelta(days=1)
-                
+
             except Exception as e:
                 error_msg = f"Error procesando trabajador {trabajador.id}: {str(e)}"
                 logger.error(error_msg)
                 stats['errores'].append(error_msg)
-        
-        # Inserción masiva (bulk_create)
+
+        # ─── Operaciones bulk ────────────────────────────────────────────────────
         try:
             if registros_a_crear:
                 AsistenciaDiaria.objects.bulk_create(
                     registros_a_crear,
-                    batch_size=500,  # Insertar en lotes de 500
-                    ignore_conflicts=True  # Ignorar duplicados por constraint único
+                    batch_size=500,
+                    ignore_conflicts=True
                 )
                 stats['registros_creados'] = len(registros_a_crear)
-                logger.info(f"Proyección completada: {stats['registros_creados']} registros creados")
-            else:
-                logger.info("No se generaron nuevos registros de proyección")
-        
+                logger.info(f"Proyección: {stats['registros_creados']} registros nuevos")
+
+            if registros_a_actualizar:
+                AsistenciaDiaria.objects.bulk_update(
+                    registros_a_actualizar,
+                    ['estado', 'guardia_snapshot', 'maquina_snapshot'],
+                    batch_size=500
+                )
+                stats['registros_actualizados'] = len(registros_a_actualizar)
+                logger.info(
+                    f"Proyección: {stats['registros_actualizados']} registros actualizados "
+                    "(estado + máquina + guardia)"
+                )
+
+            if not registros_a_crear and not registros_a_actualizar:
+                logger.info("No se generaron ni actualizaron registros de proyección")
+
         except Exception as e:
-            error_msg = f"Error en bulk_create: {str(e)}"
+            error_msg = f"Error en bulk_create/update: {str(e)}"
             logger.error(error_msg)
             stats['errores'].append(error_msg)
-            raise  # Re-lanzar para rollback de transacción
-        
+            raise
+
         return stats
     
     @staticmethod
