@@ -2493,15 +2493,18 @@ def tareo_v2_estadisticas(request):
         messages.warning(request, 'Seleccione un contrato')
         return redirect('dashboard')
     
-    # Calcular estadísticas del mes actual
+    # Calcular estadísticas del período operativo actual (26 del mes anterior → 25 del mes en curso)
     hoy = date.today()
-    primer_dia_mes = hoy.replace(day=1)
-    
-    # Query de asistencias del mes
+    _mes_ant_est  = hoy.month - 1 if hoy.month > 1 else 12
+    _anio_ant_est = hoy.year      if hoy.month > 1 else hoy.year - 1
+    primer_dia_operativo = date(_anio_ant_est, _mes_ant_est, 26)
+    ultimo_dia_operativo = date(hoy.year, hoy.month, 25)
+
+    # Query de asistencias del período operativo
     asistencias_mes = AsistenciaDiaria.objects.filter(
         empleado__contrato=contrato,
-        fecha__gte=primer_dia_mes,
-        fecha__lte=hoy
+        fecha__gte=primer_dia_operativo,
+        fecha__lte=min(hoy, ultimo_dia_operativo)
     )
     
     # Estadísticas básicas
@@ -2523,7 +2526,7 @@ def tareo_v2_estadisticas(request):
         'proyecciones': proyecciones,
         'correcciones': correcciones,
         'stats_por_estado': stats_por_estado,
-        'mes_actual': primer_dia_mes,
+        'mes_actual': primer_dia_operativo,
     }
     
     return render(request, 'drilling/tareo/tareo_v2_estadisticas.html', context)
@@ -2740,15 +2743,24 @@ def tareo_historial_trabajador(request, trabajador_id):
         messages.error(request, 'No tiene permisos para ver este historial')
         return redirect('dashboard')
     
-    # Filtros opcionales
-    fecha_inicio = request.GET.get('fecha_inicio')
-    fecha_fin = request.GET.get('fecha_fin')
-    
-    if fecha_inicio:
-        fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-    if fecha_fin:
-        fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
-    
+    # Filtros – por defecto usa el período operativo actual (26 del mes anterior → 25 del mes en curso)
+    fecha_inicio_str = request.GET.get('fecha_inicio')
+    fecha_fin_str    = request.GET.get('fecha_fin')
+
+    _hoy = date.today()
+    _mes_ant  = _hoy.month - 1 if _hoy.month > 1 else 12
+    _anio_ant = _hoy.year      if _hoy.month > 1 else _hoy.year - 1
+
+    if fecha_inicio_str:
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+    else:
+        fecha_inicio = date(_anio_ant, _mes_ant, 26)    # inicio operativo
+
+    if fecha_fin_str:
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+    else:
+        fecha_fin = date(_hoy.year, _hoy.month, 25)     # fin operativo
+
     # Obtener historial
     historial = AuditoriaAsistenciaService.obtener_historial_trabajador(
         trabajador=trabajador,
