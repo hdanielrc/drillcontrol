@@ -2305,6 +2305,66 @@ def api_guardar_dia_tareo(request):
 
 
 # =============================================================================
+# API PARA GUARDAR SELECCIÓN ARBITRARIA (FILA / GRUPO) (AJAX)
+# =============================================================================
+@login_required
+@require_http_methods(["POST"])
+def api_guardar_seleccion(request):
+    """
+    Guarda un conjunto arbitrario de registros de asistencia en una sola
+    operación bulk. Usado por los botones "Guardar Fila" y "Guardar Grupo".
+
+    POST body (JSON):
+        {
+            "contrato_id": int,
+            "registros": [
+                {"trabajador_id": int, "fecha": "YYYY-MM-DD",
+                 "estado": str, "maquina_id": int|null,
+                 "observaciones": str}
+            ]
+        }
+    """
+    try:
+        if not request.user.can_manage_contract_users():
+            return JsonResponse(
+                {'success': False, 'error': 'Sin permisos'}, status=403
+            )
+
+        payload   = json.loads(request.body)
+        registros = payload.get('registros', [])
+
+        asistencias_data = []
+        for r in registros:
+            try:
+                asistencias_data.append({
+                    'empleado_id':  int(r['trabajador_id']),
+                    'fecha':        datetime.strptime(r['fecha'], '%Y-%m-%d').date(),
+                    'estado':       r['estado'],
+                    'observaciones': r.get('observaciones', ''),
+                    'maquina_id':   r.get('maquina_id') or None,
+                })
+            except (KeyError, ValueError):
+                continue
+
+        resultado = TareoService.actualizar_masivo_desde_formset(
+            asistencias_data, request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'actualizados': resultado['actualizados'],
+                'creados':      resultado['creados'],
+                'errores':      len(resultado['errores']),
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error en api_guardar_seleccion: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# =============================================================================
 # API PARA OBTENER MÁQUINAS DEL CONTRATO
 # =============================================================================
 @login_required

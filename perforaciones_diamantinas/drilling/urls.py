@@ -29,6 +29,7 @@ from .views_tareo import (
     api_generar_proyeccion,
     api_corregir_asistencia,
     api_guardar_dia_tareo,
+    api_guardar_seleccion,
     api_obtener_maquinas,
     tareo_v2_estadisticas,
     tareo_cierre_mensual,
@@ -89,6 +90,9 @@ urlpatterns = [
     
     # API para guardar asistencia por día (AJAX)
     path('tareo/v2/api/guardar-dia/', api_guardar_dia_tareo, name='api-guardar-dia-tareo'),
+
+    # API para guardar selección arbitraria (fila / grupo) (AJAX)
+    path('tareo/v2/api/guardar-seleccion/', api_guardar_seleccion, name='api-guardar-seleccion'),
     
     # API para obtener máquinas del contrato
     path('tareo/v2/api/maquinas/', api_obtener_maquinas, name='api-obtener-maquinas'),

@@ -400,7 +400,61 @@
     }
     .quick-fill-btn:hover { background: #1a6492; }
 
-    /* ── Hoy resaltado en cabecera ──────────────────────────────────────────── */
+    /* ── Toolbar de acción por grupo ─────────────────────────────────────────── */
+    .grupo-toolbar-row td {
+        padding: 5px 15px 5px 28px;
+        border-bottom: 1px solid rgba(0,0,0,0.07);
+    }
+    .grupo-toolbar-row.grupo-rows-LINEA_MANDO td      { background: rgba(26,82,118,0.10); }
+    .grupo-toolbar-row.grupo-rows-OPERADORES td       { background: rgba(30,132,73,0.10); }
+    .grupo-toolbar-row.grupo-rows-SERVICIOS_GEOLOGICOS td { background: rgba(21,67,96,0.10); }
+    .grupo-toolbar-row.grupo-rows-PERSONAL_AUXILIAR td{ background: rgba(66,73,73,0.10); }
+    .grupo-toolbar-row.grupo-rows-__STAND_BY__ td     { background: rgba(125,90,0,0.10); }
+    .grupo-toolbar-row.grupo-rows-__SIN_GRUPO__ td    { background: rgba(107,114,128,0.10); }
+
+    .grupo-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: #2c3e50;
+    }
+    .grupo-toolbar-label { opacity: .75; white-space: nowrap; }
+    .grupo-fill-select {
+        font-size: 11px; padding: 3px 5px; border-radius: 3px;
+        background: #fff; border: 1px solid #bdc3c7;
+        font-weight: 700; cursor: pointer; min-width: 80px;
+    }
+    .btn-aplicar-grupo {
+        font-size: 11px; padding: 4px 10px;
+        background: #2980b9; color: white;
+        border: none; border-radius: 3px; cursor: pointer; font-weight: 600;
+    }
+    .btn-aplicar-grupo:hover { background: #1a6492; }
+    .btn-guardar-grupo {
+        font-size: 11px; padding: 4px 10px;
+        background: #27ae60; color: white;
+        border: none; border-radius: 3px; cursor: pointer; font-weight: 600;
+    }
+    .btn-guardar-grupo:hover { background: #1e8449; }
+    .btn-guardar-grupo:disabled, .btn-aplicar-grupo:disabled { background: #95a5a6; cursor: wait; }
+
+    /* Indicador de fila con cambios no guardados */
+    tr.dirty-row > td.col-trabajador {
+        border-left: 4px solid #f39c12 !important;
+    }
+    /* Botón guardar fila individual */
+    .btn-save-fila {
+        font-size: 10px; padding: 2px 5px;
+        background: #27ae60; color: white;
+        border: none; border-radius: 3px; cursor: pointer; font-weight: 700;
+        margin-left: 2px; vertical-align: middle;
+    }
+    .btn-save-fila:hover { background: #1e8449; }
+    .btn-save-fila:disabled { background: #95a5a6; cursor: wait; }
+
+    /* ── Toolbar de acción por grupo ─────────────────────────────────────────── */
     .col-hoy { background: #fff176 !important; border-bottom: 3px solid #f9a825 !important; }
     .col-hoy > div { color: #5d4037 !important; font-weight: 800 !important; }
 
@@ -535,6 +589,36 @@
                             </small>
                         </td>
                     </tr>
+                    {# ── Toolbar de edición del grupo ── #}
+                    <tr class="grupo-toolbar-row grupo-rows-{{ grupo.grupo }}">
+                        <td colspan="100">
+                            <div class="grupo-toolbar">
+                                <span class="grupo-toolbar-label">Aplicar a todo el grupo:</span>
+                                <select class="grupo-fill-select" id="grupo-select-{{ grupo.grupo }}">
+                                    <option value="TRABAJO">T — Trabajo</option>
+                                    <option value="DESCANSO">DL — Día Libre</option>
+                                    <option value="FALTA">F — Falta</option>
+                                    <option value="DM">DM — Desc. Médico</option>
+                                    <option value="VACACIONES">V — Vacaciones</option>
+                                    <option value="PERMISO">P — Permiso</option>
+                                    <option value="SUSPENSION">S — Suspensión</option>
+                                    <option value="LICENCIA">L — Licencia</option>
+                                    <option value="INDUCCION">IND — Inducción</option>
+                                    <option value="STAND_BY">SB — Stand By</option>
+                                    <option value="DIA_APOYO">DA — Día de Apoyo</option>
+                                    <option value="SUBSIDIO">SUB — Subsidio</option>
+                                    <option value="RECORRIDO">REC — Recorrido</option>
+                                </select>
+                                <button type="button" class="btn-aplicar-grupo"
+                                        onclick="aplicarGrupo('{{ grupo.grupo }}')">→ Aplicar</button>
+                                <button type="button" class="btn-guardar-grupo"
+                                        onclick="guardarGrupo('{{ grupo.grupo }}', {{ contrato.id }}, this)">💾 Guardar Grupo</button>
+                                <span style="margin-left:auto;font-size:10px;color:#7f8c8d;">
+                                    {{ grupo.total_trabajadores }} personas · {{ dias_rango|length }} días
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
                     {# ── Filas (trabajadores + cabeceras máq/guardia para OPERADORES) ── #}
                     {% for row in grupo.rows %}
                     {% if row.is_maquina_header %}
@@ -558,7 +642,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr class="grupo-rows-{{ grupo.grupo }}{% if row.maquina_key_css %} maquina-rows-{{ row.maquina_key_css }}{% endif %}">
+                    <tr class="grupo-rows-{{ grupo.grupo }}{% if row.maquina_key_css %} maquina-rows-{{ row.maquina_key_css }}{% endif %}" data-trabajador-row="{{ row.trabajador.id }}">
                         <!-- Columna Trabajador (fija) -->
                         <td class="col-trabajador">
                             {{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}
@@ -587,6 +671,10 @@
                                     <option value="DIA_APOYO">DA</option>
                                 </select>
                                 <button type="button" class="quick-fill-btn" title="Aplicar a toda la fila">→ Fila</button>
+                                <button type="button" class="btn-save-fila"
+                                        data-trabajador="{{ row.trabajador.id }}"
+                                        data-contrato="{{ contrato.id }}"
+                                        title="Guardar solo esta fila">💾</button>
                             </div>
                         </td>
                         
@@ -608,7 +696,7 @@
                                 name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
                                 class="estado-select estado-{{ data.estado|default:'TRABAJO' }}"
                                 data-tipo="estado"
-                                onchange="(function(sel){ sel.className='estado-select'; var td=sel.closest('td'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); actualizarSummaryRows(); })(this)"
+                                onchange="(function(sel){ sel.className='estado-select'; var td=sel.closest('td'); var tr=td.closest('tr'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); tr.classList.add('dirty-row'); actualizarSummaryRows(); })(this)"
                                 title="{{ data.estado|default:'TRABAJO' }}"
                             >
                                 <option value="TRABAJO"    {% if data.estado == 'TRABAJO'    or not data.estado %}selected{% endif %}>T</option>
@@ -882,7 +970,16 @@ document.addEventListener('DOMContentLoaded', function() {
         th.classList.add('col-hoy');
     });
 
-    // ── Relleno rápido por fila ───────────────────────────────────────────────
+    // ── Guardar fila individual (btn-save-fila) ────────────────────────────
+    document.querySelectorAll('.btn-save-fila').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const trabajadorId = parseInt(this.getAttribute('data-trabajador'));
+            const contratoId   = parseInt(this.getAttribute('data-contrato'));
+            guardarFila(trabajadorId, contratoId, this);
+        });
+    });
+
+    // ── Relleno rápido por fila ──────────────────────────────────────────────────
     document.querySelectorAll('.quick-fill-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const row = this.closest('tr');
@@ -897,6 +994,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 td.className = td.className.replace(/\bcelda-\S+/g, '').trim() + ' celda-' + estado;
                 td.setAttribute('data-estado', estado);
             });
+            row.classList.add('dirty-row');
             actualizarSummaryRows();
         });
     });
@@ -943,6 +1041,116 @@ function toggleMaquina(maqCssKey, grupoKey) {
     const collapsed = rows.length > 0 && rows[0].style.display === 'none';
     rows.forEach(r => r.style.display = collapsed ? '' : 'none');
     if (arrow) arrow.textContent = collapsed ? '\u25bc' : '\u25ba';
+}
+
+// =============================================================================
+// EDICIÓN POR GRUPO E INDIVIDUAL
+// =============================================================================
+
+// Aplicar estado a todo el grupo (solo JS, sin guardar aún)
+function aplicarGrupo(grupoKey) {
+    const select = document.getElementById('grupo-select-' + grupoKey);
+    if (!select) return;
+    const estado = select.value;
+    document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => {
+        if (tr.classList.contains('grupo-toolbar-row') ||
+            tr.classList.contains('maquina-header-row') ||
+            tr.classList.contains('guardia-subheader-row') ||
+            tr.classList.contains('summary-row')) return;
+        tr.querySelectorAll('select[data-tipo="estado"]').forEach(sel => {
+            sel.value = estado;
+            sel.className = 'estado-select';
+            const td = sel.closest('td');
+            td.className = td.className.replace(/\bcelda-\S+/g, '').trim() + ' celda-' + estado;
+            td.setAttribute('data-estado', estado);
+            tr.classList.add('dirty-row');
+        });
+    });
+    actualizarSummaryRows();
+}
+
+// Recolectar registros de asistencia de un <tr>
+function _recolectarFila(tr) {
+    const registros = [];
+    tr.querySelectorAll('td[data-trabajador-id]').forEach(td => {
+        const estadoSel  = td.querySelector('select[data-tipo="estado"]');
+        const maquinaSel = td.querySelector('select[data-tipo="maquina"]');
+        const obsSel     = td.querySelector('input[data-tipo="observaciones"]');
+        if (estadoSel) {
+            registros.push({
+                trabajador_id: parseInt(td.getAttribute('data-trabajador-id')),
+                fecha:         td.getAttribute('data-fecha'),
+                estado:        estadoSel.value,
+                maquina_id:    maquinaSel ? (maquinaSel.value || null) : null,
+                observaciones: obsSel ? obsSel.value : ''
+            });
+        }
+    });
+    return registros;
+}
+
+// Enviar registros al endpoint api_guardar_seleccion
+async function _enviarSeleccion(contratoId, registros, btn, btnOriginalText) {
+    if (!registros.length) return null;
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+        const resp = await fetch('/tareo/v2/api/guardar-seleccion/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ contrato_id: contratoId, registros: registros })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            if (btn) { btn.textContent = '✓'; btn.style.background = '#27ae60'; }
+            return data;
+        } else {
+            alert('❌ Error: ' + data.error);
+            if (btn) { btn.disabled = false; btn.textContent = btnOriginalText; btn.style.background = ''; }
+            return null;
+        }
+    } catch(e) {
+        alert('❌ Error de conexión: ' + e);
+        if (btn) { btn.disabled = false; btn.textContent = btnOriginalText; btn.style.background = ''; }
+        return null;
+    }
+}
+
+// Guardar fila individual (un solo trabajador)
+function guardarFila(trabajadorId, contratoId, btn) {
+    const tr = document.querySelector(`tr[data-trabajador-row="${trabajadorId}"]`);
+    if (!tr) return;
+    const registros = _recolectarFila(tr);
+    _enviarSeleccion(contratoId, registros, btn, '💾').then(data => {
+        if (data) {
+            tr.classList.remove('dirty-row');
+            setTimeout(() => {
+                if (btn) { btn.textContent = '💾'; btn.disabled = false; btn.style.background = ''; }
+            }, 2000);
+        }
+    });
+}
+
+// Guardar grupo completo
+function guardarGrupo(grupoKey, contratoId, btn) {
+    const registros = [];
+    document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => {
+        if (tr.classList.contains('grupo-toolbar-row') ||
+            tr.classList.contains('maquina-header-row') ||
+            tr.classList.contains('guardia-subheader-row') ||
+            tr.classList.contains('summary-row')) return;
+        registros.push(..._recolectarFila(tr));
+    });
+    if (!registros.length) { alert('No hay datos en este grupo.'); return; }
+    _enviarSeleccion(contratoId, registros, btn, '💾 Guardar Grupo').then(data => {
+        if (data) {
+            document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => tr.classList.remove('dirty-row'));
+            alert(`✅ Grupo guardado!\n\nActualizados: ${data.data.actualizados}  Creados: ${data.data.creados}`);
+            setTimeout(() => {
+                if (btn) { btn.textContent = '💾 Guardar Grupo'; btn.disabled = false; btn.style.background = ''; }
+            }, 1500);
+        }
+    });
 }
 
 // ── Resumen de cobertura por grupo y día ─────────────────────────────────────
