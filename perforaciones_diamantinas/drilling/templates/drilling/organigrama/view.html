@@ -464,57 +464,53 @@ html, body { height: 100%; }
         <div class="root-row">
             <div class="node-root" id="node-root">
                 <div class="root-title"><i class="fas fa-industry"></i> {{ contrato.nombre_contrato }}</div>
+        <!-- NIVEL 1: ORGANIZACIÓN POR SERVICIO Y CARGO -->
+        <div class="level1-row" id="level1Row">
+            {% for servicio, grupos in slots_vacantes.items %}
+                <div class="org-col">
+                    <div class="section-node sn-op" style="margin-bottom:12px;">
+                        <i class="fas fa-hard-hat"></i> Servicio {{ servicio }}
+                    </div>
+                    <div class="side-workers">
+                        {% for grupo, vacantes in grupos.items %}
+                            <div class="section-node sn-aux" style="background:#374151;margin-bottom:8px;">
+                                {{ grupo }}
+                            </div>
+                            {% for slot in vacantes %}
+                                <div class="worker-node">
+                                    <div class="wn-top">
+                                        <div class="avatar av-op">{{ slot.cargo|slice:":1" }}</div>
+                                        <div class="node-info">
+                                            <span class="node-name">{{ slot.cargo }}</span>
+                                            <span class="node-cargo">{{ slot.categoria }} - {{ slot.ubicacion }}</span>
+                                            {% with workers=trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
+                                                {% if workers %}
+                                                    <div style="margin-top:6px;">
+                                                        <b>Ocupado por:</b>
+                                                        {% for wd in workers %}
+                                                            {% if wd.obj.cargo_headcount == slot.cargo or wd.obj.cargo == slot.cargo %}
+                                                                <span style="color:#0470ac;font-weight:600">{{ wd.obj.nombres }} {{ wd.obj.apepat }}</span>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </div>
+                                                {% else %}
+                                                    <div style="margin-top:6px;color:#dc2626">Vacante</div>
+                                                {% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div><!-- /level1-row -->
                 <div class="root-sub">{{ total_trabajadores }} trabajadores activos &nbsp;·&nbsp; {{ label_semana }}</div>
             </div>
         </div>
 
-        <!-- DEPURACIÓN: Mostrar claves de trabajadores_por_servicio_grupo -->
-        <div style="background:#fffbe6;border:1px solid #facc15;padding:8px;margin-bottom:16px;font-size:.9rem;">
-            <b>Servicios detectados:</b>
-            {% for servicio in trabajadores_por_servicio_grupo.keys %}
-                <span style="margin-right:8px;color:#dc2626">{{ servicio }}</span>
-            {% endfor %}
-            <hr>
-            <b>Depuración completa:</b>
-            <div style="font-size:.85rem;max-height:300px;overflow:auto;background:#f3f4f6;border:1px solid #e0e0e0;padding:6px;">
-                <b>trabajadores_por_servicio_grupo:</b>
-                {% for servicio, grupos in trabajadores_por_servicio_grupo.items %}
-                    <div style="margin-bottom:8px;">
-                        <b>Servicio:</b> <span style="color:#0369a1">{{ servicio }}</span><br>
-                        {% for grupo, workers in grupos.items %}
-                            <b>Grupo:</b> <span style="color:#16a34a">{{ grupo }}</span><br>
-                            {% if workers %}
-                                <ul>
-                                {% for wd in workers %}
-                                    <li>{{ wd.obj.cargo }} - {{ wd.obj.nombres }} {{ wd.obj.apepat }}</li>
-                                {% endfor %}
-                                </ul>
-                            {% else %}
-                                <span style="color:#999">Sin trabajadores</span><br>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                {% endfor %}
-                <b>slots_vacantes:</b>
-                {% for servicio, grupos in slots_vacantes.items %}
-                    <div style="margin-bottom:8px;">
-                        <b>Servicio:</b> <span style="color:#dc2626">{{ servicio }}</span><br>
-                        {% for grupo, vacantes in grupos.items %}
-                            <b>Grupo:</b> <span style="color:#374151">{{ grupo }}</span><br>
-                            {% if vacantes %}
-                                <ul>
-                                {% for slot in vacantes %}
-                                    <li>{{ slot.cargo }} ({{ slot.categoria }}, {{ slot.ubicacion }})</li>
-                                {% endfor %}
-                                </ul>
-                            {% else %}
-                                <span style="color:#999">Sin vacantes</span><br>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
+        
         <!-- NIVEL 1: SOLO DDH Y SGEO -->
         <div class="level1-row" id="level1Row">
             {% for servicio, grupos in slots_vacantes.items %}
