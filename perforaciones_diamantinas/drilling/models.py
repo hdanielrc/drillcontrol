@@ -4756,7 +4756,7 @@ class HeadCount(models.Model):
         db_table = 'headcount'
         verbose_name = 'Headcount'
         verbose_name_plural = 'Headcounts'
-        unique_together = ['contrato', 'cargo', 'categoria', 'servicio', 'ubicacion']
+        unique_together = ['contrato', 'cargo', 'categoria', 'servicio', 'ubicacion', 'nivel']
         indexes = [
             models.Index(fields=['contrato', 'activo']),
             models.Index(fields=['cargo']),
