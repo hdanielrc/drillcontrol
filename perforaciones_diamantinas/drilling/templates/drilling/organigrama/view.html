@@ -654,22 +654,8 @@ html, body { height: 100%; }
                                         {% endfor %}
                                     {% endif %}
                                 {% endfor %}
-                                    <div class="worker-node slot-vacante" style="margin-bottom:6px">
-                                        <div class="wn-top">
-                                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                                            <div class="node-info">
-                                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                                <span class="node-cargo">{{ slot.cargo }}</span>
-                                                <span class="badge bg-secondary">{{ slot.categoria }}</span>
-                                                <span class="badge bg-info">{{ slot.ubicacion }}</span>
-                                                <div class="nano-badges">
-                                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                {% endif %}
+                                {% endfor %}
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
