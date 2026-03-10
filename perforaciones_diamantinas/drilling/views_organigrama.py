@@ -253,15 +253,15 @@ def organigrama_view(request):
     otros_raw = [t for t in trabajadores_qs if not t.grupo and not t.es_standby]
     otros = [_build_worker_dict(t, tareo_dict, dias_semana) for t in otros_raw]
 
-    # ── Slots Vacantes (HeadCount faltantes) ────────────────────
-    slots_por_grupo = defaultdict(list)
+    # ── Slots Vacantes (HeadCount faltantes) agrupados por servicio ───────────
+    slots_por_servicio = defaultdict(list)
     for hc in HeadCount.objects.filter(contrato=contrato, activo=True):
         diferencia = hc.get_diferencia()
         if diferencia > 0:
-            grupo = _grupo_para_cargo(hc.cargo)
+            servicio = hc.servicio
             for _ in range(diferencia):
-                slots_por_grupo[grupo].append({'cargo': hc.cargo})
-    total_vacantes = sum(len(v) for v in slots_por_grupo.values())
+                slots_por_servicio[servicio].append({'cargo': hc.cargo, 'categoria': hc.categoria, 'ubicacion': hc.ubicacion})
+    total_vacantes = sum(len(v) for v in slots_por_servicio.values())
 
     context = {
         'contrato': contrato,
@@ -278,7 +278,7 @@ def organigrama_view(request):
         'total_servicios_geo': len(servicios_geo_raw),
         'total_conductores': len(conductores_raw),
         'total_standby': len(stand_by_raw),
-        'slots_vacantes': dict(slots_por_grupo),
+        'slots_vacantes': dict(slots_por_servicio),
         'total_vacantes': total_vacantes,
         # Semana
         'semana_offset': semana_offset,
