@@ -195,7 +195,7 @@ def headcount_list(request):
         headcounts_list.append(mock_hc)
     
     # Ordenar incluyendo los no planificados
-    headcounts_list = sorted(headcounts_list, key=lambda x: (x.servicio, x.categoria, x.ubicacion, x.cargo, x.nivel))
+    headcounts_list = sorted(headcounts_list, key=lambda x: (x.servicio, x.categoria, x.ubicacion, x.cargo, x.nivel or ""))
     
     # Agregar datos calculados
     headcounts_data = []
