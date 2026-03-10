@@ -4642,7 +4642,7 @@ class HeadCount(models.Model):
     )
     SERVICIO_CHOICES = [
         ('DDH', 'DDH'),
-        ('GEO', 'GEO'),
+        ('SGEO', 'SGEO'),
         ('LAB', 'LAB'),
     ]
     servicio = models.CharField(
@@ -4718,7 +4718,7 @@ class HeadCount(models.Model):
 
     SERVICIO_CHOICES = [
         ('DDH', 'DDH'),
-        ('GEO', 'GEO'),
+        ('SGEO', 'SGEO'),
         ('LAB', 'LAB'),
     ]
 

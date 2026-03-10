@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='headcount',
             name='servicio',
-            field=models.CharField(choices=[('DDH', 'DDH'), ('GEO', 'GEO'), ('LAB', 'LAB')], default='DDH', max_length=10, verbose_name='Servicio'),
+            field=models.CharField(choices=[('DDH', 'DDH'), ('SGEO', 'SGEO'), ('LAB', 'LAB')], default='DDH', max_length=10, verbose_name='Servicio'),
         ),
         migrations.AlterField(
             model_name='headcount',
