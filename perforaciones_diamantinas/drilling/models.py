@@ -4607,6 +4607,12 @@ class ConfiguracionAlertaStock(models.Model):
 # =============================================================================
 
 class HeadCount(models.Model):
+        categoria = models.CharField(
+            max_length=50,
+            choices=CATEGORIA_CHOICES,
+            default='OPERATIVO',
+            verbose_name='Categoría'
+        )
     """
     Modelo para definir el personal planificado/requerido por contrato.
     Define cuántos trabajadores de cada cargo se necesitan.
