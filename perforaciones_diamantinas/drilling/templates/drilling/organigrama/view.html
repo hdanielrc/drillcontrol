@@ -466,44 +466,38 @@ html, body { height: 100%; }
                 <div class="root-title"><i class="fas fa-industry"></i> {{ contrato.nombre_contrato }}</div>
         <!-- NIVEL 1: ORGANIZACIÓN POR SERVICIO Y CARGO -->
         <div class="level1-row" id="level1Row">
-            {% for servicio, grupos in slots_vacantes.items %}
+            {% for servicio, grupos in slots_por_servicio_grupo_asignados.items %}
                 <div class="org-col">
                     <div class="section-node sn-op" style="margin-bottom:12px;">
                         <i class="fas fa-hard-hat"></i> Servicio {{ servicio }}
                     </div>
                     <div class="side-workers">
-                        {% for grupo, vacantes in grupos.items %}
+                        {% for grupo, slots in grupos.items %}
                             <div class="section-node sn-aux" style="background:#374151;margin-bottom:8px;">
                                 {{ grupo }}
                             </div>
-                            {% for slot in vacantes %}
-                                {% with workers=trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
-                                    {% with matched_workers=workers|dictsort:"obj.cargo_headcount" %}
-                                        {% with found=False %}
-                                            <div class="worker-node {% if not found %}slot-vacante{% endif %}" style="{% if not found %}border:2px solid #dc2626;background:#fff8f8;{% endif %}">
-                                                <div class="wn-top">
-                                                    <div class="avatar av-op" style="{% if not found %}background:#dc2626;color:#fff;{% endif %}">{{ slot.cargo|slice:":1" }}</div>
-                                                    <div class="node-info">
-                                                        <span class="node-name">{{ slot.cargo }}</span>
-                                                        <span class="node-cargo">{{ slot.categoria }} - {{ slot.ubicacion }}</span>
-                                                        <div style="margin-top:6px;">
-                                                            <b>Ocupado por:</b>
-                                                            {% for wd in workers %}
-                                                                {% if wd.obj.cargo_headcount == slot.cargo or wd.obj.cargo == slot.cargo %}
-                                                                    <span style="color:#0470ac;font-weight:600">{{ wd.obj.nombres }} {{ wd.obj.apepat }}</span>
-                                                                    {% with found=True %}{% endwith %}
-                                                                {% endif %}
-                                                            {% endfor %}
-                                                            {% if not found %}
-                                                                <span style="color:#dc2626;font-weight:600">Vacante</span>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                </div>
+                            {% for slot in slots %}
+                                {% if slot.worker %}
+                                    <div class="worker-node">
+                                        <div class="wn-top">
+                                            <div class="avatar av-op">{{ slot.worker.obj.nombres|slice:":1" }}{{ slot.worker.obj.apepat|slice:":1" }}</div>
+                                            <div class="node-info">
+                                                <span class="node-name">{{ slot.worker.obj.apepat }}, {{ slot.worker.obj.nombres }}</span>
+                                                <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
                                             </div>
-                                        {% endwith %}
-                                    {% endwith %}
-                                {% endwith %}
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="worker-node slot-vacante" style="border:2px solid #dc2626;background:#fff8f8;">
+                                        <div class="wn-top">
+                                            <div class="avatar av-vacante" style="background:#dc2626;color:#fff;"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
+                                            <div class="node-info">
+                                                <span class="node-name" style="color:#dc2626;font-weight:700">Puesto Vacante</span>
+                                                <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
                             {% endfor %}
                         {% endfor %}
                     </div>

@@ -283,12 +283,39 @@ def organigrama_view(request):
                 slots_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append({'cargo': hc.cargo, 'categoria': hc.categoria, 'ubicacion': hc.ubicacion})
     total_vacantes = sum(len(v) for s in slots_por_servicio_grupo.values() for v in s.values())
 
+    # Asignar trabajadores a cada slot del headcount (1 trabajador por slot)
+    slots_por_servicio_grupo_asignados = {}
+    for servicio, grupos in slots_por_servicio_grupo.items():
+        for grupo, vacantes in grupos.items():
+            # obtener lista mutable de trabajadores para este servicio/grupo
+            trabajadores_lista = trabajadores_por_servicio_grupo.get(servicio, {}).get(grupo, [])
+            # trabajadores_lista contiene dicts con clave 'obj'
+            trabajadores_disponibles = trabajadores_lista[:] if trabajadores_lista else []
+            asignados = []
+            for slot in vacantes:
+                asignado = None
+                for idx, wd in enumerate(trabajadores_disponibles):
+                    obj = wd.get('obj')
+                    cargo_hc_val = getattr(obj, 'cargo_headcount', None) or getattr(obj, 'cargo', None)
+                    if cargo_hc_val and cargo_hc_val.strip().upper() == (slot['cargo'] or '').strip().upper():
+                        asignado = wd
+                        trabajadores_disponibles.pop(idx)
+                        break
+                asignados.append({
+                    'cargo': slot['cargo'],
+                    'categoria': slot['categoria'],
+                    'ubicacion': slot['ubicacion'],
+                    'worker': asignado,
+                })
+            slots_por_servicio_grupo_asignados.setdefault(servicio, {})[grupo] = asignados
+
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
         'total_trabajadores': trabajadores_qs.count(),
         'trabajadores_por_servicio_grupo': trabajadores_por_servicio_grupo,
         'slots_vacantes': slots_por_servicio_grupo,
+        'slots_por_servicio_grupo_asignados': slots_por_servicio_grupo_asignados,
         'total_vacantes': total_vacantes,
         # Semana
         'semana_offset': semana_offset,
