@@ -320,13 +320,31 @@ def organigrama_view(request):
 
     # ── Combinar slots asignados + vacantes en una sola estructura por servicio/grupo
     merged_slots_por_servicio_grupo = {}
-    servicios_union = set(list(slots_por_servicio_grupo.keys()) + list(slots_por_servicio_grupo_asignados.keys()))
+    servicios_union = set(list(slots_por_servicio_grupo.keys()) + list(trabajadores_por_servicio_grupo.keys()))
     for servicio in servicios_union:
         grupos_union = set()
         grupos_union.update(slots_por_servicio_grupo.get(servicio, {}).keys())
-        grupos_union.update(slots_por_servicio_grupo_asignados.get(servicio, {}).keys())
+        grupos_union.update(trabajadores_por_servicio_grupo.get(servicio, {}).keys())
         for grupo in grupos_union:
-            asignados = slots_por_servicio_grupo_asignados.get(servicio, {}).get(grupo, [])
+            # Obtener lista planos de trabajadores para este servicio/grupo
+            t_list = trabajadores_por_servicio_grupo.get(servicio, {}).get(grupo, [])
+            trabajadores_flat = []
+            if isinstance(t_list, dict):
+                for mv in t_list.values():
+                    trabajadores_flat.extend(mv.get('workers') or [])
+            else:
+                trabajadores_flat = t_list[:] if t_list else []
+
+            # Transformar cada trabajador a formato de slot con 'worker'
+            workers_as_slots = []
+            for wd in trabajadores_flat:
+                workers_as_slots.append({
+                    'cargo': getattr(wd['obj'], 'cargo_headcount', None) or getattr(wd['obj'], 'cargo', None),
+                    'categoria': getattr(wd['obj'], 'categoria', None) or '',
+                    'ubicacion': getattr(wd['obj'], 'ubicacion', None) or '',
+                    'worker': wd,
+                })
+
             vacantes_raw = slots_por_servicio_grupo.get(servicio, {}).get(grupo, [])
             vacantes_transform = []
             for v in (vacantes_raw or []):
@@ -336,13 +354,9 @@ def organigrama_view(request):
                     'ubicacion': v.get('ubicacion'),
                     'worker': None,
                 })
-            merged = []
-            # Mantener primero los slots que ya tienen asignado un trabajador
-            if asignados:
-                merged.extend(asignados)
-            # Añadir las vacantes remanentes
-            if vacantes_transform:
-                merged.extend(vacantes_transform)
+
+            # Mostrar primero los trabajadores existentes y luego las vacantes
+            merged = workers_as_slots + vacantes_transform
             if merged:
                 merged_slots_por_servicio_grupo.setdefault(servicio, {})[grupo] = merged
 
