@@ -631,8 +631,8 @@ html, body { height: 100%; }
                                 </div>
                             </div>
                             {% endfor %}
-                            {% if slots_vacantes|default:{}|dictsort:grupo %}
-                                {% for slot in slots_vacantes|get_item:servicio|get_item:grupo %}
+                            {% if slots_vacantes and slots_vacantes[servicio] and slots_vacantes[servicio][grupo] %}
+                                {% for slot in slots_vacantes[servicio][grupo] %}
                                 <div class="worker-node slot-vacante" style="margin-bottom:6px">
                                     <div class="wn-top">
                                         <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
