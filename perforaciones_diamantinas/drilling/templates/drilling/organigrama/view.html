@@ -467,78 +467,56 @@ html, body { height: 100%; }
             </div>
         </div>
 
+        <!-- DEPURACIÓN: Mostrar claves de trabajadores_por_servicio_grupo -->
+        <div style="background:#fffbe6;border:1px solid #facc15;padding:8px;margin-bottom:16px;font-size:.9rem;">
+            <b>Servicios detectados:</b>
+            {% for servicio in trabajadores_por_servicio_grupo.keys %}
+                <span style="margin-right:8px;color:#dc2626">{{ servicio }}</span>
+            {% endfor %}
+        </div>
         <!-- NIVEL 1: SOLO DDH Y SGEO -->
         <div class="level1-row" id="level1Row">
-            <!-- DDH -->
-            <div class="org-col" id="col-ddh">
-                <div class="section-node sn-op" id="sn-ddh">
-                    <i class="fas fa-hard-hat"></i> Servicio DDH
-                </div>
-                <div class="side-workers">
-                    {% for wd in trabajadores_por_servicio_grupo.DDH.Operadores %}
-                    <div class="worker-node">
-                        <div class="wn-top">
-                            <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                            <div class="node-info">
-                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                            </div>
-                        </div>
+            {% for servicio, grupos in slots_vacantes.items %}
+                <div class="org-col">
+                    <div class="section-node sn-op" style="margin-bottom:12px;">
+                        <i class="fas fa-hard-hat"></i> Servicio {{ servicio }}
                     </div>
-                    {% endfor %}
-                    {% for slot in slots_vacantes.DDH.Operadores %}
-                    <div class="worker-node slot-vacante">
-                        <div class="wn-top">
-                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                            <div class="node-info">
-                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                <span class="node-cargo">{{ slot.cargo }}</span>
-                                <span class="badge bg-secondary">{{ slot.categoria }}</span>
-                                <span class="badge bg-info">{{ slot.ubicacion }}</span>
-                                <div class="nano-badges">
-                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
+                    <div class="side-workers">
+                        {% for grupo, vacantes in grupos.items %}
+                            <div class="section-node sn-aux" style="background:#374151;margin-bottom:8px;">{{ grupo }}</div>
+                            {% if trabajadores_por_servicio_grupo|has_key:servicio and trabajadores_por_servicio_grupo|get_item:servicio|has_key:grupo %}
+                                {% for wd in trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
+                                    <div class="worker-node">
+                                        <div class="wn-top">
+                                            <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                                            <div class="node-info">
+                                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
+                                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                            {% for slot in vacantes %}
+                                <div class="worker-node slot-vacante">
+                                    <div class="wn-top">
+                                        <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
+                                        <div class="node-info">
+                                            <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
+                                            <span class="node-cargo">{{ slot.cargo }}</span>
+                                            <span class="badge bg-secondary">{{ slot.categoria }}</span>
+                                            <span class="badge bg-info">{{ slot.ubicacion }}</span>
+                                            <div class="nano-badges">
+                                                <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            {% endfor %}
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
-            </div>
-            <!-- SGEO -->
-            <div class="org-col" id="col-sgeo">
-                <div class="section-node sn-geo" id="sn-sgeo">
-                    <i class="fas fa-flask"></i> Servicio SGEO
-                </div>
-                <div class="side-workers">
-                    {% for wd in trabajadores_por_servicio_grupo.SGEO.Operadores %}
-                    <div class="worker-node">
-                        <div class="wn-top">
-                            <div class="avatar av-geo">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                            <div class="node-info">
-                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% for slot in slots_vacantes.SGEO.Operadores %}
-                    <div class="worker-node slot-vacante">
-                        <div class="wn-top">
-                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                            <div class="node-info">
-                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                <span class="node-cargo">{{ slot.cargo }}</span>
-                                <span class="badge bg-secondary">{{ slot.categoria }}</span>
-                                <span class="badge bg-info">{{ slot.ubicacion }}</span>
-                                <div class="nano-badges">
-                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
+            {% endfor %}
         </div>
 
         </div><!-- /level1-row -->
