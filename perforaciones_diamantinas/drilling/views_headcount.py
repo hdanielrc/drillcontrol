@@ -373,23 +373,8 @@ def headcount_delete(request, pk):
 
 @login_required
 def get_maquinas_by_contrato(request):
-    """API para obtener máquinas de un contrato"""
-    contrato_id = request.GET.get('contrato_id')
-    
-    if not contrato_id:
-        return JsonResponse({'maquinas': []})
-    
-    try:
-        maquinas = Maquina.objects.filter(
-            contrato_id=contrato_id,
-            estado='OPERATIVO'
-        ).values('id', 'nombre').order_by('nombre')
-        
-        return JsonResponse({
-            'maquinas': list(maquinas)
-        })
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+    """API de máquinas eliminada: ya no se usa en Headcount"""
+    return JsonResponse({'maquinas': []})
 
 
 @login_required
@@ -414,7 +399,6 @@ def debug_headcounts(request):
             'contrato': str(hc.contrato),
             'cargo': hc.cargo,
             'cantidad': hc.cantidad_requerida,
-            'maquina': hc.maquina.nombre if hc.maquina else 'Sin asignar',
             'activo': hc.activo,
             'created': hc.created_at.strftime('%Y-%m-%d %H:%M:%S'),
         })
