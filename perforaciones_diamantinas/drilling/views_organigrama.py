@@ -79,7 +79,8 @@ def _grupo_para_cargo(cargo):
         return 'LINEA_MANDO'
     if any(k in c for k in ['RESIDENTE', 'SUPERVISOR', 'INGENIERO', 'ADMINISTRADOR',
                              'SEGURIDAD', 'JEFE', 'GERENTE', 'PREVENCION', 'SSOMA',
-                             'LOGISTIC', 'COORDINADOR', 'INSPECTOR', 'MONITOR']):
+                             'LOGISTIC', 'COORDINADOR', 'INSPECTOR', 'MONITOR',
+                             'TECNICO MECANICO', 'TECNICO ELECTRICISTA', 'MECANICO', 'ELECTRICISTA']):
         return 'LINEA_MANDO'
     return 'CONDUCTORES'
 
