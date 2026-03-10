@@ -1721,7 +1721,7 @@ class Trabajador(models.Model):
     GRUPO_CHOICES = [
         ('OPERADORES', 'Operadores'),
         ('SERVICIOS_GEOLOGICOS', 'Servicios Geológicos'),
-        ('PERSONAL_AUXILIAR', 'Personal Auxiliar'),
+        ('CONDUCTORES', 'Conductores'),
         ('LINEA_MANDO', 'Línea de Mando'),
     ]
     grupo = models.CharField(
