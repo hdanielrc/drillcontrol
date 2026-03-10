@@ -480,7 +480,7 @@ html, body { height: 100%; }
                 <div class="root-title"><i class="fas fa-industry"></i> {{ contrato.nombre_contrato }}</div>
         <!-- NIVEL 1: ORGANIZACIÓN POR SERVICIO Y CARGO -->
         <div class="level1-row" id="level1Row">
-            {% for servicio, grupos in slots_por_servicio_grupo_asignados.items %}
+            {% for servicio, grupos in merged_slots_por_servicio_grupo.items %}
                     <div class="org-col">
                         <div class="group-panel">
                             <div class="section-node sn-op" style="margin-bottom:0;">
@@ -525,66 +525,7 @@ html, body { height: 100%; }
         </div>
 
         
-        <!-- NIVEL 1: SOLO DDH Y SGEO -->
-        <div class="level1-row" id="level1Row">
-            {% for servicio, grupos in slots_vacantes.items %}
-                <div class="org-col">
-                    <div class="section-node sn-op" style="margin-bottom:12px;">
-                        <i class="fas fa-hard-hat"></i> Servicio {{ servicio }}
-                    </div>
-                    <div class="side-workers">
-                        {% for grupo, vacantes in grupos.items %}
-                            <div class="section-node sn-aux" style="background:#374151;margin-bottom:8px;">
-                                {{ grupo }}
-                                <div style="font-size:.8rem;color:#e0e0e0;margin-top:4px;">
-                                    <b>Cargos:</b>
-                                    {% for wd in trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
-                                        <span style="margin-right:6px;">{{ wd.obj.cargo }}</span>
-                                    {% empty %}
-                                        <span style="margin-right:6px;color:#999">Sin trabajadores</span>
-                                    {% endfor %}
-                                    {% for slot in vacantes %}
-                                        <span style="margin-right:6px;color:#dc2626">{{ slot.cargo }}</span>
-                                    {% empty %}
-                                        <span style="margin-right:6px;color:#999">Sin vacantes</span>
-                                    {% endfor %}
-                                    
-                                </div>
-                            </div>
-                            {% if trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
-                                {% for wd in trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
-                                    <div class="worker-node">
-                                        <div class="wn-top">
-                                            <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                                            <div class="node-info">
-                                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            {% endif %}
-                            {% for slot in vacantes %}
-                                <div class="worker-node slot-vacante">
-                                    <div class="wn-top">
-                                        <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                                        <div class="node-info">
-                                            <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                            <span class="node-cargo">{{ slot.cargo }}</span>
-                                            <span class="badge bg-secondary">{{ slot.categoria }}</span>
-                                            <span class="badge bg-info">{{ slot.ubicacion }}</span>
-                                            <div class="nano-badges">
-                                                <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
+        <!-- Eliminado bloque duplicado de vacantes (ahora se muestran via merged_slots_por_servicio_grupo) -->
 
         </div><!-- /level1-row -->
     </div><!-- /org-tree-wrap -->
