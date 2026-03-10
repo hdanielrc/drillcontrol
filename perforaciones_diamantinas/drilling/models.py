@@ -4654,6 +4654,7 @@ class HeadCount(models.Model):
     CATEGORIA_CHOICES = [
         ('LINEA DE MANDO', 'Línea de Mando'),
         ('OPERATIVO', 'Operativo'),
+        ('CONDUCTORES', 'Conductores'),
         ('VACACIONISTA', 'Vacacionista'),
     ]
 
@@ -4684,44 +4685,45 @@ class HeadCount(models.Model):
     )
     cargo = models.CharField(
         max_length=200,
-        choices=CARGO_CHOICES,
-        verbose_name='Cargo'
-    )
-    categoria = models.CharField(
-        max_length=50,
-        choices=CATEGORIA_CHOICES,
-        verbose_name='Categoría'
-    )
-    servicio = models.CharField(
-        max_length=10,
-        choices=SERVICIO_CHOICES,
-        default='DDH',
-        verbose_name='Servicio'
-    )
-    ubicacion = models.CharField(
-        max_length=50,
-        choices=UBICACION_CHOICES,
-        default='SUPERFICIE',
-        verbose_name='Ubicación'
-    )
-    nivel = models.CharField(
-        max_length=10,
-        choices=NIVEL_CHOICES,
-        blank=True,
-        default='',
-        verbose_name='Nivel',
-        help_text='Nivel del cargo (I, II, Junior, Senior)'
-    )
-    cantidad_requerida = models.PositiveIntegerField(
-        default=1,
-        validators=[MinValueValidator(1)],
-        verbose_name='Cantidad Requerida',
-        help_text='Número de trabajadores requeridos para este cargo'
-    )
-    observaciones = models.TextField(
-        blank=True,
-        verbose_name='Observaciones',
-        help_text='Comentarios adicionales sobre este requerimiento'
+        CARGO_CHOICES = [
+            ('RESIDENTE', 'Residente'),
+            ('ASISTENTE DE RESIDENTE', 'Asistente de Residente'),
+            ('INGENIERO DE SEGURIDAD', 'Ingeniero de Seguridad'),
+            ('ADMINISTRADOR', 'Administrador'),
+            ('ASISTENTE ADMINISTRATIVO', 'Asistente Administrativo'),
+            ('ASISTENTE LOGISTICO', 'Asistente Logístico'),
+            ('SUPERVISOR OPERATIVO', 'Supervisor Operativo'),
+            ('TECNICO MECANICO', 'Técnico Mecánico'),
+            ('TECNICO ELECTRICISTA', 'Técnico Electricista'),
+            ('TECNICO MECANICO CONDUCTOR SB', 'Técnico Mecánico Conductor SB'),
+            ('CONDUCTOR', 'Conductor'),
+            ('CONDUCTOR SB', 'Conductor SB'),
+            ('PERFORISTA', 'Perforista'),
+            ('AYUDANTE', 'Ayudante'),
+            ('PERFORISTA SB', 'Perforista SB'),
+            ('AYUDANTE SB', 'Ayudante SB'),
+            ('GEOLOGO', 'Geólogo'),
+            ('MUESTRERO ORE CONTROL', 'Muestrero Ore Control'),
+            ('MAESTRO MUESTRERO', 'Maestro Muestrero'),
+            ('AYUDANTE MUESTRERO', 'Ayudante Muestrero'),
+            ('TECNICO GEOLOGIA', 'Técnico Geología'),
+            ('GEOLOGO BD & QA/QC', 'Geólogo BD & QA/QC'),
+            ('ASISTENTE GEOLOGO BD & QA/QC', 'Asistente Geólogo BD & QA/QC'),
+            ('MAESTRO PREPARADOR DE MUESTRAS', 'Maestro Preparador de Muestras'),
+            ('AUXILIAR QA/QC', 'Auxiliar QA/QC'),
+            ('GEOLOGO MINA', 'Geólogo Mina'),
+            ('GEOLOGO DE EXPLORACIONES', 'Geólogo de Exploraciones'),
+            ('SUPERVISOR QA/QC', 'Supervisor QA/QC'),
+            ('LOGISTICO', 'Logístico'),
+            ('AYUDANTE GEOMECANICO', 'Ayudante Geomecánico'),
+            ('TOPOGRAFO', 'Topógrafo'),
+            ('TECNICO MEDICION DENSIDAD', 'Técnico Medición Densidad'),
+            ('MAESTRO MUESTRERO DENSIDAD', 'Maestro Muestrero Densidad'),
+            ('TECNICO DE MAPEO GEOMECANICO', 'Técnico de Mapeo Geomecánico'),
+            ('GEOLOGO DE LOGUEO', 'Geólogo de Logueo'),
+            ('SUPERVISOR DE LABORATORIO', 'Supervisor de Laboratorio'),
+            ('SUPERVISOR DE MUESTREO', 'Supervisor de Muestreo'),
+        ]
     )
     activo = models.BooleanField(
         default=True,
