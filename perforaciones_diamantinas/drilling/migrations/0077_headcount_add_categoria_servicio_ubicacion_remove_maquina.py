@@ -103,6 +103,8 @@ class Migration(migrations.Migration):
                 "CREATE INDEX IF NOT EXISTS headcount_categor_238cea_idx ON headcount (categoria);",
                 "CREATE INDEX IF NOT EXISTS headcount_servici_723fde_idx ON headcount (servicio);",
                 "CREATE INDEX IF NOT EXISTS headcount_ubicaci_0005b7_idx ON headcount (ubicacion);",
+                # Eliminar filas duplicadas conservando la de menor id
+                "DELETE FROM headcount WHERE id NOT IN (SELECT MIN(id) FROM headcount GROUP BY contrato_id, cargo, categoria, servicio, ubicacion);",
                 "ALTER TABLE headcount ADD CONSTRAINT headcount_contrato_id_cargo_categoria_servicio_ubicacion_uniq UNIQUE (contrato_id, cargo, categoria, servicio, ubicacion);",
             ],
             reverse_sql=migrations.RunSQL.noop,
