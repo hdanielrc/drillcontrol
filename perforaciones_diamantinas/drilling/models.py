@@ -4612,12 +4612,12 @@ class HeadCount(models.Model):
             ('GEO', 'GEO'),
             ('LAB', 'LAB'),
         ]
-        servicio = models.CharField(
-            max_length=10,
-            choices=SERVICIO_CHOICES,
-            default='DDH',
-            verbose_name='Servicio'
-        )
+    servicio = models.CharField(
+        max_length=10,
+        choices=SERVICIO_CHOICES,
+        default='DDH',
+        verbose_name='Servicio'
+    )
     CATEGORIA_CHOICES = [
         ('LINEA DE MANDO', 'Línea de Mando'),
         ('OPERATIVO', 'Operativo'),
