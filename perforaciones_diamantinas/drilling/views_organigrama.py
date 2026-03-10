@@ -64,8 +64,12 @@ ESTADO_BADGE = {
 def _grupo_para_cargo(cargo):
     """Clasifica un cargo en uno de los 4 grupos del organigrama usando keywords."""
     c = (cargo or '').upper()
-    if any(k in c for k in ['PERFORISTA', 'AYUDANTE DDH', 'AYUDANTE PERFORISTA',
-                             'TECNICO MECANICO', 'OPERADOR EQUIPO']):
+    # Ayudantes siempre van a OPERADORES
+    if any(k in c for k in [
+        'PERFORISTA', 'AYUDANTE DDH', 'AYUDANTE PERFORISTA', 'AYUD.DE PERFORACION',
+        'AYUD. DE PERFORACION', 'AYUDANTE DE PERFORACION', 'AYUDANTE DE SIMBA',
+        'OPERADOR DE SIMBA', 'OPERADOR SIMBA', 'TEC. DE PERFORACION', 'TEC.DE PERFORACION',
+        'TECNICO DE PERFORACION', 'AYUDANTE', 'AYUDANTE SB', 'AYUDANTE DE MAQUINA', 'AYUDANTE DE EQUIPO']):
         return 'OPERADORES'
     if any(k in c for k in ['GEOLOGO', 'GEOLOG', 'MUESTRERO', 'GEOMECANICO',
                              'GEOLOGICO', 'GEOLOGICA']):
