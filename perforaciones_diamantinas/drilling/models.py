@@ -4607,6 +4607,12 @@ class ConfiguracionAlertaStock(models.Model):
 # =============================================================================
 
 class HeadCount(models.Model):
+    CATEGORIA_CHOICES = [
+        ('LINEA DE MANDO', 'Línea de Mando'),
+        ('OPERATIVO', 'Operativo'),
+        ('CONDUCTORES', 'Conductores'),
+        ('VACACIONISTA', 'Vacacionista'),
+    ]
     categoria = models.CharField(
         max_length=50,
         choices=CATEGORIA_CHOICES,
