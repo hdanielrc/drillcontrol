@@ -485,7 +485,12 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
             if row['cargo']:
                 cargos_map[row['contrato_id']].append(row['cargo'])
         context['cargos_por_contrato_json'] = json.dumps(cargos_map)
-        context['grupos'] = list(Trabajador.GRUPO_CHOICES) + [('STAND_BY', 'Personal Stand By')]
+        context['grupos'] = [
+            ('LINEA DE MANDO', 'Línea de Mando'),
+            ('OPERADORES', 'Operadores'),
+            ('CONDUCTORES', 'Conductores'),
+            ('SERVICIOS GEOLOGICOS', 'Servicios Geológicos'),
+        ]
 
         # Máquinas del contrato del usuario (o todas para admins)
         from .models import Maquina
