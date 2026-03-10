@@ -4616,7 +4616,9 @@ class HeadCount(models.Model):
     nivel = models.CharField(
         max_length=20,
         choices=NIVEL_CHOICES,
-        default='I',
+        default=None,
+        blank=True,
+        null=True,
         verbose_name='Nivel',
     )
     cantidad_requerida = models.PositiveIntegerField(
