@@ -4706,6 +4706,7 @@ class HeadCount(models.Model):
         ('TECNICO DE MAPEO GEOMECANICO', 'Técnico de Mapeo Geomecánico'),
         ('GEOLOGO DE LOGUEO', 'Geólogo de Logueo'),
         ('SUPERVISOR DE LABORATORIO', 'Supervisor de Laboratorio'),
+        ('SUPERVISOR DE MUESTREO', 'Supervisor de Muestreo'),
     ]
 
     CATEGORIA_CHOICES = [
