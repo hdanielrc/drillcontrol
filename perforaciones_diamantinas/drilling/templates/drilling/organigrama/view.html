@@ -467,336 +467,47 @@ html, body { height: 100%; }
             </div>
         </div>
 
-        <!-- NIVEL 1: columnas por grupo -->
+        <!-- NIVEL 1: SOLO DDH Y SGEO -->
         <div class="level1-row" id="level1Row">
-
-            <!-- ── LÍNEA DE MANDO ── -->
-            {% if linea_mando or slots_vacantes.LINEA_MANDO %}
-            <div class="org-col" id="col-lm">
-                <div class="section-node sn-lm" id="sn-lm">
-                    <i class="fas fa-crown"></i> Línea de Mando
-                    <span class="sn-count">{{ total_linea_mando }}</span>
+            <!-- DDH -->
+            <div class="org-col" id="col-ddh">
+                <div class="section-node sn-op" id="sn-ddh">
+                    <i class="fas fa-hard-hat"></i> Servicio DDH
                 </div>
-                <div class="lm-workers">
-                    {% for wd in linea_mando %}
-                    <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
+                <div class="side-workers">
+                    {% for wd in trabajadores_por_servicio_grupo.DDH.Operadores %}
+                    <div class="worker-node">
                         <div class="wn-top">
-                            <div class="avatar av-lm">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
+                            <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
                             <div class="node-info">
                                 <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
                                 <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                <div class="nano-badges">
-                                    {% if wd.obj.guardia_asignada %}<span class="nb nb-g{{ wd.obj.guardia_asignada|lower }}">Grd.{{ wd.obj.guardia_asignada }}</span>{% endif %}
-                                    {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
-                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tareo-week">
-                            {% for dia in wd.semana %}
-                            <div class="tw-day">
-                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
-                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% for slot in slots_vacantes.LINEA_MANDO %}
-                    <div class="worker-node slot-vacante">
-                        <div class="wn-top">
-                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                            <div class="node-info">
-                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                <span class="node-cargo">{{ slot.cargo }}</span>
-                                <div class="nano-badges">
-                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
-                                </div>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
-            {% endif %}
-
-            <!-- ── OPERADORES por guardia ── -->
-            {% if operadores_por_guardia or slots_vacantes.OPERADORES %}
-            <div class="org-col" id="col-op">
-                <div class="section-node sn-op" id="sn-op">
-                    <i class="fas fa-hard-hat"></i> Operadores
-                    <span class="sn-count">{{ total_operadores }}</span>
-                </div>
-                <div class="guardias-wrap">
-                    {% for bloque in operadores_por_guardia %}
-                    <div class="guardia-col" id="gcol-{{ bloque.guardia }}">
-
-                        <div class="guardia-node gn-{{ bloque.guardia|lower }}" id="gn-{{ bloque.guardia }}">
-                            <i class="fas fa-shield-alt"></i> {{ bloque.label }}
-                            <span style="opacity:.7;font-size:.72rem">({{ bloque.total }})</span>
-                        </div>
-
-                        {% for mq_group in bloque.maquinas %}
-                            {% if mq_group.maquina %}
-                            <div class="maquina-group">
-                                <div class="maquina-label">
-                                    <i class="fas fa-cog"></i> {{ mq_group.maquina.nombre }}
-                                </div>
-                                {% for wd in mq_group.workers %}
-                                <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
-                                    <div class="wn-top">
-                                        <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                                        <div class="node-info">
-                                            <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                            <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                            <div class="nano-badges">
-                                                <span class="nb nb-mq">{{ mq_group.maquina.nombre }}</span>
-                                                {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
-                                                <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="tareo-week">
-                                        {% for dia in wd.semana %}
-                                        <div class="tw-day">
-                                            <span class="tw-lbl">{{ dia.dia_corto }}</span>
-                                            <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% else %}
-                            <div class="maquina-group">
-                                <span class="sin-maquina-label">Sin máquina asignada</span>
-                                {% for wd in mq_group.workers %}
-                                <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
-                                    <div class="wn-top">
-                                        <div class="avatar av-op">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                                        <div class="node-info">
-                                            <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                            <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                            <div class="nano-badges">
-                                                {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
-                                                <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="tareo-week">
-                                        {% for dia in wd.semana %}
-                                        <div class="tw-day">
-                                            <span class="tw-lbl">{{ dia.dia_corto }}</span>
-                                            <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    </div><!-- /guardia-col -->
-                    {% endfor %}
-                    {% for servicio, grupos in trabajadores_por_servicio_grupo.items %}
-                    <div class="org-col" id="col-servicio-{{ servicio }}">
-                        <div class="section-node" style="background:#dc2626">
-                            <i class="fas fa-user-plus"></i> {{ servicio }}
-                        </div>
-                        {% for grupo, workers in grupos.items %}
-                        <div class="side-workers">
-                            <div class="section-node sn-aux" style="background:#374151">
-                                {{ grupo }} <span class="sn-count">{{ workers|length }}</span>
-                            </div>
-                            {% for wd in workers %}
-                            <div class="worker-node">
-                                <div class="wn-top">
-                                    <div class="avatar av-aux">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                                    <div class="node-info">
-                                        <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                        <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                        <div class="nano-badges">
-                                            <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tareo-week">
-                                    {% for dia in wd.semana %}
-                                    <div class="tw-day">
-                                        <span class="tw-lbl">{{ dia.dia_corto }}</span>
-                                        <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            {% endfor %}
-                                {% for vac_servicio, vac_grupos in slots_vacantes.items %}
-                                    {% if vac_servicio == servicio %}
-                                        {% for vac_grupo, vacantes in vac_grupos.items %}
-                                            {% if vac_grupo == grupo %}
-                                                {% for slot in vacantes %}
-                                                <div class="worker-node slot-vacante" style="margin-bottom:6px">
-                                                    <div class="wn-top">
-                                                        <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                                                        <div class="node-info">
-                                                            <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                                            <span class="node-cargo">{{ slot.cargo }}</span>
-                                                            <span class="badge bg-secondary">{{ slot.categoria }}</span>
-                                                            <span class="badge bg-info">{{ slot.ubicacion }}</span>
-                                                            <div class="nano-badges">
-                                                                <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {% endfor %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% endif %}
-                                {% endfor %}
-                            {% endfor %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endfor %}
-                </div><!-- /guardias-wrap -->
-            </div><!-- /col-op -->
-            {% endif %}
-
-            <!-- ── SERVICIOS GEOLÓGICOS ── -->
-            {% if servicios_geo or slots_vacantes.SERVICIOS_GEOLOGICOS %}
-            <div class="org-col" id="col-geo">
-                <div class="section-node sn-geo" id="sn-geo">
-                    <i class="fas fa-flask"></i> Serv. Geológicos
-                    <span class="sn-count">{{ total_servicios_geo }}</span>
+            <!-- SGEO -->
+            <div class="org-col" id="col-sgeo">
+                <div class="section-node sn-geo" id="sn-sgeo">
+                    <i class="fas fa-flask"></i> Servicio SGEO
                 </div>
                 <div class="side-workers">
-                    {% for wd in servicios_geo %}
-                    <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
+                    {% for wd in trabajadores_por_servicio_grupo.SGEO.Operadores %}
+                    <div class="worker-node">
                         <div class="wn-top">
                             <div class="avatar av-geo">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
                             <div class="node-info">
                                 <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
                                 <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                <div class="nano-badges">
-                                    {% if wd.obj.guardia_asignada %}<span class="nb nb-g{{ wd.obj.guardia_asignada|lower }}">Grd.{{ wd.obj.guardia_asignada }}</span>{% endif %}
-                                    {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
-                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tareo-week">
-                            {% for dia in wd.semana %}
-                            <div class="tw-day">
-                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
-                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% for slot in slots_vacantes.SERVICIOS_GEOLOGICOS %}
-                    <div class="worker-node slot-vacante">
-                        <div class="wn-top">
-                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                            <div class="node-info">
-                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                <span class="node-cargo">{{ slot.cargo }}</span>
-                                <div class="nano-badges">
-                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
-                                </div>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
-            {% endif %}
-
-            <!-- ── PERSONAL AUXILIAR ── -->
-            {% if conductores or slots_vacantes.CONDUCTORES %}
-            <div class="org-col" id="col-aux">
-                <div class="section-node sn-aux" id="sn-aux">
-                    <i class="fas fa-tools"></i> Auxiliar
-                    <span class="sn-count">{{ total_auxiliar }}</span>
-                </div>
-                <div class="side-workers">
-                    {% for wd in conductores %}
-                    <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
-                        <div class="wn-top">
-                            <div class="avatar av-aux">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                            <div class="node-info">
-                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                <div class="nano-badges">
-                                    {% if wd.obj.guardia_asignada %}<span class="nb nb-g{{ wd.obj.guardia_asignada|lower }}">Grd.{{ wd.obj.guardia_asignada }}</span>{% endif %}
-                                    {% if wd.obj.es_standby %}<span class="nb nb-sb">SB</span>{% endif %}
-                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tareo-week">
-                            {% for dia in wd.semana %}
-                            <div class="tw-day">
-                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
-                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% for slot in slots_vacantes.CONDUCTORES %}
-                    <div class="worker-node slot-vacante">
-                        <div class="wn-top">
-                            <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                            <div class="node-info">
-                                <span class="node-name" style="color:#dc2626">Puesto Vacante</span>
-                                <span class="node-cargo">{{ slot.cargo }}</span>
-                                <div class="nano-badges">
-                                    <span class="nb" style="background:#fee2e2;color:#dc2626"><i class="fas fa-circle-notch me-1"></i>VACANTE</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- ── STAND BY ── -->
-            {% if stand_by %}
-            <div class="org-col" id="col-std">
-                <div class="section-node sn-std" id="sn-std">
-                    <i class="fas fa-user-clock"></i> Stand By
-                    <span class="sn-count">{{ total_standby }}</span>
-                </div>
-                <div class="side-workers">
-                    {% for wd in stand_by %}
-                    <div class="worker-node standby">
-                        <div class="wn-top">
-                            <div class="avatar av-std">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
-                            <div class="node-info">
-                                <span class="node-name">{{ wd.obj.apepat }}, {{ wd.obj.nombres }}</span>
-                                <span class="node-cargo">{{ wd.obj.cargo }}</span>
-                                <div class="nano-badges">
-                                    <span class="nb nb-sb">Stand By</span>
-                                    <span class="nb" style="background:#e0f2fe;color:#0369a1;">{{ wd.trabajado_count }}/7</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tareo-week">
-                            {% for dia in wd.semana %}
-                            <div class="tw-day">
-                                <span class="tw-lbl">{{ dia.dia_corto }}</span>
-                                <span class="tw-badge {{ dia.css }}">{{ dia.codigo }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
+        </div>
 
         </div><!-- /level1-row -->
     </div><!-- /org-tree-wrap -->
