@@ -289,8 +289,17 @@ def organigrama_view(request):
         for grupo, vacantes in grupos.items():
             # obtener lista mutable de trabajadores para este servicio/grupo
             trabajadores_lista = trabajadores_por_servicio_grupo.get(servicio, {}).get(grupo, [])
-            # trabajadores_lista contiene dicts con clave 'obj'
-            trabajadores_disponibles = trabajadores_lista[:] if trabajadores_lista else []
+            # Normalizar estructuras: para OPERADORES la estructura puede ser
+            # un dict por máquina {maquina_key: {'maquina', 'workers': [...]}}
+            # por lo que convertimos a una lista plana de workers antes de
+            # intentar copiar/slice.
+            if isinstance(trabajadores_lista, dict):
+                trabajadores_disponibles = []
+                for mv in trabajadores_lista.values():
+                    trabajadores_disponibles.extend(mv.get('workers') or [])
+            else:
+                # lista ya plana
+                trabajadores_disponibles = trabajadores_lista[:] if trabajadores_lista else []
             asignados = []
             for slot in vacantes:
                 asignado = None
