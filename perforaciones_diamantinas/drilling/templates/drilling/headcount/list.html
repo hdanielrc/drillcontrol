@@ -153,7 +153,7 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                             <small class="text-muted">{{ headcount.contrato.cliente.nombre }}</small>
                         </td>
                         <td>
-                            <span class="badge bg-info text-dark">{{ headcount.servicio|yesno:"SGEO,SGEO" if headcount.servicio == "SGEO" else headcount.servicio }}</span>
+                            <span class="badge bg-info text-dark">{% if headcount.servicio == "SGEO" %}SGEO{% else %}{{ headcount.servicio }}{% endif %}</span>
                         </td>
                         <td>
                             <span class="badge bg-secondary">{{ headcount.get_categoria_display }}</span>
