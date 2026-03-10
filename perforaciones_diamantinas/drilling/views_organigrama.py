@@ -74,6 +74,9 @@ def _grupo_para_cargo(cargo):
     if any(k in c for k in ['GEOLOGO', 'GEOLOG', 'MUESTRERO', 'GEOMECANICO',
                              'GEOLOGICO', 'GEOLOGICA']):
         return 'SERVICIOS_GEOLOGICOS'
+    # Asistente Administrativo debe ir a LINEA_MANDO
+    if 'ASISTENTE ADMINISTRATIVO' in c:
+        return 'LINEA_MANDO'
     if any(k in c for k in ['RESIDENTE', 'SUPERVISOR', 'INGENIERO', 'ADMINISTRADOR',
                              'SEGURIDAD', 'JEFE', 'GERENTE', 'PREVENCION', 'SSOMA',
                              'LOGISTIC', 'COORDINADOR', 'INSPECTOR', 'MONITOR']):
