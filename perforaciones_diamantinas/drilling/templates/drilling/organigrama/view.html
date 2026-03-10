@@ -474,6 +474,46 @@ html, body { height: 100%; }
             {% for servicio in trabajadores_por_servicio_grupo.keys %}
                 <span style="margin-right:8px;color:#dc2626">{{ servicio }}</span>
             {% endfor %}
+            <hr>
+            <b>Depuración completa:</b>
+            <div style="font-size:.85rem;max-height:300px;overflow:auto;background:#f3f4f6;border:1px solid #e0e0e0;padding:6px;">
+                <b>trabajadores_por_servicio_grupo:</b>
+                {% for servicio, grupos in trabajadores_por_servicio_grupo.items %}
+                    <div style="margin-bottom:8px;">
+                        <b>Servicio:</b> <span style="color:#0369a1">{{ servicio }}</span><br>
+                        {% for grupo, workers in grupos.items %}
+                            <b>Grupo:</b> <span style="color:#16a34a">{{ grupo }}</span><br>
+                            {% if workers %}
+                                <ul>
+                                {% for wd in workers %}
+                                    <li>{{ wd.obj.cargo }} - {{ wd.obj.nombres }} {{ wd.obj.apepat }}</li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span style="color:#999">Sin trabajadores</span><br>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                <b>slots_vacantes:</b>
+                {% for servicio, grupos in slots_vacantes.items %}
+                    <div style="margin-bottom:8px;">
+                        <b>Servicio:</b> <span style="color:#dc2626">{{ servicio }}</span><br>
+                        {% for grupo, vacantes in grupos.items %}
+                            <b>Grupo:</b> <span style="color:#374151">{{ grupo }}</span><br>
+                            {% if vacantes %}
+                                <ul>
+                                {% for slot in vacantes %}
+                                    <li>{{ slot.cargo }} ({{ slot.categoria }}, {{ slot.ubicacion }})</li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span style="color:#999">Sin vacantes</span><br>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
         </div>
         <!-- NIVEL 1: SOLO DDH Y SGEO -->
         <div class="level1-row" id="level1Row">
