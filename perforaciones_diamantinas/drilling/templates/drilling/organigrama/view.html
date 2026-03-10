@@ -484,7 +484,18 @@ html, body { height: 100%; }
                     </div>
                     <div class="side-workers">
                         {% for grupo, vacantes in grupos.items %}
-                            <div class="section-node sn-aux" style="background:#374151;margin-bottom:8px;">{{ grupo }}</div>
+                            <div class="section-node sn-aux" style="background:#374151;margin-bottom:8px;">
+                                {{ grupo }}
+                                <div style="font-size:.8rem;color:#e0e0e0;margin-top:4px;">
+                                    <b>Cargos:</b>
+                                    {% for wd in trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
+                                        <span style="margin-right:6px;">{{ wd.obj.cargo }}</span>
+                                    {% endfor %}
+                                    {% for slot in vacantes %}
+                                        <span style="margin-right:6px;color:#dc2626">{{ slot.cargo }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
                             {% if trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
                                 {% for wd in trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
                                     <div class="worker-node">
