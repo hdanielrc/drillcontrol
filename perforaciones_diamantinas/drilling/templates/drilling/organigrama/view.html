@@ -388,6 +388,20 @@ html, body { height: 100%; }
     .org-page   { padding: 12px; }
     .semana-dias { display: none; }
 }
+/* Panel para agrupar header + tarjetas dentro de un fondo oscuro */
+.group-panel {
+    background: linear-gradient(135deg, rgba(8,65,99,0.95), rgba(4,112,172,0.95));
+    padding: 12px 14px 18px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    min-width: 280px;
+    box-shadow: 0 6px 18px rgba(8,65,99,0.18);
+}
+.group-panel .section-node { background: transparent; box-shadow: none; padding: 6px 12px; border-radius: 8px; }
+.cards-wrap { display:flex; flex-direction:column; gap:10px; align-items:center; }
 </style>
 {% endblock %}
 
@@ -467,41 +481,43 @@ html, body { height: 100%; }
         <!-- NIVEL 1: ORGANIZACIÓN POR SERVICIO Y CARGO -->
         <div class="level1-row" id="level1Row">
             {% for servicio, grupos in slots_por_servicio_grupo_asignados.items %}
-                <div class="org-col">
-                    <div class="section-node sn-op" style="margin-bottom:12px;">
-                        <i class="fas fa-hard-hat"></i> Servicio {{ servicio }}
-                    </div>
-                    <div class="side-workers">
-                        {% for grupo, slots in grupos.items %}
-                            <div class="section-node sn-aux" style="background:#374151;margin-bottom:8px;">
-                                {{ grupo }}
+                    <div class="org-col">
+                        <div class="group-panel">
+                            <div class="section-node sn-op" style="margin-bottom:0;">
+                                <i class="fas fa-hard-hat"></i> Servicio {{ servicio }}
                             </div>
-                            {% for slot in slots %}
-                                {% if slot.worker %}
-                                    <div class="worker-node">
-                                        <div class="wn-top">
-                                            <div class="avatar av-op">{{ slot.worker.obj.nombres|slice:":1" }}{{ slot.worker.obj.apepat|slice:":1" }}</div>
-                                            <div class="node-info">
-                                                <span class="node-name">{{ slot.worker.obj.apepat }}, {{ slot.worker.obj.nombres }}</span>
-                                                <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
+                            {% for grupo, slots in grupos.items %}
+                                <div class="section-node sn-aux" style="background:rgba(0,0,0,0.18);color:#fff;margin-bottom:0;">
+                                    {{ grupo }}
+                                </div>
+                                <div class="cards-wrap">
+                                    {% for slot in slots %}
+                                        {% if slot.worker %}
+                                            <div class="worker-node">
+                                                <div class="wn-top">
+                                                    <div class="avatar av-op">{{ slot.worker.obj.nombres|slice:":1" }}{{ slot.worker.obj.apepat|slice:":1" }}</div>
+                                                    <div class="node-info">
+                                                        <span class="node-name">{{ slot.worker.obj.apepat }}, {{ slot.worker.obj.nombres }}</span>
+                                                        <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                {% else %}
-                                    <div class="worker-node slot-vacante" style="border:2px solid #dc2626;background:#fff8f8;">
-                                        <div class="wn-top">
-                                            <div class="avatar av-vacante" style="background:#dc2626;color:#fff;"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                                            <div class="node-info">
-                                                <span class="node-name" style="color:#dc2626;font-weight:700">Puesto Vacante</span>
-                                                <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
+                                        {% else %}
+                                            <div class="worker-node slot-vacante" style="border:2px dashed #dc2626;background:#fff8f8;">
+                                                <div class="wn-top">
+                                                    <div class="avatar av-vacante" style="background:#dc2626;color:#fff;"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
+                                                    <div class="node-info">
+                                                        <span class="node-name" style="color:#dc2626;font-weight:700">Puesto Vacante</span>
+                                                        <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
                             {% endfor %}
-                        {% endfor %}
+                        </div>
                     </div>
-                </div>
             {% endfor %}
         </div><!-- /level1-row -->
                 <div class="root-sub">{{ total_trabajadores }} trabajadores activos &nbsp;·&nbsp; {{ label_semana }}</div>
