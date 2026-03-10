@@ -182,6 +182,15 @@ def organigrama_view(request):
         estado='ACTIVO'
     ).select_related('maquina_asignada').order_by('apepat', 'nombres')
 
+    # Agrupar trabajadores por servicio y grupo
+    trabajadores_por_servicio_grupo = {}
+    for t in trabajadores_qs:
+        # Usar cargo_headcount si está definido, sino cargo
+        cargo_hc = t.cargo_headcount if getattr(t, 'cargo_headcount', None) else t.cargo
+        grupo = _grupo_para_cargo(cargo_hc)
+        servicio = getattr(t, 'servicio', None) or getattr(t, 'tipo_servicio', None) or 'SIN_SERVICIO'
+        trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
+
     # ── Tareo de la semana ──────────────────────────────────────
     # tareo_dict[trabajador_id][fecha] = estado
     # Fuente 1: modelo V1 (AsistenciaTrabajador) – estados granulares
@@ -253,32 +262,23 @@ def organigrama_view(request):
     otros_raw = [t for t in trabajadores_qs if not t.grupo and not t.es_standby]
     otros = [_build_worker_dict(t, tareo_dict, dias_semana) for t in otros_raw]
 
-    # ── Slots Vacantes (HeadCount faltantes) agrupados por servicio ───────────
-    slots_por_servicio = defaultdict(list)
+    # ── Slots Vacantes (HeadCount faltantes) agrupados por servicio y grupo ────
+    slots_por_servicio_grupo = {}
     for hc in HeadCount.objects.filter(contrato=contrato, activo=True):
         diferencia = hc.get_diferencia()
         if diferencia > 0:
             servicio = hc.servicio
+            grupo = _grupo_para_cargo(hc.cargo)
             for _ in range(diferencia):
-                slots_por_servicio[servicio].append({'cargo': hc.cargo, 'categoria': hc.categoria, 'ubicacion': hc.ubicacion})
-    total_vacantes = sum(len(v) for v in slots_por_servicio.values())
+                slots_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append({'cargo': hc.cargo, 'categoria': hc.categoria, 'ubicacion': hc.ubicacion})
+    total_vacantes = sum(len(v) for s in slots_por_servicio_grupo.values() for v in s.values())
 
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
         'total_trabajadores': trabajadores_qs.count(),
-        'linea_mando': linea_mando,
-        'operadores_por_guardia': operadores_por_guardia,
-        'servicios_geo': servicios_geo,
-        'conductores': conductores,
-        'stand_by': stand_by,
-        'otros': otros,
-        'total_operadores': len(operadores_raw),
-        'total_linea_mando': len(linea_mando_raw),
-        'total_servicios_geo': len(servicios_geo_raw),
-        'total_conductores': len(conductores_raw),
-        'total_standby': len(stand_by_raw),
-        'slots_vacantes': dict(slots_por_servicio),
+        'trabajadores_por_servicio_grupo': trabajadores_por_servicio_grupo,
+        'slots_vacantes': slots_por_servicio_grupo,
         'total_vacantes': total_vacantes,
         # Semana
         'semana_offset': semana_offset,
