@@ -177,19 +177,11 @@ def organigrama_view(request):
     )
 
     # ── Trabajadores activos ─────────────────────────────────────
+
     trabajadores_qs = Trabajador.objects.filter(
         contrato=contrato,
         estado='ACTIVO'
     ).select_related('maquina_asignada').order_by('apepat', 'nombres')
-
-    # Agrupar trabajadores por servicio y grupo
-    trabajadores_por_servicio_grupo = {}
-    for t in trabajadores_qs:
-        # Usar cargo_headcount si está definido, sino cargo
-        cargo_hc = t.cargo_headcount if getattr(t, 'cargo_headcount', None) else t.cargo
-        grupo = _grupo_para_cargo(cargo_hc)
-        servicio = getattr(t, 'servicio', None) or getattr(t, 'tipo_servicio', None) or 'SIN_SERVICIO'
-        trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
 
     # ── Tareo de la semana ──────────────────────────────────────
     # tareo_dict[trabajador_id][fecha] = estado
@@ -214,6 +206,15 @@ def organigrama_view(request):
         # Corrección manual V2 siempre gana; proyección V2 solo si no hay V1
         if not a['es_proyeccion'] or existing is None:
             tareo_dict.setdefault(a['empleado_id'], {})[a['fecha']] = v1_equiv
+
+    # Agrupar trabajadores por servicio y grupo
+    trabajadores_por_servicio_grupo = {}
+    for t in trabajadores_qs:
+        # Usar cargo_headcount si está definido, sino cargo
+        cargo_hc = t.cargo_headcount if getattr(t, 'cargo_headcount', None) else t.cargo
+        grupo = _grupo_para_cargo(cargo_hc)
+        servicio = getattr(t, 'servicio', None) or getattr(t, 'tipo_servicio', None) or 'SIN_SERVICIO'
+        trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
 
     # ── Construir listas por grupo con datos de tareo ───────────
     linea_mando_raw = sorted(
