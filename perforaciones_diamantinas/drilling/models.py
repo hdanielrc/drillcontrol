@@ -4607,7 +4607,7 @@ class ConfiguracionAlertaStock(models.Model):
 # =============================================================================
 
 class HeadCount(models.Model):
-        SERVICIO_CHOICES = [
+    SERVICIO_CHOICES = [
             ('DDH', 'DDH'),
             ('GEO', 'GEO'),
             ('LAB', 'LAB'),
