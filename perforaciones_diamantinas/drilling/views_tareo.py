@@ -204,7 +204,7 @@ def tareo_mensual_view(request):
             When(grupo='LINEA_MANDO',          then=Value(1)),
             When(grupo='OPERADORES',            then=Value(2)),
             When(grupo='SERVICIOS_GEOLOGICOS',  then=Value(3)),
-            When(grupo='PERSONAL_AUXILIAR',     then=Value(4)),
+            When(grupo='CONDUCTORES',     then=Value(4)),
             default=Value(5),
             output_field=IntF()
         ),
@@ -245,7 +245,7 @@ def tareo_mensual_view(request):
         'LINEA_MANDO':         {'nombre': 'Línea de Mando',       'order': 1},
         'OPERADORES':          {'nombre': 'Operadores',            'order': 2},
         'SERVICIOS_GEOLOGICOS':{'nombre': 'Servicios Geológicos',  'order': 3},
-        'PERSONAL_AUXILIAR':   {'nombre': 'Personal Auxiliar',     'order': 4},
+        'CONDUCTORES':   {'nombre': 'Conductores',     'order': 4},
         '__STAND_BY__':        {'nombre': 'Personal Stand By',     'order': 5},
         '__SIN_GRUPO__':       {'nombre': 'Sin Grupo Asignado',    'order': 6},
     }

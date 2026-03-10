@@ -1860,8 +1860,8 @@ class Trabajador(models.Model):
         3. LINEA_MANDO (guard) : Supervisores, Jefes, Ingenieros, Seguridad/SSOMA, Prevención,
                                  Monitores, Inspectores, Administración, Logística, Médicos,
                                  Psicólogos, Enfermeros, RRHH, Relaciones Comunitarias
-        4. PERSONAL_AUXILIAR   : Conductores, Mecánicos, Electricistas, Almaceneros, Soldadores,
-                                 Operadores de Cisterna
+        4. CONDUCTORES   : Conductores, Mecánicos, Electricistas, Almaceneros, Soldadores,
+                  Operadores de Cisterna
         5. LINEA_MANDO (default): Todo lo demás sin match
         """
         if not cargo_texto:
@@ -1942,10 +1942,10 @@ class Trabajador(models.Model):
             return 'SERVICIOS_GEOLOGICOS'
 
         # ── LÍNEA DE MANDO EXPLÍCITA (guardarrail) ───────────────────────────
-        # Se evalúa ANTES de PERSONAL_AUXILIAR para que cargos como
+        # Se evalúa ANTES de CONDUCTORES para que cargos como
         # 'SUPERVISOR MECANICO', 'INGENIERO DE SEGURIDAD', 'AYUDANTE DE SEGURIDAD',
         # 'ASISTENTE LOGISTICO', 'MONITOR DE SEGURIDAD', 'MEDICO DE CAMPAMENTO', etc.
-        # no sean capturados erróneamente por keywords de PERSONAL_AUXILIAR.
+        # no sean capturados erróneamente por keywords de CONDUCTORES.
         if any(k in c for k in [
             'SUPERVISOR',           # SUPERVISOR DDH, SUPERVISOR DE TURNO, SUPERVISOR MECANICO
             'JEFE',                 # JEFE DE GUARDIA, JEFE DE OPERACIONES
@@ -1995,7 +1995,7 @@ class Trabajador(models.Model):
             'AYUDANTE DE SERVICIO',
             'ALMACEN',
         ]):
-            return 'PERSONAL_AUXILIAR'
+            return 'CONDUCTORES'
 
         # ── LÍNEA DE MANDO ────────────────────────────────────────────────────
         # Todo lo demás que no matcheó ningún grupo anterior.

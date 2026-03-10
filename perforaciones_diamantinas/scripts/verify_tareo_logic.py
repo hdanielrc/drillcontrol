@@ -55,7 +55,7 @@ def verificar_logica_tareo():
         trabajadores_por_grupo[grupo_key]['guardias'][guardia_key].append(trabajador)
 
     # 4. Imprimir resultados simulando la renderización
-    orden_grupos = ['LINEA_MANDO', 'OPERADORES', 'SERVICIOS_GEOLOGICOS', 'PERSONAL_AUXILIAR', 'SIN_GRUPO']
+    orden_grupos = ['LINEA_MANDO', 'OPERADORES', 'SERVICIOS_GEOLOGICOS', 'CONDUCTORES', 'SIN_GRUPO']
     
     print("\n=== RESULTADO DE LA AGRUPACIÓN ===")
     for grupo in orden_grupos:

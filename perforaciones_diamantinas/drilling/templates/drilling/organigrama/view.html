@@ -676,14 +676,14 @@ html, body { height: 100%; }
             {% endif %}
 
             <!-- ── PERSONAL AUXILIAR ── -->
-            {% if personal_auxiliar or slots_vacantes.PERSONAL_AUXILIAR %}
+            {% if conductores or slots_vacantes.CONDUCTORES %}
             <div class="org-col" id="col-aux">
                 <div class="section-node sn-aux" id="sn-aux">
                     <i class="fas fa-tools"></i> Auxiliar
                     <span class="sn-count">{{ total_auxiliar }}</span>
                 </div>
                 <div class="side-workers">
-                    {% for wd in personal_auxiliar %}
+                    {% for wd in conductores %}
                     <div class="worker-node {% if wd.obj.es_standby %}standby{% endif %}">
                         <div class="wn-top">
                             <div class="avatar av-aux">{{ wd.obj.nombres|slice:":1" }}{{ wd.obj.apepat|slice:":1" }}</div>
@@ -707,7 +707,7 @@ html, body { height: 100%; }
                         </div>
                     </div>
                     {% endfor %}
-                    {% for slot in slots_vacantes.PERSONAL_AUXILIAR %}
+                    {% for slot in slots_vacantes.CONDUCTORES %}
                     <div class="worker-node slot-vacante">
                         <div class="wn-top">
                             <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>

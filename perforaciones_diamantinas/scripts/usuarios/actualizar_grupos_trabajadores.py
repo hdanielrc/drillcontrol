@@ -24,7 +24,7 @@ def actualizar_grupos_trabajadores():
         'OPERADORES': 0,
         'SERVICIOS_GEOLOGICOS': 0,
         'LINEA_MANDO': 0,
-        'PERSONAL_AUXILIAR': 0,
+        'CONDUCTORES': 0,
     }
     
     for trabajador in trabajadores:
@@ -48,7 +48,7 @@ def actualizar_grupos_trabajadores():
     print(f"  - Operadores: {grupos_conteo['OPERADORES']}")
     print(f"  - Servicios Geológicos: {grupos_conteo['SERVICIOS_GEOLOGICOS']}")
     print(f"  - Línea de Mando: {grupos_conteo['LINEA_MANDO']}")
-    print(f"  - Personal Auxiliar: {grupos_conteo['PERSONAL_AUXILIAR']}")
+    print(f"  - Conductores: {grupos_conteo['CONDUCTORES']}")
     print(f"{'='*80}\n")
 
 if __name__ == '__main__':

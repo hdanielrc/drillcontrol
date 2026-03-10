@@ -428,12 +428,12 @@ def api_crear_sondaje_rapido(request):
 def api_actualizar_grupo_trabajador(request, pk):
     """
     Actualiza el campo 'grupo' de un Trabajador vía AJAX.
-    Body JSON: { "grupo": "OPERADORES" | "SERVICIOS_GEOLOGICOS" | "PERSONAL_AUXILIAR" | "LINEA_MANDO" | "" }
+    Body JSON: { "grupo": "OPERADORES" | "SERVICIOS_GEOLOGICOS" | "CONDUCTORES" | "LINEA_MANDO" | "" }
     """
     import json
     from .models import Trabajador
 
-    GRUPOS_VALIDOS = {'OPERADORES', 'SERVICIOS_GEOLOGICOS', 'PERSONAL_AUXILIAR', 'LINEA_MANDO', ''}
+    GRUPOS_VALIDOS = {'OPERADORES', 'SERVICIOS_GEOLOGICOS', 'CONDUCTORES', 'LINEA_MANDO', ''}
 
     try:
         data = json.loads(request.body)

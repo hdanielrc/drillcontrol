@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='trabajador',
             name='grupo',
-            field=models.CharField(blank=True, choices=[('OPERADORES', 'Operadores'), ('SERVICIOS_GEOLOGICOS', 'Servicios Geológicos'), ('PERSONAL_AUXILIAR', 'Personal Auxiliar'), ('LINEA_MANDO', 'Línea de Mando')], help_text='Asignado automáticamente según el cargo', max_length=30, null=True, verbose_name='Grupo Funcional'),
+            field=models.CharField(blank=True, choices=[('OPERADORES', 'Operadores'), ('SERVICIOS_GEOLOGICOS', 'Servicios Geológicos'), ('CONDUCTORES', 'Conductores'), ('LINEA_MANDO', 'Línea de Mando')], help_text='Asignado automáticamente según el cargo', max_length=30, null=True, verbose_name='Grupo Funcional'),
         ),
     ]

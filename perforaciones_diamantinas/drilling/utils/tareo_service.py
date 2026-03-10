@@ -391,7 +391,7 @@ class TareoService:
             'LINEA_MANDO':          1,
             'OPERADORES':           2,
             'SERVICIOS_GEOLOGICOS': 3,
-            'PERSONAL_AUXILIAR':    4,
+            'CONDUCTORES':    4,
         }
         trabajadores = Trabajador.objects.filter(
             contrato=contrato,
@@ -402,7 +402,7 @@ class TareoService:
                 When(grupo='LINEA_MANDO',                   then=Value(1)),
                 When(grupo='OPERADORES',                    then=Value(2)),
                 When(grupo='SERVICIOS_GEOLOGICOS',          then=Value(3)),
-                When(grupo='PERSONAL_AUXILIAR',             then=Value(4)),
+                When(grupo='CONDUCTORES',             then=Value(4)),
                 default=Value(6),
                 output_field=IntegerField()
             )
@@ -436,7 +436,7 @@ class TareoService:
             'LINEA_MANDO':          ('Línea de Mando',       'lm'),
             'OPERADORES':           ('Operadores',            'op'),
             'SERVICIOS_GEOLOGICOS': ('Servicios Geológicos',  'geo'),
-            'PERSONAL_AUXILIAR':    ('Personal Auxiliar',     'aux'),
+            'CONDUCTORES':    ('Conductores',     'aux'),
             '__STAND_BY__':         ('Personal Stand By',     'sb'),
             '__SIN_GRUPO__':        ('Sin Grupo Asignado',    'sin'),
         }

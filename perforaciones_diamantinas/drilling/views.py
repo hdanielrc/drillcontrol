@@ -446,7 +446,7 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
             When(grupo='LINEA_MANDO',          then=Value(1)),
             When(grupo='OPERADORES',            then=Value(2)),
             When(grupo='SERVICIOS_GEOLOGICOS',  then=Value(3)),
-            When(grupo='PERSONAL_AUXILIAR',     then=Value(4)),
+            When(grupo='CONDUCTORES',     then=Value(4)),
             default=Value(5),
             output_field=IntegerField()
         )

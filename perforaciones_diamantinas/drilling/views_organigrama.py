@@ -5,7 +5,7 @@ Estructura basada en el campo `grupo` del trabajador:
   - LINEA_MANDO          → Línea de Mando
   - OPERADORES           → Operadores, agrupados por guardia A/B/C con máquina
   - SERVICIOS_GEOLOGICOS → Servicios Geológicos
-  - PERSONAL_AUXILIAR    → Personal Auxiliar
+    - CONDUCTORES    → Conductores
   - Stand By / Sin grupo → al final
 
 Con semana seleccionada se superpone el estado de tareo de cada día
@@ -74,7 +74,7 @@ def _grupo_para_cargo(cargo):
                              'SEGURIDAD', 'JEFE', 'GERENTE', 'PREVENCION', 'SSOMA',
                              'LOGISTIC', 'COORDINADOR', 'INSPECTOR', 'MONITOR']):
         return 'LINEA_MANDO'
-    return 'PERSONAL_AUXILIAR'
+    return 'CONDUCTORES'
 
 
 def _cargo_order(cargo):
@@ -240,8 +240,8 @@ def organigrama_view(request):
     servicios_geo_raw = [t for t in trabajadores_qs if t.grupo == 'SERVICIOS_GEOLOGICOS']
     servicios_geo = [_build_worker_dict(t, tareo_dict, dias_semana) for t in servicios_geo_raw]
 
-    personal_auxiliar_raw = [t for t in trabajadores_qs if t.grupo == 'PERSONAL_AUXILIAR']
-    personal_auxiliar = [_build_worker_dict(t, tareo_dict, dias_semana) for t in personal_auxiliar_raw]
+    conductores_raw = [t for t in trabajadores_qs if t.grupo == 'CONDUCTORES']
+    conductores = [_build_worker_dict(t, tareo_dict, dias_semana) for t in conductores_raw]
 
     stand_by_raw = [t for t in trabajadores_qs if t.es_standby]
     stand_by = [_build_worker_dict(t, tareo_dict, dias_semana) for t in stand_by_raw]
@@ -266,13 +266,13 @@ def organigrama_view(request):
         'linea_mando': linea_mando,
         'operadores_por_guardia': operadores_por_guardia,
         'servicios_geo': servicios_geo,
-        'personal_auxiliar': personal_auxiliar,
+        'conductores': conductores,
         'stand_by': stand_by,
         'otros': otros,
         'total_operadores': len(operadores_raw),
         'total_linea_mando': len(linea_mando_raw),
         'total_servicios_geo': len(servicios_geo_raw),
-        'total_auxiliar': len(personal_auxiliar_raw),
+        'total_conductores': len(conductores_raw),
         'total_standby': len(stand_by_raw),
         'slots_vacantes': dict(slots_por_grupo),
         'total_vacantes': total_vacantes,
