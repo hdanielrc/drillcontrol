@@ -4607,20 +4607,20 @@ class ConfiguracionAlertaStock(models.Model):
 # =============================================================================
 
 class HeadCount(models.Model):
-        nivel = models.CharField(
-            max_length=20,
-            choices=NIVEL_CHOICES,
-            default='I',
-            verbose_name='Nivel',
-        )
-        cantidad_requerida = models.PositiveIntegerField(
-            default=1,
-            verbose_name='Cantidad requerida',
-        )
-        observaciones = models.TextField(
-            blank=True,
-            verbose_name='Observaciones',
-        )
+    nivel = models.CharField(
+        max_length=20,
+        choices=NIVEL_CHOICES,
+        default='I',
+        verbose_name='Nivel',
+    )
+    cantidad_requerida = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Cantidad requerida',
+    )
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name='Observaciones',
+    )
     UBICACION_CHOICES = [
         ('SUPERFICIE', 'Superficie'),
         ('MINA', 'Mina'),
