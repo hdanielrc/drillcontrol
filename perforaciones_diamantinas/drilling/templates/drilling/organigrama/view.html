@@ -631,8 +631,8 @@ html, body { height: 100%; }
                                 </div>
                             </div>
                             {% endfor %}
-                                {% if slots_vacantes|dict:servicio and slots_vacantes|dict:servicio|dict:grupo %}
-                                    {% for slot in slots_vacantes|dict:servicio|dict:grupo %}
+                                {% if slots_vacantes.get(servicio) and slots_vacantes.get(servicio).get(grupo) %}
+                                    {% for slot in slots_vacantes.get(servicio).get(grupo) %}
                                     <div class="worker-node slot-vacante" style="margin-bottom:6px">
                                         <div class="wn-top">
                                             <div class="avatar av-vacante"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
