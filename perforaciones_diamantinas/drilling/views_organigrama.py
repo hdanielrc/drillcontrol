@@ -213,11 +213,16 @@ def organigrama_view(request):
     # Agrupar trabajadores por servicio y grupo
     trabajadores_por_servicio_grupo = {}
     for t in trabajadores_qs:
-        # Usar cargo_headcount si está definido, sino cargo
         cargo_hc = t.cargo_headcount if getattr(t, 'cargo_headcount', None) else t.cargo
         grupo = _grupo_para_cargo(cargo_hc)
         servicio = getattr(t, 'servicio', None) or getattr(t, 'tipo_servicio', None) or 'SIN_SERVICIO'
-        trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
+        if grupo == 'OPERADORES':
+            # Subagrupar por máquina
+            maquina = t.maquina_asignada
+            maquina_key = maquina.id if maquina else None
+            trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, {}).setdefault(maquina_key, {'maquina': maquina, 'workers': []})['workers'].append(_build_worker_dict(t, tareo_dict, dias_semana))
+        else:
+            trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
 
     # ── Construir listas por grupo con datos de tareo ───────────
     linea_mando_raw = sorted(
