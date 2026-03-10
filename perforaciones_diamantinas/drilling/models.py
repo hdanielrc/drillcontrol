@@ -4607,6 +4607,11 @@ class ConfiguracionAlertaStock(models.Model):
 # =============================================================================
 
 class HeadCount(models.Model):
+    UBICACION_CHOICES = [
+        ('SUPERFICIE', 'Superficie'),
+        ('MINA', 'Mina'),
+        ('GENERAL', 'General'),
+    ]
     ubicacion = models.CharField(
         max_length=50,
         choices=UBICACION_CHOICES,
