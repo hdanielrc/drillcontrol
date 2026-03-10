@@ -4607,6 +4607,17 @@ class ConfiguracionAlertaStock(models.Model):
 # =============================================================================
 
 class HeadCount(models.Model):
+        SERVICIO_CHOICES = [
+            ('DDH', 'DDH'),
+            ('GEO', 'GEO'),
+            ('LAB', 'LAB'),
+        ]
+        servicio = models.CharField(
+            max_length=10,
+            choices=SERVICIO_CHOICES,
+            default='DDH',
+            verbose_name='Servicio'
+        )
     CATEGORIA_CHOICES = [
         ('LINEA DE MANDO', 'Línea de Mando'),
         ('OPERATIVO', 'Operativo'),
