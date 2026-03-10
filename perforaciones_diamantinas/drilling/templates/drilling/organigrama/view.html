@@ -538,17 +538,7 @@ html, body { height: 100%; }
                                     {% empty %}
                                         <span style="margin-right:6px;color:#999">Sin vacantes</span>
                                     {% endfor %}
-                                    <div style="margin-top:6px;color:#0ea5e9;background:#e0f2fe;padding:2px 6px;border-radius:6px;">
-                                        <b>Debug:</b>
-                                        Trabajadores:
-                                        {% for wd in trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
-                                            <pre>{{ wd.obj.cargo }} - {{ wd.obj.nombres }} {{ wd.obj.apepat }}</pre>
-                                        {% endfor %}
-                                        Vacantes:
-                                        {% for slot in vacantes %}
-                                            <pre>{{ slot }}</pre>
-                                        {% endfor %}
-                                    </div>
+                                    
                                 </div>
                             </div>
                             {% if trabajadores_por_servicio_grupo|get_item:servicio|get_item:grupo %}
