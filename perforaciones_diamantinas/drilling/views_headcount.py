@@ -9,7 +9,7 @@ from django.http import JsonResponse, HttpResponseRedirect
 from django.db.models import Sum, Count, Q
 from django.urls import reverse
 from django.db.models import QuerySet
-from .models import HeadCount, Contrato, Trabajador, Maquina
+from .models import HeadCount, Contrato, Trabajador
 from .forms import HeadCountForm
 
 
@@ -31,7 +31,7 @@ def headcount_dashboard(request):
     headcounts = HeadCount.objects.filter(
         contrato__in=contratos,
         activo=True
-    ).select_related('contrato', 'cargo', 'maquina')
+    ).select_related('contrato')
     
     # Calcular estadísticas
     total_requerido = headcounts.aggregate(total=Sum('cantidad_requerida'))['total'] or 0
@@ -84,13 +84,20 @@ def headcount_list(request):
     contrato_id = request.GET.get('contrato', '').strip()
     cargo_id = request.GET.get('cargo', '').strip()
     estado_filtro = request.GET.get('estado', '').strip()
-    maquina_id = request.GET.get('maquina', '').strip()
-    
+    categoria_filtro = request.GET.get('categoria', '').strip()
+    servicio_filtro = request.GET.get('servicio', '').strip()
+    ubicacion_filtro = request.GET.get('ubicacion', '').strip()
+
+    nivel_filtro = request.GET.get('nivel', '').strip()
+
     # Limpiar valores vacíos
     contrato_id = contrato_id if contrato_id else None
     cargo_id = cargo_id if cargo_id else None
     estado_filtro = estado_filtro if estado_filtro else None
-    maquina_id = maquina_id if maquina_id else None
+    categoria_filtro = categoria_filtro if categoria_filtro else None
+    servicio_filtro = servicio_filtro if servicio_filtro else None
+    ubicacion_filtro = ubicacion_filtro if ubicacion_filtro else None
+    nivel_filtro = nivel_filtro if nivel_filtro else None
     
     if request.user.has_access_to_all_contracts():
         contratos = Contrato.objects.filter(estado='ACTIVO')
@@ -114,30 +121,26 @@ def headcount_list(request):
     
     # Aplicar filtros adicionales
     if cargo_id:
-        headcounts_query = headcounts_query.filter(cargo__icontains=cargo_id)
-    
+        headcounts_query = headcounts_query.filter(cargo=cargo_id)
+    if categoria_filtro:
+        headcounts_query = headcounts_query.filter(categoria=categoria_filtro)
+    if servicio_filtro:
+        headcounts_query = headcounts_query.filter(servicio=servicio_filtro)
+    if ubicacion_filtro:
+        headcounts_query = headcounts_query.filter(ubicacion=ubicacion_filtro)
+    if nivel_filtro:
+        headcounts_query = headcounts_query.filter(nivel=nivel_filtro)
+
     if estado_filtro == 'completo':
         headcounts_query = [hc for hc in headcounts_query if hc.esta_completo()]
     elif estado_filtro == 'incompleto':
         headcounts_query = [hc for hc in headcounts_query if not hc.esta_completo()]
     
-    if maquina_id:
-        if isinstance(headcounts_query, QuerySet):
-            if maquina_id == 'sin_asignar':
-                headcounts_query = headcounts_query.filter(maquina__isnull=True)
-            else:
-                headcounts_query = headcounts_query.filter(maquina_id=maquina_id)
-        else:
-            if maquina_id == 'sin_asignar':
-                headcounts_query = [hc for hc in headcounts_query if hc.maquina is None]
-            else:
-                headcounts_query = [hc for hc in headcounts_query if hc.maquina_id == int(maquina_id)]
-    
     # Convertir a lista si aún es QuerySet
     if isinstance(headcounts_query, QuerySet):
-        headcounts = headcounts_query.select_related('maquina').order_by('cargo', 'maquina__nombre')
+        headcounts = headcounts_query.order_by('servicio', 'categoria', 'ubicacion', 'cargo', 'nivel')
     else:
-        headcounts = sorted(headcounts_query, key=lambda x: (x.cargo, x.maquina.nombre if x.maquina else ''))
+        headcounts = sorted(headcounts_query, key=lambda x: (x.servicio, x.categoria, x.ubicacion, x.cargo, x.nivel))
     
     # Obtener cargos con trabajadores activos que NO están en el headcount
     cargos_en_headcount = set(hc.cargo for hc in headcounts)
@@ -159,8 +162,11 @@ def headcount_list(request):
                 self.id = None
                 self.contrato = contrato
                 self.cargo = cargo
+                self.categoria = ''
+                self.servicio = ''
+                self.ubicacion = ''
+                self.nivel = ''
                 self.cantidad_requerida = 0
-                self.maquina = None
                 self.activo = True
                 self.observaciones = 'Cargo no planificado en headcount'
                 self._cantidad_actual = cantidad_actual
@@ -189,7 +195,7 @@ def headcount_list(request):
         headcounts_list.append(mock_hc)
     
     # Ordenar incluyendo los no planificados
-    headcounts_list = sorted(headcounts_list, key=lambda x: (x.cargo, x.maquina.nombre if x.maquina else ''))
+    headcounts_list = sorted(headcounts_list, key=lambda x: (x.servicio, x.categoria, x.ubicacion, x.cargo, x.nivel))
     
     # Agregar datos calculados
     headcounts_data = []
@@ -209,17 +215,21 @@ def headcount_list(request):
     total_diferencia = total_requerido - total_actual
     porcentaje_general = int((total_actual / total_requerido * 100)) if total_requerido > 0 else 0
     
-    # Obtener cargos únicos (de trabajadores + headcounts) para los filtros
-    cargos_hc = HeadCount.objects.filter(contrato=contrato).values_list('cargo', flat=True).distinct()
-    cargos_trab = Trabajador.objects.filter(contrato=contrato).values_list('cargo', flat=True).distinct()
-    cargos = sorted(set(cargos_hc) | set(cargos_trab))
-    maquinas = Maquina.objects.filter(contrato=contrato, estado='OPERATIVO').order_by('nombre')
-    
+    # Obtener valores únicos para filtros
+    cargos = HeadCount.CARGO_CHOICES
+    categorias = HeadCount.CATEGORIA_CHOICES
+    servicios = HeadCount.SERVICIO_CHOICES
+    ubicaciones = HeadCount.UBICACION_CHOICES
+    niveles = HeadCount.NIVEL_CHOICES
+
     context = {
         'contrato': contrato,
         'contratos': contratos,
         'cargos': cargos,
-        'maquinas': maquinas,
+        'categorias': categorias,
+        'servicios': servicios,
+        'ubicaciones': ubicaciones,
+        'niveles': niveles,
         'headcounts': headcounts_list,  # Para iterar en el template
         'headcounts_data': headcounts_data,
         'total_requerido': total_requerido,
@@ -254,12 +264,18 @@ def headcount_create(request):
                 # Verificar si ya existe un headcount activo con los mismos datos
                 contrato = form.cleaned_data['contrato']
                 cargo = form.cleaned_data['cargo']
-                maquina = form.cleaned_data.get('maquina')
-                
+                categoria = form.cleaned_data['categoria']
+                servicio = form.cleaned_data['servicio']
+                ubicacion = form.cleaned_data['ubicacion']
+                nivel = form.cleaned_data.get('nivel', '')
+
                 existe = HeadCount.objects.filter(
                     contrato=contrato,
                     cargo=cargo,
-                    maquina=maquina,
+                    categoria=categoria,
+                    servicio=servicio,
+                    ubicacion=ubicacion,
+                    nivel=nivel,
                     activo=True
                 ).exists()
                 

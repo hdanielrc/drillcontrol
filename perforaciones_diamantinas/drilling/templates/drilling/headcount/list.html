@@ -30,50 +30,64 @@
     <div class="card-body">
         <form method="get" action="" id="filtrosForm">
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label for="contrato" class="form-label">Contrato</label>
                     <select name="contrato" id="contrato" class="form-select">
-                        <option value="">Todos los contratos</option>
-                        {% for contrato in contratos %}
-                        <option value="{{ contrato.id }}" {% if request.GET.contrato == contrato.id|stringformat:"s" %}selected{% endif %}>
-                            {{ contrato.nombre_contrato }}
+                        <option value="">Todos</option>
+                        {% for c in contratos %}
+                        <option value="{{ c.id }}" {% if request.GET.contrato == c.id|stringformat:"s" %}selected{% endif %}>
+                            {{ c.nombre_contrato }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
-                
-                <div class="col-md-3">
-                    <label for="cargo" class="form-label">Cargo</label>
-                    <select name="cargo" id="cargo" class="form-select">
-                        <option value="">Todos los cargos</option>
-                        {% for cargo in cargos %}
-                        <option value="{{ cargo }}" {% if request.GET.cargo == cargo %}selected{% endif %}>
-                            {{ cargo }}
-                        </option>
+
+                <div class="col-md-2">
+                    <label for="servicio" class="form-label">Servicio</label>
+                    <select name="servicio" id="servicio" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in servicios %}
+                        <option value="{{ value }}" {% if request.GET.servicio == value %}selected{% endif %}>{{ value }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                
-                <div class="col-md-3">
+
+                <div class="col-md-2">
+                    <label for="categoria" class="form-label">Categoría</label>
+                    <select name="categoria" id="categoria" class="form-select">
+                        <option value="">Todas</option>
+                        {% for value, label in categorias %}
+                        <option value="{{ value }}" {% if request.GET.categoria == value %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="ubicacion" class="form-label">Ubicación</label>
+                    <select name="ubicacion" id="ubicacion" class="form-select">
+                        <option value="">Todas</option>
+                        {% for value, label in ubicaciones %}
+                        <option value="{{ value }}" {% if request.GET.ubicacion == value %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="nivel" class="form-label">Nivel</label>
+                    <select name="nivel" id="nivel" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in niveles %}
+                        <option value="{{ value }}" {% if request.GET.nivel == value %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
                     <label for="estado" class="form-label">Estado</label>
                     <select name="estado" id="estado" class="form-select">
                         <option value="">Todos</option>
                         <option value="completo" {% if request.GET.estado == "completo" %}selected{% endif %}>Completo</option>
                         <option value="incompleto" {% if request.GET.estado == "incompleto" %}selected{% endif %}>Incompleto</option>
-                        <option value="excedido" {% if request.GET.estado == "excedido" %}selected{% endif %}>Excedido</option>
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="maquina" class="form-label">Máquina</label>
-                    <select name="maquina" id="maquina" class="form-select">
-                        <option value="">Todas</option>
-                        <option value="sin_asignar" {% if request.GET.maquina == "sin_asignar" %}selected{% endif %}>Sin asignar</option>
-                        {% for maquina in maquinas %}
-                        <option value="{{ maquina.id }}" {% if request.GET.maquina == maquina.id|stringformat:"s" %}selected{% endif %}>
-                            {{ maquina.nombre }}
-                        </option>
-                        {% endfor %}
                     </select>
                 </div>
             </div>
@@ -118,8 +132,11 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                 <thead class="table-dark">
                     <tr>
                         <th>Contrato</th>
+                        <th>Servicio</th>
+                        <th>Categoría</th>
+                        <th>Ubicación</th>
                         <th>Cargo</th>
-                        <th>Máquina</th>
+                        <th>Nivel</th>
                         <th class="text-center">Requerido</th>
                         <th class="text-center">Actual</th>
                         <th class="text-center">Diferencia</th>
@@ -136,16 +153,25 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                             <small class="text-muted">{{ headcount.contrato.cliente.nombre }}</small>
                         </td>
                         <td>
-                            <span class="badge bg-secondary">{{ headcount.cargo }}</span>
+                            <span class="badge bg-info text-dark">{{ headcount.servicio }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ headcount.get_categoria_display }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-dark">{{ headcount.get_ubicacion_display }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ headcount.cargo }}</span>
                             {% if headcount.es_no_planificado %}
                             <span class="badge bg-warning text-dark ms-1" title="Este cargo no está planificado en el headcount">
                                 <i class="fas fa-exclamation-triangle"></i> No planificado
                             </span>
                             {% endif %}
                         </td>
-                        <td>
-                            {% if headcount.maquina %}
-                            <span class="badge bg-info">{{ headcount.maquina.nombre }}</span>
+                        <td class="text-center">
+                            {% if headcount.nivel %}
+                            <span class="badge bg-light text-dark border">{{ headcount.nivel }}</span>
                             {% else %}
                             <span class="text-muted">-</span>
                             {% endif %}
@@ -291,7 +317,7 @@ document.getElementById('filtrosForm').addEventListener('submit', function(e) {
                     {% endif %}
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-5">
+                        <td colspan="12" class="text-center text-muted py-5">
                             <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                             <p>No hay headcount definido</p>
                             <a href="{% url 'headcount-create' %}" class="btn btn-primary">

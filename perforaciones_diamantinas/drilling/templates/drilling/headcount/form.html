@@ -52,14 +52,45 @@
                             {% else %}
                             {{ form.contrato }}
                             {% if form.contrato.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.contrato.errors }}
-                            </div>
+                            <div class="invalid-feedback d-block">{{ form.contrato.errors }}</div>
                             {% endif %}
                             <small class="form-text text-muted">Seleccione el contrato al que aplica</small>
                             {% endif %}
                         </div>
-                        
+
+                        <!-- Servicio -->
+                        <div class="col-md-2">
+                            <label for="{{ form.servicio.id_for_label }}" class="form-label required">
+                                <i class="fas fa-cog me-1"></i> Servicio
+                            </label>
+                            {{ form.servicio }}
+                            {% if form.servicio.errors %}
+                            <div class="invalid-feedback d-block">{{ form.servicio.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Categoría -->
+                        <div class="col-md-4">
+                            <label for="{{ form.categoria.id_for_label }}" class="form-label required">
+                                <i class="fas fa-layer-group me-1"></i> Categoría
+                            </label>
+                            {{ form.categoria }}
+                            {% if form.categoria.errors %}
+                            <div class="invalid-feedback d-block">{{ form.categoria.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Ubicación -->
+                        <div class="col-md-3">
+                            <label for="{{ form.ubicacion.id_for_label }}" class="form-label required">
+                                <i class="fas fa-map-marker-alt me-1"></i> Ubicación
+                            </label>
+                            {{ form.ubicacion }}
+                            {% if form.ubicacion.errors %}
+                            <div class="invalid-feedback d-block">{{ form.ubicacion.errors }}</div>
+                            {% endif %}
+                        </div>
+
                         <!-- Cargo -->
                         <div class="col-md-6">
                             <label for="{{ form.cargo.id_for_label }}" class="form-label required">
@@ -67,27 +98,32 @@
                             </label>
                             {{ form.cargo }}
                             {% if form.cargo.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.cargo.errors }}
-                            </div>
+                            <div class="invalid-feedback d-block">{{ form.cargo.errors }}</div>
                             {% endif %}
-                            <small class="form-text text-muted">Seleccione el cargo requerido</small>
                         </div>
-                        
+
+                        <!-- Nivel -->
+                        <div class="col-md-3">
+                            <label for="{{ form.nivel.id_for_label }}" class="form-label">
+                                <i class="fas fa-signal me-1"></i> Nivel <span class="text-muted">(Opcional)</span>
+                            </label>
+                            {{ form.nivel }}
+                            {% if form.nivel.errors %}
+                            <div class="invalid-feedback d-block">{{ form.nivel.errors }}</div>
+                            {% endif %}
+                        </div>
+
                         <!-- Cantidad Requerida -->
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <label for="{{ form.cantidad_requerida.id_for_label }}" class="form-label required">
-                                <i class="fas fa-hashtag me-1"></i> Cantidad Requerida
+                                <i class="fas fa-hashtag me-1"></i> Cantidad
                             </label>
                             {{ form.cantidad_requerida }}
                             {% if form.cantidad_requerida.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.cantidad_requerida.errors }}
-                            </div>
+                            <div class="invalid-feedback d-block">{{ form.cantidad_requerida.errors }}</div>
                             {% endif %}
-                            <small class="form-text text-muted">Número de personas requeridas</small>
                         </div>
-                        
+
                         <!-- Observaciones -->
                         <div class="col-12">
                             <label for="{{ form.observaciones.id_for_label }}" class="form-label">
@@ -95,13 +131,10 @@
                             </label>
                             {{ form.observaciones }}
                             {% if form.observaciones.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.observaciones.errors }}
-                            </div>
+                            <div class="invalid-feedback d-block">{{ form.observaciones.errors }}</div>
                             {% endif %}
-                            <small class="form-text text-muted">Notas adicionales sobre este headcount</small>
                         </div>
-                        
+
                         <!-- Activo -->
                         <div class="col-12">
                             <div class="form-check form-switch">
@@ -111,11 +144,8 @@
                                 </label>
                             </div>
                             {% if form.activo.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.activo.errors }}
-                            </div>
+                            <div class="invalid-feedback d-block">{{ form.activo.errors }}</div>
                             {% endif %}
-                            <small class="form-text text-muted">Marque para activar este headcount</small>
                         </div>
                     </div>
                     

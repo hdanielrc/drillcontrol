@@ -4609,30 +4609,114 @@ class ConfiguracionAlertaStock(models.Model):
 class HeadCount(models.Model):
     """
     Modelo para definir el personal planificado/requerido por contrato.
-    Define cuántos trabajadores de cada cargo se necesitan y opcionalmente
-    a qué máquina están asignados.
+    Define cuántos trabajadores de cada cargo se necesitan.
     """
+
+    CARGO_CHOICES = [
+        ('RESIDENTE', 'Residente'),
+        ('ASISTENTE DE RESIDENTE', 'Asistente de Residente'),
+        ('INGENIERO DE SEGURIDAD', 'Ingeniero de Seguridad'),
+        ('ADMINISTRADOR', 'Administrador'),
+        ('ASISTENTE ADMINISTRATIVO', 'Asistente Administrativo'),
+        ('ASISTENTE LOGISTICO', 'Asistente Logístico'),
+        ('SUPERVISOR OPERATIVO', 'Supervisor Operativo'),
+        ('TECNICO MECANICO', 'Técnico Mecánico'),
+        ('TECNICO ELECTRICISTA', 'Técnico Electricista'),
+        ('TECNICO MECANICO CONDUCTOR SB', 'Técnico Mecánico Conductor SB'),
+        ('CONDUCTOR', 'Conductor'),
+        ('CONDUCTOR SB', 'Conductor SB'),
+        ('PERFORISTA', 'Perforista'),
+        ('AYUDANTE', 'Ayudante'),
+        ('PERFORISTA SB', 'Perforista SB'),
+        ('AYUDANTE SB', 'Ayudante SB'),
+        ('GEOLOGO', 'Geólogo'),
+        ('MUESTRERO ORE CONTROL', 'Muestrero Ore Control'),
+        ('MAESTRO MUESTRERO', 'Maestro Muestrero'),
+        ('AYUDANTE MUESTRERO', 'Ayudante Muestrero'),
+        ('TECNICO GEOLOGIA', 'Técnico Geología'),
+        ('GEOLOGO BD & QA/QC', 'Geólogo BD & QA/QC'),
+        ('ASISTENTE GEOLOGO BD & QA/QC', 'Asistente Geólogo BD & QA/QC'),
+        ('MAESTRO PREPARADOR DE MUESTRAS', 'Maestro Preparador de Muestras'),
+        ('AUXILIAR QA/QC', 'Auxiliar QA/QC'),
+        ('GEOLOGO MINA', 'Geólogo Mina'),
+        ('GEOLOGO DE EXPLORACIONES', 'Geólogo de Exploraciones'),
+        ('SUPERVISOR QA/QC', 'Supervisor QA/QC'),
+        ('LOGISTICO', 'Logístico'),
+        ('AYUDANTE GEOMECANICO', 'Ayudante Geomecánico'),
+        ('TOPOGRAFO', 'Topógrafo'),
+        ('TECNICO MEDICION DENSIDAD', 'Técnico Medición Densidad'),
+        ('MAESTRO MUESTRERO DENSIDAD', 'Maestro Muestrero Densidad'),
+        ('TECNICO DE MAPEO GEOMECANICO', 'Técnico de Mapeo Geomecánico'),
+        ('GEOLOGO DE LOGUEO', 'Geólogo de Logueo'),
+        ('SUPERVISOR DE LABORATORIO', 'Supervisor de Laboratorio'),
+    ]
+
+    CATEGORIA_CHOICES = [
+        ('LINEA DE MANDO', 'Línea de Mando'),
+        ('OPERATIVO', 'Operativo'),
+        ('VACACIONISTA', 'Vacacionista'),
+    ]
+
+    SERVICIO_CHOICES = [
+        ('DDH', 'DDH'),
+        ('GEO', 'GEO'),
+        ('LAB', 'LAB'),
+    ]
+
+    UBICACION_CHOICES = [
+        ('SUPERFICIE', 'Superficie'),
+        ('MINA', 'Mina'),
+        ('GENERAL', 'General'),
+    ]
+
+    NIVEL_CHOICES = [
+        ('I', 'Nivel I'),
+        ('II', 'Nivel II'),
+        ('JUNIOR', 'Junior'),
+        ('SENIOR', 'Senior'),
+    ]
+
     contrato = models.ForeignKey(
-        Contrato, 
-        on_delete=models.CASCADE, 
+        Contrato,
+        on_delete=models.CASCADE,
         related_name='headcounts',
         verbose_name='Contrato'
     )
-    cargo = models.CharField(max_length=200, verbose_name='Cargo')
+    cargo = models.CharField(
+        max_length=200,
+        choices=CARGO_CHOICES,
+        verbose_name='Cargo'
+    )
+    categoria = models.CharField(
+        max_length=50,
+        choices=CATEGORIA_CHOICES,
+        verbose_name='Categoría'
+    )
+    servicio = models.CharField(
+        max_length=10,
+        choices=SERVICIO_CHOICES,
+        default='DDH',
+        verbose_name='Servicio'
+    )
+    ubicacion = models.CharField(
+        max_length=50,
+        choices=UBICACION_CHOICES,
+        default='SUPERFICIE',
+        verbose_name='Ubicación'
+    )
+    nivel = models.CharField(
+        max_length=10,
+        choices=NIVEL_CHOICES,
+        blank=True,
+        default='',
+        verbose_name='Nivel',
+        help_text='Nivel del cargo (I, II, Junior, Senior)'
+    )
     cantidad_requerida = models.PositiveIntegerField(
         default=1,
         validators=[MinValueValidator(1)],
         verbose_name='Cantidad Requerida',
         help_text='Número de trabajadores requeridos para este cargo'
-    )
-    maquina = models.ForeignKey(
-        'Maquina',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='headcounts',
-        verbose_name='Máquina Asignada',
-        help_text='Máquina a la que se asignará el personal (opcional)'
     )
     observaciones = models.TextField(
         blank=True,
@@ -4646,24 +4730,26 @@ class HeadCount(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
-    
+
     class Meta:
         db_table = 'headcount'
         verbose_name = 'Headcount'
         verbose_name_plural = 'Headcounts'
-        unique_together = ['contrato', 'cargo', 'maquina']
+        unique_together = ['contrato', 'cargo', 'categoria', 'servicio', 'ubicacion', 'nivel']
         indexes = [
             models.Index(fields=['contrato', 'activo']),
             models.Index(fields=['cargo']),
-            models.Index(fields=['maquina']),
+            models.Index(fields=['categoria']),
+            models.Index(fields=['servicio']),
+            models.Index(fields=['ubicacion']),
             models.Index(fields=['-created_at']),
         ]
-        ordering = ['contrato', 'cargo']
-    
+        ordering = ['contrato', 'categoria', 'cargo']
+
     def __str__(self):
-        maquina_str = f" - {self.maquina.nombre}" if self.maquina else ""
-        return f"{self.contrato.nombre_contrato} - {self.cargo}: {self.cantidad_requerida}{maquina_str}"
-    
+        nivel_str = f" [{self.nivel}]" if self.nivel else ""
+        return f"{self.contrato.nombre_contrato} | {self.servicio} | {self.categoria} | {self.ubicacion} | {self.cargo}{nivel_str}: {self.cantidad_requerida}"
+
     def get_personal_actual(self):
         """Obtiene el personal activo que cumple con este headcount.
         Considera tanto el cargo oficial (API) como el cargo_headcount (override).
@@ -4671,8 +4757,6 @@ class HeadCount(models.Model):
         from django.db.models import Q
         q_cargo = Q(cargo=self.cargo) | Q(cargo_headcount=self.cargo)
         q_base = Q(contrato=self.contrato, estado='ACTIVO')
-        if self.maquina:
-            q_base &= Q(maquina_asignada=self.maquina)
         return Trabajador.objects.filter(q_base & q_cargo)
     
     def get_cantidad_actual(self):
@@ -4696,8 +4780,6 @@ class HeadCount(models.Model):
     def get_overrides_count(self):
         """Retorna cuántos trabajadores cubren esta posición mediante cargo_headcount (override documentario)"""
         q_base = {'contrato': self.contrato, 'cargo_headcount': self.cargo, 'estado': 'ACTIVO'}
-        if self.maquina:
-            q_base['maquina_asignada'] = self.maquina
         return Trabajador.objects.filter(**q_base).count()
 
 
