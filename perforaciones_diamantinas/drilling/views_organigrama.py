@@ -11,11 +11,14 @@ Estructura basada en el campo `grupo` del trabajador:
 Con semana seleccionada se superpone el estado de tareo de cada día
 sobre cada tarjeta de trabajador.
 """
+import unicodedata
+from datetime import date, timedelta
+from collections import defaultdict, OrderedDict, deque
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from datetime import date, timedelta
-from collections import defaultdict
+
 from .models import Contrato, Trabajador, AsistenciaTrabajador, AsistenciaDiaria, HeadCount
 
 # Mapeo de estados V2 (AsistenciaDiaria) a estados V1 para reutilizar los badges
@@ -85,16 +88,97 @@ def _grupo_para_cargo(cargo):
     return 'CONDUCTORES'
 
 
-def _cargo_order(cargo):
-    c = (cargo or '').upper()
-    if 'RESIDENTE' in c:      return 1
-    if 'JEFE' in c:           return 2
-    if 'GERENTE' in c:        return 2
-    if 'ADMINISTRADOR' in c:  return 3
-    if 'INGENIERO' in c:      return 3
-    if 'SUPERVISOR' in c:     return 4
-    return 5
+SERVICE_ORDER = ['DDH', 'SGEO', 'LAB']
+SERVICE_DISPLAY_LABELS = {
+    'DDH': 'Perforación Diamantina',
+    'SGEO': 'Servicios Geológicos',
+    'LAB': 'Laboratorio & Soporte',
+}
 
+CARGO_PRIORITY_SEQUENCE = [
+    (1, ['JEFE DE OPERACIONES', 'JEFE OPERACIONES', 'JEFE OPERACIONAL']),
+    (2, ['RESIDENTE']),
+    (3, ['ADMINISTRADOR']),
+    (4, ['LOGISTICO', 'LOGISTICA', 'JEFE DE LOGISTICA']),
+    (5, ['ALMACEN', 'ALMACENERO']),
+    (6, ['ASISTENTE ADMINISTRATIVO']),
+    (7, ['ASISTENTE LOGISTICO', 'ASISTENTE LOGISTICA']),
+    (8, ['INGENIERO DE SEGURIDAD', 'INGENIERO SEGURIDAD', 'INGENIERO']),
+    (9, ['SUPERVISOR GENERAL']),
+    (10, ['SUPERVISOR OPERATIVO']),
+    (11, ['GEOLOGO DE LOGUEO', 'GEOLOGO']),
+    (12, ['TOPOGRAFO']),
+    (13, ['SUPERVISOR DE MUESTREO']),
+    (14, ['MAESTRO MUESTRERO']),
+    (15, ['MUESTRERO']),
+    (16, ['AYUDANTE MUESTRERO']),
+    (17, ['TECNICO MECANICO', 'TECNICO MECANICO I', 'TECNICO MECANICO II']),
+    (18, ['PERFORISTA', 'PERFORISTA DDH']),
+    (19, ['AYUDANTE DDH', 'AYUDANTE PERFORISTA', 'AYUDANTE']),
+    (20, ['CONDUCTOR']),
+]
+
+ORG_SECTION_ORDER = [
+    ('direccion', 'Línea de mando'),
+    ('administracion', 'Administración y logística'),
+    ('operaciones', 'Operaciones y campo'),
+    ('geologia', 'Servicios geológicos y muestreo'),
+    ('conduccion', 'Conducción'),
+]
+
+SECTION_KEYWORDS = [
+    ('direccion', ['JEFE', 'RESIDENTE', 'INGENIERO', 'SEGURIDAD']),
+    ('administracion', ['ADMINISTRADOR', 'ASISTENTE ADMINISTRATIVO', 'LOGISTICO', 'LOGISTICA', 'ALMACEN']),
+    ('geologia', ['GEOLOGO', 'GEOLOGIA', 'TOPOGRAFO', 'TOPOGRAFIA', 'MUESTRERO', 'MAESTRO MUESTRERO', 'MUESTREO', 'MUESTRAS', 'QA/QC', 'QA & QC', 'LABORATORIO', 'DENSIDAD', 'GEOMECANICO']),
+    ('conduccion', ['CONDUCTOR', 'CHOFER']),
+    ('operaciones', ['SUPERVISOR OPERATIVO', 'SUPERVISOR GENERAL', 'PERFORISTA', 'AYUDANTE DE PERFORACION', 'AYUDANTE DDH', 'PERFORISTA SB', 'AYUDANTE SB', 'TECNICO MECANICO', 'MECANICO', 'ELECTRICISTA', 'TECNICO ELECTRICISTA']),
+]
+
+DEFAULT_SECTION_KEY = 'operaciones'
+
+NIVEL_LABELS = dict(HeadCount.NIVEL_CHOICES)
+
+
+def _normalize_text(text):
+    if not text:
+        return ''
+    normalized = unicodedata.normalize('NFKD', text)
+    return ''.join(ch for ch in normalized if not unicodedata.combining(ch)).upper()
+
+
+def _cargo_priority_for_hierarchy(cargo):
+    normalized = _normalize_text(cargo)
+    for priority, keywords in CARGO_PRIORITY_SEQUENCE:
+        for keyword in keywords:
+            if keyword in normalized:
+                return priority
+    return max(rule[0] for rule in CARGO_PRIORITY_SEQUENCE) + 1
+
+def _section_for_cargo(cargo):
+    normalized = _normalize_text(cargo)
+    for section_key, keywords in SECTION_KEYWORDS:
+        if any(keyword in normalized for keyword in keywords):
+            return section_key
+    return DEFAULT_SECTION_KEY
+
+
+
+def _normalize_service_code(servicio):
+    if not servicio:
+        return 'DDH'
+    svc = servicio.upper()
+    if svc == 'SGEOL':
+        svc = 'SGEO'
+    if svc in ('WDTH', 'VCR'):
+        svc = 'DDH'
+    if svc not in SERVICE_ORDER:
+        return 'LAB'
+    return svc
+
+
+def _service_key_for_trabajador(trabajador):
+    servicio_raw = getattr(trabajador, 'servicio', None) or getattr(trabajador, 'tipo_servicio', None)
+    return _normalize_service_code(servicio_raw)
 
 def _semana_desde_offset(offset: int, dia_inicio: int = 0):
     """
@@ -211,164 +295,92 @@ def organigrama_view(request):
         if not a['es_proyeccion'] or existing is None:
             tareo_dict.setdefault(a['empleado_id'], {})[a['fecha']] = v1_equiv
 
-    # Agrupar trabajadores por servicio y grupo
-    trabajadores_por_servicio_grupo = {}
+    trabajadores_por_servicio_cargo = defaultdict(lambda: defaultdict(deque))
+    trabajador_lookup = {}
     for t in trabajadores_qs:
-        cargo_hc = t.cargo_headcount if getattr(t, 'cargo_headcount', None) else t.cargo
-        grupo = _grupo_para_cargo(cargo_hc)
-        servicio = getattr(t, 'servicio', None) or getattr(t, 'tipo_servicio', None) or 'SIN_SERVICIO'
-        if grupo == 'OPERADORES':
-            # Subagrupar por máquina
-            maquina = t.maquina_asignada
-            maquina_key = maquina.id if maquina else None
-            trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, {}).setdefault(maquina_key, {'maquina': maquina, 'workers': []})['workers'].append(_build_worker_dict(t, tareo_dict, dias_semana))
-        else:
-            trabajadores_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
+        worker = _build_worker_dict(t, tareo_dict, dias_semana)
+        servicio_key = _service_key_for_trabajador(t)
+        cargo_key = _normalize_text(getattr(t, 'cargo_headcount', None) or t.cargo)
+        trabajadores_por_servicio_cargo[servicio_key][cargo_key].append(worker)
+        trabajador_lookup[t.id] = worker
 
-    # ── Construir listas por grupo con datos de tareo ───────────
-    linea_mando_raw = sorted(
-        [t for t in trabajadores_qs if t.grupo == 'LINEA_MANDO'],
-        key=lambda t: (_cargo_order(t.cargo), t.apepat)
-    )
-    linea_mando = [_build_worker_dict(t, tareo_dict, dias_semana) for t in linea_mando_raw]
-
-    operadores_raw = [t for t in trabajadores_qs if t.grupo == 'OPERADORES']
-    guardias_dict = {}
-    for t in sorted(
-        operadores_raw,
-        key=lambda x: (x.guardia_asignada or 'Z', x.maquina_asignada_id or 0, x.apepat)
-    ):
-        g = t.guardia_asignada or 'SIN_GUARDIA'
-        guardias_dict.setdefault(g, []).append(_build_worker_dict(t, tareo_dict, dias_semana))
-
-    operadores_por_guardia = []
-    for key in ['A', 'B', 'C', 'SIN_GUARDIA']:
-        if key in guardias_dict:
-            # sub-agrupar por máquina
-            maquinas_sub = {}
-            for wd in guardias_dict[key]:
-                mq = wd['obj'].maquina_asignada
-                mq_key = mq.id if mq else None
-                maquinas_sub.setdefault(mq_key, {'maquina': mq, 'workers': []})['workers'].append(wd)
-            maquinas_list = []
-            for mk, mv in sorted(maquinas_sub.items(), key=lambda x: (x[0] is None, x[0] or 0)):
-                maquinas_list.append(mv)
-            operadores_por_guardia.append({
-                'guardia': key,
-                'label': f'Guardia {key}' if key != 'SIN_GUARDIA' else 'Sin Guardia',
-                'maquinas': maquinas_list,
-                'total': len(guardias_dict[key]),
-            })
-
-    servicios_geo_raw = [t for t in trabajadores_qs if t.grupo == 'SERVICIOS_GEOLOGICOS']
-    servicios_geo = [_build_worker_dict(t, tareo_dict, dias_semana) for t in servicios_geo_raw]
-
-    conductores_raw = [t for t in trabajadores_qs if t.grupo == 'CONDUCTORES']
-    conductores = [_build_worker_dict(t, tareo_dict, dias_semana) for t in conductores_raw]
-
-    stand_by_raw = [t for t in trabajadores_qs if t.es_standby]
-    stand_by = [_build_worker_dict(t, tareo_dict, dias_semana) for t in stand_by_raw]
-
-    otros_raw = [t for t in trabajadores_qs if not t.grupo and not t.es_standby]
-    otros = [_build_worker_dict(t, tareo_dict, dias_semana) for t in otros_raw]
-
-    # ── Slots Vacantes (HeadCount faltantes) agrupados por servicio y grupo ────
-    slots_por_servicio_grupo = {}
+    headcount_map = defaultdict(list)
     for hc in HeadCount.objects.filter(contrato=contrato, activo=True):
-        diferencia = hc.get_diferencia()
-        if diferencia > 0:
-            servicio = hc.servicio
-            grupo = _grupo_para_cargo(hc.cargo)
-            for _ in range(diferencia):
-                slots_por_servicio_grupo.setdefault(servicio, {}).setdefault(grupo, []).append({'cargo': hc.cargo, 'categoria': hc.categoria, 'ubicacion': hc.ubicacion})
-    total_vacantes = sum(len(v) for s in slots_por_servicio_grupo.values() for v in s.values())
+        headcount_map[hc.servicio].append(hc)
 
-    # Asignar trabajadores a cada slot del headcount (1 trabajador por slot)
-    slots_por_servicio_grupo_asignados = {}
-    for servicio, grupos in slots_por_servicio_grupo.items():
-        for grupo, vacantes in grupos.items():
-            # obtener lista mutable de trabajadores para este servicio/grupo
-            trabajadores_lista = trabajadores_por_servicio_grupo.get(servicio, {}).get(grupo, [])
-            # Normalizar estructuras: para OPERADORES la estructura puede ser
-            # un dict por máquina {maquina_key: {'maquina', 'workers': [...]}}
-            # por lo que convertimos a una lista plana de workers antes de
-            # intentar copiar/slice.
-            if isinstance(trabajadores_lista, dict):
-                trabajadores_disponibles = []
-                for mv in trabajadores_lista.values():
-                    trabajadores_disponibles.extend(mv.get('workers') or [])
-            else:
-                # lista ya plana
-                trabajadores_disponibles = trabajadores_lista[:] if trabajadores_lista else []
-            asignados = []
-            for slot in vacantes:
-                asignado = None
-                for idx, wd in enumerate(trabajadores_disponibles):
-                    obj = wd.get('obj')
-                    cargo_hc_val = getattr(obj, 'cargo_headcount', None) or getattr(obj, 'cargo', None)
-                    if cargo_hc_val and cargo_hc_val.strip().upper() == (slot['cargo'] or '').strip().upper():
-                        asignado = wd
-                        trabajadores_disponibles.pop(idx)
-                        break
-                asignados.append({
-                    'cargo': slot['cargo'],
-                    'categoria': slot['categoria'],
-                    'ubicacion': slot['ubicacion'],
-                    'worker': asignado,
-                })
-            slots_por_servicio_grupo_asignados.setdefault(servicio, {})[grupo] = asignados
+    services_layout = []
+    assigned_worker_ids = set()
+    total_slots = 0
+    total_vacantes = 0
 
-    # ── Combinar slots asignados + vacantes en una sola estructura por servicio/grupo
-    merged_slots_por_servicio_grupo = {}
-    servicios_union = set(list(slots_por_servicio_grupo.keys()) + list(trabajadores_por_servicio_grupo.keys()))
-    for servicio in servicios_union:
-        grupos_union = set()
-        grupos_union.update(slots_por_servicio_grupo.get(servicio, {}).keys())
-        grupos_union.update(trabajadores_por_servicio_grupo.get(servicio, {}).keys())
-        for grupo in grupos_union:
-            # Obtener lista planos de trabajadores para este servicio/grupo
-            t_list = trabajadores_por_servicio_grupo.get(servicio, {}).get(grupo, [])
-            trabajadores_flat = []
-            if isinstance(t_list, dict):
-                for mv in t_list.values():
-                    trabajadores_flat.extend(mv.get('workers') or [])
-            else:
-                trabajadores_flat = t_list[:] if t_list else []
+    ordered_services = list(dict.fromkeys(SERVICE_ORDER + list(headcount_map.keys())))
+    for service_code in ordered_services:
+        headcounts = headcount_map.get(service_code)
+        if not headcounts:
+            continue
+        service_slots = []
+        for hc in sorted(headcounts, key=lambda hc: (_cargo_priority_for_hierarchy(hc.cargo), hc.cargo)):
+            priority = _cargo_priority_for_hierarchy(hc.cargo)
+            cargo_key = _normalize_text(hc.cargo)
+            available_queue = trabajadores_por_servicio_cargo.get(service_code, {}).get(cargo_key, deque())
+            assigned_count = 0
+            assignments = []
+            for _ in range(hc.cantidad_requerida):
+                if available_queue:
+                    worker = available_queue.popleft()
+                    assignments.append({'type': 'worker', 'worker': worker})
+                    assigned_worker_ids.add(worker['obj'].id)
+                    assigned_count += 1
+            vacantes = hc.cantidad_requerida - assigned_count
+            total_vacantes += vacantes
+            total_slots += hc.cantidad_requerida
+            slot = {
+                'cargo': hc.cargo,
+                'label': hc.get_cargo_display() or hc.cargo,
+                'nivel': hc.nivel,
+                'nivel_label': NIVEL_LABELS.get(hc.nivel),
+                'cantidad': hc.cantidad_requerida,
+                'assignments': assignments,
+                'vacantes': vacantes,
+                'section': _section_for_cargo(hc.cargo),
+                'priority': priority,
+            }
+            service_slots.append(slot)
+        if not service_slots:
+            continue
+        sections_by_key = OrderedDict(
+            (key, {'key': key, 'label': label, 'slots': []})
+            for key, label in ORG_SECTION_ORDER
+        )
+        for slot in service_slots:
+            section_bucket = sections_by_key.get(slot['section']) or sections_by_key[DEFAULT_SECTION_KEY]
+            section_bucket['slots'].append(slot)
+        services_layout.append({
+            'code': service_code,
+            'label': SERVICE_DISPLAY_LABELS.get(service_code, service_code),
+            'sections': list(sections_by_key.values()),
+            'total_slots': sum(slot['cantidad'] for slot in service_slots),
+            'total_assigned': sum(
+                1 for slot in service_slots for assignment in slot['assignments'] if assignment['type'] == 'worker'
+            ),
+            'total_vacantes': sum(slot['vacantes'] for slot in service_slots),
+        })
 
-            # Transformar cada trabajador a formato de slot con 'worker'
-            workers_as_slots = []
-            for wd in trabajadores_flat:
-                workers_as_slots.append({
-                    'cargo': getattr(wd['obj'], 'cargo_headcount', None) or getattr(wd['obj'], 'cargo', None),
-                    'categoria': getattr(wd['obj'], 'categoria', None) or '',
-                    'ubicacion': getattr(wd['obj'], 'ubicacion', None) or '',
-                    'worker': wd,
-                })
-
-            vacantes_raw = slots_por_servicio_grupo.get(servicio, {}).get(grupo, [])
-            vacantes_transform = []
-            for v in (vacantes_raw or []):
-                vacantes_transform.append({
-                    'cargo': v.get('cargo'),
-                    'categoria': v.get('categoria'),
-                    'ubicacion': v.get('ubicacion'),
-                    'worker': None,
-                })
-
-            # Mostrar primero los trabajadores existentes y luego las vacantes
-            merged = workers_as_slots + vacantes_transform
-            if merged:
-                merged_slots_por_servicio_grupo.setdefault(servicio, {})[grupo] = merged
+    trabajadores_sin_headcount = sorted(
+        [worker for wid, worker in trabajador_lookup.items() if wid not in assigned_worker_ids],
+        key=lambda w: (_normalize_text(w['obj'].apepat), _normalize_text(w['obj'].nombres))
+    )
 
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
         'total_trabajadores': trabajadores_qs.count(),
-        'trabajadores_por_servicio_grupo': trabajadores_por_servicio_grupo,
-        'slots_vacantes': slots_por_servicio_grupo,
-        'slots_por_servicio_grupo_asignados': slots_por_servicio_grupo_asignados,
-        'merged_slots_por_servicio_grupo': merged_slots_por_servicio_grupo,
+        'total_headcount_slots': total_slots,
+        'total_headcount_assignments': len(assigned_worker_ids),
         'total_vacantes': total_vacantes,
+        'services_layout': services_layout,
+        'org_sections': [{'key': key, 'label': label} for key, label in ORG_SECTION_ORDER],
+        'trabajadores_sin_headcount': trabajadores_sin_headcount,
         # Semana
         'semana_offset': semana_offset,
         'semana_inicio': semana_inicio,

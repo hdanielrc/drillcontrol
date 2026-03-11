@@ -1,4 +1,4 @@
-﻿{% extends "drilling/base.html" %}
+{% extends "drilling/base.html" %}
 {% load static %}
 {% load dict_filters %}
 
@@ -6,63 +6,44 @@
 
 {% block extra_css %}
 <style>
-/* ═══════════════════════════════════════════════════════════
-   ORGANIGRAMA CON TAREO SEMANAL – drillcontrol
-   ═══════════════════════════════════════════════════════════ */
-
 :root {
-    --lm-color:  #084163;
-    --op-color:  #166534;
-    --geo-color: #0369a1;
-    --aux-color: #4b5563;
-    --ga-color:  #1d4ed8;
-    --gb-color:  #7c3aed;
-    --gc-color:  #065f46;
-    --gx-color:  #6b7280;
-    --line-color:#94a3b8;
-    --card-bg:   #f8fafc;
-    --card-border:#e2e8f0;
+    --bg: #f4f6fb;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --primary: #0f172a;
+    --primary-soft: #0470ac;
+    --muted: #475569;
+    --danger: #dc2626;
+    --vacant: #fee2e2;
 }
-
-html, body { height: 100%; }
-
+body { background: var(--bg); }
 .org-page {
-    background: #f1f5f9;
-    min-height: calc(100vh - 120px);
     padding: 20px 24px 40px;
-    overflow-x: auto;
+    min-height: calc(100vh - 120px);
 }
-
-/* ── Top bar ─────────────────────────────────────── */
 .org-topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
     flex-wrap: wrap;
     gap: 12px;
+    margin-bottom: 16px;
 }
 .org-topbar h2 {
     margin: 0;
-    color: var(--lm-color);
-    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 1.4rem;
 }
-.contract-sel { display: flex; align-items: center; gap: 8px; }
-.contract-sel label { font-size: .85rem; color: #64748b; white-space: nowrap; }
 .contract-sel select {
-    border: 1px solid #cbd5e1;
     border-radius: 8px;
+    border: 1px solid #cbd5e1;
     padding: 6px 12px;
-    font-size: .9rem;
-    min-width: 200px;
     background: #fff;
+    font-size: .95rem;
 }
-
-/* ── Barra de navegación semanal ─────────────────── */
 .semana-nav {
     display: flex;
     align-items: center;
@@ -71,8 +52,8 @@ html, body { height: 100%; }
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     padding: 8px 16px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.06);
     margin-bottom: 18px;
+    box-shadow: 0 1px 4px rgba(15,23,42,.08);
     flex-wrap: wrap;
 }
 .semana-nav .nav-btn {
@@ -82,333 +63,370 @@ html, body { height: 100%; }
     padding: 5px 12px;
     font-size: .85rem;
     font-weight: 600;
-    cursor: pointer;
-    color: var(--lm-color);
+    color: var(--primary);
     text-decoration: none;
     display: flex;
     align-items: center;
-    gap: 5px;
-    transition: background .15s;
+    gap: 4px;
 }
-.semana-nav .nav-btn:hover { background: #e2e8f0; color: var(--lm-color); }
-.semana-nav .semana-label {
+.semana-nav .nav-btn:hover {
+    background: #e2e8f0;
+}
+.semana-nav .hoy-btn {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.semana-nav .hoy-btn:hover {
+    background: #0a3f6f;
+}
+.semana-label {
     font-weight: 700;
-    color: #1e293b;
-    font-size: .97rem;
-    min-width: 200px;
+    color: #0f172a;
+    font-size: .95rem;
+    min-width: 220px;
     text-align: center;
 }
-.semana-nav .hoy-btn { background: var(--lm-color); color: #fff; border-color: var(--lm-color); margin-left: 8px; }
-.semana-nav .hoy-btn:hover { background: #0470ac; color: #fff; }
-.semana-dias { display: flex; gap: 4px; margin-left: auto; }
-.semana-dias .dia-head {
-    width: 26px; height: 26px; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .7rem; font-weight: 700;
-    background: #f1f5f9; color: #475569;
+.semana-dias {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
 }
-.semana-dias .dia-head.hoy { background: var(--lm-color); color: #fff; }
-.semana-dias .dia-head.fin-semana { background: #fee2e2; color: #991b1b; }
-
-/* ── Stats strip ─────────────────────────────────── */
+.dia-head {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #475569;
+}
+.dia-head.hoy {
+    background: var(--primary);
+    color: #fff;
+}
+.dia-head.fin-semana {
+    background: #fee2e2;
+    color: #991b1b;
+}
 .org-stats {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 28px;
+    margin-bottom: 16px;
 }
 .stat-chip {
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 20px;
-    padding: 5px 14px;
-    font-size: .82rem;
+    padding: 6px 14px;
+    font-size: .85rem;
     font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.06);
-}
-.stat-chip .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-}
-
-/* ── Árbol contenedor ────────────────────────────── */
-.org-tree-wrap {
-    position: relative;
-    width: 100%;
-}
-
-/* SVG overlay para líneas */
-#org-svg {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    overflow: visible;
-    z-index: 0;
-}
-
-/* ── Nodo raíz (contrato) ────────────────────────── */
-.root-row {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 40px;
-    position: relative;
-    z-index: 1;
-}
-.node-root {
-    background: linear-gradient(135deg, #084163, #0470ac);
-    color: #fff;
-    border-radius: 14px;
-    padding: 14px 28px;
-    text-align: center;
-    box-shadow: 0 4px 16px rgba(8,65,99,.35);
-    min-width: 220px;
-}
-.node-root .root-title { font-weight: 700; font-size: 1.05rem; }
-.node-root .root-sub   { font-size: .8rem; opacity: .8; margin-top: 2px; }
-
-/* ── Nivel 1: secciones principales ─────────────── */
-.level1-row {
-    display: flex;
-    justify-content: center;
-    gap: 24px;
-    flex-wrap: nowrap;
-    position: relative;
-    z-index: 1;
-    margin-bottom: 40px;
-    align-items: flex-start;
-}
-
-/* ── Columna de sección ──────────────────────────── */
-.org-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-    position: relative;
-}
-
-/* ── Header de sección ───────────────────────────── */
-.section-node {
-    border-radius: 12px;
-    padding: 10px 20px;
-    color: #fff;
-    font-weight: 700;
-    font-size: .9rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 3px 10px rgba(0,0,0,.18);
-    white-space: nowrap;
-    margin-bottom: 24px;
-    position: relative;
-    z-index: 1;
-}
-.sn-lm  { background: linear-gradient(135deg, #084163, #0470ac); }
-.sn-op  { background: linear-gradient(135deg, #14532d, #16a34a); }
-.sn-geo { background: linear-gradient(135deg, #0c4a6e, #0369a1); }
-.sn-aux { background: linear-gradient(135deg, #374151, #6b7280); }
-.sn-std { background: linear-gradient(135deg, #78350f, #d97706); }
-
-.sn-count {
-    background: rgba(255,255,255,.25);
-    border-radius: 12px;
-    padding: 1px 8px;
-    font-size: .75rem;
-}
-
-/* ── Workers ────────────────────────────────────── */
-.lm-workers, .side-workers {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
-}
-
-/* ── Card de trabajador ──────────────────────────── */
-.worker-node {
-    background: #fff;
-    border: 1px solid var(--card-border);
-    border-radius: 10px;
-    padding: 8px 10px 6px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.06);
-    transition: transform .15s, box-shadow .15s;
-    position: relative;
-    z-index: 1;
-    width: 220px;
+    box-shadow: 0 2px 9px rgba(15,23,42,.08);
 }
-.wn-top { display: flex; align-items: center; gap: 8px; }
-.worker-node:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+.stat-chip span:first-child {
+    font-size: .65rem;
+    font-weight: 500;
+    color: #94a3b8;
 }
-.worker-node.standby { border-left: 4px solid #fbbf24; }
-
-.avatar {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .82rem; font-weight: 700; color: #fff;
-    flex-shrink: 0;
+.stat-chip.vacancy {
+    border-color: rgba(220,38,38,.4);
+    color: var(--danger);
 }
-.av-lm  { background: #0470ac; }
-.av-op  { background: #16a34a; }
-.av-geo { background: #0369a1; }
-.av-aux { background: #6b7280; }
-.av-std { background: #d97706; }
-.av-vacante { background: #fee2e2; color: #dc2626; border: 2px dashed #dc2626; }
-
-/* Slot vacante */
-.worker-node.slot-vacante {
-    border: 2px dashed #dc2626;
-    background: #fff8f8;
-    opacity: .9;
-}
-
-.node-info { min-width: 0; flex: 1; }
-.node-name  {
-    font-weight: 600; font-size: .8rem; color: #1e293b;
-    line-height: 1.2; display: block;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.node-cargo {
-    font-size: .72rem; color: #64748b; display: block;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-.nano-badges {
-    display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px;
-}
-.nb {
-    font-size: .6rem; padding: 1px 5px; border-radius: 8px; font-weight: 600;
-}
-
-/* ── Tareo week bar ─────────────────────────────── */
-.tareo-week {
+.legend {
     display: flex;
-    gap: 3px;
-    justify-content: center;
-    padding-top: 4px;
-    border-top: 1px solid #f0f4f8;
-    flex-wrap: nowrap;
-}
-.tw-day { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }
-.tw-lbl { font-size: .58rem; color: #94a3b8; font-weight: 600; }
-.tw-badge {
-    font-size: .58rem; font-weight: 700; border-radius: 4px;
-    padding: 1px 2px; text-align: center; min-width: 18px; display: block;
-}
-/* Colores de estado */
-.sb-t   { background: #d1fae5; color: #065f46; }   /* TRABAJADO */
-.sb-dl  { background: #f1f5f9; color: #94a3b8; }   /* DIA LIBRE */
-.sb-f   { background: #fee2e2; color: #991b1b; }   /* FALTA */
-.sb-dm  { background: #fef3c7; color: #92400e; }   /* DESC MEDICO */
-.sb-v   { background: #dbeafe; color: #1d4ed8; }   /* VACACIONES */
-.sb-p   { background: #ede9fe; color: #7c3aed; }   /* PERMISO */
-.sb-sb  { background: #fef9c3; color: #713f12; }   /* STAND BY */
-.sb-i   { background: #cffafe; color: #0e7490; }   /* INDUCCION */
-.sb-r   { background: #e0f2fe; color: #0369a1; }   /* RECORRIDO */
-.sb-da  { background: #f0fdf4; color: #16a34a; }   /* DIA APOYO */
-.sb-sus { background: #fee2e2; color: #991b1b; }   /* SUSPENSION */
-.sb-nd  { background: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; }  /* Sin registro */
-.nb-ga { background: #dbeafe; color: #1d4ed8; }
-.nb-gb { background: #ede9fe; color: #7c3aed; }
-.nb-gc { background: #d1fae5; color: #065f46; }
-.nb-gx { background: #f1f5f9; color: #475569; }
-.nb-mq { background: #fef3c7; color: #92400e; }
-.nb-sb { background: #fef9c3; color: #713f12; }
-
-/* ── Sección Operadores: guardias en columna ──────── */
-.guardias-wrap {
-    display: flex;
-    gap: 20px;
-    align-items: flex-start;
-    position: relative;
-    z-index: 1;
-}
-
-.guardia-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-}
-
-.guardia-node {
-    border-radius: 10px;
-    padding: 6px 16px;
-    color: #fff;
-    font-weight: 700;
-    font-size: .82rem;
-    display: flex;
-    align-items: center;
     gap: 6px;
-    margin-bottom: 16px;
-    white-space: nowrap;
-    box-shadow: 0 2px 8px rgba(0,0,0,.15);
-    position: relative;
-    z-index: 1;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+    font-size: .7rem;
+    color: #475569;
 }
-.gn-a { background: var(--ga-color); }
-.gn-b { background: var(--gb-color); }
-.gn-c { background: var(--gc-color); }
-.gn-x { background: var(--gx-color); }
-
-/* Workers de guardia agrupados por máquina */
-.maquina-group { margin-bottom: 12px; }
-.maquina-group:last-child { margin-bottom: 0; }
-.maquina-label {
-    font-size: .7rem; font-weight: 700; color: #92400e;
-    background: #fef3c7; border: 1px solid #fde68a;
-    border-radius: 8px; padding: 2px 8px;
-    margin-bottom: 6px; display: inline-flex; align-items: center; gap: 4px;
-    width: 220px; box-sizing: border-box;
+.tw-badge {
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-weight: 700;
+    font-size: .68rem;
 }
-.maquina-group .worker-node { margin-bottom: 6px; }
-.maquina-group .worker-node:last-child { margin-bottom: 0; }
-
-/* Sin máquina */
-.sin-maquina-label {
-    font-size: .7rem; color: #94a3b8; margin-bottom: 4px;
-    font-style: italic; display: block; text-align: center;
-    width: 220px;
-}
-
-/* ── Responsive ──────────────────────────────────── */
-@media (max-width: 900px) {
-    .level1-row { flex-wrap: wrap; gap: 30px; }
-    .org-page   { padding: 12px; }
-    .semana-dias { display: none; }
-}
-/* Panel para agrupar header + tarjetas dentro de un fondo oscuro */
-.group-panel {
-    background: linear-gradient(135deg, rgba(8,65,99,0.95), rgba(4,112,172,0.95));
-    padding: 12px 14px 18px;
-    border-radius: 12px;
+.services-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    min-width: 280px;
-    box-shadow: 0 6px 18px rgba(8,65,99,0.18);
+    gap: 24px;
 }
-.group-panel .section-node { background: transparent; box-shadow: none; padding: 6px 12px; border-radius: 8px; }
-.cards-wrap { display:flex; flex-direction:column; gap:10px; align-items:center; }
+.org-service {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15,23,42,.08);
+}
+.org-service-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.org-service-label {
+    margin: 0;
+    font-size: .75rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: .2em;
+}
+.org-service-header h3 {
+    margin: 4px 0 0;
+    font-size: 1.4rem;
+}
+.org-service-meta {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: .9rem;
+    color: #475569;
+}
+.vacante-chip {
+    color: var(--danger);
+    font-weight: 700;
+}
+.org-service-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.root-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.columns-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+}
+.org-column {
+    background: #f8fafc;
+    border: 1px solid #e0e7ff;
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 230px;
+}
+.column-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .2em;
+    color: #475569;
+}
+.column-title {
+    font-weight: 700;
+}
+.column-count {
+    font-size: .7rem;
+    color: #64748b;
+}
+.column-empty {
+    margin: 12px 0 0;
+    font-size: .85rem;
+    color: #94a3b8;
+}
+.column-label {
+    font-size: .7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+}
+.slot-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 6px 18px rgba(15,23,42,.08);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.slot-card-root {
+    background: linear-gradient(135deg, #084163, #0470ac);
+    border-color: transparent;
+    color: #fff;
+    min-width: 220px;
+    box-shadow: 0 10px 22px rgba(8,65,99,.4);
+}
+.slot-card-root .slot-title,
+.slot-card-root .slot-level,
+.slot-card-root .slot-count,
+.slot-card-root .column-label {
+    color: #f8fafc;
+}
+.slot-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+}
+.slot-title {
+    font-weight: 700;
+    font-size: 1rem;
+    display: inline-block;
+}
+.slot-level {
+    margin-left: 6px;
+    border-radius: 9px;
+    padding: 2px 8px;
+    font-size: .7rem;
+    background: rgba(255,255,255,.2);
+}
+.slot-count {
+    font-size: .8rem;
+    color: var(--muted);
+}
+.slot-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: .78rem;
+    color: #475569;
+    align-items: center;
+}
+.slot-workers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.worker-pill {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.worker-pill.vacant {
+    background: var(--vacant);
+    border-color: rgba(220,38,38,.4);
+    color: var(--danger);
+    font-weight: 600;
+}
+.worker-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.worker-name {
+    font-weight: 700;
+    font-size: .9rem;
+    color: #0f172a;
+}
+.worker-cargo {
+    font-size: .78rem;
+    color: #475569;
+}
+.worker-week {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.day-badge {
+    font-size: .65rem;
+    border-radius: 6px;
+    padding: 2px 6px;
+    min-width: 24px;
+    text-align: center;
+    font-weight: 700;
+}
+.sb-t { background: #d1fae5; color: #065f46; }
+.sb-dl { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+.sb-f { background: #fee2e2; color: #991b1b; }
+.sb-dm { background: #fef3c7; color: #92400e; }
+.sb-v { background: #dbeafe; color: #1d4ed8; }
+.sb-p { background: #ede9fe; color: #7c3aed; }
+.sb-sb { background: #fef9c3; color: #713f12; }
+.sb-i { background: #cffafe; color: #0e7490; }
+.sb-r { background: #e0f2fe; color: #0369a1; }
+.sb-da { background: #f0fdf4; color: #16a34a; }
+.sb-sus { background: #fee2e2; color: #991b1b; }
+.sb-nd { background: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; }
+.empty-state {
+    text-align: center;
+    padding: 20px 0;
+    color: #475569;
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    background: #fff;
+}
+.unassigned {
+    margin-top: 32px;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15,23,42,.08);
+}
+.unassigned-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.unassigned-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+.unassigned-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    background: #f8fafc;
+}
+.unassigned-card strong {
+    display: block;
+    font-size: .92rem;
+    margin-bottom: 4px;
+}
+.unassigned-card span {
+    display: block;
+    font-size: .78rem;
+    color: #475569;
+}
+.muted {
+    color: #94a3b8;
+}
+@media (max-width: 1000px) {
+    .columns-row {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .org-service-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .org-stats {
+        flex-direction: column;
+    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="org-page">
-
-    <!-- Top bar -->
     <div class="org-topbar">
         <h2><i class="fas fa-sitemap"></i> Organigrama</h2>
         {% if contratos_disponibles %}
@@ -422,8 +440,6 @@ html, body { height: 100%; }
         </div>
         {% endif %}
     </div>
-
-    <!-- Navegación semanal -->
     <div class="semana-nav">
         <a href="?contrato={{ contrato.id }}&semana_offset={{ semana_offset|add:-1 }}" class="nav-btn">
             <i class="fas fa-chevron-left"></i> Anterior
@@ -445,160 +461,171 @@ html, body { height: 100%; }
             {% endfor %}
         </div>
     </div>
-
-    <!-- Stats -->
     <div class="org-stats">
-        <div class="stat-chip"><span class="dot" style="background:#334155"></span> {{ total_trabajadores }} total</div>
-        <div class="stat-chip"><span class="dot" style="background:var(--lm-color)"></span> {{ total_linea_mando }} Línea Mando</div>
-        <div class="stat-chip"><span class="dot" style="background:var(--op-color)"></span> {{ total_operadores }} Operadores</div>
-        <div class="stat-chip"><span class="dot" style="background:var(--geo-color)"></span> {{ total_servicios_geo }} Serv. Geol.</div>
-        <div class="stat-chip"><span class="dot" style="background:var(--aux-color)"></span> {{ total_auxiliar }} Auxiliar</div>
-        {% if total_standby %}<div class="stat-chip"><span class="dot" style="background:#d97706"></span> {{ total_standby }} Stand By</div>{% endif %}
-        {% if total_vacantes %}<div class="stat-chip"><span class="dot" style="background:#dc2626"></span> {{ total_vacantes }} Vacante{{ total_vacantes|pluralize:"s" }}</div>{% endif %}
+        <div class="stat-chip">
+            <span>Total activos</span>
+            {{ total_trabajadores }}
+        </div>
+        <div class="stat-chip">
+            <span>Planificados</span>
+            {{ total_headcount_slots }}
+        </div>
+        <div class="stat-chip">
+            <span>Ocupados</span>
+            {{ total_headcount_assignments }}
+        </div>
+        <div class="stat-chip vacancy">
+            <span>Vacantes</span>
+            {{ total_vacantes }}
+        </div>
     </div>
-
-    <!-- Leyenda -->
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:18px;font-size:.68rem;">
+    <div class="legend">
         <span class="tw-badge sb-t">T = Trabajado</span>
-        <span class="tw-badge sb-dl">DL = Día Libre</span>
+        <span class="tw-badge sb-dl">DL = Día libre</span>
         <span class="tw-badge sb-f">F = Falta</span>
-        <span class="tw-badge sb-dm">DM = Desc.Méd.</span>
+        <span class="tw-badge sb-dm">DM = Desc. médico</span>
         <span class="tw-badge sb-v">V = Vacaciones</span>
-        <span class="tw-badge sb-p">P = Permiso/Lic.</span>
-        <span class="tw-badge sb-sb">SB = Stand By</span>
+        <span class="tw-badge sb-p">P = Permiso</span>
+        <span class="tw-badge sb-sb">SB = Stand by</span>
         <span class="tw-badge sb-i">I = Inducción</span>
         <span class="tw-badge sb-nd">— = Sin registro</span>
     </div>
-
-    <!-- ═══ ÁRBOL ══════════════════════════════════════════════ -->
-    <div class="org-tree-wrap" id="orgTreeWrap">
-        <svg id="org-svg"></svg>
-
-        <!-- RAÍZ: Contrato -->
-        <div class="root-row">
-            <div class="node-root" id="node-root">
-                <div class="root-title"><i class="fas fa-industry"></i> {{ contrato.nombre_contrato }}</div>
-        <!-- NIVEL 1: ORGANIZACIÓN POR SERVICIO Y CARGO -->
-        <div class="level1-row" id="level1Row">
-            {% for servicio, grupos in merged_slots_por_servicio_grupo.items %}
-                    <div class="org-col">
-                        <div class="group-panel">
-                            <div class="section-node sn-op" style="margin-bottom:0;">
-                                <i class="fas fa-hard-hat"></i> Servicio {{ servicio }}
-                            </div>
-                            {% for grupo, slots in grupos.items %}
-                                <div class="section-node sn-aux" style="background:rgba(0,0,0,0.18);color:#fff;margin-bottom:0;">
-                                    {{ grupo }}
+    <div class="services-container">
+        {% for service in services_layout %}
+        <section class="org-service">
+            <header class="org-service-header">
+                <div>
+                    <p class="org-service-label">Servicio</p>
+                    <h3>{{ service.label }}</h3>
+                </div>
+                <div class="org-service-meta">
+                    <span>{{ service.total_slots }} puesto{{ service.total_slots|pluralize:"s" }}</span>
+                    <span>{{ service.total_assigned }} ocupado{{ service.total_assigned|pluralize:"s" }}</span>
+                    <span class="vacante-chip">{{ service.total_vacantes }} vacante{{ service.total_vacantes|pluralize:"s" }}</span>
+                </div>
+            </header>
+            <div class="org-service-grid">
+                <div class="root-row">
+                    {% for section in service.sections %}
+                        {% if section.key == 'direccion' %}
+                            {% for slot in section.slots %}
+                            <article class="slot-card slot-card-root">
+                                <div class="slot-card-head">
+                                    <div>
+                                        <span class="slot-title">{{ slot.label }}</span>
+                                        {% if slot.nivel_label %}<span class="slot-level">{{ slot.nivel_label }}</span>{% endif %}
+                                    </div>
+                                    <span class="slot-count">{{ slot.cantidad }} planificado{{ slot.cantidad|pluralize:"s" }}</span>
                                 </div>
-                                <div class="cards-wrap">
-                                    {% for slot in slots %}
-                                        {% if slot.worker %}
-                                            <div class="worker-node">
-                                                <div class="wn-top">
-                                                    <div class="avatar av-op">{{ slot.worker.obj.nombres|slice:":1" }}{{ slot.worker.obj.apepat|slice:":1" }}</div>
-                                                    <div class="node-info">
-                                                        <span class="node-name">{{ slot.worker.obj.apepat }}, {{ slot.worker.obj.nombres }}</span>
-                                                        <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
-                                                    </div>
+                                <div class="slot-meta">
+                                    {% if slot.vacantes %}<span class="vacante-chip">{{ slot.vacantes }} vacante{{ slot.vacantes|pluralize:"s" }}</span>{% endif %}
+                                </div>
+                                <div class="slot-workers">
+                                    {% if slot.assignments %}
+                                        {% for assignment in slot.assignments %}
+                                        <div class="worker-pill">
+                                            <div class="worker-info">
+                                                <span class="worker-name">{{ assignment.worker.obj.apepat }}, {{ assignment.worker.obj.nombres }}</span>
+                                                <span class="worker-cargo">{{ assignment.worker.obj.cargo_headcount|default:assignment.worker.obj.cargo }}</span>
+                                            </div>
+                                            <div class="worker-week">
+                                                {% for day in assignment.worker.semana %}
+                                                <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="worker-pill vacant">
+                                            <i class="fas fa-user-plus"></i> Vacante
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </article>
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="columns-row">
+                    {% for section in service.sections %}
+                        {% if section.key != 'direccion' %}
+                        <div class="org-column column-{{ section.key }}">
+                            <div class="column-head">
+                                <span class="column-title">{{ section.label }}</span>
+                                {% if section.slots %}
+                                <span class="column-count">{{ section.slots|length }} puesto{{ section.slots|length|pluralize:"s" }}</span>
+                                {% endif %}
+                            </div>
+                            {% if section.slots %}
+                                {% for slot in section.slots %}
+                                <article class="slot-card">
+                                    <div class="slot-card-head">
+                                        <div>
+                                            <span class="slot-title">{{ slot.label }}</span>
+                                            {% if slot.nivel_label %}<span class="slot-level">{{ slot.nivel_label }}</span>{% endif %}
+                                        </div>
+                                        <span class="slot-count">{{ slot.cantidad }} planificado{{ slot.cantidad|pluralize:"s" }}</span>
+                                    </div>
+                                    <div class="slot-meta">
+                                        <span class="column-label">{{ section.label }}</span>
+                                        {% if slot.vacantes %}
+                                        <span class="vacante-chip">{{ slot.vacantes }} vacante{{ slot.vacantes|pluralize:"s" }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="slot-workers">
+                                        {% if slot.assignments %}
+                                            {% for assignment in slot.assignments %}
+                                            <div class="worker-pill">
+                                                <div class="worker-info">
+                                                    <span class="worker-name">{{ assignment.worker.obj.apepat }}, {{ assignment.worker.obj.nombres }}</span>
+                                                    <span class="worker-cargo">{{ assignment.worker.obj.cargo_headcount|default:assignment.worker.obj.cargo }}</span>
+                                                </div>
+                                                <div class="worker-week">
+                                                    {% for day in assignment.worker.semana %}
+                                                    <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
+                                                    {% endfor %}
                                                 </div>
                                             </div>
+                                            {% endfor %}
                                         {% else %}
-                                            <div class="worker-node slot-vacante" style="border:2px dashed #dc2626;background:#fff8f8;">
-                                                <div class="wn-top">
-                                                    <div class="avatar av-vacante" style="background:#dc2626;color:#fff;"><i class="fas fa-user-plus" style="font-size:.75rem"></i></div>
-                                                    <div class="node-info">
-                                                        <span class="node-name" style="color:#dc2626;font-weight:700">Puesto Vacante</span>
-                                                        <span class="node-cargo">{{ slot.cargo }} — {{ slot.categoria }}</span>
-                                                    </div>
-                                                </div>
+                                            <div class="worker-pill vacant">
+                                                <i class="fas fa-user-plus"></i> Vacante
                                             </div>
                                         {% endif %}
-                                    {% endfor %}
-                                </div>
-                            {% endfor %}
+                                    </div>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                                <p class="column-empty">No hay puestos planificados.</p>
+                            {% endif %}
                         </div>
-                    </div>
-            {% endfor %}
-        </div><!-- /level1-row -->
-                <div class="root-sub">{{ total_trabajadores }} trabajadores activos &nbsp;·&nbsp; {{ label_semana }}</div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             </div>
+        </section>
+        {% empty %}
+        <p class="empty-state">No se han definido headcounts activos para este contrato.</p>
+        {% endfor %}
+    </div>
+    <section class="unassigned">
+        <div class="unassigned-header">
+            <h3>Trabajadores sin headcount</h3>
+            <span>{{ trabajadores_sin_headcount|length }}</span>
         </div>
-
-        
-        <!-- Eliminado bloque duplicado de vacantes (ahora se muestran via merged_slots_por_servicio_grupo) -->
-
-        </div><!-- /level1-row -->
-    </div><!-- /org-tree-wrap -->
-</div><!-- /org-page -->
-{% endblock %}
-
-{% block extra_js %}
-<script>
-/**
- * Dibuja líneas SVG entre nodos padre e hijo del organigrama.
- * Se calculan las posiciones reales en el DOM después del render.
- */
-function drawOrgLines() {
-    const wrap   = document.getElementById('orgTreeWrap');
-    const svg    = document.getElementById('org-svg');
-    if (!wrap || !svg) return;
-
-    svg.innerHTML = '';
-    const wRect = wrap.getBoundingClientRect();
-    svg.setAttribute('viewBox', `0 0 ${wrap.offsetWidth} ${wrap.offsetHeight}`);
-
-    // Conexión padre->hijo: centro-abajo del padre → centro-arriba del hijo
-    function connect(parentEl, childEl, color) {
-        if (!parentEl || !childEl) return;
-
-        const pr = parentEl.getBoundingClientRect();
-        const cr = childEl.getBoundingClientRect();
-
-        const x1 = pr.left + pr.width  / 2 - wRect.left;
-        const y1 = pr.bottom - wRect.top;
-        const x2 = cr.left  + cr.width  / 2 - wRect.left;
-        const y2 = cr.top   - wRect.top;
-        const mid = (y1 + y2) / 2;
-
-        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-        path.setAttribute('d', `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`);
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', color || '#94a3b8');
-        path.setAttribute('stroke-width', '2');
-        path.setAttribute('stroke-dasharray', '0');
-        path.setAttribute('opacity', '0.7');
-        svg.appendChild(path);
-    }
-
-    const root = document.getElementById('node-root');
-
-    // Raíz → secciones
-    ['sn-lm','sn-op','sn-geo','sn-aux','sn-std'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            const colors = {
-                'sn-lm':'#0470ac','sn-op':'#16a34a',
-                'sn-geo':'#0369a1','sn-aux':'#6b7280','sn-std':'#d97706'
-            };
-            connect(root, el, colors[id]);
-        }
-    });
-
-    // sn-op → cada guardia-node
-    const snOp = document.getElementById('sn-op');
-    ['A','B','C','SIN_GUARDIA'].forEach(g => {
-        const gn = document.getElementById('gn-' + g);
-        if (gn && snOp) {
-            const colors = {'A':'#1d4ed8','B':'#7c3aed','C':'#065f46','SIN_GUARDIA':'#6b7280'};
-            connect(snOp, gn, colors[g]);
-        }
-    });
-}
-
-// Ejecutar tras render completo
-document.addEventListener('DOMContentLoaded', function() {
-    drawOrgLines();
-    window.addEventListener('resize', drawOrgLines);
-});
-</script>
+        {% if trabajadores_sin_headcount %}
+        <div class="unassigned-grid">
+            {% for worker in trabajadores_sin_headcount %}
+            <article class="unassigned-card">
+                <strong>{{ worker.obj.apepat }}, {{ worker.obj.nombres }}</strong>
+                <span>{{ worker.obj.cargo }}</span>
+                <span class="muted">{{ worker.obj.servicio|default:worker.obj.tipo_servicio|default:"-" }}</span>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">Todos los trabajadores están planificados en el headcount.</p>
+        {% endif %}
+    </section>
+</div>
 {% endblock %}
