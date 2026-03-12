@@ -300,8 +300,12 @@ def organigrama_view(request):
     for t in trabajadores_qs:
         worker = _build_worker_dict(t, tareo_dict, dias_semana)
         servicio_key = _service_key_for_trabajador(t)
-        cargo_key = _normalize_text(getattr(t, 'cargo_headcount', None) or t.cargo)
-        trabajadores_por_servicio_cargo[servicio_key][cargo_key].append(worker)
+        # Only index workers that have an explicit `cargo_headcount` assigned.
+        # Workers without a headcount assignment will remain in `trabajadores_sin_headcount`.
+        cargo_hc = getattr(t, 'cargo_headcount', None)
+        if cargo_hc:
+            cargo_key = _normalize_text(cargo_hc)
+            trabajadores_por_servicio_cargo[servicio_key][cargo_key].append(worker)
         trabajador_lookup[t.id] = worker
 
     headcount_map = defaultdict(list)
