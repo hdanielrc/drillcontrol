@@ -887,8 +887,10 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
             asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
             if asist:
                 codigo = MAPEO_CODIGOS.get(asist.estado, asist.estado)
+                # Mostrar código y, si existe, la guardia_snapshot (A/B/C)
+                guardia = asist.guardia_snapshot if getattr(asist, 'guardia_snapshot', None) else ''
                 cell = ws.cell(row=row_num, column=col_num)
-                cell.value = codigo
+                cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
                 # Aplicar color de fondo vivo según estado
                 hex_color = COLORES_EXCEL.get(codigo)
                 if hex_color:
