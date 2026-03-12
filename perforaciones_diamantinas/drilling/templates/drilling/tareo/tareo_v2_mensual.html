@@ -563,6 +563,13 @@
                 ⬇️ Descargar Excel
             </button>
 
+            <!-- Botón de exportar Excel semanal (matriz + distribución) -->
+            <button type="button" class="btn-proyeccion" style="background:#117a65; margin-left:8px;" 
+                    onclick="descargarExcelSemanal()"
+                    title="Descargar tareo semanal (matriz + distribución)">
+                📥 Descargar Tareo Semanal
+            </button>
+
             {% if user.is_staff or user.is_superuser %}
             <!-- Botón proyección todos los contratos (admin) -->
             <button type="button" class="btn-proyeccion" style="background:#6c3483;" onclick="generarProyeccionTodos()"
@@ -1348,6 +1355,16 @@ function descargarExcelMesActual(){
     iframe.src = url;
     document.body.appendChild(iframe);
     // Limpiar luego de un tiempo
+    setTimeout(()=>{ try { document.body.removeChild(iframe); } catch(e){} }, 15000);
+}
+
+// Descargar Excel semanal (matriz + distribución)
+function descargarExcelSemanal(){
+    const url = `/tareo/v2/exportar-semanal/?contrato={{ contrato.id }}&fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}`;
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
     setTimeout(()=>{ try { document.body.removeChild(iframe); } catch(e){} }, 15000);
 }
 </script>

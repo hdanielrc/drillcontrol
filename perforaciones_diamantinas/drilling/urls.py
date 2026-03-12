@@ -105,6 +105,9 @@ urlpatterns = [
     
     # Dashboard de estadísticas del tareo
     path('tareo/v2/estadisticas/', tareo_v2_estadisticas, name='tareo-v2-estadisticas'),
+
+    # Exportador semanal (matriz + distribución por máquina)
+    path('tareo/v2/exportar-semanal/', views_tareo.exportar_tareo_semanal, name='tareo-v2-exportar-semanal'),
     
     # Cierre Mensual y Auditoría
     path('tareo/v2/cierre-mensual/', tareo_cierre_mensual, name='tareo_cierre_mensual'),
