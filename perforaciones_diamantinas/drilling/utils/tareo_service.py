@@ -343,9 +343,25 @@ class TareoService:
                 if len(working_guardias) <= 2:
                     continue
 
-                # Choose guardia with fewest workers to rest
-                working_guardias.sort(key=lambda x: x[1])
-                guardia_to_rest = working_guardias[0][0]
+                # Choose guardia to rest using a rotating A->B->C strategy
+                # Start from a deterministic seed based on date + maquina id so
+                # rotation is fair and reproducible across runs.
+                rotation_order = ['A', 'B', 'C']
+                available_ordered = [gk for gk, _ in working_guardias if gk in rotation_order]
+                guardia_to_rest = None
+                if available_ordered:
+                    seed = (fecha.toordinal() + (maq_id or 0))
+                    start_idx = seed % len(rotation_order)
+                    # find the first rotation candidate present in available_ordered
+                    for i in range(len(rotation_order)):
+                        cand = rotation_order[(start_idx + i) % len(rotation_order)]
+                        if cand in available_ordered:
+                            guardia_to_rest = cand
+                            break
+                if guardia_to_rest is None:
+                    # fallback: choose guardia with fewest workers
+                    working_guardias.sort(key=lambda x: x[1])
+                    guardia_to_rest = working_guardias[0][0]
 
                 # Apply change: set estado -> 'DESCANSO' for all entries in that guardia
                 for src, idx in guardias.get(guardia_to_rest, []):
