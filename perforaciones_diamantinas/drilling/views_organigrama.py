@@ -385,8 +385,13 @@ def organigrama_view(request):
     for service in services_layout:
         for section in service['sections']:
             for slot in section['slots']:
-                # Skip any 'direccion' slots here; they are rendered in the unified root row
+                # If slot is in 'direccion', assign it to the LINEA DE MANDO group
                 if slot.get('section') == 'direccion':
+                    lm = groups_map['LINEA DE MANDO']
+                    lm['slots'].append(slot)
+                    lm['total_slots'] += slot.get('cantidad', 0)
+                    lm['total_assigned'] += sum(1 for a in slot.get('assignments', []) if a.get('type') == 'worker')
+                    lm['total_vacantes'] += slot.get('vacantes', 0)
                     continue
                 raw_cat = slot.get('categoria') or 'OPERATIVO'
                 cat_norm = _normalize_text(raw_cat)
