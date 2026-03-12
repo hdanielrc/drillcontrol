@@ -320,6 +320,9 @@ def organigrama_view(request):
             continue
         service_slots = []
         for hc in sorted(headcounts, key=lambda hc: (_cargo_priority_for_hierarchy(hc.cargo), hc.cargo)):
+            # Skip headcount definitions that don't request any slots
+            if not getattr(hc, 'cantidad_requerida', 0):
+                continue
             priority = _cargo_priority_for_hierarchy(hc.cargo)
             cargo_key = _normalize_text(hc.cargo)
             available_queue = trabajadores_por_servicio_cargo.get(service_code, {}).get(cargo_key, deque())
