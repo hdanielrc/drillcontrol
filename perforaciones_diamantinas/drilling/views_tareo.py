@@ -771,7 +771,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     cell.alignment = Alignment(horizontal='center', vertical='center')
     
     # FILA 2: Etiquetas de semanas
-    col_actual = 8  # Columna H (después de las 7 columnas fijas)
+    col_actual = 9  # Columna I (después de las 8 columnas fijas)
     fecha_actual = fecha_inicio
     
     while fecha_actual <= fecha_fin:
@@ -807,7 +807,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     
     # FILA 3: Headers de columnas
     headers = [
-        'ITEM', 'CODIGO', 'APELLIDOS Y NOMBRES', 'Cargo', 'MAQUINA',
+        'ITEM', 'CODIGO', 'APELLIDOS Y NOMBRES', 'Cargo', 'MAQUINA', 'CATEGORIA',
         'GRUPO', 'GUARDIA'
     ]
     
@@ -821,7 +821,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     
     # Headers de días
     fecha_actual = fecha_inicio
-    col_num = 8  # Después de "GUARDIA" (ahora 7 columnas fijas)
+    col_num = 9  # Después de "GUARDIA" (ahora 8 columnas fijas)
     while fecha_actual <= fecha_fin:
         cell = ws.cell(row=3, column=col_num)
         cell.value = fecha_actual
@@ -882,87 +882,211 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                 asist_dict[asist.trabajador.id] = {}
             asist_dict[asist.trabajador.id][asist.fecha] = asist
     
-    # Agrupar trabajadores por máquina -> guardia -> lista de trabajadores
-    machines = {}
+    # Agrupar por CATEGORIA -> MAQUINA (solo para OPERADORES) -> GUARDIA -> trabajadores
+    import re as _re
+    categorias = {}
+    order_map = {
+        'LINEA_MANDO': 1,
+        'OPERADORES': 2,
+        'SERVICIOS_GEOLOGICOS': 3,
+        'CONDUCTORES': 4,
+        '__STAND_BY__': 5,
+        '__SIN_GRUPO__': 6
+    }
+
     for trabajador in trabajadores:
-        maq = getattr(trabajador, 'maquina_asignada', None)
-        maq_key = maq.nombre if maq else 'SIN_MAQUINA'
+        if getattr(trabajador, 'es_standby', False):
+            cat_key = '__STAND_BY__'
+        else:
+            cat_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
+
         guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
-        machines.setdefault(maq_key, {'maquina': maq, 'guardias': {}})
-        machines[maq_key]['guardias'].setdefault(guardia_key, []).append(trabajador)
+
+        if cat_key not in categorias:
+            display = ' '.join(cat_key.split('_')).title() if cat_key not in ['__STAND_BY__', '__SIN_GRUPO__'] else (
+                'Personal Stand By' if cat_key == '__STAND_BY__' else 'Sin Grupo Asignado'
+            )
+            categorias[cat_key] = {
+                'nombre': display,
+                'order': order_map.get(cat_key, 99),
+                'maquinas': {},  # solo usada para OPERADORES
+                'guardias': {}
+            }
+
+        # Si es OPERADORES, agrupar por máquina
+        if cat_key == 'OPERADORES':
+            maq = getattr(trabajador, 'maquina_asignada', None)
+            maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
+            maq_nombre = maq.nombre if maq else 'Sin Máquina Asignada'
+            maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+            if maq_key not in categorias[cat_key]['maquinas']:
+                categorias[cat_key]['maquinas'][maq_key] = {'nombre': maq_nombre, 'css_key': maq_css, 'guardias': {}}
+            categorias[cat_key]['maquinas'][maq_key]['guardias'].setdefault(guardia_key, []).append(trabajador)
+        else:
+            # Para otros grupos, agrupar directamente por guardia
+            categorias[cat_key]['guardias'].setdefault(guardia_key, []).append(trabajador)
 
     row_num = 4
     item_idx = 1
-    # Ordenar máquinas por nombre (SIN_MAQUINA al final)
-    sorted_maquinas = sorted(machines.items(), key=lambda kv: (kv[0] == 'SIN_MAQUINA', kv[0]))
-    for maq_key, maq_data in sorted_maquinas:
-        # Escribir encabezado de máquina (merge across all columns)
-        total_cols = 7 + num_dias + len(headers_resumen)
+
+    # Ordenar categorías por orden definido
+    sorted_cats = sorted(categorias.items(), key=lambda kv: (categorias[kv[0]]['order'], kv[0]))
+    for cat_key, cat_data in sorted_cats:
+        # Escribir encabezado de categoría
+        total_cols = len(headers) + num_dias + len(headers_resumen)
         ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=total_cols)
         cell = ws.cell(row=row_num, column=1)
-        cell.value = f"MÁQUINA: {maq_key if maq_key != 'SIN_MAQUINA' else 'Sin Máquina Asignada'}"
+        cell.value = f"CATEGORÍA: {cat_data['nombre'].upper()}"
         cell.font = Font(bold=True, size=11)
         cell.fill = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
         row_num += 1
 
-        # Para cada guardia dentro de la máquina, en orden A,B,C,SIN_GUARDIA
-        guardia_order = lambda g: (g != 'A', g != 'B', g != 'C', g)
-        for guardia_key in sorted(maq_data['guardias'].keys(), key=guardia_order):
-            # Sub-encabezado de guardia
-            ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=total_cols)
-            cell = ws.cell(row=row_num, column=1)
-            cell.value = f"Guardia: {guardia_key if guardia_key != 'SIN_GUARDIA' else 'Sin Guardia'}"
-            cell.font = Font(bold=True)
-            cell.fill = PatternFill(start_color='D9EAD3', end_color='D9EAD3', fill_type='solid')
-            row_num += 1
-
-            for trabajador in maq_data['guardias'][guardia_key]:
-                # Datos fijos por trabajador
-                ws.cell(row=row_num, column=1).value = item_idx
-                ws.cell(row=row_num, column=2).value = trabajador.dni
-                ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
-                ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
-                ws.cell(row=row_num, column=5).value = (trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else "")
-                ws.cell(row=row_num, column=6).value = trabajador.cargo or ""
-                ws.cell(row=row_num, column=7).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
-
-                # Marcaciones diarias
-                fecha_actual = fecha_inicio
-                col_num = 8
-                contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
-                while fecha_actual <= fecha_fin:
-                    asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
-                    cell = ws.cell(row=row_num, column=col_num)
-                    if asist:
-                        codigo = getattr(asist, 'estado', None) or getattr(asist, 'estado', '')
-                        codigo = MAPEO_CODIGOS.get(codigo, codigo)
-                        guardia = getattr(asist, 'guardia_snapshot', None) or ''
-                        cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
-                        hex_color = COLORES_EXCEL.get(codigo)
-                        if hex_color:
-                            cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type='solid')
-                            cell.font = Font(bold=True, color='FFFFFF', size=10)
-                        if codigo in contadores:
-                            contadores[codigo] += 1
-                    else:
-                        cell.value = ""
-
-                    cell.alignment = Alignment(horizontal='center', vertical='center')
-                    cell.border = border_thin
-                    col_num += 1
-                    fecha_actual += timedelta(days=1)
-
-                # Totales Simplificados
-                ws.cell(row=row_num, column=col_num).value = contadores['T']
-                ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
-                ws.cell(row=row_num, column=col_num+2).value = contadores['F']
-                ws.cell(row=row_num, column=col_num+3).value = contadores['V']
-                ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
-                total_registrados = sum(contadores.values())
-                ws.cell(row=row_num, column=col_num+5).value = total_registrados
-
+        if cat_key == 'OPERADORES':
+            # Dentro de operadores, ordenar máquinas
+            sorted_maquinas = sorted(cat_data['maquinas'].items(), key=lambda kv: (kv[0] == '__SIN_MAQUINA__', kv[0]))
+            for maq_key, maq_data in sorted_maquinas:
+                # Encabezado de máquina
+                ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=total_cols)
+                cell = ws.cell(row=row_num, column=1)
+                cell.value = f"MÁQUINA: {maq_data['nombre']}"
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color='E6F0FF', end_color='E6F0FF', fill_type='solid')
                 row_num += 1
-                item_idx += 1
+
+                # Por cada guardia en la máquina
+                guardia_order = lambda g: (g != 'A', g != 'B', g != 'C', g)
+                for guardia_key in sorted(maq_data['guardias'].keys(), key=guardia_order):
+                    ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=total_cols)
+                    cell = ws.cell(row=row_num, column=1)
+                    cell.value = f"Guardia: {guardia_key if guardia_key != 'SIN_GUARDIA' else 'Sin Guardia'}"
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color='D9EAD3', end_color='D9EAD3', fill_type='solid')
+                    row_num += 1
+
+                    for trabajador in maq_data['guardias'][guardia_key]:
+                        ws.cell(row=row_num, column=1).value = item_idx
+                        ws.cell(row=row_num, column=2).value = trabajador.dni
+                        ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
+                        ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
+                        ws.cell(row=row_num, column=5).value = (trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else "")
+                        # Categoria legible
+                        grupo_val = getattr(trabajador, 'grupo', '') or ''
+                        categoria_display = ''
+                        if grupo_val == 'LINEA_MANDO':
+                            categoria_display = 'LINEA DE MANDO'
+                        elif grupo_val == 'OPERADORES':
+                            categoria_display = 'OPERADORES'
+                        elif grupo_val == 'CONDUCTORES':
+                            categoria_display = 'CONDUCTORES'
+                        else:
+                            categoria_display = grupo_val or ''
+                        ws.cell(row=row_num, column=6).value = categoria_display
+                        ws.cell(row=row_num, column=7).value = trabajador.grupo or ''
+                        ws.cell(row=row_num, column=8).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
+
+                        # Marcaciones diarias
+                        fecha_actual = fecha_inicio
+                        col_num = 9
+                        contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
+                        while fecha_actual <= fecha_fin:
+                            asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
+                            cell = ws.cell(row=row_num, column=col_num)
+                            if asist:
+                                codigo = getattr(asist, 'estado', None) or getattr(asist, 'estado', '')
+                                codigo = MAPEO_CODIGOS.get(codigo, codigo)
+                                guardia = getattr(asist, 'guardia_snapshot', None) or ''
+                                cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
+                                hex_color = COLORES_EXCEL.get(codigo)
+                                if hex_color:
+                                    cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type='solid')
+                                    cell.font = Font(bold=True, color='FFFFFF', size=10)
+                                if codigo in contadores:
+                                    contadores[codigo] += 1
+                            else:
+                                cell.value = ""
+
+                            cell.alignment = Alignment(horizontal='center', vertical='center')
+                            cell.border = border_thin
+                            col_num += 1
+                            fecha_actual += timedelta(days=1)
+
+                        # Totales Simplificados
+                        ws.cell(row=row_num, column=col_num).value = contadores['T']
+                        ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
+                        ws.cell(row=row_num, column=col_num+2).value = contadores['F']
+                        ws.cell(row=row_num, column=col_num+3).value = contadores['V']
+                        ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
+                        total_registrados = sum(contadores.values())
+                        ws.cell(row=row_num, column=col_num+5).value = total_registrados
+
+                        row_num += 1
+                        item_idx += 1
+        else:
+            # Para categorías distintas de OPERADORES, agrupar por guardia directamente
+            guardia_order = lambda g: (g != 'A', g != 'B', g != 'C', g)
+            for guardia_key in sorted(cat_data['guardias'].keys(), key=guardia_order):
+                ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=total_cols)
+                cell = ws.cell(row=row_num, column=1)
+                cell.value = f"Guardia: {guardia_key if guardia_key != 'SIN_GUARDIA' else 'Sin Guardia'}"
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color='D9EAD3', end_color='D9EAD3', fill_type='solid')
+                row_num += 1
+
+                for trabajador in cat_data['guardias'][guardia_key]:
+                    ws.cell(row=row_num, column=1).value = item_idx
+                    ws.cell(row=row_num, column=2).value = trabajador.dni
+                    ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
+                    ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
+                    ws.cell(row=row_num, column=5).value = (trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else "")
+                    grupo_val = getattr(trabajador, 'grupo', '') or ''
+                    categoria_display = ''
+                    if grupo_val == 'LINEA_MANDO':
+                        categoria_display = 'LINEA DE MANDO'
+                    elif grupo_val == 'OPERADORES':
+                        categoria_display = 'OPERADORES'
+                    elif grupo_val == 'CONDUCTORES':
+                        categoria_display = 'CONDUCTORES'
+                    else:
+                        categoria_display = grupo_val or ''
+                    ws.cell(row=row_num, column=6).value = categoria_display
+                    ws.cell(row=row_num, column=7).value = trabajador.grupo or ''
+                    ws.cell(row=row_num, column=8).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
+
+                    fecha_actual = fecha_inicio
+                    col_num = 9
+                    contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
+                    while fecha_actual <= fecha_fin:
+                        asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
+                        cell = ws.cell(row=row_num, column=col_num)
+                        if asist:
+                            codigo = getattr(asist, 'estado', None) or getattr(asist, 'estado', '')
+                            codigo = MAPEO_CODIGOS.get(codigo, codigo)
+                            guardia = getattr(asist, 'guardia_snapshot', None) or ''
+                            cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
+                            hex_color = COLORES_EXCEL.get(codigo)
+                            if hex_color:
+                                cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type='solid')
+                                cell.font = Font(bold=True, color='FFFFFF', size=10)
+                            if codigo in contadores:
+                                contadores[codigo] += 1
+                        else:
+                            cell.value = ""
+
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                        cell.border = border_thin
+                        col_num += 1
+                        fecha_actual += timedelta(days=1)
+
+                    ws.cell(row=row_num, column=col_num).value = contadores['T']
+                    ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
+                    ws.cell(row=row_num, column=col_num+2).value = contadores['F']
+                    ws.cell(row=row_num, column=col_num+3).value = contadores['V']
+                    ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
+                    total_registrados = sum(contadores.values())
+                    ws.cell(row=row_num, column=col_num+5).value = total_registrados
+
+                    row_num += 1
+                    item_idx += 1
     
     # Ajustar anchos de columna
     ws.column_dimensions['A'].width = 5
@@ -971,10 +1095,11 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     ws.column_dimensions['D'].width = 25
     ws.column_dimensions['E'].width = 20
     ws.column_dimensions['F'].width = 15
-    ws.column_dimensions['G'].width = 10
-    
-    # Días (columnas de marcación)
-    for col in range(8, 8 + num_dias):
+    ws.column_dimensions['G'].width = 12
+    ws.column_dimensions['H'].width = 10
+
+    # Días (columnas de marcación) — empiezan en columna 9 (I)
+    for col in range(9, 9 + num_dias):
         ws.column_dimensions[get_column_letter(col)].width = 4
 
 
