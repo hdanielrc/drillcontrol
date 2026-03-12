@@ -501,6 +501,55 @@ body { background: var(--bg); }
         <span class="tw-badge sb-i">I = Inducción</span>
         <span class="tw-badge sb-nd">— = Sin registro</span>
     </div>
+    {# Unified root row: render all 'direccion' slots from each service in a single row #}
+    <div class="unified-root-row" style="margin-bottom:18px;">
+        <div class="root-row" style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+            {% for service in services_layout %}
+                {% for section in service.sections %}
+                    {% if section.key == 'direccion' and section.slots %}
+                        <div class="service-root-column" data-service="{{ service.code }}" style="min-width:260px;">
+                            <h4 style="margin:0 0 8px; font-size:.9rem; color:#64748b; text-transform:uppercase">{{ service.label }}</h4>
+                            {% for slot in section.slots %}
+                                <article class="slot-card slot-card-root">
+                                    <div class="slot-card-head">
+                                        <div>
+                                            <span class="slot-title">{{ slot.label }}</span>
+                                            {% if slot.nivel_label %}<span class="slot-level">{{ slot.nivel_label }}</span>{% endif %}
+                                        </div>
+                                        <span class="slot-count">{{ slot.cantidad }} planificado{{ slot.cantidad|pluralize:"s" }}</span>
+                                    </div>
+                                    <div class="slot-meta">
+                                        {% if slot.vacantes %}<span class="vacante-chip">{{ slot.vacantes }} vacante{{ slot.vacantes|pluralize:"s" }}</span>{% endif %}
+                                    </div>
+                                    <div class="slot-workers">
+                                        {% if slot.assignments %}
+                                            {% for assignment in slot.assignments %}
+                                            <div class="worker-pill">
+                                                <div class="worker-info">
+                                                    <span class="worker-name">{{ assignment.worker.obj.apepat }}, {{ assignment.worker.obj.nombres }}</span>
+                                                    <span class="worker-cargo">{{ assignment.worker.obj.cargo_headcount|default:assignment.worker.obj.cargo }}</span>
+                                                </div>
+                                                <div class="worker-week">
+                                                    {% for day in assignment.worker.semana %}
+                                                    <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="worker-pill vacant">
+                                                <i class="fas fa-user-plus"></i> Vacante
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
     <div class="services-container">
         {% for service in services_layout %}
         <section class="org-service" data-service="{{ service.code }}">
@@ -516,47 +565,6 @@ body { background: var(--bg); }
                 </div>
             </header>
             <div class="org-service-grid">
-                <div class="root-row">
-                    {% for section in service.sections %}
-                        {% if section.key == 'direccion' %}
-                            {% for slot in section.slots %}
-                            <article class="slot-card slot-card-root">
-                                <div class="slot-card-head">
-                                    <div>
-                                        <span class="slot-title">{{ slot.label }}</span>
-                                        {% if slot.nivel_label %}<span class="slot-level">{{ slot.nivel_label }}</span>{% endif %}
-                                    </div>
-                                    <span class="slot-count">{{ slot.cantidad }} planificado{{ slot.cantidad|pluralize:"s" }}</span>
-                                </div>
-                                <div class="slot-meta">
-                                    {% if slot.vacantes %}<span class="vacante-chip">{{ slot.vacantes }} vacante{{ slot.vacantes|pluralize:"s" }}</span>{% endif %}
-                                </div>
-                                <div class="slot-workers">
-                                    {% if slot.assignments %}
-                                        {% for assignment in slot.assignments %}
-                                        <div class="worker-pill">
-                                            <div class="worker-info">
-                                                <span class="worker-name">{{ assignment.worker.obj.apepat }}, {{ assignment.worker.obj.nombres }}</span>
-                                                <span class="worker-cargo">{{ assignment.worker.obj.cargo_headcount|default:assignment.worker.obj.cargo }}</span>
-                                            </div>
-                                            <div class="worker-week">
-                                                {% for day in assignment.worker.semana %}
-                                                <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                    {% else %}
-                                        <div class="worker-pill vacant">
-                                            <i class="fas fa-user-plus"></i> Vacante
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </article>
-                            {% endfor %}
-                        {% endif %}
-                    {% endfor %}
-                </div>
                 <div class="columns-row">
                     {% for section in service.sections %}
                         {% if section.key != 'direccion' %}
