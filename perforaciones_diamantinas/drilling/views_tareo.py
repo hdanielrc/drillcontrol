@@ -1164,6 +1164,144 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
 
 
 @login_required
+def exportar_tareo_semanal(request):
+    """
+    Exportador semanal con dos hojas:
+    - Matriz por trabajador (fila por trabajador, columna por día)
+    - Distribución por máquina (bloques por máquina y guardia)
+    Usa los parámetros `contrato` y `fecha_inicio` (YYYY-MM-DD). Si no vienen,
+    usa el contrato del usuario y la semana actual (lunes como inicio).
+    """
+    from django.http import HttpResponse
+    try:
+        user = request.user
+        if not user.can_manage_contract_users():
+            return HttpResponse('Sin permisos', status=403)
+
+        contrato_id = request.GET.get('contrato')
+        if user.has_access_to_all_contracts():
+            contrato = Contrato.objects.filter(id=contrato_id, estado='ACTIVO').first() if contrato_id else Contrato.objects.filter(estado='ACTIVO').first()
+        else:
+            contrato = user.contrato
+
+        if not contrato:
+            return HttpResponse('Contrato no encontrado', status=404)
+
+        fecha_inicio_str = request.GET.get('fecha_inicio')
+        if fecha_inicio_str:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        else:
+            # semana actual: tomar lunes como inicio
+            hoy = datetime.now().date()
+            fecha_inicio = hoy - timedelta(days=hoy.weekday())
+
+        fecha_fin = fecha_inicio + timedelta(days=6)
+        num_dias = 7
+
+        wb = Workbook()
+        wb.remove(wb.active)
+
+        # Hoja 1: Matriz (reusar _crear_hoja_tareo pero limitada a la semana)
+        ws_mat = wb.create_sheet('Matriz semanal')
+        _crear_hoja_tareo(ws_mat, contrato, fecha_inicio, fecha_fin, num_dias)
+
+        # Hoja 2: Distribución por máquina
+        ws_dist = wb.create_sheet('Distribución por Máquina')
+        _crear_hoja_distribucion(ws_dist, contrato, fecha_inicio, fecha_fin)
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        filename = f"Tareo_Semanal_{contrato.nombre_contrato.replace(' ', '_')}_{fecha_inicio.strftime('%Y%m%d')}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        wb.save(response)
+        return response
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f'Error al generar Excel semanal: {str(e)}', status=500)
+
+
+def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
+    """Crea una hoja distribuida por máquina y guardia similar al cartel."""
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    border_thin = Border(
+        left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')
+    )
+
+    # Título
+    ws.merge_cells('A1:G1')
+    ws['A1'].value = f"DISTRIBUCIÓN SEMANAL: {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
+    ws['A1'].font = Font(bold=True, size=12)
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    # Cabecera de columnas simples
+    ws.cell(row=2, column=1).value = 'MÁQUINA / GUARDIA'
+    ws.cell(row=2, column=1).font = header_font
+    ws.cell(row=2, column=1).fill = header_fill
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal='center')
+
+    # Cols por día (dentro de cada guardia mostraremos nombres)
+    dias = []
+    fecha = fecha_inicio
+    col_base = 2
+    while fecha <= fecha_fin:
+        cell = ws.cell(row=2, column=col_base)
+        cell.value = fecha.strftime('%a %d')
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        col_base += 1
+        dias.append(fecha)
+        fecha += timedelta(days=1)
+
+    # Obtener asistencias V2 para el rango
+    from .models import AsistenciaDiaria
+    asist_v2 = AsistenciaDiaria.objects.filter(empleado__contrato=contrato, fecha__gte=fecha_inicio, fecha__lte=fecha_fin).select_related('empleado')
+
+    # Mapear por (maquina, guardia, fecha) -> lista trabajadores
+    distrib = {}
+    for a in asist_v2:
+        maq = getattr(a, 'maquina_snapshot', None)
+        maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
+        guardia = getattr(a, 'guardia_snapshot', None) or (a.empleado.guardia_asignada or 'SIN_GUARDIA')
+        distrib.setdefault(maq_key, {}).setdefault(guardia, {}).setdefault(a.fecha, []).append(a.empleado)
+
+    # Ordenar máquinas
+    sorted_maqs = sorted(distrib.items(), key=lambda kv: (kv[0] == '__SIN_MAQUINA__', kv[0]))
+    row = 3
+    for maq_key, maq_data in sorted_maqs:
+        # Encabezado máquina
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=1+len(dias))
+        ws.cell(row=row, column=1).value = (maq_key if maq_key != '__SIN_MAQUINA__' else 'Sin Máquina Asignada')
+        ws.cell(row=row, column=1).font = Font(bold=True)
+        row += 1
+
+        # Por guardia
+        for guardia_key in sorted(maq_data.keys()):
+            ws.cell(row=row, column=1).value = f"Guardia: {guardia_key}"
+            ws.cell(row=row, column=1).font = Font(bold=True)
+            col = 2
+            for d in dias:
+                trabajadores = maq_data.get(guardia_key, {}).get(d, [])
+                if trabajadores:
+                    names = '\n'.join([f"{t.apellidos}, {t.nombres}" for t in trabajadores])
+                    ws.cell(row=row, column=col).value = names
+                else:
+                    ws.cell(row=row, column=col).value = ''
+                ws.cell(row=row, column=col).alignment = Alignment(wrap_text=True)
+                col += 1
+            row += 1
+
+        # Separador
+        row += 1
+
+    # Ajustes de ancho
+    ws.column_dimensions['A'].width = 30
+    for i in range(2, 2 + len(dias)):
+        ws.column_dimensions[get_column_letter(i)].width = 20
+
+
+@login_required
 @require_http_methods(["POST"])
 @login_required
 @require_http_methods(["POST"])
