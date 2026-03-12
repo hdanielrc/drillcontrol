@@ -385,6 +385,9 @@ def organigrama_view(request):
         for service in services_layout:
             for section in service['sections']:
                 for slot in section['slots']:
+                    # Skip any 'direccion' slots here; they are rendered in the unified root row
+                    if slot.get('section') == 'direccion':
+                        continue
                     cat = slot.get('categoria') or 'OPERATIVO'
                     if cat == 'OPERATIVO':
                         # distribute assignments by maquina
