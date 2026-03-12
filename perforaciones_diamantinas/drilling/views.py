@@ -475,19 +475,19 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
 
         # Cargos por contrato (para el select Cargo HC)
         # Se obtienen del modelo HeadCount, gestionado manualmente por el usuario headcount
+        # Obtener HeadCount activos y calcular cantidad requerida y actual
         rows = (HeadCount.objects.filter(activo=True)
                 .exclude(cargo='')
-                .values('contrato_id', 'cargo', 'nivel', 'ubicacion')
-                .distinct()
+                .select_related('contrato')
                 .order_by('cargo'))
         cargos_map = defaultdict(list)
         # Evitar duplicados por (contrato, cargo, nivel, ubicacion)
         seen = set()
-        for row in rows:
-            contrato_id = row['contrato_id']
-            cargo_val = row['cargo']
-            nivel = row.get('nivel') or ''
-            ubicacion = row.get('ubicacion') or ''
+        for hc in rows:
+            contrato_id = hc.contrato_id
+            cargo_val = hc.cargo
+            nivel = hc.nivel or ''
+            ubicacion = hc.ubicacion or ''
             key = (contrato_id, cargo_val, nivel, ubicacion)
             if key in seen:
                 continue
@@ -499,7 +499,21 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
             if ubicacion:
                 parts.append(str(ubicacion))
             label = ' - '.join(parts)
-            cargos_map[contrato_id].append({'value': cargo_val, 'label': label})
+            # Cantidades para control en UI
+            required = hc.cantidad_requerida or 0
+            try:
+                actual = hc.get_cantidad_actual()
+            except Exception:
+                # Fallback simple por si hay errores de consulta
+                from .models import Trabajador
+                actual = Trabajador.objects.filter(contrato_id=contrato_id, estado='ACTIVO').filter(models.Q(cargo=cargo_val) | models.Q(cargo_headcount=cargo_val)).count()
+
+            cargos_map[contrato_id].append({
+                'value': cargo_val,
+                'label': label,
+                'required': required,
+                'actual': actual,
+            })
         context['cargos_por_contrato_json'] = json.dumps(cargos_map)
         context['grupos'] = [
             ('LINEA DE MANDO', 'Línea de Mando'),
