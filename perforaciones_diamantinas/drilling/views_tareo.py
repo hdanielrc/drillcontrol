@@ -1306,13 +1306,48 @@ def mostrar_tareo_semanal(request):
                 if asist:
                     codigo = MAPEO_CODIGOS.get(getattr(asist, 'estado', '') or '', '')
                     guardia_snap = getattr(asist, 'guardia_snapshot', None) or ''
+                    maq_snap = getattr(asist, 'maquina_snapshot', None)
+                    maq_snap_name = maq_snap.nombre if maq_snap else ''
                 else:
                     # si no existe registro, dejar vacío (puede usarse proyección)
                     codigo = ''
                     guardia_snap = ''
+                    maq_snap_name = ''
                 color = COLORES_EXCEL.get(codigo, '') if codigo else ''
-                dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color})
+                dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color, 'maquina_snapshot': maq_snap_name})
                 d += timedelta(days=1)
+
+            # Determinar si hay una máquina asignada en las celdas (maquina_snapshot)
+            maq_from_cells = [x['maquina_snapshot'] for x in dias if x.get('maquina_snapshot')]
+            if maq_from_cells:
+                # elegir la máquina más frecuente entre las celdas
+                from collections import Counter
+                most_common = Counter(maq_from_cells).most_common(1)
+                if most_common:
+                    maq_name_from_cells = most_common[0][0]
+                else:
+                    maq_name_from_cells = ''
+            else:
+                maq_name_from_cells = ''
+
+            # Si hay override por células, úsalo; si no, usa la máquina asignada del trabajador
+            if maq_name_from_cells:
+                maq_key = maq_name_from_cells
+                maq_nombre = maq_name_from_cells
+                maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+            else:
+                maq = trabajador.maquina_asignada
+                maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
+                maq_nombre = maq.nombre if maq else 'Sin Máquina'
+                maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+
+            maquinas = categorias[cat_key]['maquinas']
+            if maq_key not in maquinas:
+                maquinas[maq_key] = {'nombre': maq_nombre, 'css': maq_css, 'guardias': {}}
+
+            gmap = maquinas[maq_key]['guardias']
+            if guardia_key not in gmap:
+                gmap[guardia_key] = []
 
             gmap[guardia_key].append({
                 'trabajador': trabajador,
