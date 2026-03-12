@@ -131,6 +131,15 @@ class TareoService:
         posicion_ciclo = dias_transcurridos % ciclo_total
         
         # Si está dentro de los días de trabajo, retornar TRABAJO
+        # Regla adicional: el día de cambio de guardia del contrato siempre
+        # debe considerarse día de TRABAJO en la proyección (según requerimiento).
+        try:
+            if fecha_consulta.weekday() == dia_cambio:
+                return 'TRABAJO'
+        except Exception:
+            # si dia_cambio es None o ocurre algún fallo, continuar la lógica normal
+            pass
+
         if posicion_ciclo < dias_trabajo:
             return 'TRABAJO'
         else:
