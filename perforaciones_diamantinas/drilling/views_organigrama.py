@@ -375,53 +375,52 @@ def organigrama_view(request):
             'total_vacantes': sum(slot['vacantes'] for slot in service_slots),
         })
 
-        # Build groups layout (Línea de mando, Operativos, Conductores)
-        groups_map = OrderedDict([
-            ('LINEA DE MANDO', {'key': 'LINEA DE MANDO', 'label': 'Línea de mando', 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
-            ('OPERATIVO', {'key': 'OPERATIVO', 'label': 'Operativos', 'maquinas': {}, 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
-            ('CONDUCTORES', {'key': 'CONDUCTORES', 'label': 'Conductores', 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
-        ])
+    # Build groups layout (Línea de mando, Operativos, Conductores) from all services
+    groups_map = OrderedDict([
+        ('LINEA DE MANDO', {'key': 'LINEA DE MANDO', 'label': 'Línea de mando', 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
+        ('OPERATIVO', {'key': 'OPERATIVO', 'label': 'Operativos', 'maquinas': {}, 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
+        ('CONDUCTORES', {'key': 'CONDUCTORES', 'label': 'Conductores', 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
+    ])
 
-        for service in services_layout:
-            for section in service['sections']:
-                for slot in section['slots']:
-                    # Skip any 'direccion' slots here; they are rendered in the unified root row
-                    if slot.get('section') == 'direccion':
-                        continue
-                    cat = slot.get('categoria') or 'OPERATIVO'
-                    if cat == 'OPERATIVO':
-                        # distribute assignments by maquina
-                        maq_buckets = groups_map['OPERATIVO']['maquinas']
-                        for assignment in slot['assignments']:
-                            w = assignment['worker']
-                            maq = getattr(w['obj'], 'maquina_asignada', None)
-                            maq_id = maq.id if maq else None
-                            if maq_id not in maq_buckets:
-                                maq_buckets[maq_id] = {'maquina': maq, 'workers': [], 'vacantes': 0}
-                            maq_buckets[maq_id]['workers'].append(w)
-                            groups_map['OPERATIVO']['total_assigned'] += 1
-                            groups_map['OPERATIVO']['total_slots'] += 0
-                        # account vacantes to a generic bucket (None)
-                        if slot.get('vacantes'):
-                            if None not in maq_buckets:
-                                maq_buckets[None] = {'maquina': None, 'workers': [], 'vacantes': 0}
-                            maq_buckets[None]['vacantes'] += slot.get('vacantes', 0)
-                            groups_map['OPERATIVO']['total_vacantes'] += slot.get('vacantes', 0)
-                    else:
-                        # Skip 'direccion' slots here because they are rendered in the unified root row
-                        if slot.get('section') == 'direccion':
-                            continue
-                        group = groups_map.get(cat)
-                        if group is None:
-                            # create on the fly for unexpected categories
-                            groups_map[cat] = {'key': cat, 'label': cat.title(), 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}
-                            group = groups_map[cat]
-                        group['slots'].append(slot)
-                        group['total_slots'] += slot.get('cantidad', 0)
-                        group['total_assigned'] += sum(1 for a in slot.get('assignments', []) if a.get('type') == 'worker')
-                        group['total_vacantes'] += slot.get('vacantes', 0)
+    for service in services_layout:
+        for section in service['sections']:
+            for slot in section['slots']:
+                # Skip any 'direccion' slots here; they are rendered in the unified root row
+                if slot.get('section') == 'direccion':
+                    continue
+                cat = slot.get('categoria') or 'OPERATIVO'
+                if cat == 'OPERATIVO':
+                    # distribute assignments by maquina
+                    maq_buckets = groups_map['OPERATIVO']['maquinas']
+                    for assignment in slot['assignments']:
+                        w = assignment['worker']
+                        maq = getattr(w['obj'], 'maquina_asignada', None)
+                        maq_id = maq.id if maq else None
+                        if maq_id not in maq_buckets:
+                            maq_buckets[maq_id] = {'maquina': maq, 'workers': [], 'vacantes': 0}
+                        maq_buckets[maq_id]['workers'].append(w)
+                        groups_map['OPERATIVO']['total_assigned'] += 1
+                        groups_map['OPERATIVO']['total_slots'] += 0
+                    # account vacantes to a generic bucket (None)
+                    if slot.get('vacantes'):
+                        if None not in maq_buckets:
+                            maq_buckets[None] = {'maquina': None, 'workers': [], 'vacantes': 0}
+                        maq_buckets[None]['vacantes'] += slot.get('vacantes', 0)
+                        groups_map['OPERATIVO']['total_vacantes'] += slot.get('vacantes', 0)
+                else:
+                    group = groups_map.get(cat)
+                    if group is None:
+                        # create on the fly for unexpected categories
+                        groups_map[cat] = {'key': cat, 'label': cat.title(), 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}
+                        group = groups_map[cat]
+                    group['slots'].append(slot)
+                    group['total_slots'] += slot.get('cantidad', 0)
+                    group['total_assigned'] += sum(1 for a in slot.get('assignments', []) if a.get('type') == 'worker')
+                    group['total_vacantes'] += slot.get('vacantes', 0)
 
-        groups_layout = list(groups_map.values())
+    groups_layout = list(groups_map.values())
+
+        
 
     trabajadores_sin_headcount = sorted(
         [worker for wid, worker in trabajador_lookup.items() if wid not in assigned_worker_ids],
