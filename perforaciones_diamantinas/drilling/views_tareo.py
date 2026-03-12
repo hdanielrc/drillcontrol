@@ -591,8 +591,8 @@ LEYENDA = {
 # Colores vivos por código para el Excel (formato ARGB sin #)
 COLORES_EXCEL = {
     'T':   'FF00C853',  # Verde brillante — Trabajado
-    'TD':  'FF00C853',
-    'TN':  'FF00C853',
+    'TD':  'FFFFB300',  # Ámbar — Trabajo Día
+    'TN':  'FF0D47A1',  # Azul oscuro — Trabajo Noche
     'DL':  'FF2979FF',  # Azul eléctrico — Día Libre
     'DA':  'FF1565C0',  # Azul marino — Día Apoyo
     'PT':  'FFF57F17',  # Ámbar — Permiso Paternidad
