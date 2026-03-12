@@ -1227,6 +1227,125 @@ def exportar_tareo_semanal(request):
         return HttpResponse(f'Error al generar Excel semanal: {str(e)}', status=500)
 
 
+@login_required
+def mostrar_tareo_semanal(request):
+    """
+    Muestra en la aplicación la representación semanal (matriz + distribución)
+    y permite descargar la vista como imagen desde el cliente.
+    Parámetros GET: `contrato` y `fecha_inicio` (YYYY-MM-DD) opcionales.
+    """
+    try:
+        user = request.user
+        if not user.can_manage_contract_users():
+            return HttpResponse('Sin permisos', status=403)
+
+        contrato_id = request.GET.get('contrato')
+        if user.has_access_to_all_contracts():
+            contrato = Contrato.objects.filter(id=contrato_id, estado='ACTIVO').first() if contrato_id else Contrato.objects.filter(estado='ACTIVO').first()
+        else:
+            contrato = user.contrato
+
+        if not contrato:
+            return HttpResponse('Contrato no encontrado', status=404)
+
+        fecha_inicio_str = request.GET.get('fecha_inicio')
+        if fecha_inicio_str:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        else:
+            hoy = datetime.now().date()
+            fecha_inicio = hoy - timedelta(days=hoy.weekday())
+
+        fecha_fin = fecha_inicio + timedelta(days=6)
+
+        # Obtener asistencias V2 (semana)
+        from .models import AsistenciaDiaria
+        asistencias_v2 = AsistenciaDiaria.objects.filter(
+            empleado__contrato=contrato,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin
+        ).select_related('empleado', 'maquina_snapshot')
+
+        asist_dict = {}
+        if asistencias_v2.exists():
+            for asist in asistencias_v2:
+                asist_dict.setdefault(asist.empleado.id, {})[asist.fecha] = asist
+
+        # Trabajadores activos
+        trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').select_related('maquina_asignada')
+
+        # Construir estructura por categorias -> maquinas -> guardias -> trabajadores
+        import re as _re
+        categorias = {}
+        for trabajador in trabajadores.order_by('grupo', 'maquina_asignada__nombre', 'apepat'):
+            if getattr(trabajador, 'es_standby', False):
+                cat_key = '__STAND_BY__'
+            else:
+                cat_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
+
+            if cat_key not in categorias:
+                categorias[cat_key] = {'nombre': cat_key, 'maquinas': {}}
+
+            maq = trabajador.maquina_asignada
+            maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
+            maq_nombre = maq.nombre if maq else 'Sin Máquina'
+            maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+            maquinas = categorias[cat_key]['maquinas']
+            if maq_key not in maquinas:
+                maquinas[maq_key] = {'nombre': maq_nombre, 'css': maq_css, 'guardias': {}}
+
+            guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
+            gmap = maquinas[maq_key]['guardias']
+            if guardia_key not in gmap:
+                gmap[guardia_key] = []
+
+            # Construir asistencias por día para la semana
+            dias = []
+            d = fecha_inicio
+            while d <= fecha_fin:
+                asist = asist_dict.get(trabajador.id, {}).get(d)
+                if asist:
+                    codigo = MAPEO_CODIGOS.get(getattr(asist, 'estado', '') or '', '')
+                    guardia_snap = getattr(asist, 'guardia_snapshot', None) or ''
+                else:
+                    # si no existe registro, dejar vacío (puede usarse proyección)
+                    codigo = ''
+                    guardia_snap = ''
+                color = COLORES_EXCEL.get(codigo, '') if codigo else ''
+                dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color})
+                d += timedelta(days=1)
+
+            gmap[guardia_key].append({
+                'trabajador': trabajador,
+                'dias': dias,
+            })
+
+        # Pasar a lista ordenada para el template
+        categorias_list = []
+        for k, v in categorias.items():
+            maquinas_list = []
+            for mk, md in v['maquinas'].items():
+                guardias_list = []
+                for gk, tlist in md['guardias'].items():
+                    guardias_list.append({'key': gk, 'trabajadores': tlist})
+                maquinas_list.append({'key': mk, 'nombre': md['nombre'], 'css': md['css'], 'guardias': guardias_list})
+            categorias_list.append({'key': k, 'nombre': v['nombre'], 'maquinas': maquinas_list})
+
+        context = {
+            'contrato': contrato,
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
+            'categorias': categorias_list,
+            'dias': [fecha_inicio + timedelta(days=i) for i in range(7)],
+        }
+
+        return render(request, 'drilling/tareo/tareo_semanal_vista.html', context)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f'Error generando vista semanal: {str(e)}', status=500)
+
+
 def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
     """Crea una hoja distribuida por máquina y guardia similar al cartel."""
     header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")

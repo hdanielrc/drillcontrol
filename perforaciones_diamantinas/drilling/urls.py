@@ -108,6 +108,8 @@ urlpatterns = [
 
     # Exportador semanal (matriz + distribución por máquina)
     path('tareo/v2/exportar-semanal/', views_tareo.exportar_tareo_semanal, name='tareo-v2-exportar-semanal'),
+    # Vista semanal (representación gráfica dentro de la app)
+    path('tareo/v2/semana/visualizar/', views_tareo.mostrar_tareo_semanal, name='tareo-v2-semana-visualizar'),
     
     # Cierre Mensual y Auditoría
     path('tareo/v2/cierre-mensual/', tareo_cierre_mensual, name='tareo_cierre_mensual'),

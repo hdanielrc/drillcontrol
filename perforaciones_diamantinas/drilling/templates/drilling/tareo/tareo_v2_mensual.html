@@ -574,11 +574,11 @@
                 ⬇️ Descargar Excel
             </button>
 
-            <!-- Botón de exportar Excel semanal (matriz + distribución) -->
+            <!-- Botón para ver la representación semanal en la app -->
             <button type="button" class="btn-proyeccion" style="background:#117a65; margin-left:8px;" 
-                    onclick="descargarExcelSemanal()"
-                    title="Descargar tareo semanal (matriz + distribución)">
-                📥 Descargar Tareo Semanal
+                    onclick="window.location.href='{% url 'tareo-v2-semana-visualizar' %}?contrato={{ contrato.id }}'"
+                    title="Ver tareo semanal (matriz + distribución) en la aplicación">
+                👁️ Ver Tareo Semanal
             </button>
 
             {% if user.is_staff or user.is_superuser %}
