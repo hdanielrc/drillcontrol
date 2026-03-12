@@ -289,6 +289,74 @@ class TareoService:
                 stats['errores'].append(error_msg)
 
         # ─── Operaciones bulk ────────────────────────────────────────────────────
+        # Before persisting, enforce guardia rule: por día y por máquina no deben
+        # trabajar más de 2 guardias simultáneamente (salvo día de cambio de
+        # guardia, que puede permitirse). Para eso, construimos un mapa de
+        # (fecha, maquina_id) -> guardia -> entradas y, si hay más de 2
+        # guardias con estado 'TRABAJO', elegimos una guardia para pasar a
+        # 'DESCANSO' (preferimos la guardia con menos trabajadores).
+        try:
+            # Build index of entries by (fecha, maquina_id)
+            entries_map = {}  # (fecha, maq_id) -> guardia_key -> list of (source, ref)
+            # registros_a_crear: list of AsistenciaDiaria instances
+            for idx, reg in enumerate(registros_a_crear):
+                fecha = reg.fecha
+                maq_id = reg.maquina_snapshot_id
+                guardia = reg.guardia_snapshot or 'SIN_GUARDIA'
+                key = (fecha, maq_id)
+                entries_map.setdefault(key, {}).setdefault(guardia, []).append(('create', idx))
+            # registros_a_actualizar: list of AsistenciaDiaria instances
+            for idx, reg in enumerate(registros_a_actualizar):
+                fecha = reg.fecha
+                maq_id = reg.maquina_snapshot_id
+                guardia = reg.guardia_snapshot or 'SIN_GUARDIA'
+                key = (fecha, maq_id)
+                entries_map.setdefault(key, {}).setdefault(guardia, []).append(('update', idx))
+
+            # Iterate and apply rule
+            for (fecha, maq_id), guardias in entries_map.items():
+                # Skip adjustment on contract-level change day? We only have dia_cambio
+                # at contract scope; use dia_cambio from one of the trabajadores if present
+                # Fallback: use the global dia_cambio (first available trabajador contract)
+                try:
+                    is_change_day = (fecha.weekday() == dia_cambio)
+                except Exception:
+                    is_change_day = False
+                if is_change_day:
+                    continue
+
+                # Count guardias with any TRABAJO
+                working_guardias = []
+                for gk, items in guardias.items():
+                    any_work = False
+                    for src, idx in items:
+                        if src == 'create':
+                            reg = registros_a_crear[idx]
+                        else:
+                            reg = registros_a_actualizar[idx]
+                        if getattr(reg, 'estado', None) in ('TRABAJO', 'TRABAJO', 'TRABAJO'):
+                            any_work = True
+                            break
+                    if any_work:
+                        working_guardias.append((gk, len(items)))
+
+                if len(working_guardias) <= 2:
+                    continue
+
+                # Choose guardia with fewest workers to rest
+                working_guardias.sort(key=lambda x: x[1])
+                guardia_to_rest = working_guardias[0][0]
+
+                # Apply change: set estado -> 'DESCANSO' for all entries in that guardia
+                for src, idx in guardias.get(guardia_to_rest, []):
+                    if src == 'create':
+                        registros_a_crear[idx].estado = 'DESCANSO'
+                    else:
+                        registros_a_actualizar[idx].estado = 'DESCANSO'
+
+        except Exception as e:
+            logger.warning(f"Error post-procesando guardias para proyección: {e}")
+
         try:
             if registros_a_crear:
                 AsistenciaDiaria.objects.bulk_create(
