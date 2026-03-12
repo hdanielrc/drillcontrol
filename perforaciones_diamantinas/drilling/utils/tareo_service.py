@@ -343,23 +343,51 @@ class TareoService:
                 if len(working_guardias) <= 2:
                     continue
 
-                # Choose guardia to rest using a rotating A->B->C strategy
-                # Start from a deterministic seed based on date + maquina id so
-                # rotation is fair and reproducible across runs.
+                # Choose guardia to rest using a persisted rotation when possible.
+                # Strategy (priority):
+                # 1. If there is a recent manual record (es_proyeccion=False) indicating
+                #    which guardia rested last on this machine, pick the next guardia
+                #    in A->B->C rotation.
+                # 2. Otherwise, use a deterministic seed rotation based on date+machine.
+                # 3. Fallback to the guardia with fewest workers.
                 rotation_order = ['A', 'B', 'C']
                 available_ordered = [gk for gk, _ in working_guardias if gk in rotation_order]
                 guardia_to_rest = None
-                if available_ordered:
+
+                # 1) Try to infer last rested guardia from manual (locked) AsistenciaDiaria
+                try:
+                    if maq_id is not None and available_ordered:
+                        last_manual = AsistenciaDiaria.objects.filter(
+                            maquina_snapshot_id=maq_id,
+                            fecha__lt=fecha,
+                            es_proyeccion=False,
+                            estado='DESCANSO'
+                        ).order_by('-fecha').values_list('guardia_snapshot', flat=True).first()
+                        if last_manual:
+                            last_manual = last_manual if last_manual in rotation_order else None
+                            if last_manual:
+                                # pick next in rotation after last_manual that is available
+                                idx = rotation_order.index(last_manual)
+                                for off in range(1, len(rotation_order)+1):
+                                    cand = rotation_order[(idx + off) % len(rotation_order)]
+                                    if cand in available_ordered:
+                                        guardia_to_rest = cand
+                                        break
+                except Exception:
+                    guardia_to_rest = None
+
+                # 2) Deterministic seed rotation
+                if guardia_to_rest is None and available_ordered:
                     seed = (fecha.toordinal() + (maq_id or 0))
                     start_idx = seed % len(rotation_order)
-                    # find the first rotation candidate present in available_ordered
                     for i in range(len(rotation_order)):
                         cand = rotation_order[(start_idx + i) % len(rotation_order)]
                         if cand in available_ordered:
                             guardia_to_rest = cand
                             break
+
+                # 3) Fallback to smallest group
                 if guardia_to_rest is None:
-                    # fallback: choose guardia with fewest workers
                     working_guardias.sort(key=lambda x: x[1])
                     guardia_to_rest = working_guardias[0][0]
 
