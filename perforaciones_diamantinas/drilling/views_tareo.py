@@ -1270,6 +1270,10 @@ def mostrar_tareo_semanal(request):
             for asist in asistencias_v2:
                 asist_dict.setdefault(asist.empleado.id, {})[asist.fecha] = asist
 
+        # Estadísticas de verificación: cuántas filas son proyección vs reales
+        proyecciones_count = asistencias_v2.filter(es_proyeccion=True).count()
+        reales_count = asistencias_v2.filter(es_proyeccion=False).count()
+
         # Trabajadores activos
         trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').select_related('maquina_asignada')
 
@@ -1381,6 +1385,8 @@ def mostrar_tareo_semanal(request):
             'fecha_fin': fecha_fin,
             'categorias': categorias_list,
             'dias': [fecha_inicio + timedelta(days=i) for i in range(7)],
+            'proyecciones_count': proyecciones_count,
+            'reales_count': reales_count,
         }
 
         return render(request, 'drilling/tareo/tareo_semanal_vista.html', context)
