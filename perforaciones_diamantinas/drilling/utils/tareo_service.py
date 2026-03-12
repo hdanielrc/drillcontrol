@@ -728,6 +728,7 @@ class TareoService:
                 estado = dato.get('estado')
                 observaciones = dato.get('observaciones', '')
                 maquina_id = dato.get('maquina_id')
+                guardia_snapshot = dato.get('guardia_snapshot') if 'guardia_snapshot' in dato else None
                 
                 if not all([empleado_id, fecha, estado]):
                     continue
@@ -751,6 +752,8 @@ class TareoService:
                     asistencia.estado = estado
                     asistencia.observaciones = observaciones
                     asistencia.maquina_snapshot = maquina
+                    if guardia_snapshot is not None:
+                        asistencia.guardia_snapshot = guardia_snapshot
                     asistencia.es_proyeccion = False
                     asistencia.registrado_por = usuario
                     registros_actualizar.append(asistencia)
@@ -766,7 +769,7 @@ class TareoService:
                         maquina_snapshot=maquina,
                         es_proyeccion=False,
                         registrado_por=usuario,
-                        guardia_snapshot=trabajador.guardia_asignada
+                        guardia_snapshot=(guardia_snapshot if guardia_snapshot is not None else trabajador.guardia_asignada)
                     )
                     registros_crear.append(asistencia)
             
@@ -778,7 +781,7 @@ class TareoService:
             if registros_actualizar:
                 AsistenciaDiaria.objects.bulk_update(
                     registros_actualizar,
-                    ['estado', 'observaciones', 'maquina_snapshot', 'es_proyeccion', 'registrado_por'],
+                    ['estado', 'observaciones', 'maquina_snapshot', 'guardia_snapshot', 'es_proyeccion', 'registrado_por'],
                     batch_size=500
                 )
                 stats['actualizados'] = len(registros_actualizar)

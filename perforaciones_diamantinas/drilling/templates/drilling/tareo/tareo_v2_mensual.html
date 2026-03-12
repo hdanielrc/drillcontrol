@@ -556,6 +556,13 @@
                 🔄 Generar Proyección Automática
             </button>
 
+            <!-- Botón de exportar Excel (mes operativo actual) - descarga inmediata sin confirm -->
+            <button type="button" class="btn-proyeccion" style="background:#2e86c1; margin-left:8px;" 
+                    onclick="descargarExcelMesActual()"
+                    title="Descargar tareo del mes operativo en formato Excel">
+                ⬇️ Descargar Excel
+            </button>
+
             {% if user.is_staff or user.is_superuser %}
             <!-- Botón proyección todos los contratos (admin) -->
             <button type="button" class="btn-proyeccion" style="background:#6c3483;" onclick="generarProyeccionTodos()"
@@ -779,6 +786,19 @@
                                 {% else %}
                                     <span style="background: #fff3cd; color: #856404; padding: 2px 4px; border-radius: 3px; font-size: 9px;" title="Sin registro">⚠️</span>
                                 {% endif %}
+
+                                <!-- Selector por celda: Guardia (override) -->
+                                <div style="margin-top:6px;">
+                                    <select name="guardia_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}"
+                                            class="guardia-cell-select"
+                                            data-tipo="guardia_snapshot"
+                                            style="font-size:11px; padding:2px 4px; border-radius:3px; width:56px;">
+                                        <option value="" {% if not data.guardia_snapshot %}selected{% endif %}>—</option>
+                                        <option value="A" {% if data.guardia_snapshot == 'A' %}selected{% endif %}>A</option>
+                                        <option value="B" {% if data.guardia_snapshot == 'B' %}selected{% endif %}>B</option>
+                                        <option value="C" {% if data.guardia_snapshot == 'C' %}selected{% endif %}>C</option>
+                                    </select>
+                                </div>
                             </div>
                             
                             <!-- Campo oculto para observaciones -->
@@ -1005,6 +1025,7 @@ function guardarDia(fecha) {
         const trabajadorId = celda.getAttribute('data-trabajador-id');
         const estadoSelect = celda.querySelector('select[data-tipo="estado"]');
         const maquinaSelect = celda.querySelector('select[data-tipo="maquina"]');
+        const guardiaSelect = celda.querySelector('select[data-tipo="guardia_snapshot"]');
         const observacionesInput = celda.querySelector('input[data-tipo="observaciones"]');
         
         if (estadoSelect) {
@@ -1012,6 +1033,7 @@ function guardarDia(fecha) {
                 empleado_id: parseInt(trabajadorId),
                 estado: estadoSelect.value,
                 maquina_id: maquinaSelect ? (maquinaSelect.value || null) : null,
+                guardia_snapshot: guardiaSelect ? (guardiaSelect.value || null) : null,
                 observaciones: observacionesInput ? observacionesInput.value : ''
             });
         }
@@ -1169,6 +1191,7 @@ function _recolectarFila(tr) {
     tr.querySelectorAll('td[data-trabajador-id]').forEach(td => {
         const estadoSel  = td.querySelector('select[data-tipo="estado"]');
         const maquinaSel = td.querySelector('select[data-tipo="maquina"]');
+        const guardiaSel = td.querySelector('select[data-tipo="guardia_snapshot"]');
         const obsSel     = td.querySelector('input[data-tipo="observaciones"]');
         if (estadoSel) {
             registros.push({
@@ -1176,6 +1199,7 @@ function _recolectarFila(tr) {
                 fecha:         td.getAttribute('data-fecha'),
                 estado:        estadoSel.value,
                 maquina_id:    maquinaSel ? (maquinaSel.value || null) : null,
+                guardia_snapshot: guardiaSel ? (guardiaSel.value || null) : null,
                 observaciones: obsSel ? obsSel.value : ''
             });
         }
@@ -1312,6 +1336,20 @@ document.querySelectorAll('.tareo-table tbody tr').forEach(row => {
 });
 
 console.log('📋 Tareo V2 cargado - Registros en matriz: {{ matriz_tareo|length }}');
+</script>
+
+<script>
+// Descargar Excel del mes operativo actual sin confirmaciones
+function descargarExcelMesActual(){
+    const url = `/tareo/exportar-excel/?contrato={{ contrato.id }}&modo=mes&fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}`;
+    // Crear iframe oculto para disparar la descarga sin navegar
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    // Limpiar luego de un tiempo
+    setTimeout(()=>{ try { document.body.removeChild(iframe); } catch(e){} }, 15000);
+}
 </script>
 
 <!-- Custom Template Filter para obtener items de dict -->

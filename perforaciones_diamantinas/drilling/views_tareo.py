@@ -2322,6 +2322,7 @@ def api_guardar_dia_tareo(request):
                     empleado_id = asist_data.get('empleado_id')
                     estado = asist_data.get('estado')
                     maquina_id = asist_data.get('maquina_id')
+                    guardia_snapshot = asist_data.get('guardia_snapshot') if 'guardia_snapshot' in asist_data else None
                     observaciones = asist_data.get('observaciones', '')
                     
                     if not empleado_id or not estado:
@@ -2348,7 +2349,7 @@ def api_guardar_dia_tareo(request):
                             'observaciones': observaciones,
                             'es_proyeccion': False,
                             'registrado_por': request.user,
-                            'guardia_snapshot': trabajador.guardia_asignada
+                            'guardia_snapshot': (guardia_snapshot if guardia_snapshot is not None else trabajador.guardia_asignada)
                         }
                     )
                     
@@ -2412,6 +2413,7 @@ def api_guardar_seleccion(request):
                     'estado':       r['estado'],
                     'observaciones': r.get('observaciones', ''),
                     'maquina_id':   r.get('maquina_id') or None,
+                    'guardia_snapshot': r.get('guardia_snapshot') if 'guardia_snapshot' in r else None,
                 })
             except (KeyError, ValueError):
                 continue
