@@ -178,7 +178,8 @@ class TareoService:
             'trabajadores_procesados': 0,
             'registros_creados': 0,
             'registros_existentes_respetados': 0,
-            'errores': []
+            'errores': [],
+            'ajustes_guardia': []  # lista de (fecha, maquina_id, guardia_cambiada, causa)
         }
         
         # Validación de parámetros
@@ -438,11 +439,20 @@ class TareoService:
                     guardia_to_rest = working_guardias[0][0]
 
                 # Apply change: set estado -> 'DESCANSO' for all entries in that guardia
+                changed = 0
                 for src, idx in guardias.get(guardia_to_rest, []):
                     if src == 'create':
                         registros_a_crear[idx].estado = 'DESCANSO'
                     else:
                         registros_a_actualizar[idx].estado = 'DESCANSO'
+                    changed += 1
+                stats['ajustes_guardia'].append({
+                    'fecha': fecha.isoformat(),
+                    'maquina_id': maq_id,
+                    'guardia': guardia_to_rest,
+                    'cambiados': changed,
+                    'causa': 'dias_trabajo_excedido' if any(v > 0 for v in eligible_counts.values()) else 'rotacion/fallback'
+                })
 
         except Exception as e:
             logger.warning(f"Error post-procesando guardias para proyección: {e}")
