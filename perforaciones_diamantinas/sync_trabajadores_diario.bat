@@ -23,9 +23,9 @@ if exist "..\venv\Scripts\activate.bat" (
     echo Entorno virtual activado
 )
 
-REM Ejecutar el script de sincronización
-echo Ejecutando sync_trabajadores.py...
-python scripts\sync\sync_trabajadores.py >> logs\sync_trabajadores_%date:~-4,4%%date:~-7,2%%date:~0,2%.log 2>&1
+REM Ejecutar el script de sincronización (dry-run por seguridad)
+echo Ejecutando sync_trabajadores.py (dry-run)...
+python scripts\sync\sync_trabajadores.py --dry-run >> logs\sync_trabajadores_%date:~-4,4%%date:~-7,2%%date:~0,2%.log 2>&1
 
 if %errorlevel% == 0 (
     echo [%date% %time%] Sincronizacion completada exitosamente.

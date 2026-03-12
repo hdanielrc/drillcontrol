@@ -42,8 +42,8 @@ elif [ -f "venv/bin/activate" ]; then
 fi
 
 # Ejecutar sincronización de trabajadores
-echo "[$(date '+%H:%M:%S')] Ejecutando sync_trabajadores.py..." | tee -a "$LOG_FILE"
-$PYTHON_EXEC scripts/sync/sync_trabajadores.py >> "$LOG_FILE" 2>&1
+echo "[$(date '+%H:%M:%S')] Ejecutando sync_trabajadores.py (dry-run)..." | tee -a "$LOG_FILE"
+$PYTHON_EXEC scripts/sync/sync_trabajadores.py --dry-run >> "$LOG_FILE" 2>&1
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then

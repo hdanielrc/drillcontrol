@@ -3,6 +3,8 @@ import sys
 import django
 import requests
 import logging
+import re
+import csv
 from datetime import datetime
 
 # ==========================================
@@ -44,11 +46,12 @@ logger = logging.getLogger(__name__)
 
 API_URL = "https://tic.vilbragroup.net/API/DrillControl/trabajadores?token=cff25a36-682a-4570-ad84-aaaabffc89bf"
 
-def sync_trabajadores():
+def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
     logger.info("Iniciando sincronización de trabajadores...")
     
+    url = api_url if api_url else API_URL
     try:
-        response = requests.get(API_URL, timeout=120)
+        response = requests.get(url, timeout=120)
         response.raise_for_status()
         data = response.json()
         
@@ -88,14 +91,66 @@ def sync_trabajadores():
         if srv.codigo_centro_costo and srv.codigo_centro_costo not in contratos_cache:
             contratos_cache[srv.codigo_centro_costo] = srv.contrato
 
+    anomalies_file = os.path.join(project_root, 'logs', 'trabajadores_sync_anomalies.csv')
+    os.makedirs(os.path.dirname(anomalies_file), exist_ok=True)
+
     for worker in workers_data:
-        dni = worker.get('dni')
-        if not dni:
+        # Si se pidió filtrar por centro de costo, saltar los demás
+        if filter_centro:
+            cc = worker.get('centro_costo') or worker.get('centro') or ''
+            if str(cc).strip() != str(filter_centro).strip():
+                continue
+        # Normalizar DNI: preservar ceros a la izquierda cuando posible.
+        dni_raw = worker.get('dni')
+        if dni_raw is None:
             logger.warning("Trabajador sin DNI encontrado en API. Saltando.")
+            continue
+
+        dni_orig = dni_raw
+        dni = str(dni_raw).strip()
+        # Eliminar caracteres no númericos para normalizar (pero conservar si no son todos dígitos)
+        digits = re.sub(r"\D", "", dni)
+        if digits:
+            if len(digits) < 8:
+                digits = digits.zfill(8)
+            dni = digits
+
+        if not dni:
+            logger.warning(f"Trabajador con DNI vacío tras normalización (orig={dni_orig}). Saltando.")
             continue
 
         try:
             # Preparar datos base
+            # Nombres y apellidos: aplicar fallbacks si la API viene inconsistente
+            nombres_raw = worker.get('nombres', '') or ''
+            apepat_raw = worker.get('apepat', '') or ''
+            apemat_raw = worker.get('apemat', '') or ''
+
+            nombres = nombres_raw.strip()
+            apepat = apepat_raw.strip()
+            apemat = apemat_raw.strip()
+
+            # Caso: la API puede llegar con "APELLIDO, NOMBRES" en el campo `nombres`
+            if (not apepat) and (',' in nombres):
+                left, right = [p.strip() for p in nombres.split(',', 1)]
+                # left suele ser apellidos, right los nombres
+                name_parts = left.split()
+                apepat = name_parts[0] if name_parts else ''
+                apemat = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
+                nombres = right
+
+            # Si aún no hay apellidos pero `nombres` tiene 3+ palabras, asumir ultimas 2 como apellidos
+            if (not apepat and not apemat) and nombres:
+                words = nombres.split()
+                if len(words) >= 3:
+                    apemat = words[-1]
+                    apepat = words[-2]
+                    nombres = ' '.join(words[:-2])
+                elif len(words) == 2 and not apepat:
+                    # asumir formato "Nombre Apellido"
+                    apepat = words[-1]
+                    nombres = words[0]
+
             cargo_api = worker.get('cargo', '').strip()
             grupo_calculado = Trabajador.calcular_grupo_desde_cargo(cargo_api)
             tipo_servicio_calculado = Trabajador.calcular_tipo_servicio_desde_cargo(cargo_api)
@@ -106,9 +161,9 @@ def sync_trabajadores():
             es_standby_api = estado_api.upper() in ('STAND_BY_CLIENTE', 'STAND_BY_ROCKDRILL', 'STAND_BY')
 
             defaults = {
-                'nombres': worker.get('nombres', ''),
-                'apepat': worker.get('apepat', ''),
-                'apemat': worker.get('apemat', ''),
+                'nombres': nombres,
+                'apepat': apepat,
+                'apemat': apemat,
                 'cargo': cargo_api, # Guardamos texto directo
                 'grupo': grupo_calculado,
                 'tipo_servicio': tipo_servicio_calculado,
@@ -134,17 +189,35 @@ def sync_trabajadores():
             if contrato_obj:
                 defaults['contrato'] = contrato_obj
 
-            # Update or Create
-            obj, created = Trabajador.objects.update_or_create(
-                dni=dni,
-                defaults=defaults
-            )
+            # Registrar anomalías detectadas (DNI o nombres cambiados por la normalización)
+            if str(dni_orig).strip() != dni:
+                logger.warning(f"Normalizado DNI: orig={dni_orig} -> {dni} para nombre='{nombres} {apepat} {apemat}'")
+                try:
+                    with open(anomalies_file, 'a', newline='', encoding='utf-8') as af:
+                        writer = csv.writer(af)
+                        writer.writerow([datetime.utcnow().isoformat(), dni_orig, dni, nombres, apepat, apemat, worker.get('centro_costo')])
+                except Exception:
+                    logger.exception("No se pudo escribir archivo de anomalías de trabajadores.")
 
-            processed_count += 1
-            if created:
-                created_count += 1
+            # Update or Create (o simulación si dry_run)
+            if dry_run:
+                exists = Trabajador.objects.filter(dni=dni).exists()
+                processed_count += 1
+                if exists:
+                    updated_count += 1
+                else:
+                    created_count += 1
             else:
-                updated_count += 1
+                obj, created = Trabajador.objects.update_or_create(
+                    dni=dni,
+                    defaults=defaults
+                )
+
+                processed_count += 1
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
             
             if processed_count % 100 == 0:
                 logger.info(f"Procesados {processed_count} trabajadores...")
