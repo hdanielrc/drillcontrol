@@ -1327,38 +1327,42 @@ def mostrar_tareo_semanal(request):
             else:
                 maq_name_from_cells = ''
 
-            # Si hay override por células, úsalo; si no, usa la máquina asignada del trabajador
-            if maq_name_from_cells:
-                maq_key = maq_name_from_cells
-                maq_nombre = maq_name_from_cells
-                maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
-            else:
-                maq = trabajador.maquina_asignada
-                maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
-                maq_nombre = maq.nombre if maq else 'Sin Máquina'
-                maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+            # Build per-combination (maquina, guardia) segments so a worker can appear
+            # in multiple machines/guardias across the week according to cell snapshots.
+            assigned_maq_name = trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else '__SIN_MAQUINA__'
+            assigned_guardia = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
 
-            # Determinar guardia por celdas (mayoría). Si no hay, usar guardia asignada.
-            guardias_from_cells = [x['guardia_snapshot'] for x in dias if x.get('guardia_snapshot')]
-            if guardias_from_cells:
-                from collections import Counter
-                gc = Counter(guardias_from_cells).most_common(1)
-                guardia_key = gc[0][0] if gc else (trabajador.guardia_asignada or 'SIN_GUARDIA')
-            else:
-                guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
+            comb_map = {}
+            # initialize empty week placeholders when creating a new combo
+            def empty_week():
+                return [ {'fecha': fecha_inicio + timedelta(days=i), 'codigo':'', 'guardia_snapshot':'', 'color':'', 'maquina_snapshot': ''} for i in range(7) ]
+
+            for idx, day in enumerate(dias):
+                day_maq = day.get('maquina_snapshot') or assigned_maq_name
+                day_guardia = day.get('guardia_snapshot') or assigned_guardia
+                combo = (day_maq, day_guardia)
+                if combo not in comb_map:
+                    comb_map[combo] = empty_week()
+                # place the day's data into the correct slot
+                comb_map[combo][idx] = day
 
             maquinas = categorias[cat_key]['maquinas']
-            if maq_key not in maquinas:
-                maquinas[maq_key] = {'nombre': maq_nombre, 'css': maq_css, 'guardias': {}}
+            for (mname, gname), weekdias in comb_map.items():
+                maq_key = mname if mname else '__SIN_MAQUINA__'
+                maq_nombre = mname if mname else 'Sin Máquina'
+                maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+                if maq_key not in maquinas:
+                    maquinas[maq_key] = {'nombre': maq_nombre, 'css': maq_css, 'guardias': {}}
 
-            gmap = maquinas[maq_key]['guardias']
-            if guardia_key not in gmap:
-                gmap[guardia_key] = []
+                gmap = maquinas[maq_key]['guardias']
+                guardia_key = gname if gname else (trabajador.guardia_asignada or 'SIN_GUARDIA')
+                if guardia_key not in gmap:
+                    gmap[guardia_key] = []
 
-            gmap[guardia_key].append({
-                'trabajador': trabajador,
-                'dias': dias,
-            })
+                gmap[guardia_key].append({
+                    'trabajador': trabajador,
+                    'dias': weekdias,
+                })
 
         # Pasar a lista ordenada para el template
         categorias_list = []
