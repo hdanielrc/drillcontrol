@@ -218,7 +218,7 @@ def tareo_mensual_view(request):
             default=Value(9),
             output_field=IntF()
         )
-    ).order_by('grupo_ord', 'guardia_asignada', 'cargo_ord', 'apepat', 'nombres')
+    ).order_by('maquina_asignada__nombre', 'guardia_asignada', 'grupo_ord', 'cargo_ord', 'apepat', 'apemat', 'nombres')
     
     # Obtener asistencias del rango
     asistencias = AsistenciaTrabajador.objects.filter(
@@ -771,7 +771,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     cell.alignment = Alignment(horizontal='center', vertical='center')
     
     # FILA 2: Etiquetas de semanas
-    col_actual = 7  # Columna G (después de las 6 columnas fijas)
+    col_actual = 8  # Columna H (después de las 7 columnas fijas)
     fecha_actual = fecha_inicio
     
     while fecha_actual <= fecha_fin:
@@ -807,7 +807,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     
     # FILA 3: Headers de columnas
     headers = [
-        'ITEM', 'CODIGO', 'APELLIDOS Y NOMBRES', 'Cargo', 
+        'ITEM', 'CODIGO', 'APELLIDOS Y NOMBRES', 'Cargo', 'MAQUINA',
         'GRUPO', 'GUARDIA'
     ]
     
@@ -821,7 +821,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     
     # Headers de días
     fecha_actual = fecha_inicio
-    col_num = 7  # Después de "GUARDIA"
+    col_num = 8  # Después de "GUARDIA" (ahora 7 columnas fijas)
     while fecha_actual <= fecha_fin:
         cell = ws.cell(row=3, column=col_num)
         cell.value = fecha_actual
@@ -889,12 +889,14 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         ws.cell(row=row_num, column=2).value = trabajador.dni
         ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
         ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
-        ws.cell(row=row_num, column=5).value = trabajador.cargo or ""
-        ws.cell(row=row_num, column=6).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
+        # Máquina asociada
+        ws.cell(row=row_num, column=5).value = (trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else "")
+        ws.cell(row=row_num, column=6).value = trabajador.cargo or ""
+        ws.cell(row=row_num, column=7).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
         
         # Marcaciones diarias
         fecha_actual = fecha_inicio
-        col_num = 7
+        col_num = 8
         contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
         
         while fecha_actual <= fecha_fin:
@@ -942,11 +944,12 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     ws.column_dimensions['B'].width = 12
     ws.column_dimensions['C'].width = 35
     ws.column_dimensions['D'].width = 25
-    ws.column_dimensions['E'].width = 15
-    ws.column_dimensions['F'].width = 10
+    ws.column_dimensions['E'].width = 20
+    ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['G'].width = 10
     
     # Días (columnas de marcación)
-    for col in range(7, 7 + num_dias):
+    for col in range(8, 8 + num_dias):
         ws.column_dimensions[get_column_letter(col)].width = 4
 
 
