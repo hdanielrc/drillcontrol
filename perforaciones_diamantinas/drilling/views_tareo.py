@@ -882,62 +882,87 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                 asist_dict[asist.trabajador.id] = {}
             asist_dict[asist.trabajador.id][asist.fecha] = asist
     
+    # Agrupar trabajadores por máquina -> guardia -> lista de trabajadores
+    machines = {}
+    for trabajador in trabajadores:
+        maq = getattr(trabajador, 'maquina_asignada', None)
+        maq_key = maq.nombre if maq else 'SIN_MAQUINA'
+        guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
+        machines.setdefault(maq_key, {'maquina': maq, 'guardias': {}})
+        machines[maq_key]['guardias'].setdefault(guardia_key, []).append(trabajador)
+
     row_num = 4
-    for idx, trabajador in enumerate(trabajadores, 1):
-        # Datos fijos
-        ws.cell(row=row_num, column=1).value = idx
-        ws.cell(row=row_num, column=2).value = trabajador.dni
-        ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
-        ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
-        # Máquina asociada
-        ws.cell(row=row_num, column=5).value = (trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else "")
-        ws.cell(row=row_num, column=6).value = trabajador.cargo or ""
-        ws.cell(row=row_num, column=7).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
-        
-        # Marcaciones diarias
-        fecha_actual = fecha_inicio
-        col_num = 8
-        contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
-        
-        while fecha_actual <= fecha_fin:
-            asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
-            if asist:
-                codigo = MAPEO_CODIGOS.get(asist.estado, asist.estado)
-                # Mostrar código y, si existe, la guardia_snapshot (A/B/C)
-                guardia = asist.guardia_snapshot if getattr(asist, 'guardia_snapshot', None) else ''
-                cell = ws.cell(row=row_num, column=col_num)
-                cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
-                # Aplicar color de fondo vivo según estado
-                hex_color = COLORES_EXCEL.get(codigo)
-                if hex_color:
-                    cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type='solid')
-                    cell.font = Font(bold=True, color='FFFFFF', size=10)
-                # Contar para resumen
-                if codigo in contadores:
-                    contadores[codigo] += 1
-            else:
-                cell = ws.cell(row=row_num, column=col_num)
-                cell.value = ""
-            
-            ws.cell(row=row_num, column=col_num).alignment = Alignment(horizontal='center', vertical='center')
-            ws.cell(row=row_num, column=col_num).border = border_thin
-            col_num += 1
-            fecha_actual += timedelta(days=1)
-        
-        # Totales Simplificados
-        ws.cell(row=row_num, column=col_num).value = contadores['T']
-        ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
-        ws.cell(row=row_num, column=col_num+2).value = contadores['F']
-        ws.cell(row=row_num, column=col_num+3).value = contadores['V']
-        ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
-        
-        # Total Días (Suma de todo lo registrado)
-        # Ojo: Si quieres total de días del mes, es num_dias. Si es total de registros, es la suma.
-        # Generalmente en tareo se quiere saber cuántos días se han contabilizado.
-        total_registrados = sum(contadores.values())
-        ws.cell(row=row_num, column=col_num+5).value = total_registrados
-        
+    item_idx = 1
+    # Ordenar máquinas por nombre (SIN_MAQUINA al final)
+    sorted_maquinas = sorted(machines.items(), key=lambda kv: (kv[0] == 'SIN_MAQUINA', kv[0]))
+    for maq_key, maq_data in sorted_maquinas:
+        # Escribir encabezado de máquina (merge across all columns)
+        total_cols = 7 + num_dias + len(headers_resumen)
+        ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=total_cols)
+        cell = ws.cell(row=row_num, column=1)
+        cell.value = f"MÁQUINA: {maq_key if maq_key != 'SIN_MAQUINA' else 'Sin Máquina Asignada'}"
+        cell.font = Font(bold=True, size=11)
+        cell.fill = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
         row_num += 1
+
+        # Para cada guardia dentro de la máquina, en orden A,B,C,SIN_GUARDIA
+        guardia_order = lambda g: (g != 'A', g != 'B', g != 'C', g)
+        for guardia_key in sorted(maq_data['guardias'].keys(), key=guardia_order):
+            # Sub-encabezado de guardia
+            ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=total_cols)
+            cell = ws.cell(row=row_num, column=1)
+            cell.value = f"Guardia: {guardia_key if guardia_key != 'SIN_GUARDIA' else 'Sin Guardia'}"
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color='D9EAD3', end_color='D9EAD3', fill_type='solid')
+            row_num += 1
+
+            for trabajador in maq_data['guardias'][guardia_key]:
+                # Datos fijos por trabajador
+                ws.cell(row=row_num, column=1).value = item_idx
+                ws.cell(row=row_num, column=2).value = trabajador.dni
+                ws.cell(row=row_num, column=3).value = f"{trabajador.apellidos}, {trabajador.nombres}"
+                ws.cell(row=row_num, column=4).value = trabajador.cargo or ""
+                ws.cell(row=row_num, column=5).value = (trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else "")
+                ws.cell(row=row_num, column=6).value = trabajador.cargo or ""
+                ws.cell(row=row_num, column=7).value = trabajador.guardia_asignada if trabajador.guardia_asignada else ""
+
+                # Marcaciones diarias
+                fecha_actual = fecha_inicio
+                col_num = 8
+                contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
+                while fecha_actual <= fecha_fin:
+                    asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
+                    cell = ws.cell(row=row_num, column=col_num)
+                    if asist:
+                        codigo = getattr(asist, 'estado', None) or getattr(asist, 'estado', '')
+                        codigo = MAPEO_CODIGOS.get(codigo, codigo)
+                        guardia = getattr(asist, 'guardia_snapshot', None) or ''
+                        cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
+                        hex_color = COLORES_EXCEL.get(codigo)
+                        if hex_color:
+                            cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type='solid')
+                            cell.font = Font(bold=True, color='FFFFFF', size=10)
+                        if codigo in contadores:
+                            contadores[codigo] += 1
+                    else:
+                        cell.value = ""
+
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                    cell.border = border_thin
+                    col_num += 1
+                    fecha_actual += timedelta(days=1)
+
+                # Totales Simplificados
+                ws.cell(row=row_num, column=col_num).value = contadores['T']
+                ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
+                ws.cell(row=row_num, column=col_num+2).value = contadores['F']
+                ws.cell(row=row_num, column=col_num+3).value = contadores['V']
+                ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
+                total_registrados = sum(contadores.values())
+                ws.cell(row=row_num, column=col_num+5).value = total_registrados
+
+                row_num += 1
+                item_idx += 1
     
     # Ajustar anchos de columna
     ws.column_dimensions['A'].width = 5
