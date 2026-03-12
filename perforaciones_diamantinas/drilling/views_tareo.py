@@ -854,19 +854,33 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         estado='ACTIVO'
     ).order_by('grupo', 'apepat', 'apemat', 'nombres')
     
-    # Obtener asistencias
-    asistencias = AsistenciaTrabajador.objects.filter(
-        trabajador__contrato=contrato,
+    # Obtener asistencias desde V2 (AsistenciaDiaria). Usar V1 solo como
+    # fallback si no hay registros en V2 para el contrato/periodo.
+    from .models import AsistenciaDiaria
+    asistencias_v2 = AsistenciaDiaria.objects.filter(
+        empleado__contrato=contrato,
         fecha__gte=fecha_inicio,
         fecha__lte=fecha_fin
-    ).select_related('trabajador')
-    
-    # Diccionario de asistencias
+    ).select_related('empleado', 'maquina_snapshot')
+
+    # Diccionario de asistencias (preferir V2)
     asist_dict = {}
-    for asist in asistencias:
-        if asist.trabajador.id not in asist_dict:
-            asist_dict[asist.trabajador.id] = {}
-        asist_dict[asist.trabajador.id][asist.fecha] = asist
+    if asistencias_v2.exists():
+        for asist in asistencias_v2:
+            if asist.empleado.id not in asist_dict:
+                asist_dict[asist.empleado.id] = {}
+            asist_dict[asist.empleado.id][asist.fecha] = asist
+    else:
+        # Fallback a tabla legacy AsistenciaTrabajador
+        asistencias = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato=contrato,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin
+        ).select_related('trabajador')
+        for asist in asistencias:
+            if asist.trabajador.id not in asist_dict:
+                asist_dict[asist.trabajador.id] = {}
+            asist_dict[asist.trabajador.id][asist.fecha] = asist
     
     row_num = 4
     for idx, trabajador in enumerate(trabajadores, 1):
@@ -963,8 +977,10 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     
     # Estadísticas
     trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO')
-    asistencias = AsistenciaTrabajador.objects.filter(
-        trabajador__contrato=contrato,
+    # Preferir AsistenciaDiaria (V2) para estadísticas del informe
+    from .models import AsistenciaDiaria
+    asistencias = AsistenciaDiaria.objects.filter(
+        empleado__contrato=contrato,
         fecha__gte=fecha_inicio,
         fecha__lte=fecha_fin
     )
