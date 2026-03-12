@@ -19,7 +19,13 @@
   <h2>📋 Tareo Semanal — {{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</h2>
   <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
     <a href="{% url 'tareo-v2-mensual' %}?contrato={{ contrato.id }}" class="btn-proyeccion">← Volver</a>
-    <button id="btnDownload" class="btn-proyeccion download-btn" style="background:#117a65;">⬇️ Descargar vista como imagen</button>
+    <div style="display:flex; gap:6px; align-items:center; margin-left:8px;">
+      <button id="prevWeek" class="btn-proyeccion" style="background:#95a5a6;">◀ Semana Anterior</button>
+      <button id="nextWeek" class="btn-proyeccion" style="background:#95a5a6;">Semana Siguiente ▶</button>
+      <button id="todayWeek" class="btn-proyeccion" style="background:#f39c12;color:#fff;">Hoy</button>
+      <input id="pickDate" type="date" style="padding:6px;border-radius:4px;border:1px solid #ccc;margin-left:6px;" />
+    </div>
+    <button id="btnDownload" class="btn-proyeccion download-btn" style="background:#117a65; margin-left:auto;">⬇️ Descargar vista como imagen</button>
   </div>
 
   <div id="distribution">
@@ -62,6 +68,12 @@
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
+const contratoId = '{{ contrato.id }}';
+const fechaInicioStr = '{{ fecha_inicio|date:"Y-m-d" }}';
+
+function toISO(d){ return d.toISOString().slice(0,10); }
+function mondayOf(date){ const dt = new Date(date); const day = dt.getDay(); const diff = (day + 6) % 7; dt.setDate(dt.getDate() - diff); return dt; }
+
 document.getElementById('btnDownload').addEventListener('click', function(){
   const el = document.getElementById('distribution');
   html2canvas(el, {scale:2}).then(canvas => {
@@ -73,5 +85,34 @@ document.getElementById('btnDownload').addEventListener('click', function(){
     a.remove();
   }).catch(err=>alert('Error al generar imagen: '+err));
 });
+
+// Navegación de semanas
+document.getElementById('prevWeek').addEventListener('click', function(){
+  const base = new Date(fechaInicioStr);
+  base.setDate(base.getDate() - 7);
+  const monday = mondayOf(base);
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+});
+document.getElementById('nextWeek').addEventListener('click', function(){
+  const base = new Date(fechaInicioStr);
+  base.setDate(base.getDate() + 7);
+  const monday = mondayOf(base);
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+});
+document.getElementById('todayWeek').addEventListener('click', function(){
+  const today = new Date();
+  const monday = mondayOf(today);
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+});
+
+// Selector de fecha: si el usuario escoge una fecha, navegar al LUNES correspondiente
+document.getElementById('pickDate').addEventListener('change', function(e){
+  const sel = e.target.value; if(!sel) return;
+  const monday = mondayOf(new Date(sel));
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+});
+
+// Inicializar input date con la fecha_inicio visible
+document.getElementById('pickDate').value = fechaInicioStr;
 </script>
 {% endblock %}
