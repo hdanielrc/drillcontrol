@@ -1293,10 +1293,7 @@ def mostrar_tareo_semanal(request):
             if maq_key not in maquinas:
                 maquinas[maq_key] = {'nombre': maq_nombre, 'css': maq_css, 'guardias': {}}
 
-            guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
-            gmap = maquinas[maq_key]['guardias']
-            if guardia_key not in gmap:
-                gmap[guardia_key] = []
+            # guardia grouping will be determined from per-cell guardia_snapshot below
 
             # Construir asistencias por día para la semana
             dias = []
@@ -1340,6 +1337,15 @@ def mostrar_tareo_semanal(request):
                 maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
                 maq_nombre = maq.nombre if maq else 'Sin Máquina'
                 maq_css = 'maq-' + _re.sub(r'[^a-zA-Z0-9]', '-', maq_key)
+
+            # Determinar guardia por celdas (mayoría). Si no hay, usar guardia asignada.
+            guardias_from_cells = [x['guardia_snapshot'] for x in dias if x.get('guardia_snapshot')]
+            if guardias_from_cells:
+                from collections import Counter
+                gc = Counter(guardias_from_cells).most_common(1)
+                guardia_key = gc[0][0] if gc else (trabajador.guardia_asignada or 'SIN_GUARDIA')
+            else:
+                guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
 
             maquinas = categorias[cat_key]['maquinas']
             if maq_key not in maquinas:
