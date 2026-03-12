@@ -19,7 +19,7 @@ from collections import defaultdict
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Importar HeadCount desde Excel/CSV')
-    parser.add_argument('input', nargs='?', default='plantillas/HEADCOUNT.xlsx', help='Ruta al archivo Excel o CSV (por defecto: plantillas/HEADCOUNT.xlsx)')
+    parser.add_argument('input', nargs='?', default=None, help='Ruta al archivo Excel o CSV (por defecto: plantillas/HEADCOUNT.csv o .xlsx si existe)')
     parser.add_argument('--dry-run', action='store_true', help='No escribir en la BD')
     parser.add_argument('--sheet', default=None, help='Nombre o índice de hoja (opcional para Excel)')
     parser.add_argument('--clear-existing', action='store_true', help='Borrar headcounts existentes para los contratos detectados antes de insertar')
@@ -36,6 +36,17 @@ if __name__ == '__main__':
     from drilling.models import HeadCount, Contrato
 
     input_path = args.input
+    # Si no se proporcionó ruta, preferir CSV si existe, sino XLSX
+    if not input_path:
+        csv_path = os.path.join('plantillas', 'HEADCOUNT.csv')
+        xlsx_path = os.path.join('plantillas', 'HEADCOUNT.xlsx')
+        if os.path.exists(csv_path):
+            input_path = csv_path
+        elif os.path.exists(xlsx_path):
+            input_path = xlsx_path
+        else:
+            # fallback to csv path (will error later if missing)
+            input_path = csv_path
     print(f'Leyendo archivo: {input_path}')
 
     # Leer archivo (Excel o CSV)
