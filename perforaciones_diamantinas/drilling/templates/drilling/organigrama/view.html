@@ -570,7 +570,7 @@ body { background: var(--bg); }
                         {% for maq_id, bucket in group.maquinas.items %}
                         <div class="org-column">
                             <div class="column-head">
-                                <span class="column-title">{{ bucket.maquina.nombre if bucket.maquina else 'Sin máquina' }}</span>
+                                <span class="column-title">{% if bucket.maquina %}{{ bucket.maquina.nombre }}{% else %}Sin máquina{% endif %}</span>
                                 <span class="column-count">{{ bucket.workers|length }} trabajador{{ bucket.workers|length|pluralize:"s" }}</span>
                             </div>
                             <div class="slot-workers">
