@@ -343,40 +343,87 @@ class TareoService:
                 if len(working_guardias) <= 2:
                     continue
 
-                # Choose guardia to rest using a persisted rotation when possible.
-                # Strategy (priority):
-                # 1. If there is a recent manual record (es_proyeccion=False) indicating
-                #    which guardia rested last on this machine, pick the next guardia
-                #    in A->B->C rotation.
-                # 2. Otherwise, use a deterministic seed rotation based on date+machine.
-                # 3. Fallback to the guardia with fewest workers.
+                # Choose guardia to rest using the user's rules:
+                # 1) Count days worked since last change for each trabajador; if a guardia
+                #    has workers that exceeded their regimen 'dias_trabajo', prefer that guardia.
+                # 2) If no guardia qualifies, fall back to persisted/manual rotation, then seed rotation,
+                #    then smallest group.
                 rotation_order = ['A', 'B', 'C']
                 available_ordered = [gk for gk, _ in working_guardias if gk in rotation_order]
                 guardia_to_rest = None
 
-                # 1) Try to infer last rested guardia from manual (locked) AsistenciaDiaria
-                try:
-                    if maq_id is not None and available_ordered:
-                        last_manual = AsistenciaDiaria.objects.filter(
-                            maquina_snapshot_id=maq_id,
-                            fecha__lt=fecha,
-                            es_proyeccion=False,
-                            estado='DESCANSO'
-                        ).order_by('-fecha').values_list('guardia_snapshot', flat=True).first()
-                        if last_manual:
-                            last_manual = last_manual if last_manual in rotation_order else None
-                            if last_manual:
-                                # pick next in rotation after last_manual that is available
-                                idx = rotation_order.index(last_manual)
-                                for off in range(1, len(rotation_order)+1):
-                                    cand = rotation_order[(idx + off) % len(rotation_order)]
-                                    if cand in available_ordered:
-                                        guardia_to_rest = cand
-                                        break
-                except Exception:
-                    guardia_to_rest = None
+                # 1) Evaluate eligibility per guardia based on days worked since last change
+                eligible_counts = {}
+                for gk, items in guardias.items():
+                    eligible = 0
+                    for src, idx in items:
+                        if src == 'create':
+                            reg = registros_a_crear[idx]
+                        else:
+                            reg = registros_a_actualizar[idx]
+                        trabajador = getattr(reg, 'empleado', None)
+                        if not trabajador:
+                            continue
+                        # Determine last change date according to contract
+                        dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
+                        if dia_cambio is None and contrato is not None:
+                            dia_cambio = getattr(contrato, 'dia_cambio_guardia', None)
+                        try:
+                            last_change = TareoService._snap_a_dia_cambio(fecha, dia_cambio) if dia_cambio is not None else fecha
+                        except Exception:
+                            last_change = fecha
+                        # Count work days from last_change (inclusive) up to fecha
+                        dias_trabajo_cfg = None
+                        regimen = getattr(trabajador, 'regimen_laboral', None)
+                        if regimen and regimen in TareoService.REGIMEN_CONFIG:
+                            dias_trabajo_cfg = TareoService.REGIMEN_CONFIG[regimen][0]
+                        if dias_trabajo_cfg is None:
+                            continue
+                        worked = 0
+                        d = last_change
+                        while d <= fecha:
+                            estado = TareoService.calcular_estado_dia(trabajador, d, forzar_alineacion=True)
+                            if estado == 'TRABAJO':
+                                worked += 1
+                            d += timedelta(days=1)
+                        if worked >= dias_trabajo_cfg:
+                            eligible += 1
+                    eligible_counts[gk] = eligible
 
-                # 2) Deterministic seed rotation
+                # If any guardia has eligible workers, pick the one with highest eligible count
+                if any(v > 0 for v in eligible_counts.values()):
+                    # choose guardia with max eligible, tie-breaker: rotation order
+                    max_elig = max(eligible_counts.values())
+                    candidates = [g for g, c in eligible_counts.items() if c == max_elig]
+                    # prefer rotation order among candidates
+                    for cand in rotation_order:
+                        if cand in candidates:
+                            guardia_to_rest = cand
+                            break
+
+                # If none eligible, revert to persisted/manual rotation then seed and fallback
+                if guardia_to_rest is None:
+                    # 1) Try to infer last rested guardia from manual (locked) AsistenciaDiaria
+                    try:
+                        if maq_id is not None and available_ordered:
+                            last_manual = AsistenciaDiaria.objects.filter(
+                                maquina_snapshot_id=maq_id,
+                                fecha__lt=fecha,
+                                es_proyeccion=False,
+                                estado='DESCANSO'
+                            ).order_by('-fecha').values_list('guardia_snapshot', flat=True).first()
+                            if last_manual:
+                                last_manual = last_manual if last_manual in rotation_order else None
+                                if last_manual:
+                                    idx = rotation_order.index(last_manual)
+                                    for off in range(1, len(rotation_order)+1):
+                                        cand = rotation_order[(idx + off) % len(rotation_order)]
+                                        if cand in available_ordered:
+                                            guardia_to_rest = cand
+                                            break
+                    except Exception:
+                        guardia_to_rest = None
+
                 if guardia_to_rest is None and available_ordered:
                     seed = (fecha.toordinal() + (maq_id or 0))
                     start_idx = seed % len(rotation_order)
@@ -386,7 +433,6 @@ class TareoService:
                             guardia_to_rest = cand
                             break
 
-                # 3) Fallback to smallest group
                 if guardia_to_rest is None:
                     working_guardias.sort(key=lambda x: x[1])
                     guardia_to_rest = working_guardias[0][0]
