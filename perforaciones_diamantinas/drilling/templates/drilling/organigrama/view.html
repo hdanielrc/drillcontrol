@@ -516,6 +516,18 @@ body { background: var(--bg); }
                     <span class="vacante-chip">{{ group.total_vacantes }} vacante{{ group.total_vacantes|pluralize:"s" }}</span>
                 </div>
             </header>
+            {% if group.key == 'LINEA DE MANDO' %}
+            <div class="row root-row">
+                {% for slot in group.root_slots %}
+                <div class="col root-slot">
+                    <div class="slot-card slot-card-root {% if slot.vacantes == 0 %}filled{% endif %}">
+                        <div class="slot-title">{{ slot.label }}</div>
+                        <div class="slot-count">{{ slot.cantidad }} / {{ slot.assignments|length }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
             <div class="org-service-grid">
                 <div class="columns-row">
                     {% if group.key == 'OPERATIVO' %}
@@ -525,28 +537,31 @@ body { background: var(--bg); }
                                 <span class="column-title">{% if bucket.maquina %}{{ bucket.maquina.nombre }}{% else %}Sin máquina{% endif %}</span>
                                 <span class="column-count">{{ bucket.workers|length }} trabajador{{ bucket.workers|length|pluralize:"s" }}</span>
                             </div>
-                            <div class="slot-workers">
-                                {% if bucket.workers %}
-                                    {% for w in bucket.workers %}
-                                    <div class="worker-pill">
-                                        <div class="worker-info">
-                                            <span class="worker-name">{{ w.obj.apepat }}, {{ w.obj.nombres }}</span>
-                                            <span class="worker-cargo">{{ w.obj.cargo_headcount|default:w.obj.cargo }}</span>
+                                <div class="slot-workers">
+                                    {% if bucket.guardias %}
+                                        {% for gkey, guardia in bucket.guardias.items %}
+                                        <div class="column-label">{{ guardia.nombre }}</div>
+                                        {% for w in guardia.workers %}
+                                        <div class="worker-pill">
+                                            <div class="worker-info">
+                                                <span class="worker-name">{{ w.obj.apepat }}, {{ w.obj.nombres }}</span>
+                                                <span class="worker-cargo">{{ w.obj.cargo_headcount|default:w.obj.cargo }}</span>
+                                            </div>
+                                            <div class="worker-week">
+                                                {% for day in w.semana %}
+                                                <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
+                                                {% endfor %}
+                                            </div>
                                         </div>
-                                        <div class="worker-week">
-                                            {% for day in w.semana %}
-                                            <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
-                                            {% endfor %}
-                                        </div>
+                                        {% endfor %}
+                                        {% endfor %}
+                                    {% endif %}
+                                    {% if bucket.vacantes %}
+                                    <div class="worker-pill vacant">
+                                        <i class="fas fa-user-plus"></i> {{ bucket.vacantes }} vacante{{ bucket.vacantes|pluralize:"s" }}
                                     </div>
-                                    {% endfor %}
-                                {% endif %}
-                                {% if bucket.vacantes %}
-                                <div class="worker-pill vacant">
-                                    <i class="fas fa-user-plus"></i> {{ bucket.vacantes }} vacante{{ bucket.vacantes|pluralize:"s" }}
+                                    {% endif %}
                                 </div>
-                                {% endif %}
-                            </div>
                         </div>
                         {% endfor %}
                     {% else %}

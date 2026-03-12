@@ -377,7 +377,7 @@ def organigrama_view(request):
 
     # Build groups layout (Línea de mando, Operativos, Conductores) from all services
     groups_map = OrderedDict([
-        ('LINEA DE MANDO', {'key': 'LINEA DE MANDO', 'label': 'Línea de mando', 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
+        ('LINEA DE MANDO', {'key': 'LINEA DE MANDO', 'label': 'Línea de mando', 'slots': [], 'root_slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
         ('OPERATIVO', {'key': 'OPERATIVO', 'label': 'Operativos', 'maquinas': {}, 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
         ('CONDUCTORES', {'key': 'CONDUCTORES', 'label': 'Conductores', 'slots': [], 'total_slots': 0, 'total_assigned': 0, 'total_vacantes': 0}),
     ])
@@ -388,7 +388,11 @@ def organigrama_view(request):
                 # If slot is in 'direccion', assign it to the LINEA DE MANDO group
                 if slot.get('section') == 'direccion':
                     lm = groups_map['LINEA DE MANDO']
-                    lm['slots'].append(slot)
+                    # Put resident (priority == 2) into root_slots so it renders above
+                    if slot.get('priority') == 2:
+                        lm['root_slots'].append(slot)
+                    else:
+                        lm['slots'].append(slot)
                     lm['total_slots'] += slot.get('cantidad', 0)
                     lm['total_assigned'] += sum(1 for a in slot.get('assignments', []) if a.get('type') == 'worker')
                     lm['total_vacantes'] += slot.get('vacantes', 0)
@@ -412,14 +416,20 @@ def organigrama_view(request):
                         maq = getattr(w['obj'], 'maquina_asignada', None)
                         maq_id = maq.id if maq else None
                         if maq_id not in maq_buckets:
-                            maq_buckets[maq_id] = {'maquina': maq, 'workers': [], 'vacantes': 0}
-                        maq_buckets[maq_id]['workers'].append(w)
+                            maq_buckets[maq_id] = {'maquina': maq, 'guardias': OrderedDict(), 'vacantes': 0}
+                        # Determine guardia for the worker: prefer assigned guardia on worker
+                        guardia_key = getattr(w['obj'], 'guardia_asignada', None) or 'SIN_GUARDIA'
+                        if guardia_key not in maq_buckets[maq_id]['guardias']:
+                            maq_buckets[maq_id]['guardias'][guardia_key] = {'nombre': f"Guardia {guardia_key}" if guardia_key != 'SIN_GUARDIA' else 'Sin Guardia', 'workers': [], 'vacantes': 0}
+                        maq_buckets[maq_id]['guardias'][guardia_key]['workers'].append(w)
                         groups_map['OPERATIVO']['total_assigned'] += 1
-                        groups_map['OPERATIVO']['total_slots'] += 0
-                    # account vacantes to a generic bucket (None)
+                    # account vacantes to a generic guardia bucket (SIN_GUARDIA)
                     if slot.get('vacantes'):
                         if None not in maq_buckets:
-                            maq_buckets[None] = {'maquina': None, 'workers': [], 'vacantes': 0}
+                            maq_buckets[None] = {'maquina': None, 'guardias': OrderedDict(), 'vacantes': 0}
+                        if 'SIN_GUARDIA' not in maq_buckets[None]['guardias']:
+                            maq_buckets[None]['guardias']['SIN_GUARDIA'] = {'nombre': 'Sin Guardia', 'workers': [], 'vacantes': 0}
+                        maq_buckets[None]['guardias']['SIN_GUARDIA']['vacantes'] += slot.get('vacantes', 0)
                         maq_buckets[None]['vacantes'] += slot.get('vacantes', 0)
                         groups_map['OPERATIVO']['total_vacantes'] += slot.get('vacantes', 0)
                 else:
