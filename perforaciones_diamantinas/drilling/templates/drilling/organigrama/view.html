@@ -440,6 +440,17 @@ body { background: var(--bg); }
         </div>
         {% endif %}
     </div>
+    {% if services_present %}
+    <div class="service-filter" style="margin:10px 0 18px;">
+        <button class="service-btn active" data-service="ALL">Todos</button>
+        {% for s in services_present %}
+        <button class="service-btn" data-service="{{ s.code }}">{{ s.label }}</button>
+        {% endfor %}
+    </div>
+    <style>
+    .service-btn { margin-right:8px; padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; }
+    .service-btn.active { background:#0470ac; color:#fff; border-color:#0470ac; }
+    </style>
     <div class="semana-nav">
         <a href="?contrato={{ contrato.id }}&semana_offset={{ semana_offset|add:-1 }}" class="nav-btn">
             <i class="fas fa-chevron-left"></i> Anterior
@@ -492,7 +503,7 @@ body { background: var(--bg); }
     </div>
     <div class="services-container">
         {% for service in services_layout %}
-        <section class="org-service">
+        <section class="org-service" data-service="{{ service.code }}">
             <header class="org-service-header">
                 <div>
                     <p class="org-service-label">Servicio</p>
@@ -628,4 +639,27 @@ body { background: var(--bg); }
         {% endif %}
     </section>
 </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const buttons = document.querySelectorAll('.service-btn');
+        const sections = document.querySelectorAll('.org-service');
+        function setActive(btn){
+            buttons.forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        function showService(code){
+            sections.forEach(s=>{
+                if(code === 'ALL') s.style.display = '';
+                else s.style.display = (s.dataset.service === code) ? '' : 'none';
+            });
+        }
+        buttons.forEach(btn=>{
+            btn.addEventListener('click', function(){
+                const svc = this.dataset.service;
+                setActive(this);
+                showService(svc);
+            });
+        });
+    });
+    </script>
 {% endblock %}

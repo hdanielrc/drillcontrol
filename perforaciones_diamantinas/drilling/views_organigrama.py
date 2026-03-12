@@ -382,6 +382,8 @@ def organigrama_view(request):
         'total_headcount_assignments': len(assigned_worker_ids),
         'total_vacantes': total_vacantes,
         'services_layout': services_layout,
+        # Services available in the headcount (used to render selection buttons)
+        'services_present': [{'code': s['code'], 'label': s['label']} for s in services_layout],
         'org_sections': [{'key': key, 'label': label} for key, label in ORG_SECTION_ORDER],
         'trabajadores_sin_headcount': trabajadores_sin_headcount,
         # Semana
