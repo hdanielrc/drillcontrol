@@ -145,13 +145,34 @@ if __name__ == '__main__':
     groups = defaultdict(int)
     rows_info = {}
 
-    # Validar contratos y agrupar
+    # Preparar índice de contratos normalizado (sin acentos, mayúsculas)
+    import unicodedata
+    def norm_name(s):
+        if not s:
+            return ''
+        s = str(s).strip()
+        s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
+        return s.upper()
+
+    contratos_db = {}
+    for c in Contrato.objects.all():
+        contratos_db[norm_name(c.nombre_contrato)] = c
+
+    # Validar contratos y agrupar (usando normalización para buscar coincidencias)
     for idx, r in df.iterrows():
         contrato_name = r['__contrato_raw']
         if not contrato_name:
             invalid_rows.append((idx, 'contrato_vacio'))
             continue
-        contrato = Contrato.objects.filter(nombre_contrato__iexact=contrato_name).first()
+        contrato = None
+        # buscar por coincidencia normalizada
+        contrato_norm = norm_name(contrato_name)
+        if contrato_norm in contratos_db:
+            contrato = contratos_db[contrato_norm]
+        else:
+            # intentar búsqueda exacta case-insensitive como fallback
+            contrato = Contrato.objects.filter(nombre_contrato__iexact=contrato_name).first()
+
         if not contrato:
             invalid_rows.append((idx, f'contrato_no_encontrado: {contrato_name}'))
             continue
