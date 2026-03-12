@@ -174,6 +174,8 @@
 
     /* Verde esmeralda — Trabajo productivo */
     .celda-TRABAJO     { background-color: #27ae60 !important; }
+    .celda-TRABAJO_DIA { background-color: #27ae60 !important; }
+    .celda-TRABAJO_NOCHE { background-color: #27ae60 !important; }
     /* Azul cielo — Día Libre / Descanso */
     .celda-DESCANSO    { background-color: #2980b9 !important; }
     /* Rojo — Falta */
@@ -636,6 +638,8 @@
                                 <span class="grupo-toolbar-label">Aplicar a visibles:</span>
                                 <select class="grupo-fill-select" id="grupo-select-{{ grupo.grupo }}">
                                     <option value="TRABAJO">T — Trabajo</option>
+                                    <option value="TRABAJO_DIA">T D — Trabajo Día</option>
+                                    <option value="TRABAJO_NOCHE">TN — Trabajo Noche</option>
                                     <option value="DESCANSO">DL — Día Libre</option>
                                     <option value="FALTA">F — Falta</option>
                                     <option value="DM">DM — Desc. Médico</option>
@@ -699,6 +703,8 @@
                             <div class="quick-fill-row">
                                 <select class="quick-fill-select" title="Estado para rellenar toda la fila">
                                     <option value="TRABAJO">T</option>
+                                    <option value="TRABAJO_DIA">T D</option>
+                                    <option value="TRABAJO_NOCHE">TN</option>
                                     <option value="DESCANSO">DL</option>
                                     <option value="FALTA">F</option>
                                     <option value="DM">DM</option>
@@ -748,6 +754,8 @@
                                 title="{{ data.estado|default:'TRABAJO' }}"
                             >
                                 <option value="TRABAJO"    {% if data.estado == 'TRABAJO'    or not data.estado %}selected{% endif %}>T</option>
+                                <option value="TRABAJO_DIA" {% if data.estado == 'TRABAJO_DIA' %}selected{% endif %}>T D</option>
+                                <option value="TRABAJO_NOCHE" {% if data.estado == 'TRABAJO_NOCHE' %}selected{% endif %}>TN</option>
                                 <option value="DESCANSO"   {% if data.estado == 'DESCANSO'   %}selected{% endif %}>DL</option>
                                 <option value="FALTA"      {% if data.estado == 'FALTA'      %}selected{% endif %}>F</option>
                                 <option value="DM"         {% if data.estado == 'DM'         %}selected{% endif %}>DM</option>
@@ -861,6 +869,8 @@
         <h4 style="margin-bottom: 15px;">📖 Leyenda de Estados</h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 8px; margin-bottom: 15px;">
             <div style="padding: 9px 12px; background: #27ae60; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #1e8449;"><strong>T</strong> — Trabajado</div>
+            <div style="padding: 9px 12px; background: #27ae60; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #1e8449;"><strong>T D</strong> — Trabajado Día</div>
+            <div style="padding: 9px 12px; background: #27ae60; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #1e8449;"><strong>TN</strong> — Trabajado Noche</div>
             <div style="padding: 9px 12px; background: #2980b9; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #1a6492;"><strong>DL</strong> — Día Libre</div>
             <div style="padding: 9px 12px; background: #e74c3c; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #c0392b;"><strong>F</strong> — Falta</div>
             <div style="padding: 9px 12px; background: #1a5276; color: #fff; border-radius: 5px; font-weight: 700; border-left: 5px solid #154360;"><strong>DM</strong> — Desc. Médico</div>
@@ -1292,7 +1302,8 @@ function actualizarSummaryRows() {
             // Skip cells that belong to summary rows themselves
             if (c.classList.contains('summary-day-cell')) return;
             total++;
-            if (c.getAttribute('data-estado') === 'TRABAJO') countT++;
+            const estadoVal = c.getAttribute('data-estado');
+            if (['TRABAJO','TRABAJO_DIA','TRABAJO_NOCHE'].includes(estadoVal)) countT++;
         });
         if (total > 0) {
             cell.textContent = countT + '/' + total;

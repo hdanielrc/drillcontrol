@@ -538,6 +538,9 @@ def guardar_asistencias_masivas(request):
 # MAPEO DE ESTADOS DEL SISTEMA A CÓDIGOS
 MAPEO_CODIGOS = {
     'TRABAJADO': 'T',
+    'TRABAJO': 'T',
+    'TRABAJO_DIA': 'TD',
+    'TRABAJO_NOCHE': 'TN',
     'DIA_LIBRE': 'DL',
     'DIA_APOYO': 'DA',
     'PERMISO_PATERNIDAD': 'PT',
@@ -561,6 +564,8 @@ MAPEO_CODIGOS = {
 # LEYENDA DE CÓDIGOS
 LEYENDA = {
     'T': 'TRABAJADO',
+    'TD': 'TRABAJADO DÍA',
+    'TN': 'TRABAJADO NOCHE',
     'T1': 'TRABAJADO + 1 H.E.',
     'T2': 'TRABAJADO + 2 H.E.',
     'DL': 'DIA LIBRE',
@@ -586,6 +591,8 @@ LEYENDA = {
 # Colores vivos por código para el Excel (formato ARGB sin #)
 COLORES_EXCEL = {
     'T':   'FF00C853',  # Verde brillante — Trabajado
+    'TD':  'FF00C853',
+    'TN':  'FF00C853',
     'DL':  'FF2979FF',  # Azul eléctrico — Día Libre
     'DA':  'FF1565C0',  # Azul marino — Día Apoyo
     'PT':  'FFF57F17',  # Ámbar — Permiso Paternidad
@@ -987,7 +994,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                         # Marcaciones diarias
                         fecha_actual = fecha_inicio
                         col_num = 9
-                        contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
+                        contadores = {'T': 0, 'TD': 0, 'TN': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
                         while fecha_actual <= fecha_fin:
                             asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                             cell = ws.cell(row=row_num, column=col_num)
@@ -1054,7 +1061,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
 
                     fecha_actual = fecha_inicio
                     col_num = 9
-                    contadores = {'T': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
+                    contadores = {'T': 0, 'TD': 0, 'TN': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
                     while fecha_actual <= fecha_fin:
                         asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                         cell = ws.cell(row=row_num, column=col_num)
