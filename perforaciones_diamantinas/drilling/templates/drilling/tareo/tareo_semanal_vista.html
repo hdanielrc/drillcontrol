@@ -6,11 +6,19 @@
 {% block extra_css %}
 <style>
   .semanal-container { padding: 18px; }
-  .maquina-block { border: 1px solid #ccc; border-radius: 6px; margin:8px; padding:8px; }
+  .maquinas-wrap { display:flex; flex-wrap:wrap; gap:10px; }
+  .maquina-block { border: 1px solid #ccc; border-radius: 6px; margin:8px; padding:8px; box-sizing:border-box; flex: 0 0 340px; max-width:340px; min-width:260px; background:#fff; }
   .maquina-title { font-weight:700; background:#1565c0; color:#fff; padding:6px; border-radius:4px; }
-  .grid-dias { display:flex; gap:6px; margin-top:8px; }
-  .dia-cell { width:72px; height:64px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; }
+  .guardia-block { margin-top:8px; }
+  .worker-row { display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; }
+  .worker-name { min-width:120px; max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; font-weight:700; }
+  .dias-row { display:flex; gap:6px; flex-wrap:nowrap; overflow:auto; padding-bottom:2px; }
+  .dia-cell { width:44px; height:56px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:14px; box-shadow:0 1px 0 rgba(0,0,0,0.06); }
+  .dia-cell.empty { background:#efefef; color:#000; }
   .download-btn { margin-bottom:10px; }
+  /* make scrollbars unobtrusive */
+  .dias-row::-webkit-scrollbar{ height:8px; }
+  .dias-row::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.12); border-radius:4px; }
 </style>
 {% endblock %}
 
@@ -31,29 +39,27 @@
   <div id="distribution">
     {% for categoria in categorias %}
       <h3 style="margin-top:18px;">{{ categoria.nombre }}</h3>
-      <div style="display:flex; flex-wrap:wrap; gap:10px;">
+      <div class="maquinas-wrap">
         {% for maq in categoria.maquinas %}
-          <div class="maquina-block" style="width: 320px;">
+          <div class="maquina-block">
             <div class="maquina-title">🚜 {{ maq.nombre }}</div>
             {% for guardia in maq.guardias %}
-              <div style="margin-top:8px;">
-                <div style="font-weight:700;">Guardia {{ guardia.key }}</div>
-                <div class="grid-dias">
-                  {% for t in guardia.trabajadores %}
-                    <div style="width:100%">
-                      <div style="font-size:12px; font-weight:700; margin-bottom:4px;">{{ t.trabajador.apellidos }}, {{ t.trabajador.nombres }}</div>
-                      <div style="display:flex; gap:6px;">
-                        {% for d in t.dias %}
-                          {% if d.color %}
-                            <div class="dia-cell" style="background:#{{ d.color }}; color:#fff;">{{ d.codigo }}</div>
-                          {% else %}
-                            <div class="dia-cell" style="background:#efefef; color:#000;">{{ d.codigo }}</div>
-                          {% endif %}
-                        {% endfor %}
-                      </div>
+              <div class="guardia-block">
+                <div style="font-weight:700; margin-bottom:6px;">Guardia {{ guardia.key }}</div>
+                {% for t in guardia.trabajadores %}
+                  <div class="worker-row">
+                    <div class="worker-name">{{ t.trabajador.apellidos }}, {{ t.trabajador.nombres }}</div>
+                    <div class="dias-row">
+                      {% for d in t.dias %}
+                        {% if d.color %}
+                          <div class="dia-cell" style="background:#{{ d.color }};">{{ d.codigo }}</div>
+                        {% else %}
+                          <div class="dia-cell empty">{{ d.codigo }}</div>
+                        {% endif %}
+                      {% endfor %}
                     </div>
-                  {% endfor %}
-                </div>
+                  </div>
+                {% endfor %}
               </div>
             {% endfor %}
           </div>
