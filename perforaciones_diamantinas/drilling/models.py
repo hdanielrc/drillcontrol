@@ -4677,7 +4677,11 @@ class HeadCount(models.Model):
         ('ASISTENTE ADMINISTRATIVO', 'Asistente Administrativo'),
         ('ASISTENTE LOGISTICO', 'Asistente Logístico'),
         ('SUPERVISOR OPERATIVO', 'Supervisor Operativo'),
+        # Mantener opción genérica y añadir variantes por nivel para que
+        # en los desplegables y en la columna CARGO HC se muestren I/II
         ('TECNICO MECANICO', 'Técnico Mecánico'),
+        ('TECNICO MECANICO I', 'Técnico Mecánico I'),
+        ('TECNICO MECANICO II', 'Técnico Mecánico II'),
         ('TECNICO ELECTRICISTA', 'Técnico Electricista'),
         ('TECNICO MECANICO CONDUCTOR SB', 'Técnico Mecánico Conductor SB'),
         ('CONDUCTOR', 'Conductor'),

@@ -477,13 +477,29 @@ class TrabajadorListView(AdminOrContractFilterMixin, ListView):
         # Se obtienen del modelo HeadCount, gestionado manualmente por el usuario headcount
         rows = (HeadCount.objects.filter(activo=True)
                 .exclude(cargo='')
-                .values('contrato_id', 'cargo')
+                .values('contrato_id', 'cargo', 'nivel', 'ubicacion')
                 .distinct()
                 .order_by('cargo'))
         cargos_map = defaultdict(list)
+        # Evitar duplicados por (contrato, cargo, nivel, ubicacion)
+        seen = set()
         for row in rows:
-            if row['cargo']:
-                cargos_map[row['contrato_id']].append(row['cargo'])
+            contrato_id = row['contrato_id']
+            cargo_val = row['cargo']
+            nivel = row.get('nivel') or ''
+            ubicacion = row.get('ubicacion') or ''
+            key = (contrato_id, cargo_val, nivel, ubicacion)
+            if key in seen:
+                continue
+            seen.add(key)
+            # Etiqueta visible: "CARGO - NIVEL - UBICACION" (omitimos partes vacías)
+            parts = [cargo_val]
+            if nivel:
+                parts.append(str(nivel))
+            if ubicacion:
+                parts.append(str(ubicacion))
+            label = ' - '.join(parts)
+            cargos_map[contrato_id].append({'value': cargo_val, 'label': label})
         context['cargos_por_contrato_json'] = json.dumps(cargos_map)
         context['grupos'] = [
             ('LINEA DE MANDO', 'Línea de Mando'),
