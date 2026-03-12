@@ -405,6 +405,9 @@ def organigrama_view(request):
                             maq_buckets[None]['vacantes'] += slot.get('vacantes', 0)
                             groups_map['OPERATIVO']['total_vacantes'] += slot.get('vacantes', 0)
                     else:
+                        # Skip 'direccion' slots here because they are rendered in the unified root row
+                        if slot.get('section') == 'direccion':
+                            continue
                         group = groups_map.get(cat)
                         if group is None:
                             # create on the fly for unexpected categories
