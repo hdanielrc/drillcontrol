@@ -49,11 +49,31 @@ if __name__ == '__main__':
             input_path = csv_path
     print(f'Leyendo archivo: {input_path}')
 
-    # Leer archivo (Excel o CSV)
+    # Leer archivo (CSV o Excel).
+    def _read_csv_with_fallback(path):
+        encodings = ['utf-8', 'latin-1', 'cp1252']
+        last_exc = None
+        for enc in encodings:
+            try:
+                # Detect delimiter from first line
+                with open(path, 'rb') as fh:
+                    sample = fh.read(4096)
+                text = sample.decode(enc)
+                first_line = text.splitlines()[0] if text.splitlines() else ''
+                sep = ';' if ';' in first_line else ','
+                df_tmp = pd.read_csv(path, dtype=str, sep=sep, encoding=enc)
+                return df_tmp
+            except Exception as e:
+                last_exc = e
+                continue
+        # If all encodings fail, raise last exception
+        raise last_exc
+
     if input_path.lower().endswith('.csv'):
-        df = pd.read_csv(input_path, dtype=str)
+        df = _read_csv_with_fallback(input_path)
     else:
-        df = pd.read_excel(input_path, sheet_name=args.sheet, dtype=str)
+        # Excel (openpyxl engine)
+        df = pd.read_excel(input_path, sheet_name=args.sheet, dtype=str, engine='openpyxl')
 
     # Normalizar nombres de columnas (buscar variantes)
     def find_col(df, candidates):
