@@ -388,7 +388,17 @@ def organigrama_view(request):
                 # Skip any 'direccion' slots here; they are rendered in the unified root row
                 if slot.get('section') == 'direccion':
                     continue
-                cat = slot.get('categoria') or 'OPERATIVO'
+                raw_cat = slot.get('categoria') or 'OPERATIVO'
+                cat_norm = _normalize_text(raw_cat)
+                # Normalize category keys to canonical group identifiers
+                if 'LINEA' in cat_norm:
+                    cat = 'LINEA DE MANDO'
+                elif 'CONDUCTOR' in cat_norm:
+                    cat = 'CONDUCTORES'
+                elif 'OPERAT' in cat_norm:
+                    cat = 'OPERATIVO'
+                else:
+                    cat = raw_cat
                 if cat == 'OPERATIVO':
                     # distribute assignments by maquina
                     maq_buckets = groups_map['OPERATIVO']['maquinas']
