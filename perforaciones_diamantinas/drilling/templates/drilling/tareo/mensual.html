@@ -348,8 +348,8 @@
                                     <td class="sticky-column-2 bg-light p-0" style="z-index: 1000; vertical-align: middle;">
                                         <div style="display: flex; align-items: stretch;">
                                             <div style="flex: 1; min-width: 0; padding: 3px 4px; line-height: 1.1;">
-                                                <div class="fw-bold text-truncate" style="font-size: 0.8rem;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">
-                                                    {{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}
+                                                <div class="fw-bold" style="font-size: 0.8rem; white-space:normal; word-break:break-word;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">
+                                                    {{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}
                                                 </div>
                                                 <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
                                                 {% if item.trabajador.es_standby %}
@@ -463,7 +463,7 @@
                                     <td class="sticky-column-2 bg-light p-0" style="z-index: 1000; vertical-align: middle;">
                                         <div style="display: flex; align-items: stretch;">
                                             <div style="flex: 1; min-width: 0; padding: 3px 4px; line-height: 1.1;">
-                                                <div class="fw-bold text-truncate" style="font-size: 0.8rem;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">{{ item.trabajador.apepat }}, {{ item.trabajador.nombres|truncatewords:1 }}</div>
+                                                <div class="fw-bold" style="font-size: 0.8rem; white-space:normal; word-break:break-word;" title="{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}">{{ item.trabajador.apepat }}, {{ item.trabajador.nombres }}</div>
                                                 <div class="text-muted" style="font-size: 0.65rem;">{{ item.trabajador.cargo|truncatechars:30 }}</div>
                                                 {% if item.trabajador.es_standby %}<span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 1px 4px;"><i class="fas fa-pause-circle me-1"></i>STAND BY</span>{% endif %}
                                             </div>
