@@ -59,6 +59,27 @@ except:
         pass  # Usar locale por defecto si no se puede configurar español
 
 
+# Helper: calcular inicio de semana operativa según contrato
+from datetime import date as _date
+
+
+def _inicio_semana_operativa(contrato, referencia=None):
+    """Calcula la fecha de inicio de la semana operativa según
+    `contrato.dia_cambio_guardia`.
+
+    Si `referencia` es None se usa la fecha de hoy. Retorna la fecha
+    correspondiente al último día igual a `dia_cambio_guardia` (<= referencia).
+    """
+    if referencia is None:
+        referencia = _date.today()
+
+    dia_objetivo = contrato.dia_cambio_guardia if getattr(contrato, 'dia_cambio_guardia', None) is not None else 0
+    # weekday(): Monday=0 .. Sunday=6
+    delta = (referencia.weekday() - int(dia_objetivo)) % 7
+    inicio = referencia - timedelta(days=delta)
+    return inicio
+
+
 # Estados que cuentan como días activos en mina (V1 y V2)
 ESTADOS_ACTIVOS_MINA = {
     'TRABAJADO', 'DIA_APOYO', 'STAND_BY',
@@ -664,8 +685,7 @@ def exportar_asistencias_excel(request):
         # Calcular fecha_fin según modo
         if modo == 'semana':
             dias_a_mostrar = 7
-            dia_semana = fecha_inicio.weekday()
-            fecha_inicio = fecha_inicio - timedelta(days=dia_semana)
+            fecha_inicio = _inicio_semana_operativa(contrato, fecha_inicio)
             fecha_fin = fecha_inicio + timedelta(days=dias_a_mostrar - 1)
         elif modo == 'quincena':
             dias_a_mostrar = 15
@@ -1198,9 +1218,8 @@ def exportar_tareo_semanal(request):
         if fecha_inicio_str:
             fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         else:
-            # semana actual: tomar lunes como inicio
-            hoy = datetime.now().date()
-            fecha_inicio = hoy - timedelta(days=hoy.weekday())
+            # semana actual: tomar inicio según dia_cambio_guardia del contrato
+            fecha_inicio = _inicio_semana_operativa(contrato)
 
         fecha_fin = fecha_inicio + timedelta(days=6)
         num_dias = 7
@@ -1252,8 +1271,7 @@ def mostrar_tareo_semanal(request):
         if fecha_inicio_str:
             fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         else:
-            hoy = datetime.now().date()
-            fecha_inicio = hoy - timedelta(days=hoy.weekday())
+            fecha_inicio = _inicio_semana_operativa(contrato)
 
         fecha_fin = fecha_inicio + timedelta(days=6)
 
