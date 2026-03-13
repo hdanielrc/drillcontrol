@@ -563,6 +563,7 @@ MAPEO_CODIGOS = {
     'TRABAJO_DIA': 'TD',
     'TRABAJO_NOCHE': 'TN',
     'DIA_LIBRE': 'DL',
+    'DESCANSO': 'DL',
     'DIA_APOYO': 'DA',
     'PERMISO_PATERNIDAD': 'PT',
     'DESCANSO_MEDICO': 'DM',
