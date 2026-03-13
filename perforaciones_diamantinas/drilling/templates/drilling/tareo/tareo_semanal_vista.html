@@ -52,19 +52,9 @@
                     <div class="dias-row">
                       {% for d in t.dias %}
                         {% if d.color %}
-                          <div class="dia-cell" style="background:#{{ d.color }};">
-                            <div>{{ d.codigo }}</div>
-                            {% if d.guardia_snapshot %}
-                              <div style="font-size:11px; opacity:0.95; margin-top:4px;">{{ d.guardia_snapshot }}</div>
-                            {% endif %}
-                          </div>
+                          <div class="dia-cell" style="background:#{{ d.color }};">{{ d.codigo }}</div>
                         {% else %}
-                          <div class="dia-cell empty">
-                            <div>{{ d.codigo }}</div>
-                            {% if d.guardia_snapshot %}
-                              <div style="font-size:11px; color:#333; margin-top:4px;">{{ d.guardia_snapshot }}</div>
-                            {% endif %}
-                          </div>
+                          <div class="dia-cell empty">{{ d.codigo }}</div>
                         {% endif %}
                       {% endfor %}
                     </div>
