@@ -604,6 +604,7 @@ class TareoService:
                 'es_proyeccion': asist.es_proyeccion,
                 'observaciones': asist.observaciones,
                 'id': asist.id,
+                'guardia_snapshot': getattr(asist, 'guardia_snapshot', None) or '',
                 'maquina_id': asist.maquina_snapshot_id,
                 'maquina_nombre': asist.maquina_snapshot.nombre if asist.maquina_snapshot else None
             }
