@@ -1030,6 +1030,11 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                     cell.font = Font(bold=True, color='FFFFFF', size=10)
                                 if codigo in contadores:
                                     contadores[codigo] += 1
+                                else:
+                                    # Fallback: si nos llega el estado largo, intentar mapear
+                                    corto = MAPEO_CODIGOS.get(codigo)
+                                    if corto and corto in contadores:
+                                        contadores[corto] += 1
                             else:
                                 cell.value = ""
 
@@ -1097,6 +1102,10 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                 cell.font = Font(bold=True, color='FFFFFF', size=10)
                             if codigo in contadores:
                                 contadores[codigo] += 1
+                            else:
+                                corto = MAPEO_CODIGOS.get(codigo)
+                                if corto and corto in contadores:
+                                    contadores[corto] += 1
                         else:
                             cell.value = ""
 
