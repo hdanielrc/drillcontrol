@@ -254,6 +254,14 @@
         text-shadow: 0 1px 2px rgba(0,0,0,0.25);
     }
 
+    /* Excepciones: fondos claros deben mostrar texto oscuro */
+    .tareo-table td.celda-TD .estado-select,
+    .tareo-table td.celda-PT .estado-select {
+        color: #000000 !important;
+        text-shadow: none !important;
+        border-color: rgba(0,0,0,0.25) !important;
+    }
+
     .estado-select:focus {
         outline: none;
         border-color: rgba(255,255,255,0.9);
