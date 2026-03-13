@@ -332,10 +332,11 @@ def tareo_mensual_view(request):
     # 3. Construir lista ordenada final
     grupos_ordenados = []
 
-    ordered_keys = sorted(
-        trabajadores_por_grupo.keys(),
-        key=lambda k: trabajadores_por_grupo[k]['order']
-    )
+    # Preferencia explícita en el orden de presentación de grupos
+    preferred_order = ['LINEA_MANDO', 'OPERADORES', '__STAND_BY__', 'CONDUCTORES']
+    ordered_keys = [k for k in preferred_order if k in trabajadores_por_grupo]
+    # Añadir el resto respetando la orden definida en 'order'
+    ordered_keys += [k for k in sorted(trabajadores_por_grupo.keys(), key=lambda k: trabajadores_por_grupo[k]['order']) if k not in preferred_order]
 
     for grupo_key in ordered_keys:
         grupo_data = trabajadores_por_grupo[grupo_key]
@@ -1410,8 +1411,24 @@ def mostrar_tareo_semanal(request):
                 })
 
         # Pasar a lista ordenada para el template
+        # Orden explícita: LINEA_MANDO, OPERADORES, __STAND_BY__, CONDUCTORES, luego el resto
+        preferred_order = ['LINEA_MANDO', 'OPERADORES', '__STAND_BY__', 'CONDUCTORES']
         categorias_list = []
-        for k, v in categorias.items():
+        # Añadir en el orden preferido si existen
+        for key in preferred_order:
+            if key in categorias:
+                v = categorias[key]
+                maquinas_list = []
+                for mk, md in v['maquinas'].items():
+                    guardias_list = []
+                    for gk, tlist in md['guardias'].items():
+                        guardias_list.append({'key': gk, 'trabajadores': tlist})
+                    maquinas_list.append({'key': mk, 'nombre': md['nombre'], 'css': md['css'], 'guardias': guardias_list})
+                categorias_list.append({'key': key, 'nombre': v['nombre'], 'maquinas': maquinas_list})
+
+        # Añadir el resto de categorías que no están en preferred_order, ordenadas por key
+        for k in sorted([kk for kk in categorias.keys() if kk not in preferred_order]):
+            v = categorias[k]
             maquinas_list = []
             for mk, md in v['maquinas'].items():
                 guardias_list = []
