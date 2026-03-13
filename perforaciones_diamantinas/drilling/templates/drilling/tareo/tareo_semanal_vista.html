@@ -11,7 +11,8 @@
   .maquina-title { font-weight:700; background:#1565c0; color:#fff; padding:6px; border-radius:4px; }
   .guardia-block { margin-top:8px; }
   .worker-row { display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; }
-  .worker-name { min-width:120px; max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; font-weight:700; }
+  .worker-name { min-width:140px; max-width:160px; font-size:13px; font-weight:700; line-height:1.1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis; }
+  .worker-cargo { font-size:11px; color:#7f8c8d; margin-top:3px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .dias-row { display:flex; gap:6px; flex-wrap:nowrap; overflow:auto; padding-bottom:2px; }
   .dia-cell { width:44px; height:56px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:14px; box-shadow:0 1px 0 rgba(0,0,0,0.06); }
   .dia-cell.empty { background:#efefef; color:#000; }
@@ -48,7 +49,10 @@
                 <div style="font-weight:700; margin-bottom:6px;">Guardia {{ guardia.key }}</div>
                 {% for t in guardia.trabajadores %}
                   <div class="worker-row">
-                    <div class="worker-name">{{ t.trabajador.apellidos }}, {{ t.trabajador.nombres }}</div>
+                    <div style="display:flex; flex-direction:column;">
+                      <div class="worker-name">{{ t.trabajador.apellidos }}, {{ t.trabajador.nombres }}</div>
+                      {% if t.trabajador.cargo %}<div class="worker-cargo">{{ t.trabajador.cargo }}</div>{% endif %}
+                    </div>
                     <div class="dias-row">
                       {% for d in t.dias %}
                         {% if d.color %}

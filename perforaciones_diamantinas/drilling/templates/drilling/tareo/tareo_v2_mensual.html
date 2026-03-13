@@ -755,41 +755,38 @@
                     <tr class="grupo-rows-{{ grupo.grupo }}{% if row.maquina_key_css %} maquina-rows-{{ row.maquina_key_css }}{% endif %}" data-trabajador-row="{{ row.trabajador.id }}">
                         <!-- Columna Trabajador (fija) -->
                         <td class="col-trabajador">
-                            <div class="worker-info">
-                                <div class="worker-fullname" title="{{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}">{{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}</div>
-                                {% if row.ciclo_alineado == False %}
-                                <div title="⚠️ El ciclo de este trabajador (fecha_inicio_ciclo) no está alineado al día de cambio de guardia del contrato. Corrija en Admin." style="color:#e67e22;cursor:help;font-size:12px;margin-bottom:6px;">⚠️ Ciclo no alineado</div>
-                                {% endif %}
-                                {% if row.trabajador.cargo %}
-                                <div class="worker-cargo">{{ row.trabajador.cargo }}</div>
-                                {% endif %}
-                                {% if row.trabajador.maquina_asignada %}
-                                <div class="worker-maquina">🚜 {{ row.trabajador.maquina_asignada.nombre }}</div>
-                                {% endif %}
-
-                                <!-- Relleno rápido de fila -->
-                                <div class="quick-fill-row">
-                                    <select class="quick-fill-select" title="Estado para rellenar toda la fila">
-                                        <option value="TRABAJO">T</option>
-                                        <option value="TRABAJO_DIA">TD</option>
-                                        <option value="TRABAJO_NOCHE">TN</option>
-                                        <option value="DESCANSO">DL</option>
-                                        <option value="FALTA">F</option>
-                                        <option value="DM">DM</option>
-                                        <option value="VACACIONES">V</option>
-                                        <option value="PERMISO">P</option>
-                                        <option value="SUSPENSION">S</option>
-                                        <option value="LICENCIA">L</option>
-                                        <option value="INDUCCION">IND</option>
-                                        <option value="STAND_BY">SB</option>
-                                        <option value="DIA_APOYO">DA</option>
-                                    </select>
-                                    <button type="button" class="quick-fill-btn" title="Aplicar a toda la fila">→ Fila</button>
-                                    <button type="button" class="btn-save-fila"
-                                            data-trabajador="{{ row.trabajador.id }}"
-                                            data-contrato="{{ contrato.id }}"
-                                            title="Guardar solo esta fila">💾</button>
-                                </div>
+                            {{ row.trabajador.apellidos }}, {{ row.trabajador.nombres }}
+                            {% if row.ciclo_alineado == False %}
+                            <span title="⚠️ El ciclo de este trabajador (fecha_inicio_ciclo) no está alineado al día de cambio de guardia del contrato. Corrija en Admin." style="color:#e67e22;cursor:help;">⚠️</span>
+                            {% endif %}
+                            <br>
+                            <small style="color: #7f8c8d;">{{ row.trabajador.cargo }}</small>
+                            {% if row.trabajador.maquina_asignada %}
+                            <br>
+                            <small style="color: #3498db;">🚜 {{ row.trabajador.maquina_asignada.nombre }}</small>
+                            {% endif %}
+                            <!-- Relleno rápido de fila -->
+                            <div class="quick-fill-row">
+                                <select class="quick-fill-select" title="Estado para rellenar toda la fila">
+                                    <option value="TRABAJO">T</option>
+                                    <option value="TRABAJO_DIA">TD</option>
+                                    <option value="TRABAJO_NOCHE">TN</option>
+                                    <option value="DESCANSO">DL</option>
+                                    <option value="FALTA">F</option>
+                                    <option value="DM">DM</option>
+                                    <option value="VACACIONES">V</option>
+                                    <option value="PERMISO">P</option>
+                                    <option value="SUSPENSION">S</option>
+                                    <option value="LICENCIA">L</option>
+                                    <option value="INDUCCION">IND</option>
+                                    <option value="STAND_BY">SB</option>
+                                    <option value="DIA_APOYO">DA</option>
+                                </select>
+                                <button type="button" class="quick-fill-btn" title="Aplicar a toda la fila">→ Fila</button>
+                                <button type="button" class="btn-save-fila"
+                                        data-trabajador="{{ row.trabajador.id }}"
+                                        data-contrato="{{ contrato.id }}"
+                                        title="Guardar solo esta fila">💾</button>
                             </div>
                         </td>
                         
