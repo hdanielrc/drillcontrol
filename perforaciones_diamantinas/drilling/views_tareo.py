@@ -1333,6 +1333,19 @@ def mostrar_tareo_semanal(request):
                     guardia_snap = ''
                     maq_snap_name = ''
                 color = COLORES_EXCEL.get(codigo, '') if codigo else ''
+                # COLORES_EXCEL guarda valores ARGB (8 hex), pero CSS expects
+                # #RRGGBB (or #RRGGBBAA). If the value is ARGB with full alpha
+                # 'FF' prefix, strip it so template receives 'RRGGBB'. Also
+                # tolerate 6-char values.
+                if color:
+                    c = color.strip()
+                    if len(c) == 8 and c.upper().startswith('FF'):
+                        c = c[2:]
+                    elif len(c) == 8:
+                        # If it's AARRGGBB, convert to RRGGBB by dropping first two
+                        c = c[2:]
+                    # ensure we send 6-char hex (fallback to empty if malformed)
+                    color = c if len(c) == 6 else ''
                 dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color, 'maquina_snapshot': maq_snap_name})
                 d += timedelta(days=1)
 
