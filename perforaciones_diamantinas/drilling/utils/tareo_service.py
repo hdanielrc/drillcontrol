@@ -321,16 +321,39 @@ class TareoService:
             # registros_a_crear: list of AsistenciaDiaria instances
             for idx, reg in enumerate(registros_a_crear):
                 fecha = reg.fecha
-                maq_id = reg.maquina_snapshot_id
+                maq_id = getattr(reg, 'maquina_snapshot_id', None)
+                # Si no hay máquina asignada, agrupar por contrato (p.ej. Línea de Mando)
+                contrato_id = None
+                try:
+                    contrato_id = getattr(reg.empleado, 'contrato_id', None)
+                except Exception:
+                    contrato_id = None
+                if maq_id:
+                    group_key = f"MAQ_{maq_id}"
+                else:
+                    group_key = f"NO_MAQ_CONTRATO_{contrato_id}"
+
                 guardia = reg.guardia_snapshot or 'SIN_GUARDIA'
-                key = (fecha, maq_id)
+                key = (fecha, group_key)
                 entries_map.setdefault(key, {}).setdefault(guardia, []).append(('create', idx))
             # registros_a_actualizar: list of AsistenciaDiaria instances
             for idx, reg in enumerate(registros_a_actualizar):
                 fecha = reg.fecha
-                maq_id = reg.maquina_snapshot_id
+                maq_id = getattr(reg, 'maquina_snapshot_id', None)
+                contrato_id = None
+                try:
+                    # reg may be existing AsistenciaDiaria with empleado_id
+                    contrato_id = getattr(reg.empleado, 'contrato_id', None) if getattr(reg, 'empleado', None) else None
+                except Exception:
+                    contrato_id = None
+
+                if maq_id:
+                    group_key = f"MAQ_{maq_id}"
+                else:
+                    group_key = f"NO_MAQ_CONTRATO_{contrato_id}"
+
                 guardia = reg.guardia_snapshot or 'SIN_GUARDIA'
-                key = (fecha, maq_id)
+                key = (fecha, group_key)
                 entries_map.setdefault(key, {}).setdefault(guardia, []).append(('update', idx))
 
             # Iterate and apply deterministic rule: por (fecha, maquina) garantizar
