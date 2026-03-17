@@ -333,9 +333,11 @@ class TareoService:
                 key = (fecha, maq_id)
                 entries_map.setdefault(key, {}).setdefault(guardia, []).append(('update', idx))
 
-            # Iterate and detect conflicts for guardias (no auto-modification)
+            # Iterate and apply deterministic rule: por (fecha, maquina) garantizar
+            # que a lo sumo 2 guardias estén en estado de trabajo. Si hay >2,
+            # determinísticamente elegimos una guardia para pasar a DESCANSO.
             for (fecha, maq_id), guardias in entries_map.items():
-                working_guardias = []
+                working_guardias = []  # list of (guardia_key, count)
                 counts = {}
                 for gk, items in guardias.items():
                     any_work = False
@@ -351,13 +353,60 @@ class TareoService:
                 if len(working_guardias) <= 2:
                     continue
 
-                # Registrar conflicto en stats para revisión manual; no se modifica nada automáticamente
-                stats.setdefault('guardias_conflicto', []).append({
+                # Deterministic selection of guardia a descansar
+                rotation_order = ['A', 'B', 'C']
+                available_ordered = [gk for gk, _ in working_guardias if gk in rotation_order]
+                guardia_to_rest = None
+
+                # 1) intentar inferir última guardia en DESCANSO manual para la máquina
+                try:
+                    if maq_id is not None and available_ordered:
+                        last_manual = AsistenciaDiaria.objects.filter(
+                            maquina_snapshot_id=maq_id,
+                            fecha__lt=fecha,
+                            es_proyeccion=False,
+                            estado='DESCANSO'
+                        ).order_by('-fecha').values_list('guardia_snapshot', flat=True).first()
+                        if last_manual and last_manual in rotation_order:
+                            idx = rotation_order.index(last_manual)
+                            for off in range(1, len(rotation_order)+1):
+                                cand = rotation_order[(idx + off) % len(rotation_order)]
+                                if cand in available_ordered:
+                                    guardia_to_rest = cand
+                                    break
+                except Exception:
+                    guardia_to_rest = None
+
+                # 2) fallback: seed rotation deterministic
+                if guardia_to_rest is None and available_ordered:
+                    seed = (fecha.toordinal() + (maq_id or 0))
+                    start_idx = seed % len(rotation_order)
+                    for i in range(len(rotation_order)):
+                        cand = rotation_order[(start_idx + i) % len(rotation_order)]
+                        if cand in available_ordered:
+                            guardia_to_rest = cand
+                            break
+
+                # 3) final fallback: choose guardia with smallest group size
+                if guardia_to_rest is None:
+                    working_guardias.sort(key=lambda x: x[1])
+                    guardia_to_rest = working_guardias[0][0]
+
+                # Apply: set estado -> 'DESCANSO' for all entries in that guardia
+                changed = 0
+                for src, idx in guardias.get(guardia_to_rest, []):
+                    if src == 'create':
+                        registros_a_crear[idx].estado = 'DESCANSO'
+                    else:
+                        registros_a_actualizar[idx].estado = 'DESCANSO'
+                    changed += 1
+
+                stats['ajustes_guardia'].append({
                     'fecha': fecha.isoformat(),
                     'maquina_id': maq_id,
-                    'guardias': [g for g, _ in working_guardias],
-                    'counts': counts,
-                    'mensaje': 'Más de 2 guardias con trabajo proyectado en la misma máquina/fecha'
+                    'guardia': guardia_to_rest,
+                    'cambiados': changed,
+                    'causa': 'regla_2_guardias_deterministica'
                 })
 
         except Exception as e:
