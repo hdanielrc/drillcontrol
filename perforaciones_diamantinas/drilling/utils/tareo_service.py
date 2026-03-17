@@ -980,6 +980,83 @@ def get_proyeccion(trabajador, fecha_inicio, fecha_fin):
     return resultado
 
 
+class TareoEngine:
+    """
+    Tareo Engine 3.0 — Motor puro, determinista y estadístico basado en
+    aritmética modular para regímenes 14x7.
+
+    Regla principal: (FechaConsulta - FechaAncla + OffsetGuardia) % 21
+    Secuencia maestra: 7 TD -> 7 TN -> 7 DL
+    Offsets: A=0, C=7, B=14 (según especificación)
+    """
+
+    TOTAL_CICLO = 21
+    DIAS_TD = 7
+    DIAS_TN = 7
+    DIAS_DL = 7
+    OFFSET = {'A': 0, 'C': 7, 'B': 14}
+
+    @staticmethod
+    def _fecha_ancla_contrato(contrato, referencia=None):
+        """
+        Calcula la FechaAncla para el contrato: el primer día con weekday ==
+        contrato.dia_cambio_guardia que sea <= fecha_referencia.
+
+        Si no hay `dia_cambio_guardia` configurado, utiliza la fecha de creación
+        del contrato (`created_at`) o 2024-01-01 como fallback.
+        """
+        if referencia is None:
+            ref = getattr(contrato, 'created_at', None)
+            if ref:
+                try:
+                    referencia = ref.date()
+                except Exception:
+                    referencia = referencia or date(2024, 1, 1)
+            else:
+                referencia = date(2024, 1, 1)
+
+        dia_cambio = getattr(contrato, 'dia_cambio_guardia', None)
+        if dia_cambio is None:
+            return referencia
+
+        # Snapear hacia atrás hasta el primer día con ese weekday <= referencia
+        delta = (referencia.weekday() - int(dia_cambio)) % 7
+        return referencia - timedelta(days=delta)
+
+    @classmethod
+    def estado_para_fecha(cls, trabajador, fecha_consulta):
+        """
+        Calcula el estado (TD, TN, DL) de manera puramente determinista.
+        """
+        contrato = getattr(trabajador, 'contrato', None)
+        if contrato is None:
+            # Si no hay contrato, fallback determinista anclado a 2024-01-01
+            fecha_ancla = date(2024, 1, 1)
+        else:
+            fecha_ancla = cls._fecha_ancla_contrato(contrato)
+
+        guardia = (getattr(trabajador, 'guardia_asignada', None) or 'A').upper()
+        offset = cls.OFFSET.get(guardia, 0)
+
+        dias_trans = (fecha_consulta - fecha_ancla).days
+        idx = (dias_trans + offset) % cls.TOTAL_CICLO
+
+        if idx < cls.DIAS_TD:
+            return 'TD'
+        if idx < cls.DIAS_TD + cls.DIAS_TN:
+            return 'TN'
+        return 'DL'
+
+    @classmethod
+    def proyectar_rango(cls, trabajador, fecha_inicio, fecha_fin):
+        resultado = []
+        f = fecha_inicio
+        while f <= fecha_fin:
+            resultado.append({'fecha': f, 'estado': cls.estado_para_fecha(trabajador, f)})
+            f += timedelta(days=1)
+        return resultado
+
+
 # =============================================================================
 # SERVICIO DE CIERRE MENSUAL Y AUDITORÍA
 # =============================================================================

@@ -39,6 +39,7 @@ from .models import (
     FechaCerrada,
 )
 from .utils.tareo_service import TareoService, CierreMensualService
+from .utils.tareo_service import TareoEngine
 
 logger = logging.getLogger(__name__)
 
@@ -325,6 +326,49 @@ def tareo_mensual_view(request):
                 'order': meta['order'],
                 'guardias': {}
             }
+
+
+    @login_required
+    def tareo_engine_preview(request):
+        """
+        Vista simplificada que genera una proyección determinista de 30/31 días
+        usando el `TareoEngine` puro.
+
+        Parámetros GET:
+        - trabajador_id (int) required
+        - start (YYYY-MM-DD) optional, default hoy
+        - days (int) optional, default 30
+        """
+        user = request.user
+        if not user.can_manage_contract_users():
+            return JsonResponse({'error': 'No tienes permisos'}, status=403)
+
+        trabajador_id = request.GET.get('trabajador_id')
+        if not trabajador_id:
+            return JsonResponse({'error': 'trabajador_id es requerido'}, status=400)
+
+        try:
+            trabajador = Trabajador.objects.select_related('contrato').get(id=int(trabajador_id))
+        except Exception:
+            return JsonResponse({'error': 'Trabajador no encontrado'}, status=404)
+
+        start_str = request.GET.get('start')
+        days = int(request.GET.get('days', 30))
+        try:
+            if start_str:
+                fecha_inicio = datetime.strptime(start_str, '%Y-%m-%d').date()
+            else:
+                fecha_inicio = datetime.now().date()
+        except Exception:
+            return JsonResponse({'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}, status=400)
+
+        fecha_fin = fecha_inicio + timedelta(days=days-1)
+
+        proyeccion = TareoEngine.proyectar_rango(trabajador, fecha_inicio, fecha_fin)
+        # Serializar fechas a ISO
+        proyeccion_serial = [{'fecha': p['fecha'].isoformat(), 'estado': p['estado']} for p in proyeccion]
+
+        return JsonResponse({'trabajador_id': trabajador.id, 'proyeccion': proyeccion_serial})
 
         if guardia_key not in trabajadores_por_grupo[primary_key]['guardias']:
             trabajadores_por_grupo[primary_key]['guardias'][guardia_key] = {
