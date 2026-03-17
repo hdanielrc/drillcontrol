@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
+from django.middleware.csrf import CsrfViewMiddleware
 from django.db.models import Count
 from django.forms import ModelForm, Textarea
 from datetime import datetime, timedelta, date
@@ -410,15 +411,26 @@ def tareo_mensual_view(request):
     return render(request, 'drilling/tareo/mensual.html', context)
 
 
-@login_required
 @require_http_methods(["POST"])
 def guardar_asistencia(request):
-    """API para guardar asistencia individual"""
+    """API para guardar asistencia individual
+
+    Esta vista maneja autenticación y verificación CSRF manualmente para
+    devolver siempre JSON (evita respuestas HTML que rompen parsers AJAX).
+    """
+    # Autenticación: devolver JSON 401 en lugar de redirect HTML
     user = request.user
-    
+    if not user.is_authenticated:
+        return JsonResponse({'success': False, 'message': 'No autenticado'}, status=401)
+
+    # CSRF: validar explícitamente y devolver JSON si falla
+    csrf_resp = CsrfViewMiddleware().process_view(request, None, (), {})
+    if csrf_resp is not None:
+        return JsonResponse({'success': False, 'message': 'CSRF verification failed'}, status=403)
+
     if not user.can_manage_contract_users():
         return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
-    
+
     try:
         data = json.loads(request.body)
         trabajador_id = data.get('trabajador_id')
@@ -467,15 +479,24 @@ def guardar_asistencia(request):
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
 
 
-@login_required
 @require_http_methods(["POST"])
 def guardar_asistencias_masivas(request):
-    """API para guardar múltiples asistencias en una sola operación"""
+    """API para guardar múltiples asistencias en una sola operación
+
+    Igual que `guardar_asistencia`, esta vista valida autenticación y CSRF
+    para devolver JSON legible por el frontend en caso de fallo.
+    """
     user = request.user
-    
+    if not user.is_authenticated:
+        return JsonResponse({'success': False, 'message': 'No autenticado'}, status=401)
+
+    csrf_resp = CsrfViewMiddleware().process_view(request, None, (), {})
+    if csrf_resp is not None:
+        return JsonResponse({'success': False, 'message': 'CSRF verification failed'}, status=403)
+
     if not user.can_manage_contract_users():
         return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
-    
+
     try:
         data = json.loads(request.body)
         asistencias_data = data.get('asistencias', [])
