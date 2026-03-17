@@ -149,4 +149,3 @@ class TurnoStateTests(TestCase):
         if response.context and 'messages' in response.context:
             msgs = [str(m) for m in response.context['messages']]
         self.assertTrue(any('Faltan horas al turno' in m for m in msgs), f"Messages did not contain expected text. Got: {msgs}")
-
