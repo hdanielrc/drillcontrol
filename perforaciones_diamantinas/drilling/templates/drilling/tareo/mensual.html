@@ -402,6 +402,8 @@
                                         {% if asist.estado %}
                                         <span class="badge-estado" data-estado="{{ asist.estado }}">
                                             {% if asist.estado == 'TRABAJADO' %}T
+                                            {% elif asist.estado == 'TD' %}TD
+                                            {% elif asist.estado == 'TN' %}TN
                                             {% elif asist.estado == 'DIA_LIBRE' %}DL
                                             {% elif asist.estado == 'DIA_APOYO' %}DA
                                             {% elif asist.estado == 'PERMISO_PATERNIDAD' %}PT
@@ -423,7 +425,7 @@
                                         {% endif %}
                                         {% elif asist.estado_sugerido %}
                                             <span class="text-muted small" style="opacity: 0.5;">
-                                                {% if asist.estado_sugerido == 'TRABAJADO' %}T?{% elif asist.estado_sugerido == 'DIA_LIBRE' %}DL?{% endif %}
+                                                {% if asist.estado_sugerido == 'TRABAJADO' %}T?{% elif asist.estado_sugerido == 'TD' %}TD?{% elif asist.estado_sugerido == 'TN' %}TN?{% elif asist.estado_sugerido == 'DIA_LIBRE' %}DL?{% endif %}
                                             </span>
                                         {% else %}
                                         <span class="text-muted">-</span>
@@ -756,6 +758,14 @@
     /* Verde brillante — Trabajado */
     .badge-estado[data-estado="TRABAJADO"]          { background: #00c853; }
     .celda-asistencia[data-estado="TRABAJADO"]       { background-color: #00c853 !important; }
+
+    /* Ámbar — Turno Día (TD) */
+    .badge-estado[data-estado="TD"]                  { background: #ffb300; }
+    .celda-asistencia[data-estado="TD"]              { background-color: #ffb300 !important; }
+
+    /* Azul oscuro — Turno Noche (TN) */
+    .badge-estado[data-estado="TN"]                  { background: #0d47a1; }
+    .celda-asistencia[data-estado="TN"]              { background-color: #0d47a1 !important; }
 
     /* Azul eléctrico — Día Libre */
     .badge-estado[data-estado="DIA_LIBRE"]           { background: #2979ff; }

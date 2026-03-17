@@ -243,16 +243,16 @@ def tareo_mensual_view(request):
         )
     ).order_by('maquina_asignada__nombre', 'guardia_asignada', 'grupo_ord', 'cargo_ord', 'apepat', 'apemat', 'nombres')
     
-    # Obtener asistencias del rango
-    asistencias = AsistenciaTrabajador.objects.filter(
+    # Obtener asistencias del rango (legacy V1)
+    asistencias_v1 = AsistenciaTrabajador.objects.filter(
         trabajador__contrato=contrato,
         fecha__gte=fecha_inicio,
         fecha__lte=fecha_fin
     ).select_related('trabajador')
-    
-    # Crear diccionario de asistencias: {trabajador_id: {fecha: estado}}
+
+    # Crear diccionario de asistencias a partir de V1
     asistencias_dict = {}
-    for asist in asistencias:
+    for asist in asistencias_v1:
         if asist.trabajador.id not in asistencias_dict:
             asistencias_dict[asist.trabajador.id] = {}
         asistencias_dict[asist.trabajador.id][asist.fecha] = {
@@ -260,7 +260,35 @@ def tareo_mensual_view(request):
             'estado_display': asist.get_estado_display(),
             'tipo': asist.tipo,
             'tipo_display': asist.get_tipo_display(),
-            'observaciones': asist.observaciones
+            'observaciones': asist.observaciones,
+            'id': getattr(asist, 'id', None),
+            'guardia_snapshot': getattr(asist, 'guardia_snapshot', None),
+            'maquina_id': None,
+            'maquina_nombre': None,
+        }
+
+    # Overlay: prefer AsistenciaDiaria (V2) when exists — proyecciones/actuales V2
+    asistencias_v2 = AsistenciaDiaria.objects.filter(
+        empleado__contrato=contrato,
+        fecha__gte=fecha_inicio,
+        fecha__lte=fecha_fin
+    ).select_related('empleado', 'maquina_snapshot')
+
+    for a in asistencias_v2:
+        emp_id = a.empleado_id
+        if emp_id not in asistencias_dict:
+            asistencias_dict[emp_id] = {}
+        asistencias_dict[emp_id][a.fecha] = {
+            'estado': a.estado,
+            'estado_display': a.get_estado_display(),
+            'tipo': 'PAGABLE' if a.estado in ('TRABAJO', 'TD', 'TN') else 'NO_PAGABLE',
+            'tipo_display': 'Pagable' if a.estado in ('TRABAJO', 'TD', 'TN') else 'No Pagable',
+            'observaciones': a.observaciones or '',
+            'id': getattr(a, 'id', None),
+            'guardia_snapshot': a.guardia_snapshot or '',
+            'maquina_id': a.maquina_snapshot_id,
+            'maquina_nombre': a.maquina_snapshot.nombre if a.maquina_snapshot else None,
+            'es_proyeccion': a.es_proyeccion,
         }
     
     # Combinar trabajadores con sus asistencias y agrupar por campo `grupo`
@@ -306,9 +334,13 @@ def tareo_mensual_view(request):
             bloqueada = bool(trabajador.fecha_inicio_labores and fecha < trabajador.fecha_inicio_labores)
 
             # Calcular estado sugerido si no hay asistencia (solo celdas no bloqueadas)
+            # Usar TareoService.calcular_estado_dia para obtener TD/TN/DESCANSO
             estado_sugerido = None
             if not asist_dia and not bloqueada:
-                estado_sugerido = trabajador.calcular_estado_regimen(fecha)
+                try:
+                    estado_sugerido = TareoService.calcular_estado_dia(trabajador, fecha, forzar_alineacion=True)
+                except Exception:
+                    estado_sugerido = trabajador.calcular_estado_regimen(fecha)
 
             asistencias_trabajador.append({
                 'fecha': fecha,
