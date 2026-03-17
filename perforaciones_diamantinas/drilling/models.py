@@ -116,6 +116,35 @@ class Contrato(models.Model):
     def __str__(self):
         return f"{self.cliente.nombre} - {self.nombre_contrato}"
 
+
+class FechaCerrada(models.Model):
+    """
+    Modelo para marcar una fecha como cerrada (no editable) por contrato.
+
+    Uso:
+    - Creado desde UI cuando el usuario marca una fecha como cerrada.
+    - Bloquea escrituras en `AsistenciaDiaria` para ese contrato+fecha.
+    - Reversible mediante auditoría (reapertura con motivo).
+    """
+    contrato = models.ForeignKey(
+        'Contrato', on_delete=models.PROTECT, related_name='fechas_cerradas'
+    )
+    fecha = models.DateField()
+    cerrado_por = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, related_name='fechas_cerradas_realizadas'
+    )
+    fecha_cierre = models.DateTimeField(auto_now_add=True)
+    motivo = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'fecha_cerrada'
+        unique_together = [['contrato', 'fecha']]
+        verbose_name = 'Fecha Cerrada'
+        verbose_name_plural = 'Fechas Cerradas'
+
+    def __str__(self):
+        return f"{self.contrato} - {self.fecha.isoformat()} ({self.cerrado_por})"
+
     def get_centros_costo(self):
         """
         Retorna lista de todos los códigos de centro de costo asociados:
@@ -1203,6 +1232,8 @@ class AsistenciaDiaria(models.Model):
     # Choices de Estado - Alineados con AsistenciaTrabajador (legacy)
     ESTADO_CHOICES = [
         ('TRABAJO', 'Trabajo'),
+        ('TD', 'Turno Día'),
+        ('TN', 'Turno Noche'),
         ('DESCANSO', 'Descanso'),
         ('FALTA', 'Falta'),
         ('DM', 'Descanso Médico'),

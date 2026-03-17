@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from calendar import monthrange
 from django.db import transaction
 from django.db.models import Q, Case, When, Value, IntegerField
-from ..models import Trabajador, AsistenciaDiaria, AsistenciaTrabajador
+from ..models import Trabajador, AsistenciaDiaria, AsistenciaTrabajador, FechaCerrada
 import logging
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class TareoService:
                 el ciclo siempre quede alineado al contrato.
             
         Returns:
-            str: 'TRABAJO' o 'DESCANSO'
+            str: 'TD' | 'TN' | 'DESCANSO' (TD = turno día, TN = turno noche)
         """
         regimen = trabajador.regimen_laboral
         fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
@@ -130,18 +130,24 @@ class TareoService:
         # Posición en el ciclo actual (0 = día 1, ciclo_total-1 = último día)
         posicion_ciclo = dias_transcurridos % ciclo_total
         
-        # Si está dentro de los días de trabajo, retornar TRABAJO
-        # Regla adicional: el día de cambio de guardia del contrato siempre
-        # debe considerarse día de TRABAJO en la proyección (según requerimiento).
+        # Si está dentro de los días de trabajo, retornar TD o TN según
+        # la partición del bloque de trabajo (primera mitad = TD, segunda = TN)
         try:
             if fecha_consulta.weekday() == dia_cambio:
-                return 'TRABAJO'
+                # Día de cambio de guardia se considera día de trabajo - asignar TD
+                return 'TD'
         except Exception:
-            # si dia_cambio es None o ocurre algún fallo, continuar la lógica normal
             pass
 
         if posicion_ciclo < dias_trabajo:
-            return 'TRABAJO'
+            # Dentro de los días de trabajo: determinar si corresponde a TD o TN
+            # Repartimos el bloque de trabajo en dos mitades: TD primero, TN después.
+            mitad = (dias_trabajo + 1) // 2  # TD obtiene el extra si es impar
+            posicion_en_trabajo = posicion_ciclo  # 0..dias_trabajo-1
+            if posicion_en_trabajo < mitad:
+                return 'TD'
+            else:
+                return 'TN'
         else:
             return 'DESCANSO'
     
@@ -247,11 +253,24 @@ class TareoService:
                 maquina  = trabajador.maquina_asignada
                 guardia  = trabajador.guardia_asignada
 
+                # Pre-cargar fechas cerradas para el contrato del trabajador
+                fechas_cerradas_set = set(FechaCerrada.objects.filter(
+                    contrato=trabajador.contrato,
+                    fecha__gte=primer_dia,
+                    fecha__lte=ultimo_dia
+                ).values_list('fecha', flat=True))
+
                 # Iterar sobre cada día del período
                 fecha_actual = primer_dia
                 while fecha_actual <= ultimo_dia:
                     # Nunca tocar correcciones manuales
                     if (trabajador.id, fecha_actual) in registros_manuales:
+                        stats['registros_existentes_respetados'] += 1
+                        fecha_actual += timedelta(days=1)
+                        continue
+
+                    # Si la fecha está cerrada para este contrato, no tocar
+                    if fecha_actual in fechas_cerradas_set:
                         stats['registros_existentes_respetados'] += 1
                         fecha_actual += timedelta(days=1)
                         continue
@@ -314,144 +333,31 @@ class TareoService:
                 key = (fecha, maq_id)
                 entries_map.setdefault(key, {}).setdefault(guardia, []).append(('update', idx))
 
-            # Iterate and apply rule
+            # Iterate and detect conflicts for guardias (no auto-modification)
             for (fecha, maq_id), guardias in entries_map.items():
-                # Skip adjustment on contract-level change day? We only have dia_cambio
-                # at contract scope; use dia_cambio from one of the trabajadores if present
-                # Fallback: use the global dia_cambio (first available trabajador contract)
-                try:
-                    is_change_day = (fecha.weekday() == dia_cambio)
-                except Exception:
-                    is_change_day = False
-                if is_change_day:
-                    continue
-
-                # Count guardias with any TRABAJO
                 working_guardias = []
+                counts = {}
                 for gk, items in guardias.items():
                     any_work = False
                     for src, idx in items:
-                        if src == 'create':
-                            reg = registros_a_crear[idx]
-                        else:
-                            reg = registros_a_actualizar[idx]
-                        if getattr(reg, 'estado', None) in ('TRABAJO', 'TRABAJO', 'TRABAJO'):
+                        reg = registros_a_crear[idx] if src == 'create' else registros_a_actualizar[idx]
+                        if getattr(reg, 'estado', None) in ('TRABAJO', 'TD', 'TN'):
                             any_work = True
                             break
                     if any_work:
+                        counts[gk] = len(items)
                         working_guardias.append((gk, len(items)))
 
                 if len(working_guardias) <= 2:
                     continue
 
-                # Choose guardia to rest using the user's rules:
-                # 1) Count days worked since last change for each trabajador; if a guardia
-                #    has workers that exceeded their regimen 'dias_trabajo', prefer that guardia.
-                # 2) If no guardia qualifies, fall back to persisted/manual rotation, then seed rotation,
-                #    then smallest group.
-                rotation_order = ['A', 'B', 'C']
-                available_ordered = [gk for gk, _ in working_guardias if gk in rotation_order]
-                guardia_to_rest = None
-
-                # 1) Evaluate eligibility per guardia based on days worked since last change
-                eligible_counts = {}
-                for gk, items in guardias.items():
-                    eligible = 0
-                    for src, idx in items:
-                        if src == 'create':
-                            reg = registros_a_crear[idx]
-                        else:
-                            reg = registros_a_actualizar[idx]
-                        trabajador = getattr(reg, 'empleado', None)
-                        if not trabajador:
-                            continue
-                        # Determine last change date according to contract
-                        dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
-                        if dia_cambio is None and contrato is not None:
-                            dia_cambio = getattr(contrato, 'dia_cambio_guardia', None)
-                        try:
-                            last_change = TareoService._snap_a_dia_cambio(fecha, dia_cambio) if dia_cambio is not None else fecha
-                        except Exception:
-                            last_change = fecha
-                        # Count work days from last_change (inclusive) up to fecha
-                        dias_trabajo_cfg = None
-                        regimen = getattr(trabajador, 'regimen_laboral', None)
-                        if regimen and regimen in TareoService.REGIMEN_CONFIG:
-                            dias_trabajo_cfg = TareoService.REGIMEN_CONFIG[regimen][0]
-                        if dias_trabajo_cfg is None:
-                            continue
-                        worked = 0
-                        d = last_change
-                        while d <= fecha:
-                            estado = TareoService.calcular_estado_dia(trabajador, d, forzar_alineacion=True)
-                            if estado == 'TRABAJO':
-                                worked += 1
-                            d += timedelta(days=1)
-                        if worked >= dias_trabajo_cfg:
-                            eligible += 1
-                    eligible_counts[gk] = eligible
-
-                # If any guardia has eligible workers, pick the one with highest eligible count
-                if any(v > 0 for v in eligible_counts.values()):
-                    # choose guardia with max eligible, tie-breaker: rotation order
-                    max_elig = max(eligible_counts.values())
-                    candidates = [g for g, c in eligible_counts.items() if c == max_elig]
-                    # prefer rotation order among candidates
-                    for cand in rotation_order:
-                        if cand in candidates:
-                            guardia_to_rest = cand
-                            break
-
-                # If none eligible, revert to persisted/manual rotation then seed and fallback
-                if guardia_to_rest is None:
-                    # 1) Try to infer last rested guardia from manual (locked) AsistenciaDiaria
-                    try:
-                        if maq_id is not None and available_ordered:
-                            last_manual = AsistenciaDiaria.objects.filter(
-                                maquina_snapshot_id=maq_id,
-                                fecha__lt=fecha,
-                                es_proyeccion=False,
-                                estado='DESCANSO'
-                            ).order_by('-fecha').values_list('guardia_snapshot', flat=True).first()
-                            if last_manual:
-                                last_manual = last_manual if last_manual in rotation_order else None
-                                if last_manual:
-                                    idx = rotation_order.index(last_manual)
-                                    for off in range(1, len(rotation_order)+1):
-                                        cand = rotation_order[(idx + off) % len(rotation_order)]
-                                        if cand in available_ordered:
-                                            guardia_to_rest = cand
-                                            break
-                    except Exception:
-                        guardia_to_rest = None
-
-                if guardia_to_rest is None and available_ordered:
-                    seed = (fecha.toordinal() + (maq_id or 0))
-                    start_idx = seed % len(rotation_order)
-                    for i in range(len(rotation_order)):
-                        cand = rotation_order[(start_idx + i) % len(rotation_order)]
-                        if cand in available_ordered:
-                            guardia_to_rest = cand
-                            break
-
-                if guardia_to_rest is None:
-                    working_guardias.sort(key=lambda x: x[1])
-                    guardia_to_rest = working_guardias[0][0]
-
-                # Apply change: set estado -> 'DESCANSO' for all entries in that guardia
-                changed = 0
-                for src, idx in guardias.get(guardia_to_rest, []):
-                    if src == 'create':
-                        registros_a_crear[idx].estado = 'DESCANSO'
-                    else:
-                        registros_a_actualizar[idx].estado = 'DESCANSO'
-                    changed += 1
-                stats['ajustes_guardia'].append({
+                # Registrar conflicto en stats para revisión manual; no se modifica nada automáticamente
+                stats.setdefault('guardias_conflicto', []).append({
                     'fecha': fecha.isoformat(),
                     'maquina_id': maq_id,
-                    'guardia': guardia_to_rest,
-                    'cambiados': changed,
-                    'causa': 'dias_trabajo_excedido' if any(v > 0 for v in eligible_counts.values()) else 'rotacion/fallback'
+                    'guardias': [g for g, _ in working_guardias],
+                    'counts': counts,
+                    'mensaje': 'Más de 2 guardias con trabajo proyectado en la misma máquina/fecha'
                 })
 
         except Exception as e:

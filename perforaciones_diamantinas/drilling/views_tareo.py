@@ -35,6 +35,7 @@ from .models import (
     CierreMensualTareo,
     HistorialCambioAsistencia,
     Maquina,
+    FechaCerrada,
 )
 from .utils.tareo_service import TareoService, CierreMensualService
 
@@ -2977,6 +2978,69 @@ def api_guardar_seleccion(request):
 
     except Exception as e:
         logger.error(f"Error en api_guardar_seleccion: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_cerrar_fecha(request):
+    """Marca una fecha como cerrada para un contrato (bloquea escrituras)."""
+    try:
+        if not request.user.can_manage_contract_users():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        contrato_id = request.POST.get('contrato_id')
+        fecha_s = request.POST.get('fecha')
+        motivo = request.POST.get('motivo', '')
+
+        if not contrato_id or not fecha_s:
+            return JsonResponse({'success': False, 'error': 'Parámetros incompletos'}, status=400)
+
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+        fecha = datetime.strptime(fecha_s, '%Y-%m-%d').date()
+
+        existing = FechaCerrada.objects.filter(contrato=contrato, fecha=fecha).first()
+        if existing:
+            return JsonResponse({'success': True, 'mensaje': 'Fecha ya cerrada', 'fecha': fecha.isoformat()})
+
+        FechaCerrada.objects.create(contrato=contrato, fecha=fecha, cerrado_por=request.user, motivo=motivo)
+
+        return JsonResponse({'success': True, 'mensaje': 'Fecha marcada como cerrada', 'fecha': fecha.isoformat()})
+
+    except Exception as e:
+        logger.error(f"Error cerrando fecha: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_reabrir_fecha(request):
+    """Reabre una fecha cerrada (requiere motivo)."""
+    try:
+        if not request.user.can_manage_contract_users():
+            return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+        contrato_id = request.POST.get('contrato_id')
+        fecha_s = request.POST.get('fecha')
+        motivo = request.POST.get('motivo', '')
+
+        if not contrato_id or not fecha_s or not motivo or len(motivo.strip()) < 5:
+            return JsonResponse({'success': False, 'error': 'Parámetros incompletos o motivo insuficiente'}, status=400)
+
+        contrato = get_object_or_404(Contrato, id=contrato_id)
+        fecha = datetime.strptime(fecha_s, '%Y-%m-%d').date()
+
+        fc = FechaCerrada.objects.filter(contrato=contrato, fecha=fecha).first()
+        if not fc:
+            return JsonResponse({'success': False, 'error': 'Fecha no estaba cerrada'}, status=404)
+
+        fc.delete()
+        logger.info(f"Fecha reabierta: {contrato} {fecha} por {request.user} motivo: {motivo}")
+
+        return JsonResponse({'success': True, 'mensaje': 'Fecha reabierta', 'fecha': fecha.isoformat()})
+
+    except Exception as e:
+        logger.error(f"Error reabriendo fecha: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
