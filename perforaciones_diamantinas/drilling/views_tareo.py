@@ -329,9 +329,25 @@ def tareo_mensual_view(request):
         for dia_info in dias_rango:
             fecha = dia_info['fecha']
             asist_dia = asistencias_dict.get(trabajador.id, {}).get(fecha)
-            
+
             # Celda bloqueada si la fecha es anterior al inicio de labores del trabajador
             bloqueada = bool(trabajador.fecha_inicio_labores and fecha < trabajador.fecha_inicio_labores)
+
+            # Normalizar estados legacy 'TRABAJADO'/'TRABAJO' a 'TD'/'TN' para operadores
+            if asist_dia and asist_dia.get('estado') in ('TRABAJADO', 'TRABAJO'):
+                # Solo reasignar cuando el trabajador tiene máquina asignada (OPERADORES)
+                if getattr(trabajador, 'maquina_asignada', None):
+                    try:
+                        nuevo = TareoService.calcular_estado_dia(trabajador, fecha, forzar_alineacion=True)
+                        if nuevo:
+                            asist_dia['estado'] = nuevo
+                            if nuevo == 'TD':
+                                asist_dia['estado_display'] = 'Turno Día'
+                            elif nuevo == 'TN':
+                                asist_dia['estado_display'] = 'Turno Noche'
+                    except Exception:
+                        # Mantener estado legacy si falla la conversión
+                        pass
 
             # Calcular estado sugerido si no hay asistencia (solo celdas no bloqueadas)
             # Usar TareoService.calcular_estado_dia para obtener TD/TN/DESCANSO
