@@ -904,6 +904,82 @@ def generar_proyeccion_mensual(anio, mes, contrato=None, sobrescribir=False):
     return TareoService.generar_proyeccion_mensual(anio, mes, contrato, sobrescribir)
 
 
+def get_proyeccion(trabajador, fecha_inicio, fecha_fin):
+    """
+    Genera una proyección simple TD/TN/DL para un trabajador en el rango dado
+    siguiendo el régimen 14x7 y las reglas indicadas.
+
+    Reglas implementadas:
+    - Ciclo total = 21 días (14 trabajo + 7 descanso)
+    - Offset por guardia: A=0, B=7, C=14
+    - Dentro de los 14 días de trabajo: primeros 7 = TD, siguientes 7 = TN
+    - Los 7 días finales del ciclo = DL (descanso libre)
+    - Los cambios de fase se alinean al `dia_cambio_guardia` del contrato:
+      se calcula una `fecha_referencia` snappeada al último día con ese
+      weekday <= referencia (preferencia: `trabajador.fecha_inicio_ciclo`,
+      luego `trabajador.fecha_ingreso`, luego 2024-01-01).
+
+    Args:
+        trabajador (Trabajador): instancia de modelo Trabajador
+        fecha_inicio (date): fecha inicial (inclusive)
+        fecha_fin (date): fecha final (inclusive)
+
+    Returns:
+        list of dict: [{'fecha': date, 'estado': 'TD'|'TN'|'DL'}]
+    """
+    # Offsets por guardia
+    OFFSET_MAP = {'A': 0, 'B': 7, 'C': 14}
+
+    # Determinar offset según guardia asignada
+    guardia = getattr(trabajador, 'guardia_asignada', None) or 'A'
+    guardia = guardia.upper() if isinstance(guardia, str) else 'A'
+    offset = OFFSET_MAP.get(guardia, 0)
+
+    # Determinar fecha referencia para el ciclo (preferir fecha_inicio_ciclo)
+    dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
+
+    if getattr(trabajador, 'fecha_inicio_ciclo', None):
+        fecha_ref = trabajador.fecha_inicio_ciclo
+    elif getattr(trabajador, 'fecha_ingreso', None):
+        fecha_ref = trabajador.fecha_ingreso
+    else:
+        fecha_ref = date(2024, 1, 1)
+
+    # Si tenemos dia_cambio, snapear la fecha_ref al mismo weekday
+    try:
+        if dia_cambio is not None:
+            # Reuse helper if available
+            fecha_ref = TareoService._snap_a_dia_cambio(fecha_ref, int(dia_cambio))
+    except Exception:
+        # Fallback silencioso: dejar fecha_ref tal cual
+        pass
+
+    total_ciclo = 21
+    dias_trabajo = 14
+    mitad_trabajo = 7  # TD first 7, TN next 7
+
+    resultado = []
+    fecha = fecha_inicio
+    while fecha <= fecha_fin:
+        dias_transcurridos = (fecha - fecha_ref).days
+        # Normalizar a entero (puede ser negativo)
+        idx = (dias_transcurridos + offset) % total_ciclo
+
+        if idx < dias_trabajo:
+            # Dentro del bloque de trabajo
+            if idx < mitad_trabajo:
+                estado = 'TD'
+            else:
+                estado = 'TN'
+        else:
+            estado = 'DL'
+
+        resultado.append({'fecha': fecha, 'estado': estado})
+        fecha += timedelta(days=1)
+
+    return resultado
+
+
 # =============================================================================
 # SERVICIO DE CIERRE MENSUAL Y AUDITORÍA
 # =============================================================================

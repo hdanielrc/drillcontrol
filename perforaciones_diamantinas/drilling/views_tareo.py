@@ -99,28 +99,36 @@ def _calcular_dias_previos_al_rango(trabajador_id, fecha_inicio_rango, limite_di
     fecha_hasta = fecha_inicio_rango - timedelta(days=1)
     fecha_minima = fecha_hasta - timedelta(days=limite_dias)
 
-    asists = (
-        AsistenciaTrabajador.objects
-        .filter(
-            trabajador_id=trabajador_id,
-            fecha__gte=fecha_minima,
-            fecha__lte=fecha_hasta,
-        )
-        .order_by('-fecha')
-        .values('fecha', 'estado')
-    )
+    # Preferir datos normalizados (AsistenciaDiaria) si existen
+    asistencias_v2 = AsistenciaDiaria.objects.filter(
+        empleado_id=trabajador_id,
+        fecha__gte=fecha_minima,
+        fecha__lte=fecha_hasta,
+    ).values('fecha', 'estado')
 
+    asist_map = {a['fecha']: a['estado'] for a in asistencias_v2}
+
+    # Completar con legacy V1 solo para fechas no cubiertas por V2
+    faltantes = AsistenciaTrabajador.objects.filter(
+        trabajador_id=trabajador_id,
+        fecha__gte=fecha_minima,
+        fecha__lte=fecha_hasta,
+    ).exclude(fecha__in=list(asist_map.keys())).order_by('-fecha').values('fecha', 'estado')
+
+    for a in faltantes:
+        asist_map[a['fecha']] = a['estado']
+
+    # Recorremos hacia atrás día a día verificando continuidad
     count = 0
     fecha_esperada = fecha_hasta
-    for a in asists:
-        if a['fecha'] == fecha_esperada:
-            if a['estado'] in ESTADOS_ACTIVOS_MINA:
-                count += 1
-                fecha_esperada -= timedelta(days=1)
-            else:
-                break  # encontró un día de descanso/libre → corta
-        elif a['fecha'] < fecha_esperada:
-            break  # hueco sin registro → corta
+    while fecha_esperada >= fecha_minima:
+        estado = asist_map.get(fecha_esperada)
+        if estado and estado in ESTADOS_ACTIVOS_MINA:
+            count += 1
+            fecha_esperada -= timedelta(days=1)
+        else:
+            break
+
     return count
 
 
