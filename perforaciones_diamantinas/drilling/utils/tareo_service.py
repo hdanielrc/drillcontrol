@@ -146,6 +146,19 @@ class TareoService:
         
         dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG[regimen]
         ciclo_total = dias_trabajo + dias_descanso
+
+        # Normalizar fecha_inicio_ciclo: si el inicio del ciclo está en el
+        # futuro respecto a la fecha consultada, retroceder por múltiplos del
+        # ciclo (dias_trabajo + dias_descanso) hasta ubicar el inicio en el
+        # pasado. Esto evita que ciclos definidos con una fecha de inicio
+        # posterior produzcan bloques de trabajo continuos en la proyección.
+        try:
+            if fecha_inicio_ciclo > fecha_consulta:
+                dias_diff = (fecha_inicio_ciclo - fecha_consulta).days
+                ciclos_atras = (dias_diff // ciclo_total) + 1
+                fecha_inicio_ciclo = fecha_inicio_ciclo - timedelta(days=ciclos_atras * ciclo_total)
+        except Exception:
+            pass
         
         # Calcular días transcurridos desde el inicio del ciclo
         dias_transcurridos = (fecha_consulta - fecha_inicio_ciclo).days
