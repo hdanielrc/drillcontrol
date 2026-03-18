@@ -12,6 +12,7 @@ Fecha: Enero 2026
 """
 
 from datetime import date, timedelta
+from datetime import datetime
 from calendar import monthrange
 from django.db import transaction
 from django.db.models import Q, Case, When, Value, IntegerField
@@ -57,6 +58,10 @@ class TareoService:
         '5x2': (5, 2),
         '6x1': (6, 1),
     }
+
+    # Fecha histórica de inicio del calendario de tareo (inclusive).
+    # No se deben generar ni procesar registros anteriores a esta fecha.
+    HISTORICO_START = date(2026, 2, 26)
     
     @staticmethod
     def _snap_a_dia_cambio(fecha_ref, dia_cambio_guardia):
@@ -126,7 +131,7 @@ class TareoService:
             if trabajador.fecha_ingreso:
                 fecha_ref = trabajador.fecha_ingreso
             else:
-                fecha_ref = date(2024, 1, 1)
+                fecha_ref = TareoService.HISTORICO_START
 
             if dia_cambio is not None:
                 fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_ref, dia_cambio)
@@ -314,6 +319,9 @@ class TareoService:
         anio_anterior = anio if mes > 1 else anio - 1
         
         primer_dia = date(anio_anterior, mes_anterior, 26)
+        # No generar proyecciones previas al inicio histórico del tareo
+        if primer_dia < TareoService.HISTORICO_START:
+            primer_dia = TareoService.HISTORICO_START
         ultimo_dia = date(anio, mes, 25)
         
         # Filtrar trabajadores activos
@@ -1140,7 +1148,7 @@ def get_proyeccion(trabajador, fecha_inicio, fecha_fin):
     elif getattr(trabajador, 'fecha_ingreso', None):
         fecha_ref = trabajador.fecha_ingreso
     else:
-        fecha_ref = date(2024, 1, 1)
+        fecha_ref = TareoService.HISTORICO_START
 
     # Si tenemos dia_cambio, snapear la fecha_ref al mismo weekday
     try:
@@ -1157,6 +1165,9 @@ def get_proyeccion(trabajador, fecha_inicio, fecha_fin):
 
     resultado = []
     fecha = fecha_inicio
+    # No proyectar antes del inicio histórico
+    if fecha < TareoService.HISTORICO_START:
+        fecha = TareoService.HISTORICO_START
     while fecha <= fecha_fin:
         dias_transcurridos = (fecha - fecha_ref).days
         # Normalizar a entero (puede ser negativo)
