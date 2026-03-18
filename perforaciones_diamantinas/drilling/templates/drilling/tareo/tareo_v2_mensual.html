@@ -859,7 +859,7 @@
                             <!-- Indicadores de estado del registro -->
                             <div style="margin-top: 3px; font-size: 10px;">
                                 {% if data %}
-                                    {% if data.es_proyeccion %}
+                                    {% if data.es_proyeccion or data.tipo == 'PROY' %}
                                         <span class="proyeccion-indicator es-proyeccion" title="Proyección automática">P</span>
                                     {% else %}
                                         <span class="proyeccion-indicator es-correccion" title="Registro manual confirmado">✓</span>

@@ -32,16 +32,26 @@ import io
 from .models import (
     Contrato, Trabajador,
     AsistenciaTrabajador,          # Modelo V1 (legacy)
-    AsistenciaDiaria,              # Modelo V2 (normalizado)
-    CierreMensualTareo,
-    HistorialCambioAsistencia,
     Maquina,
     FechaCerrada,
 )
+from .tareo_compat import AsistenciaDiaria, CierreMensualTareo, HistorialCambioAsistencia, NEW_TAREO
 from .utils.tareo_service import TareoService, CierreMensualService
 from .utils.tareo_service import TareoEngine
 
 logger = logging.getLogger(__name__)
+
+
+# Compat helper: nombre de la FK en AsistenciaDiaria puede ser `empleado` (legacy) o `trabajador` (nuevo)
+try:
+    from .tareo_compat import NEW_TAREO
+except Exception:
+    NEW_TAREO = False
+
+
+def _emp_field_name():
+    return 'trabajador' if NEW_TAREO else 'empleado'
+
 
 # Configurar locale para español
 try:
@@ -277,27 +287,35 @@ def tareo_mensual_view(request):
         }
 
     # Overlay: prefer AsistenciaDiaria (V2) when exists — proyecciones/actuales V2
+    emp_field = _emp_field_name()
+    filter_kwargs = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
     asistencias_v2 = AsistenciaDiaria.objects.filter(
-        empleado__contrato=contrato,
-        fecha__gte=fecha_inicio,
-        fecha__lte=fecha_fin
-    ).select_related('empleado', 'maquina_snapshot')
+        **filter_kwargs
+    ).select_related(emp_field, 'maquina_snapshot')
 
     for a in asistencias_v2:
-        emp_id = a.empleado_id
+        # admitir tanto `empleado` (legacy) como `trabajador` (nuevo esquema)
+        emp_id = getattr(a, 'empleado_id', None) or getattr(a, 'trabajador_id', None)
         if emp_id not in asistencias_dict:
             asistencias_dict[emp_id] = {}
+
+        # determinar si es proyección según esquema
+        if hasattr(a, 'es_proyeccion'):
+            es_proy = getattr(a, 'es_proyeccion')
+        else:
+            es_proy = (getattr(a, 'tipo', None) == 'PROY')
+
         asistencias_dict[emp_id][a.fecha] = {
             'estado': a.estado,
-            'estado_display': a.get_estado_display(),
+            'estado_display': a.get_estado_display() if hasattr(a, 'get_estado_display') else a.estado,
             'tipo': 'PAGABLE' if a.estado in ('TRABAJO', 'TD', 'TN') else 'NO_PAGABLE',
             'tipo_display': 'Pagable' if a.estado in ('TRABAJO', 'TD', 'TN') else 'No Pagable',
-            'observaciones': a.observaciones or '',
+            'observaciones': getattr(a, 'observaciones', '') or '',
             'id': getattr(a, 'id', None),
-            'guardia_snapshot': a.guardia_snapshot or '',
-            'maquina_id': a.maquina_snapshot_id,
-            'maquina_nombre': a.maquina_snapshot.nombre if a.maquina_snapshot else None,
-            'es_proyeccion': a.es_proyeccion,
+            'guardia_snapshot': getattr(a, 'guardia_snapshot', None) or '',
+            'maquina_id': getattr(a, 'maquina_snapshot_id', None),
+            'maquina_nombre': a.maquina_snapshot.nombre if getattr(a, 'maquina_snapshot', None) else None,
+            'es_proyeccion': es_proy,
         }
     
     # Combinar trabajadores con sus asistencias y agrupar por campo `grupo`
@@ -1008,19 +1026,19 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     # Obtener asistencias desde V2 (AsistenciaDiaria). Usar V1 solo como
     # fallback si no hay registros en V2 para el contrato/periodo.
     from .models import AsistenciaDiaria
+    filter_kwargs = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
     asistencias_v2 = AsistenciaDiaria.objects.filter(
-        empleado__contrato=contrato,
-        fecha__gte=fecha_inicio,
-        fecha__lte=fecha_fin
-    ).select_related('empleado', 'maquina_snapshot')
+        **filter_kwargs
+    ).select_related(emp_field, 'maquina_snapshot')
 
     # Diccionario de asistencias (preferir V2)
     asist_dict = {}
     if asistencias_v2.exists():
         for asist in asistencias_v2:
-            if asist.empleado.id not in asist_dict:
-                asist_dict[asist.empleado.id] = {}
-            asist_dict[asist.empleado.id][asist.fecha] = asist
+            emp_id = getattr(asist, f"{emp_field}_id")
+            if emp_id not in asist_dict:
+                asist_dict[emp_id] = {}
+            asist_dict[emp_id][asist.fecha] = asist
     else:
         # Fallback a tabla legacy AsistenciaTrabajador
         asistencias = AsistenciaTrabajador.objects.filter(
@@ -1292,10 +1310,9 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO')
     # Preferir AsistenciaDiaria (V2) para estadísticas del informe
     from .models import AsistenciaDiaria
+    emp_field = _emp_field_name()
     asistencias = AsistenciaDiaria.objects.filter(
-        empleado__contrato=contrato,
-        fecha__gte=fecha_inicio,
-        fecha__lte=fecha_fin
+        **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
     )
     
     row = 4
@@ -1410,20 +1427,22 @@ def mostrar_tareo_semanal(request):
 
         # Obtener asistencias V2 (semana)
         from .models import AsistenciaDiaria
-        asistencias_v2 = AsistenciaDiaria.objects.filter(
-            empleado__contrato=contrato,
-            fecha__gte=fecha_inicio,
-            fecha__lte=fecha_fin
-        ).select_related('empleado', 'maquina_snapshot')
+        emp_field = _emp_field_name()
+        asistencias_v2 = AsistenciaDiaria.objects.filter(**{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(emp_field, 'maquina_snapshot')
 
         asist_dict = {}
         if asistencias_v2.exists():
             for asist in asistencias_v2:
-                asist_dict.setdefault(asist.empleado.id, {})[asist.fecha] = asist
+                emp_id = getattr(asist, f"{emp_field}_id")
+                asist_dict.setdefault(emp_id, {})[asist.fecha] = asist
 
         # Estadísticas de verificación: cuántas filas son proyección vs reales
-        proyecciones_count = asistencias_v2.filter(es_proyeccion=True).count()
-        reales_count = asistencias_v2.filter(es_proyeccion=False).count()
+        if NEW_TAREO:
+            proyecciones_count = asistencias_v2.filter(tipo='PROY').count()
+            reales_count = asistencias_v2.filter(tipo='REAL').count()
+        else:
+            proyecciones_count = asistencias_v2.filter(es_proyeccion=True).count()
+            reales_count = asistencias_v2.filter(es_proyeccion=False).count()
 
         # Trabajadores activos
         trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').select_related('maquina_asignada')
@@ -1613,15 +1632,17 @@ def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
 
     # Obtener asistencias V2 para el rango
     from .models import AsistenciaDiaria
-    asist_v2 = AsistenciaDiaria.objects.filter(empleado__contrato=contrato, fecha__gte=fecha_inicio, fecha__lte=fecha_fin).select_related('empleado')
+    emp_field = _emp_field_name()
+    asist_v2 = AsistenciaDiaria.objects.filter(**{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(emp_field)
 
     # Mapear por (maquina, guardia, fecha) -> lista trabajadores
     distrib = {}
     for a in asist_v2:
         maq = getattr(a, 'maquina_snapshot', None)
         maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
-        guardia = getattr(a, 'guardia_snapshot', None) or (a.empleado.guardia_asignada or 'SIN_GUARDIA')
-        distrib.setdefault(maq_key, {}).setdefault(guardia, {}).setdefault(a.fecha, []).append(a.empleado)
+        empleado_obj = getattr(a, emp_field)
+        guardia = getattr(a, 'guardia_snapshot', None) or (getattr(empleado_obj, 'guardia_asignada', None) or 'SIN_GUARDIA')
+        distrib.setdefault(maq_key, {}).setdefault(guardia, {}).setdefault(a.fecha, []).append(empleado_obj)
 
     # Ordenar máquinas
     sorted_maqs = sorted(distrib.items(), key=lambda kv: (kv[0] == '__SIN_MAQUINA__', kv[0]))
@@ -2923,7 +2944,7 @@ def api_corregir_asistencia(request):
                 'id': asistencia.id,
                 'estado': asistencia.estado,
                 'estado_display': asistencia.get_estado_display(),
-                'es_proyeccion': asistencia.es_proyeccion
+                'es_proyeccion': (getattr(asistencia, 'es_proyeccion', None) if hasattr(asistencia, 'es_proyeccion') else (getattr(asistencia, 'tipo', None) == 'PROY'))
             }
         })
         
@@ -3005,18 +3026,24 @@ def api_guardar_dia_tareo(request):
                         except Maquina.DoesNotExist:
                             pass
                     
-                    # Actualizar o crear asistencia
+                    # Actualizar o crear asistencia (compat: empleado vs trabajador, es_proyeccion vs tipo)
+                    emp_field = _emp_field_name()
+                    lookup = {f"{emp_field}": trabajador, 'fecha': fecha}
+                    defaults = {
+                        'estado': estado,
+                        'maquina_snapshot': maquina,
+                        'observaciones': observaciones,
+                        'registrado_por': request.user,
+                        'guardia_snapshot': (guardia_snapshot if guardia_snapshot is not None else trabajador.guardia_asignada)
+                    }
+                    if NEW_TAREO:
+                        defaults['tipo'] = 'REAL'
+                    else:
+                        defaults['es_proyeccion'] = False
+
                     asistencia, created = AsistenciaDiaria.objects.update_or_create(
-                        empleado=trabajador,
-                        fecha=fecha,
-                        defaults={
-                            'estado': estado,
-                            'maquina_snapshot': maquina,
-                            'observaciones': observaciones,
-                            'es_proyeccion': False,
-                            'registrado_por': request.user,
-                            'guardia_snapshot': (guardia_snapshot if guardia_snapshot is not None else trabajador.guardia_asignada)
-                        }
+                        **lookup,
+                        defaults=defaults
                     )
                     
                     if created:
@@ -3290,20 +3317,23 @@ def tareo_v2_estadisticas(request):
     ultimo_dia_operativo = date(hoy.year, hoy.month, 25)
 
     # Query de asistencias del período operativo
+    emp_field = _emp_field_name()
     asistencias_mes = AsistenciaDiaria.objects.filter(
-        empleado__contrato=contrato,
-        fecha__gte=primer_dia_operativo,
-        fecha__lte=min(hoy, ultimo_dia_operativo)
+        **{f"{emp_field}__contrato": contrato, 'fecha__gte': primer_dia_operativo, 'fecha__lte': min(hoy, ultimo_dia_operativo)}
     )
-    
+
     # Estadísticas básicas
     total_registros = asistencias_mes.count()
-    proyecciones = asistencias_mes.filter(es_proyeccion=True).count()
-    correcciones = asistencias_mes.filter(es_proyeccion=False).count()
-    
+    if NEW_TAREO:
+        proyecciones = asistencias_mes.filter(tipo='PROY').count()
+        correcciones = asistencias_mes.filter(tipo='REAL').count()
+    else:
+        proyecciones = asistencias_mes.filter(es_proyeccion=True).count()
+        correcciones = asistencias_mes.filter(es_proyeccion=False).count()
+
     # Por estado
     stats_por_estado = {}
-    for estado_code, estado_label in AsistenciaDiaria.ESTADO_CHOICES:
+    for estado_code, estado_label in getattr(AsistenciaDiaria, 'ESTADO_CHOICES', []):
         count = asistencias_mes.filter(estado=estado_code).count()
         if count > 0:
             stats_por_estado[estado_label] = count
@@ -3623,12 +3653,13 @@ def tareo_reporte_nomina(request):
         ).order_by('apepat', 'apemat', 'nombres')
         
         for trabajador in trabajadores:
-            asistencias = AsistenciaDiaria.objects.filter(
-                empleado=trabajador,
-                fecha__gte=primer_dia,
-                fecha__lte=ultimo_dia,
-                es_proyeccion=False  # Solo registros reales
-            )
+            emp_field = _emp_field_name()
+            filtros = {f"{emp_field}": trabajador, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia}
+            asistencias = AsistenciaDiaria.objects.filter(**filtros)
+            if NEW_TAREO:
+                asistencias = asistencias.filter(tipo='REAL')
+            else:
+                asistencias = asistencias.filter(es_proyeccion=False)
             
             dias_trabajo = asistencias.filter(estado='TRABAJO').count()
             dias_descanso = asistencias.filter(estado='DESCANSO').count()
@@ -3705,12 +3736,13 @@ def api_exportar_nomina_excel(request, cierre_id):
     
     row_num = 2
     for trabajador in trabajadores:
-        asistencias = AsistenciaDiaria.objects.filter(
-            empleado=trabajador,
-            fecha__gte=primer_dia,
-            fecha__lte=ultimo_dia,
-            es_proyeccion=False
-        )
+        emp_field = _emp_field_name()
+        filtros = {f"{emp_field}": trabajador, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia}
+        asistencias = AsistenciaDiaria.objects.filter(**filtros)
+        if NEW_TAREO:
+            asistencias = asistencias.filter(tipo='REAL')
+        else:
+            asistencias = asistencias.filter(es_proyeccion=False)
         
         ws.cell(row=row_num, column=1, value=trabajador.dni)
         ws.cell(row=row_num, column=2, value=trabajador.apellidos)

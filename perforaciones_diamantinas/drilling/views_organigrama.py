@@ -284,16 +284,24 @@ def organigrama_view(request):
 
     # Fuente 2: modelo V2 (AsistenciaDiaria) – correcciones manuales tienen
     # prioridad sobre V1; proyecciones solo se usan si no hay dato V1.
+    # Leer instancias para soportar ambos esquemas (campo booleano `es_proyeccion` o campo `tipo`)
     for a in AsistenciaDiaria.objects.filter(
         empleado__contrato=contrato,
         fecha__gte=semana_inicio,
         fecha__lte=semana_fin,
-    ).values('empleado_id', 'fecha', 'estado', 'es_proyeccion'):
-        v1_equiv = V2_A_V1.get(a['estado'], a['estado'])
-        existing = tareo_dict.get(a['empleado_id'], {}).get(a['fecha'])
+    ).select_related('maquina_snapshot'):
+        v1_equiv = V2_A_V1.get(a.estado, a.estado)
+        emp_id = getattr(a, 'empleado_id', None) or getattr(a, 'trabajador_id', None)
+        existing = tareo_dict.get(emp_id, {}).get(a.fecha)
+        # Determinar si es proyección según esquema
+        if hasattr(a, 'es_proyeccion'):
+            is_proy = getattr(a, 'es_proyeccion')
+        else:
+            is_proy = (getattr(a, 'tipo', None) == 'PROY')
+
         # Corrección manual V2 siempre gana; proyección V2 solo si no hay V1
-        if not a['es_proyeccion'] or existing is None:
-            tareo_dict.setdefault(a['empleado_id'], {})[a['fecha']] = v1_equiv
+        if not is_proy or existing is None:
+            tareo_dict.setdefault(emp_id, {})[a.fecha] = v1_equiv
 
     trabajadores_por_servicio_cargo = defaultdict(lambda: defaultdict(deque))
     trabajador_lookup = {}

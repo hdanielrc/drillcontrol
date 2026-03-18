@@ -15,7 +15,30 @@ from datetime import date, timedelta
 from calendar import monthrange
 from django.db import transaction
 from django.db.models import Q, Case, When, Value, IntegerField
-from ..models import Trabajador, AsistenciaDiaria, AsistenciaTrabajador, FechaCerrada
+from ..models import Trabajador, AsistenciaTrabajador, FechaCerrada
+from ..tareo_compat import AsistenciaDiaria, CierreMensualTareo, HistorialCambioAsistencia, NEW_TAREO
+
+
+# Helper adaptors to support both legacy and new Tareo models
+def _empleado_field_name():
+    return 'trabajador' if NEW_TAREO else 'empleado'
+
+
+def _proyeccion_filter(qs):
+    return qs.filter(tipo='PROY') if NEW_TAREO else qs.filter(es_proyeccion=True)
+
+
+def _manual_filter(qs):
+    return qs.filter(tipo='REAL') if NEW_TAREO else qs.filter(es_proyeccion=False)
+
+
+def _mark_as_proyeccion_defaults():
+    return {'tipo': 'PROY'} if NEW_TAREO else {'es_proyeccion': True}
+
+
+def _mark_as_manual_defaults():
+    return {'tipo': 'REAL'} if NEW_TAREO else {'es_proyeccion': False}
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -213,34 +236,37 @@ class TareoService:
         
         # Si sobrescribir=True, eliminar proyecciones previas
         if sobrescribir:
-            AsistenciaDiaria.objects.filter(
+            qs = AsistenciaDiaria.objects.filter(
                 fecha__gte=primer_dia,
                 fecha__lte=ultimo_dia,
-                es_proyeccion=True
-            ).delete()
+                **(({'empleado__contrato': contrato}) if contrato else {})
+            )
+            _proyeccion_filter(qs).delete()
             logger.info(f"Proyecciones previas del mes {mes}/{anio} eliminadas")
         
         # Obtener registros ya existentes que NO deben tocarse
         # (correcciones manuales: es_proyeccion=False)
         registros_manuales = set(
-            AsistenciaDiaria.objects.filter(
+            (lambda: _manual_filter(AsistenciaDiaria.objects.filter(
                 fecha__gte=primer_dia,
                 fecha__lte=ultimo_dia,
-                es_proyeccion=False,
                 **(({'empleado__contrato': contrato}) if contrato else {})
-            ).values_list('empleado_id', 'fecha')
+            )).values_list(f"{_empleado_field_name()}_id", 'fecha'))()
         )
 
         # Proyecciones ya existentes (es_proyeccion=True) que tal vez hay que
         # actualizar (estado corregido, máquina, guardia)
         proyecciones_existentes = {}
-        for p in AsistenciaDiaria.objects.filter(
+        # Obtener proyecciones existentes (según esquema nuevo o legacy)
+        existente_qs = AsistenciaDiaria.objects.filter(
             fecha__gte=primer_dia,
             fecha__lte=ultimo_dia,
-            es_proyeccion=True,
-            **(({'empleado__contrato': contrato}) if contrato else {})
-        ):
-            proyecciones_existentes[(p.empleado_id, p.fecha)] = p
+            **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
+        )
+        existente_qs = _proyeccion_filter(existente_qs)
+        for p in existente_qs:
+            key_id = getattr(p, f"{_empleado_field_name()}_id")
+            proyecciones_existentes[(key_id, p.fecha)] = p
 
         # Listas para operaciones bulk
         registros_a_crear     = []
@@ -291,15 +317,29 @@ class TareoService:
                         registros_a_actualizar.append(p)
                     else:
                         # Registro nuevo
-                        registros_a_crear.append(AsistenciaDiaria(
-                            empleado=trabajador,
-                            fecha=fecha_actual,
-                            estado=estado_esperado,
-                            guardia_snapshot=guardia,
-                            maquina_snapshot=maquina,
-                            es_proyeccion=True,
-                            registrado_por=None
-                        ))
+                        # Construir kwargs dinámicos para legacy vs nuevo modelo
+                        create_kwargs = {
+                            _empleado_field_name(): trabajador,
+                            'fecha': fecha_actual,
+                            'estado': estado_esperado,
+                            'guardia_snapshot': guardia,
+                            'maquina_snapshot': maquina,
+                            'registrado_por': None,
+                        }
+                        create_kwargs.update(_mark_as_proyeccion_defaults())
+
+                        # Si usamos el nuevo esquema, asegurarnos de asignar periodo
+                        if NEW_TAREO:
+                            from ..models_tareo import TareoPeriod
+                            periodo_obj, _ = TareoPeriod.objects.get_or_create(
+                                contrato=trabajador.contrato,
+                                anio=anio,
+                                mes=mes,
+                                defaults={'fecha_inicio': primer_dia, 'fecha_fin': ultimo_dia}
+                            )
+                            create_kwargs['periodo'] = periodo_obj
+
+                        registros_a_crear.append(AsistenciaDiaria(**create_kwargs))
 
                     fecha_actual += timedelta(days=1)
 
@@ -485,18 +525,31 @@ class TareoService:
         """
         try:
             trabajador = Trabajador.objects.get(id=empleado_id)
-            
-            # Buscar registro existente
+
+            # Construir kwargs dinámicos para buscar/crear según el esquema
+            lookup = {f"{_empleado_field_name()}": trabajador, 'fecha': fecha}
+            defaults = {
+                'estado': nuevo_estado,
+                'observaciones': observaciones,
+                'registrado_por': usuario,
+                'guardia_snapshot': trabajador.guardia_asignada
+            }
+            defaults.update(_mark_as_manual_defaults())
+
+            # Si nuevo esquema, asignar periodo si fuera necesario (no obligatorio aquí)
+            if NEW_TAREO:
+                from ..models_tareo import TareoPeriod
+                periodo_obj, _ = TareoPeriod.objects.get_or_create(
+                    contrato=trabajador.contrato,
+                    anio=fecha.year if fecha.month != 1 else fecha.year,
+                    mes=fecha.month,
+                    defaults={'fecha_inicio': fecha, 'fecha_fin': fecha}
+                )
+                defaults['periodo'] = periodo_obj
+
             asistencia, created = AsistenciaDiaria.objects.update_or_create(
-                empleado=trabajador,
-                fecha=fecha,
-                defaults={
-                    'estado': nuevo_estado,
-                    'es_proyeccion': False,  # Marcar como corrección manual
-                    'observaciones': observaciones,
-                    'registrado_por': usuario,
-                    'guardia_snapshot': trabajador.guardia_asignada
-                }
+                **lookup,
+                defaults=defaults
             )
             
             accion = "creada" if created else "actualizada"
@@ -563,28 +616,35 @@ class TareoService:
             )
         ).order_by('grupo_ord', 'guardia_asignada', 'apepat', 'apemat', 'nombres')
         
-        # Obtener asistencias del rango
+        # Obtener asistencias del rango (adaptar nombre de FK empleado/trabajador)
+        emp_field = _empleado_field_name()
+        filter_kwargs = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
         asistencias = AsistenciaDiaria.objects.filter(
-            empleado__contrato=contrato,
-            fecha__gte=fecha_inicio,
-            fecha__lte=fecha_fin
-        ).select_related('empleado', 'maquina_snapshot')
+            **filter_kwargs
+        ).select_related(emp_field, 'maquina_snapshot')
         
         # Crear diccionario de asistencias: {trabajador_id: {fecha: datos}}
         asistencias_dict = {}
         for asist in asistencias:
-            if asist.empleado_id not in asistencias_dict:
-                asistencias_dict[asist.empleado_id] = {}
-            
-            asistencias_dict[asist.empleado_id][asist.fecha] = {
+            key_id = getattr(asist, f"{emp_field}_id")
+            if key_id not in asistencias_dict:
+                asistencias_dict[key_id] = {}
+
+            # determinar si es proyección según esquema
+            if NEW_TAREO:
+                es_proy = (getattr(asist, 'tipo', None) == 'PROY')
+            else:
+                es_proy = getattr(asist, 'es_proyeccion', False)
+
+            asistencias_dict[key_id][asist.fecha] = {
                 'estado': asist.estado,
-                'estado_display': asist.get_estado_display(),
-                'es_proyeccion': asist.es_proyeccion,
-                'observaciones': asist.observaciones,
+                'estado_display': getattr(asist, 'get_estado_display')() if hasattr(asist, 'get_estado_display') else asist.estado,
+                'es_proyeccion': es_proy,
+                'observaciones': getattr(asist, 'observaciones', ''),
                 'id': asist.id,
                 'guardia_snapshot': getattr(asist, 'guardia_snapshot', None) or '',
-                'maquina_id': asist.maquina_snapshot_id,
-                'maquina_nombre': asist.maquina_snapshot.nombre if asist.maquina_snapshot else None
+                'maquina_id': getattr(asist, 'maquina_snapshot_id', None),
+                'maquina_nombre': asist.maquina_snapshot.nombre if getattr(asist, 'maquina_snapshot', None) else None
             }
         
         # Construir matriz agrupada por grupo
@@ -723,33 +783,46 @@ class TareoService:
                 
                 # Buscar si existe
                 try:
-                    asistencia = AsistenciaDiaria.objects.get(
-                        empleado_id=empleado_id,
-                        fecha=fecha
-                    )
+                    lookup_get = {f"{_empleado_field_name()}_id": empleado_id, 'fecha': fecha}
+                    asistencia = AsistenciaDiaria.objects.get(**lookup_get)
                     # Actualizar campos
                     asistencia.estado = estado
                     asistencia.observaciones = observaciones
                     asistencia.maquina_snapshot = maquina
                     if guardia_snapshot is not None:
                         asistencia.guardia_snapshot = guardia_snapshot
-                    asistencia.es_proyeccion = False
+                    # Marcar como corrección manual según esquema
+                    if NEW_TAREO:
+                        asistencia.tipo = 'REAL'
+                    else:
+                        asistencia.es_proyeccion = False
                     asistencia.registrado_por = usuario
                     registros_actualizar.append(asistencia)
                     
                 except AsistenciaDiaria.DoesNotExist:
                     # Crear nuevo
                     trabajador = Trabajador.objects.get(id=empleado_id)
-                    asistencia = AsistenciaDiaria(
-                        empleado=trabajador,
-                        fecha=fecha,
-                        estado=estado,
-                        observaciones=observaciones,
-                        maquina_snapshot=maquina,
-                        es_proyeccion=False,
-                        registrado_por=usuario,
-                        guardia_snapshot=(guardia_snapshot if guardia_snapshot is not None else trabajador.guardia_asignada)
-                    )
+                    create_kwargs = {
+                        _empleado_field_name(): trabajador,
+                        'fecha': fecha,
+                        'estado': estado,
+                        'observaciones': observaciones,
+                        'maquina_snapshot': maquina,
+                        'registrado_por': usuario,
+                        'guardia_snapshot': (guardia_snapshot if guardia_snapshot is not None else trabajador.guardia_asignada)
+                    }
+                    create_kwargs.update(_mark_as_manual_defaults())
+                    # If new schema, assign periodo is optional here
+                    if NEW_TAREO:
+                        from ..models_tareo import TareoPeriod
+                        periodo_obj, _ = TareoPeriod.objects.get_or_create(
+                            contrato=trabajador.contrato,
+                            anio=fecha.year,
+                            mes=fecha.month,
+                            defaults={'fecha_inicio': fecha, 'fecha_fin': fecha}
+                        )
+                        create_kwargs['periodo'] = periodo_obj
+                    asistencia = AsistenciaDiaria(**create_kwargs)
                     registros_crear.append(asistencia)
             
             except Exception as e:
@@ -758,9 +831,14 @@ class TareoService:
         # Bulk operations
         try:
             if registros_actualizar:
+                update_fields = ['estado', 'observaciones', 'maquina_snapshot', 'guardia_snapshot', 'registrado_por']
+                if NEW_TAREO:
+                    update_fields.append('tipo')
+                else:
+                    update_fields.append('es_proyeccion')
                 AsistenciaDiaria.objects.bulk_update(
                     registros_actualizar,
-                    ['estado', 'observaciones', 'maquina_snapshot', 'guardia_snapshot', 'es_proyeccion', 'registrado_por'],
+                    update_fields,
                     batch_size=500
                 )
                 stats['actualizados'] = len(registros_actualizar)
@@ -828,12 +906,12 @@ class TareoService:
             return stats
 
         # Pre-cargar registros V2 existentes
+        # Pre-cargar registros V2 existentes (adaptar nombre FK)
+        emp_field = _empleado_field_name()
         existentes = {
-            (a.empleado_id, a.fecha): a
+            (getattr(a, f"{emp_field}_id"), a.fecha): a
             for a in AsistenciaDiaria.objects.filter(
-                empleado__contrato=contrato,
-                fecha__gte=fecha_inicio,
-                fecha__lte=fecha_fin,
+                **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
             )
         }
 
@@ -852,10 +930,16 @@ class TareoService:
                 existente = existentes.get(key)
 
                 if existente:
-                    if not existente.es_proyeccion:
-                        # Corrección manual guardada → no tocar
-                        stats['omitidos_manual'] += 1
-                        continue
+                    # Si ya existe, respetar correcciones manuales según esquema
+                    if NEW_TAREO:
+                        if getattr(existente, 'tipo', None) == 'REAL':
+                            stats['omitidos_manual'] += 1
+                            continue
+                    else:
+                        if not getattr(existente, 'es_proyeccion', True):
+                            stats['omitidos_manual'] += 1
+                            continue
+
                     if sobrescribir_proyecciones:
                         existente.estado = estado_v2
                         existente.guardia_snapshot = reg.guardia_snapshot
@@ -863,15 +947,26 @@ class TareoService:
                         existente.registrado_por = usuario
                         actualizar.append(existente)
                 else:
-                    crear.append(AsistenciaDiaria(
-                        empleado=reg.trabajador,
-                        fecha=reg.fecha,
-                        estado=estado_v2,
-                        guardia_snapshot=reg.guardia_snapshot,
-                        es_proyeccion=True,
-                        observaciones=reg.observaciones or '',
-                        registrado_por=usuario,
-                    ))
+                    create_kwargs = {
+                        _empleado_field_name(): reg.trabajador,
+                        'fecha': reg.fecha,
+                        'estado': estado_v2,
+                        'guardia_snapshot': reg.guardia_snapshot,
+                        'observaciones': reg.observaciones or '',
+                        'registrado_por': usuario,
+                    }
+                    create_kwargs.update(_mark_as_proyeccion_defaults())
+                    if NEW_TAREO:
+                        from ..models_tareo import TareoPeriod
+                        periodo_obj, _ = TareoPeriod.objects.get_or_create(
+                            contrato=reg.trabajador.contrato,
+                            anio=reg.fecha.year,
+                            mes=reg.fecha.month,
+                            defaults={'fecha_inicio': reg.fecha, 'fecha_fin': reg.fecha}
+                        )
+                        create_kwargs['periodo'] = periodo_obj
+
+                    crear.append(AsistenciaDiaria(**create_kwargs))
             except Exception as e:
                 stats['errores'].append(f"{reg.trabajador_id}/{reg.fecha}: {str(e)}")
 
@@ -1149,12 +1244,11 @@ class CierreMensualService:
             estado='ACTIVO'
         )
         
-        proyecciones_pendientes = AsistenciaDiaria.objects.filter(
-            empleado__in=trabajadores_activos,
-            fecha__gte=primer_dia,
-            fecha__lte=ultimo_dia,
-            es_proyeccion=True
-        ).count()
+        emp_field = _empleado_field_name()
+        filter_qs = AsistenciaDiaria.objects.filter(
+            **{f"{emp_field}__in": trabajadores_activos, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia}
+        )
+        proyecciones_pendientes = _proyeccion_filter(filter_qs).count()
         
         if proyecciones_pendientes > 0:
             return {
@@ -1265,18 +1359,16 @@ class CierreMensualService:
         
         for trabajador in trabajadores_activos:
             asistencias = AsistenciaDiaria.objects.filter(
-                empleado=trabajador,
-                fecha__gte=primer_dia,
-                fecha__lte=ultimo_dia
+                **{f"{emp_field}": trabajador, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia}
             )
-            
+
             total_dias = asistencias.count()
-            proyecciones = asistencias.filter(es_proyeccion=True).count()
-            reales = asistencias.filter(es_proyeccion=False).count()
+            proyecciones = _proyeccion_filter(asistencias).count()
+            reales = _manual_filter(asistencias).count()
             
             # Desglose por estado
-            trabajo = asistencias.filter(estado='TRABAJO', es_proyeccion=False).count()
-            descanso = asistencias.filter(estado='DESCANSO', es_proyeccion=False).count()
+            trabajo = _manual_filter(asistencias).filter(estado='TRABAJO').count()
+            descanso = _manual_filter(asistencias).filter(estado='DESCANSO').count()
             faltas = asistencias.filter(estado='FALTA').count()
             vacaciones = asistencias.filter(estado='VACACIONES').count()
             permisos = asistencias.filter(estado='PERMISO').count()
@@ -1334,8 +1426,10 @@ class AuditoriaAsistenciaService:
         
         # Verificar si el mes está cerrado
         try:
+            emp_field = _empleado_field_name()
+            empleado_obj = getattr(asistencia, _empleado_field_name())
             cierre = CierreMensualTareo.objects.get(
-                contrato=asistencia.empleado.contrato,
+                contrato=getattr(empleado_obj, 'contrato'),
                 anio=asistencia.fecha.year,
                 mes=asistencia.fecha.month
             )
@@ -1344,12 +1438,18 @@ class AuditoriaAsistenciaService:
             mes_cerrado = False
         
         # Crear registro de auditoría
+        # Determinar bandera es_proyeccion_nuevo según esquema
+        if NEW_TAREO:
+            es_proy_nuevo = getattr(asistencia, 'tipo', None) == 'PROY'
+        else:
+            es_proy_nuevo = getattr(asistencia, 'es_proyeccion', False)
+
         historial = HistorialCambioAsistencia.objects.create(
             asistencia=asistencia,
             estado_anterior=estado_anterior,
             es_proyeccion_anterior=es_proyeccion_anterior,
             estado_nuevo=asistencia.estado,
-            es_proyeccion_nuevo=asistencia.es_proyeccion,
+            es_proyeccion_nuevo=es_proy_nuevo,
             usuario=usuario,
             motivo=motivo,
             ip_address=ip_address,
@@ -1357,7 +1457,7 @@ class AuditoriaAsistenciaService:
         )
         
         logger.info(
-            f"Cambio registrado: {asistencia.empleado} - {asistencia.fecha}: "
+            f"Cambio registrado: {getattr(asistencia, _empleado_field_name())} - {asistencia.fecha}: "
             f"{estado_anterior} → {asistencia.estado} por {usuario}"
         )
         
@@ -1370,8 +1470,9 @@ class AuditoriaAsistenciaService:
         """
         from ..models import HistorialCambioAsistencia
         
+        emp_field = _empleado_field_name()
         historial = HistorialCambioAsistencia.objects.filter(
-            asistencia__empleado=trabajador
+            **{f"asistencia__{emp_field}": trabajador}
         ).select_related('asistencia', 'usuario')
         
         if fecha_inicio:
@@ -1400,12 +1501,8 @@ class AuditoriaAsistenciaService:
             )
             
             cambios = HistorialCambioAsistencia.objects.filter(
-                asistencia__empleado__contrato=contrato,
-                asistencia__fecha__year=anio,
-                asistencia__fecha__month=mes,
-                fecha_cambio__gt=cierre.fecha_cierre,
-                mes_cerrado=True
-            ).select_related('asistencia__empleado', 'usuario')
+                **{f"asistencia__{emp_field}__contrato": contrato, 'asistencia__fecha__year': anio, 'asistencia__fecha__month': mes, 'fecha_cambio__gt': cierre.fecha_cierre, 'mes_cerrado': True}
+            ).select_related(f"asistencia__{emp_field}", 'usuario')
             
             return {
                 'cierre': cierre,
