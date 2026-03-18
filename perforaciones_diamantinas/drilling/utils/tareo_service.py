@@ -450,8 +450,19 @@ class TareoService:
                         # ignoramos para evitar romper ciclos.
                         registro_es_proy = (registro_proy is not None and registro_last is registro_proy)
                         if contador >= 2 or registro_es_proy:
-                            # Posición en el ciclo para primer_dia = contador % ciclo_total
-                            ciclo_pos = contador % ciclo_total
+                            # Calcular posición en el ciclo para primer_dia basándonos
+                            # en la posición conocida del día anterior (dia_anterior).
+                            # Esto evita errores por usar sólo el contador de días
+                            # consecutivos que pueden desalinear TD/TN.
+                            try:
+                                dbg_last = TareoService.debug_estado_dia(trabajador, dia_anterior)
+                                pos_last = dbg_last.get('posicion_ciclo')
+                                if pos_last is not None:
+                                    ciclo_pos = (pos_last + 1) % ciclo_total
+                                else:
+                                    ciclo_pos = contador % ciclo_total
+                            except Exception:
+                                ciclo_pos = contador % ciclo_total
                             usar_estado_previo = True
                         else:
                             usar_estado_previo = False
