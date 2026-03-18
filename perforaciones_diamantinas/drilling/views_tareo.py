@@ -64,6 +64,26 @@ def _emp_field_name():
             return 'trabajador' if NEW_TAREO else 'empleado'
 
 
+def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
+    """Intentar consultar AsistenciaDiaria usando el FK `trabajador` o `empleado`.
+    Devuelve una tupla (QuerySet, usado_emp_field) donde `usado_emp_field`
+    es 'trabajador' o 'empleado' si alguno funcionó, o (empty_qs, None) si falla.
+    """
+    from django.core.exceptions import FieldError
+    from .tareo_compat import AsistenciaDiaria
+
+    for field in ('trabajador', 'empleado'):
+        try:
+            qs = AsistenciaDiaria.objects.filter(**{f"{field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(field, 'maquina_snapshot')
+            return qs, field
+        except FieldError:
+            logger.debug("AsistenciaDiaria: field %s not valid for model, trying next", field)
+        except Exception:
+            logger.exception("Error querying AsistenciaDiaria with field %s", field)
+
+    return AsistenciaDiaria.objects.none(), None
+
+
 # Configurar locale para español
 try:
     locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
@@ -301,11 +321,15 @@ def tareo_mensual_view(request):
         }
 
     # Overlay: prefer AsistenciaDiaria (V2) when exists — proyecciones/actuales V2
-    emp_field = _emp_field_name()
-    filter_kwargs = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
-    asistencias_v2 = AsistenciaDiaria.objects.filter(
-        **filter_kwargs
-    ).select_related(emp_field, 'maquina_snapshot')
+    # Intentar consultar AsistenciaDiaria probando los posibles nombres de FK
+    try:
+        asistencias_v2, used_emp_field = _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin)
+        emp_field = used_emp_field or _emp_field_name()
+        logger.debug("tareo_semanal: emp_field=%s (used=%s)", emp_field, used_emp_field)
+        logger.debug("tareo_semanal: AsistenciaDiaria fields=%s", [f.name for f in AsistenciaDiaria._meta.get_fields()])
+    except Exception:
+        logger.exception("Error al intentar obtener AsistenciaDiaria desde compat")
+        asistencias_v2 = AsistenciaDiaria.objects.none()
 
     for a in asistencias_v2:
         # admitir tanto `empleado` (legacy) como `trabajador` (nuevo esquema)
@@ -1039,7 +1063,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     
     # Obtener asistencias desde V2 (AsistenciaDiaria). Usar V1 solo como
     # fallback si no hay registros en V2 para el contrato/periodo.
-    from .models import AsistenciaDiaria
+    from .tareo_compat import AsistenciaDiaria
     filter_kwargs = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
     asistencias_v2 = AsistenciaDiaria.objects.filter(
         **filter_kwargs
@@ -1323,7 +1347,7 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     # Estadísticas
     trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO')
     # Preferir AsistenciaDiaria (V2) para estadísticas del informe
-    from .models import AsistenciaDiaria
+    from .tareo_compat import AsistenciaDiaria
     emp_field = _emp_field_name()
     asistencias = AsistenciaDiaria.objects.filter(
         **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
@@ -1439,10 +1463,14 @@ def mostrar_tareo_semanal(request):
 
         fecha_fin = fecha_inicio + timedelta(days=6)
 
-        # Obtener asistencias V2 (semana)
-        from .models import AsistenciaDiaria
-        emp_field = _emp_field_name()
-        asistencias_v2 = AsistenciaDiaria.objects.filter(**{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(emp_field, 'maquina_snapshot')
+        # Obtener asistencias V2 (semana) — intentar ambos nombres de FK
+        from .tareo_compat import AsistenciaDiaria
+        try:
+            asistencias_v2, used_emp_field = _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin)
+            emp_field = used_emp_field or _emp_field_name()
+        except Exception:
+            logger.exception("Error al intentar obtener AsistenciaDiaria desde compat (mostrar_tareo_semanal)")
+            asistencias_v2 = AsistenciaDiaria.objects.none()
 
         asist_dict = {}
         if asistencias_v2.exists():
@@ -1451,12 +1479,37 @@ def mostrar_tareo_semanal(request):
                 asist_dict.setdefault(emp_id, {})[asist.fecha] = asist
 
         # Estadísticas de verificación: cuántas filas son proyección vs reales
-        if NEW_TAREO:
-            proyecciones_count = asistencias_v2.filter(tipo='PROY').count()
-            reales_count = asistencias_v2.filter(tipo='REAL').count()
-        else:
-            proyecciones_count = asistencias_v2.filter(es_proyeccion=True).count()
-            reales_count = asistencias_v2.filter(es_proyeccion=False).count()
+        try:
+            if NEW_TAREO:
+                model = getattr(asistencias_v2, 'model', None)
+                has_tipo = False
+                has_es_proy = False
+                if model is not None:
+                    fields = [f.name for f in model._meta.get_fields()]
+                    has_tipo = 'tipo' in fields
+                    has_es_proy = 'es_proyeccion' in fields
+
+                if has_tipo:
+                    proyecciones_count = asistencias_v2.filter(tipo='PROY').count()
+                    reales_count = asistencias_v2.filter(tipo='REAL').count()
+                elif has_es_proy:
+                    proyecciones_count = asistencias_v2.filter(es_proyeccion=True).count()
+                    reales_count = asistencias_v2.filter(es_proyeccion=False).count()
+                else:
+                    # Ultimate fallback: iterate instances and inspect attributes
+                    proyecciones_count = 0
+                    reales_count = 0
+                    for a in asistencias_v2:
+                        if getattr(a, 'tipo', None) == 'PROY' or getattr(a, 'es_proyeccion', False):
+                            proyecciones_count += 1
+                        else:
+                            reales_count += 1
+            else:
+                proyecciones_count = asistencias_v2.filter(es_proyeccion=True).count()
+                reales_count = asistencias_v2.filter(es_proyeccion=False).count()
+        except Exception:
+            logger.exception('Error counting proyecciones/reales in mostrar_tareo_semanal')
+            proyecciones_count = reales_count = 0
 
         # Trabajadores activos
         trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').select_related('maquina_asignada')
@@ -1645,7 +1698,7 @@ def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
         fecha += timedelta(days=1)
 
     # Obtener asistencias V2 para el rango
-    from .models import AsistenciaDiaria
+    from .tareo_compat import AsistenciaDiaria
     emp_field = _emp_field_name()
     asist_v2 = AsistenciaDiaria.objects.filter(**{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(emp_field)
 
