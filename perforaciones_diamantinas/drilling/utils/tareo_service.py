@@ -114,9 +114,9 @@ class TareoService:
         regimen = trabajador.regimen_laboral
         fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
         
-        # Si no tiene régimen, asumir trabajo
+        # Si no tiene régimen, asumir turno día (usar TD/TN en lugar de estado genérico 'TRABAJO')
         if not regimen:
-            return 'TRABAJO'
+            return 'TD'
 
         # Obtener dia_cambio_guardia del contrato una sola vez
         dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
@@ -142,7 +142,7 @@ class TareoService:
         # Obtener configuración del régimen
         if regimen not in TareoService.REGIMEN_CONFIG:
             logger.warning(f"Régimen '{regimen}' no reconocido para trabajador {trabajador.id}")
-            return 'TRABAJO'
+            return 'TD'
         
         dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG[regimen]
         ciclo_total = dias_trabajo + dias_descanso
@@ -402,11 +402,11 @@ class TareoService:
             for (fecha, maq_id), guardias in entries_map.items():
                 working_guardias = []  # list of (guardia_key, count)
                 counts = {}
-                for gk, items in guardias.items():
+                    for gk, items in guardias.items():
                     any_work = False
                     for src, idx in items:
                         reg = registros_a_crear[idx] if src == 'create' else registros_a_actualizar[idx]
-                        if getattr(reg, 'estado', None) in ('TRABAJO', 'TD', 'TN'):
+                        if getattr(reg, 'estado', None) in ('TD', 'TN'):
                             any_work = True
                             break
                     if any_work:
