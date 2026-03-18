@@ -440,10 +440,22 @@ class TareoService:
                 except Exception:
                     guardia_to_rest = None
 
-                # 2) fallback: seed rotation deterministic
+                # 2) fallback: seed rotation deterministic but biased by contrato.dia_cambio_guardia
                 if guardia_to_rest is None and available_ordered:
                     seed = (fecha.toordinal() + (maq_id or 0))
-                    start_idx = seed % len(rotation_order)
+                    # Try to infer dia_cambio_guardia from one of the workers in the group
+                    contrato_dia = None
+                    try:
+                        sample_src, sample_idx = next(iter(guardias.values()))[0]
+                        sample_reg = registros_a_crear[sample_idx] if sample_src == 'create' else registros_a_actualizar[sample_idx]
+                        contrato_dia = getattr(getattr(sample_reg, 'empleado', None), 'contrato', None)
+                        if contrato_dia:
+                            contrato_dia = getattr(contrato_dia, 'dia_cambio_guardia', None)
+                    except Exception:
+                        contrato_dia = None
+
+                    bias = contrato_dia if isinstance(contrato_dia, int) else 0
+                    start_idx = (seed + bias) % len(rotation_order)
                     for i in range(len(rotation_order)):
                         cand = rotation_order[(start_idx + i) % len(rotation_order)]
                         if cand in available_ordered:
