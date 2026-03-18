@@ -22,6 +22,24 @@ from django.contrib import messages
 from .models import Contrato, Trabajador, AsistenciaTrabajador, AsistenciaDiaria, HeadCount
 from .utils.tareo_service import _empleado_field_name
 
+from django.core.exceptions import FieldError
+
+
+def _asistencias_v2_qs_for_period(contrato, fecha_inicio, fecha_fin):
+    """Return (qs, used_field) for AsistenciaDiaria trying both FK names.
+
+    Attempts 'trabajador' first, then 'empleado'. Returns empty qs if
+    neither works.
+    """
+    from .tareo_compat import AsistenciaDiaria as AD
+
+    for field in ('trabajador', 'empleado'):
+        try:
+            qs = AD.objects.filter(**{f"{field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(field, 'maquina_snapshot')
+            return qs, field
+        except FieldError:
+            continue
+    return AD.objects.none(), None
 # Mapeo de estados V2 (AsistenciaDiaria) a estados V1 para reutilizar los badges
 V2_A_V1 = {
     'TRABAJO':    'TRABAJADO',
@@ -286,10 +304,14 @@ def organigrama_view(request):
     # Fuente 2: modelo V2 (AsistenciaDiaria) – correcciones manuales tienen
     # prioridad sobre V1; proyecciones solo se usan si no hay dato V1.
     # Leer instancias para soportar ambos esquemas (campo booleano `es_proyeccion` o campo `tipo`)
-    emp_field = _empleado_field_name()
-    for a in AsistenciaDiaria.objects.filter(
-        **{f"{emp_field}__contrato": contrato, 'fecha__gte': semana_inicio, 'fecha__lte': semana_fin}
-    ).select_related(emp_field, 'maquina_snapshot'):
+    try:
+        asistencias_v2, used_emp_field = _asistencias_v2_qs_for_period(contrato, semana_inicio, semana_fin)
+        emp_field = used_emp_field or _empleado_field_name()
+    except Exception:
+        emp_field = _empleado_field_name()
+        asistencias_v2 = AsistenciaDiaria.objects.none()
+
+    for a in asistencias_v2:
         v1_equiv = V2_A_V1.get(a.estado, a.estado)
         emp_id = getattr(a, 'empleado_id', None) or getattr(a, 'trabajador_id', None)
         existing = tareo_dict.get(emp_id, {}).get(a.fecha)
