@@ -22,7 +22,16 @@ from ..tareo_compat import AsistenciaDiaria, CierreMensualTareo, HistorialCambio
 
 # Helper adaptors to support both legacy and new Tareo models
 def _empleado_field_name():
-    return 'trabajador' if NEW_TAREO else 'empleado'
+    # Detectar dinámicamente el nombre del FK en AsistenciaDiaria
+    try:
+        AsistenciaDiaria._meta.get_field('trabajador')
+        return 'trabajador'
+    except Exception:
+        try:
+            AsistenciaDiaria._meta.get_field('empleado')
+            return 'empleado'
+        except Exception:
+            return 'trabajador' if NEW_TAREO else 'empleado'
 
 
 def _proyeccion_filter(qs):
