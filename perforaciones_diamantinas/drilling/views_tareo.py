@@ -2515,16 +2515,25 @@ class AsistenciaDiariaForm(ModelForm):
     """
     class Meta:
         model = AsistenciaDiaria
-        fields = ['empleado', 'fecha', 'estado', 'observaciones']
+        fields = [_emp_field_name(), 'fecha', 'estado', 'observaciones']
         widgets = {
             'observaciones': Textarea(attrs={'class': 'form-control', 'rows': 1}),
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Deshabilitar campos que no deben editarse directamente
-        self.fields['empleado'].widget.attrs['readonly'] = True
-        self.fields['fecha'].widget.attrs['readonly'] = True
+        # Deshabilitar campos que no deben editarse directamente (nombre de FK puede ser `empleado` o `trabajador`)
+        emp_field = _emp_field_name()
+        if emp_field in self.fields:
+            try:
+                self.fields[emp_field].widget.attrs['readonly'] = True
+            except Exception:
+                pass
+        if 'fecha' in self.fields:
+            try:
+                self.fields['fecha'].widget.attrs['readonly'] = True
+            except Exception:
+                pass
 
 
 # =============================================================================
