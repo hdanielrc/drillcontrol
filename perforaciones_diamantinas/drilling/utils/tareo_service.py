@@ -460,7 +460,7 @@ class TareoService:
                             # en la posición conocida del día anterior (dia_anterior).
                             # Esto evita errores por usar sólo el contador de días
                             # consecutivos que pueden desalinear TD/TN.
-                                try:
+                            try:
                                 dbg_last = TareoService.debug_estado_dia(trabajador, dia_anterior, forzar_alineacion=True)
                                 pos_last = dbg_last.get('posicion_ciclo')
                                 if pos_last is not None:
