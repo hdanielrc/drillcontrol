@@ -173,12 +173,9 @@ class TareoService:
         
         # Si está dentro de los días de trabajo, retornar TD o TN según
         # la partición del bloque de trabajo (primera mitad = TD, segunda = TN)
-        try:
-            if fecha_consulta.weekday() == dia_cambio:
-                # Día de cambio de guardia se considera día de trabajo - asignar TD
-                return 'TD'
-        except Exception:
-            pass
+        # Nota: no forzamos TD en el día de cambio de guardia; ese día
+        # se trata como parte del ciclo normal para respetar la partición
+        # del régimen (ej. 14x7 => 7 TD, 7 TN, 7 DL).
 
         if posicion_ciclo < dias_trabajo:
             # Dentro de los días de trabajo: determinar si corresponde a TD o TN
@@ -455,7 +452,12 @@ class TareoService:
         # 'DESCANSO' (preferimos la guardia con menos trabajadores).
         try:
             # Build index of entries by (fecha, maquina_id)
-            entries_map = {}  # (fecha, maq_id) -> guardia_key -> list of (source, ref)
+                    python manage.py shell -c "from datetime import date, timedelta; from drilling.utils.tareo_service import TareoService; from drilling.models import Trabajador
+            t=Trabajador.objects.get(id=3712)
+            d=date(2026,2,20)
+            while d<=date(2026,3,15):
+                print(d, TareoService.debug_estado_dia(t,d, forzar_alineacion=True))
+                d += timedelta(days=1)"    entries_map = {}  # (fecha, maq_id) -> guardia_key -> list of (source, ref)
             # registros_a_crear: list of AsistenciaDiaria instances
             for idx, reg in enumerate(registros_a_crear):
                 fecha = reg.fecha
