@@ -498,18 +498,54 @@ class TareoService:
             # que a lo sumo 2 guardias estén en estado de trabajo. Si hay >2,
             # determinísticamente elegimos una guardia para pasar a DESCANSO.
             for (fecha, maq_id), guardias in entries_map.items():
-                working_guardias = []  # list of (guardia_key, count)
+                # Determine existing working guardias in DB for this group (maquina or no-maq per contrato)
+                existing_working = {}  # guardia -> count from DB (manual or old proy)
+                try:
+                    # Parse group key: 'MAQ_{id}' or 'NO_MAQ_CONTRATO_{id}'
+                    contrato_filter = None
+                    maquina_filter = None
+                    if isinstance(maq_id, str) and maq_id.startswith('MAQ_'):
+                        try:
+                            maquina_filter = int(maq_id.split('_', 1)[1])
+                        except Exception:
+                            maquina_filter = None
+                    elif isinstance(maq_id, str) and maq_id.startswith('NO_MAQ_CONTRATO_'):
+                        try:
+                            contrato_filter = int(maq_id.split('_', 2)[2])
+                        except Exception:
+                            contrato_filter = None
+
+                    qd = {'fecha': fecha, 'estado__in': ('TD', 'TN', 'TRABAJO')}
+                    if maquina_filter:
+                        qd['maquina_snapshot_id'] = maquina_filter
+                    else:
+                        # no-maq: maquina_snapshot is null and match contrato
+                        qd['maquina_snapshot_id__isnull'] = True
+                        if contrato_filter:
+                            qd['trabajador__contrato_id'] = contrato_filter
+
+                    existing_qs = AsistenciaDiaria.objects.filter(**qd).values_list('guardia_snapshot', flat=True)
+                    for g in existing_qs:
+                        if not g:
+                            continue
+                        existing_working[g] = existing_working.get(g, 0) + 1
+                except Exception:
+                    existing_working = {}
+
+                # Build working_guardias combining existing DB entries and new/updated regs
+                working_guardias = []  # list of (guardia_key, total_count)
                 counts = {}
                 for gk, items in guardias.items():
-                    any_work = False
+                    # count items that represent work in new/updated regs
+                    new_work_count = 0
                     for src, idx in items:
                         reg = registros_a_crear[idx] if src == 'create' else registros_a_actualizar[idx]
                         if getattr(reg, 'estado', None) in ('TD', 'TN'):
-                            any_work = True
-                            break
-                    if any_work:
-                        counts[gk] = len(items)
-                        working_guardias.append((gk, len(items)))
+                            new_work_count += 1
+                    total = new_work_count + existing_working.get(gk, 0)
+                    if total > 0:
+                        counts[gk] = total
+                        working_guardias.append((gk, total))
 
                 if len(working_guardias) <= 2:
                     continue
