@@ -50,7 +50,18 @@ except Exception:
 
 
 def _emp_field_name():
-    return 'trabajador' if NEW_TAREO else 'empleado'
+    # Detectar dinámicamente el nombre del FK en AsistenciaDiaria
+    try:
+        # Preferir `trabajador` si existe en el modelo
+        AsistenciaDiaria._meta.get_field('trabajador')
+        return 'trabajador'
+    except Exception:
+        try:
+            AsistenciaDiaria._meta.get_field('empleado')
+            return 'empleado'
+        except Exception:
+            # Fallback a la configuración previa si no se puede inspeccionar
+            return 'trabajador' if NEW_TAREO else 'empleado'
 
 
 # Configurar locale para español
