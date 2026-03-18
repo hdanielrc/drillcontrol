@@ -414,10 +414,13 @@ class TareoService:
                             for i in range(dias_trabajo):
                                 fecha_check = dia_anterior - timedelta(days=i)
                                 filtros_check = {f"fecha": fecha_check, f"{emp_field}__id": trabajador.id}
+                                # Buscar primero corrección manual, luego proyección
+                                registro_man_check = _manual_filter(AsistenciaDiaria.objects.filter(**filtros_check)).first()
                                 registro_proy_check = _proyeccion_filter(AsistenciaDiaria.objects.filter(**filtros_check)).first()
-                                if registro_proy_check and registro_proy_check.estado in ('TD', 'TN', 'TRABAJO'):
-                                    registro_last = registro_proy_check
-                                    registro_proy = registro_proy_check
+                                registro_check = registro_man_check or registro_proy_check
+                                if registro_check and registro_check.estado in ('TD', 'TN', 'TRABAJO'):
+                                    registro_last = registro_check
+                                    registro_proy = registro_proy_check or registro_man_check
                                     break
                         except Exception:
                             pass
