@@ -257,9 +257,10 @@ class TareoService:
             # compute result
             result = None
             try:
-                if fecha_consulta.weekday() == dia_cambio:
-                    result = 'TD'
-                elif posicion_ciclo is not None and posicion_ciclo < dias_trabajo:
+                # Determine result strictly from posicion_ciclo to keep debug
+                # consistent with calcular_estado_dia. Do not force `TD` on
+                # the contract change weekday here.
+                if posicion_ciclo is not None and posicion_ciclo < dias_trabajo:
                     posicion_en_trabajo = posicion_ciclo
                     result = 'TD' if posicion_en_trabajo < mitad else 'TN'
                 else:
