@@ -449,7 +449,12 @@ class TareoService:
                         # si es una corrección manual aislada (contador == 1) la
                         # ignoramos para evitar romper ciclos.
                         registro_es_proy = (registro_proy is not None and registro_last is registro_proy)
-                        if contador >= 2 or registro_es_proy:
+                        # If we have at least 2 consecutive work days, or the
+                        # previous record was a projection, accept previous-day
+                        # evidence. Also accept a single manual correction as
+                        # evidence (conservative change) to avoid breaking cycle
+                        # across month boundaries when a manual correction exists.
+                        if contador >= 2 or registro_es_proy or (registro_manual is not None and contador >= 1):
                             # Calcular posición en el ciclo para primer_dia basándonos
                             # en la posición conocida del día anterior (dia_anterior).
                             # Esto evita errores por usar sólo el contador de días
