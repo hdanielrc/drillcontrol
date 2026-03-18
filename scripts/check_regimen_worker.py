@@ -16,6 +16,20 @@ import os
 from datetime import date, timedelta, datetime
 
 # Asegurar settings
+"""
+Agregar el directorio raíz del proyecto a sys.path para que
+`import perforaciones_diamantinas` funcione sin importar desde
+qué carpeta se ejecute el script. Esto reproduce el comportamiento
+de `scripts/set_regimen_14x7.py` y evita el error
+`ModuleNotFoundError: No module named 'perforaciones_diamantinas'`.
+"""
+
+# Insertar repo root (dos niveles arriba: ../.. desde scripts/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings')
 import django
 django.setup()

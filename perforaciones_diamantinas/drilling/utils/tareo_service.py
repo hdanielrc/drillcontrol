@@ -132,8 +132,11 @@ class TareoService:
 
         # Si no tiene fecha de inicio, anclar al dia_cambio_guardia del contrato
         if not fecha_inicio_ciclo:
-            if trabajador.fecha_ingreso:
-                fecha_ref = trabajador.fecha_ingreso
+            # trabajador.fecha_ingreso puede no existir o estar vacío en algunos
+            # entornos/instancias; usar getattr para evitar AttributeError.
+            fecha_ingreso = getattr(trabajador, 'fecha_ingreso', None)
+            if fecha_ingreso:
+                fecha_ref = fecha_ingreso
             else:
                 fecha_ref = TareoService.HISTORICO_START
 
@@ -216,7 +219,8 @@ class TareoService:
                 regimen = '14x7'
 
             if not fecha_inicio_ciclo:
-                fecha_ref = trabajador.fecha_ingreso or date(2024,1,1)
+                # Usar getattr para evitar AttributeError si no hay campo fecha_ingreso
+                fecha_ref = getattr(trabajador, 'fecha_ingreso', None) or date(2024,1,1)
                 if dia_cambio is not None:
                     fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_ref, dia_cambio)
                 else:
@@ -419,9 +423,18 @@ class TareoService:
                             else:
                                 break
 
-                        # Posición en el ciclo para primer_dia = (contador) % ciclo_total
-                        ciclo_pos = contador % ciclo_total
-                        usar_estado_previo = True
+                        # Sólo usar el estado previo si tenemos suficiente evidencia
+                        # de que el trabajador está en un bloque de trabajo continuo.
+                        # Si el registro anterior es una proyección, lo aceptamos;
+                        # si es una corrección manual aislada (contador == 1) la
+                        # ignoramos para evitar romper ciclos.
+                        registro_es_proy = (registro_proy is not None and registro_last is registro_proy)
+                        if contador >= 2 or registro_es_proy:
+                            # Posición en el ciclo para primer_dia = contador % ciclo_total
+                            ciclo_pos = contador % ciclo_total
+                            usar_estado_previo = True
+                        else:
+                            usar_estado_previo = False
                 except Exception:
                     usar_estado_previo = False
                 while fecha_actual <= ultimo_dia:
@@ -628,8 +641,10 @@ class TareoService:
                     guardia_to_rest = None
 
                 # 2) fallback: seed rotation deterministic but biased by contrato.dia_cambio_guardia
-                if guardia_to_rest is None and available_ordered:
-                    seed = (fecha.toordinal() + (maq_id or 0))
+                    if guardia_to_rest is None and available_ordered:
+                    # Use numeric maquina id (maquina_filter) as seed bias instead of
+                    # the string group key `maq_id` which may be non-numeric.
+                    seed = fecha.toordinal() + (maquina_filter or 0)
                     # Try to infer dia_cambio_guardia from one of the workers in the group
                     contrato_dia = None
                     try:
