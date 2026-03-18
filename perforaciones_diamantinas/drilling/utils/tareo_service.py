@@ -402,7 +402,7 @@ class TareoService:
             for (fecha, maq_id), guardias in entries_map.items():
                 working_guardias = []  # list of (guardia_key, count)
                 counts = {}
-                    for gk, items in guardias.items():
+                for gk, items in guardias.items():
                     any_work = False
                     for src, idx in items:
                         reg = registros_a_crear[idx] if src == 'create' else registros_a_actualizar[idx]
