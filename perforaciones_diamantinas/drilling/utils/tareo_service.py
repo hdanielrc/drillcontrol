@@ -324,8 +324,8 @@ class TareoService:
             primer_dia = TareoService.HISTORICO_START
         ultimo_dia = date(anio, mes, 25)
         
-        # Filtrar trabajadores activos
-        trabajadores_query = Trabajador.objects.filter(estado='ACTIVO')
+        # Filtrar trabajadores activos con contrato asignado (evitar trabajadores huérfanos)
+        trabajadores_query = Trabajador.objects.filter(estado='ACTIVO', contrato__isnull=False)
         
         if contrato:
             trabajadores_query = trabajadores_query.filter(contrato=contrato)
