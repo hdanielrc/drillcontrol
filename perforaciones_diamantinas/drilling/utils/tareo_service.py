@@ -641,6 +641,33 @@ class TareoService:
                 available_ordered = [gk for gk, _ in working_guardias if gk in rotation_order]
                 guardia_to_rest = None
 
+                # Prefer to REST guardias that do NOT have existing DB entries
+                # or updates. Build a keep_score for each candidate guardia: lower
+                # score -> more eligible to rest. We weight existing DB entries
+                # and update entries to make them less likely to be rested.
+                keep_scores = {}
+                for gk in [g for g, _ in working_guardias]:
+                    score = 0
+                    # existing_working (from DB) makes this guardia more important
+                    score += (existing_working.get(gk, 0) > 0) * 10
+                    # if any of the new/updated regs for this guardia are updates,
+                    # make them less likely to be rested (prefer keeping existing records)
+                    items = guardias.get(gk, [])
+                    for src, idx in items:
+                        if src == 'update':
+                            score += 5
+                        else:
+                            # try to detect if the create corresponds to an existing
+                            # projection (shouldn't normally happen, but safe check)
+                            try:
+                                reg = registros_a_crear[idx]
+                                eid = getattr(reg, f"{_empleado_field_name()}_id", None) or getattr(reg, f"{_empleado_field_name()}", None) and getattr(getattr(reg, f"{_empleado_field_name()}", None), 'id', None)
+                                if eid and (eid, reg.fecha) in proyecciones_existentes:
+                                    score += 5
+                            except Exception:
+                                pass
+                    keep_scores[gk] = score
+
                 # 1) intentar inferir última guardia en DESCANSO manual para la máquina
                 try:
                     if maq_id is not None and available_ordered:
@@ -660,12 +687,20 @@ class TareoService:
                 except Exception:
                     guardia_to_rest = None
 
-                # 2) fallback: seed rotation deterministic but biased by contrato.dia_cambio_guardia
+                # 2) choose candidate by keep_scores (prefer lowest score)
+                if guardia_to_rest is None and keep_scores:
+                    # Filter only the guardias present in working_guardias
+                    candidates = [gk for gk in keep_scores.keys()]
+                    # Sort by (keep_score asc, total_count asc)
+                    def _total_count(gk):
+                        return dict(working_guardias).get(gk, 0)
+
+                    candidates.sort(key=lambda gk: (keep_scores.get(gk, 0), _total_count(gk)))
+                    guardia_to_rest = candidates[0]
+
+                # 3) fallback: seed rotation deterministic but biased by contrato.dia_cambio_guardia
                 if guardia_to_rest is None and available_ordered:
-                    # Use numeric maquina id (maquina_filter) as seed bias instead of
-                    # the string group key `maq_id` which may be non-numeric.
                     seed = fecha.toordinal() + (maquina_filter or 0)
-                    # Try to infer dia_cambio_guardia from one of the workers in the group
                     contrato_dia = None
                     try:
                         sample_src, sample_idx = next(iter(guardias.values()))[0]
@@ -684,7 +719,7 @@ class TareoService:
                             guardia_to_rest = cand
                             break
 
-                # 3) final fallback: choose guardia with smallest group size
+                # 4) final fallback: choose guardia with smallest group size
                 if guardia_to_rest is None:
                     working_guardias.sort(key=lambda x: x[1])
                     guardia_to_rest = working_guardias[0][0]
