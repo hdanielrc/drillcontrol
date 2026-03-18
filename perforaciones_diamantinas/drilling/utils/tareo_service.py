@@ -186,82 +186,83 @@ class TareoService:
                 return 'TN'
         else:
             return 'DESCANSO'
+        
+    @staticmethod
+    def debug_estado_dia(trabajador, fecha_consulta, forzar_alineacion=False):
+        """Devuelve un dict con variables intermedias usadas por calcular_estado_dia.
+        Útil para debug remoto desde la shell.
+        """
+        info = {
+            'trabajador_id': getattr(trabajador, 'id', None),
+            'regimen': getattr(trabajador, 'regimen_laboral', None),
+            'fecha_inicio_ciclo_raw': getattr(trabajador, 'fecha_inicio_ciclo', None),
+            'fecha_consulta': fecha_consulta,
+            'dia_cambio_guardia': getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None),
+            'forzar_alineacion': forzar_alineacion,
+        }
+        try:
+            # Run the same code path but collect internals
+            regimen = trabajador.regimen_laboral
+            fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
+            dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
+            if not regimen:
+                info['result'] = 'TD'
+                return info
 
-        @staticmethod
-        def debug_estado_dia(trabajador, fecha_consulta, forzar_alineacion=False):
-            """Devuelve un dict con variables intermedias usadas por calcular_estado_dia.
-            Útil para debug remoto desde la shell.
-            """
-            info = {
-                'trabajador_id': getattr(trabajador, 'id', None),
-                'regimen': getattr(trabajador, 'regimen_laboral', None),
-                'fecha_inicio_ciclo_raw': getattr(trabajador, 'fecha_inicio_ciclo', None),
-                'fecha_consulta': fecha_consulta,
-                'dia_cambio_guardia': getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None),
-                'forzar_alineacion': forzar_alineacion,
-            }
+            if not fecha_inicio_ciclo:
+                fecha_ref = trabajador.fecha_ingreso or date(2024,1,1)
+                if dia_cambio is not None:
+                    fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_ref, dia_cambio)
+                else:
+                    fecha_inicio_ciclo = fecha_ref
+            elif forzar_alineacion and dia_cambio is not None:
+                fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_inicio_ciclo, dia_cambio)
+
+            dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG.get(regimen, (None, None))
+            ciclo_total = (dias_trabajo or 0) + (dias_descanso or 0)
+            info.update({
+                'fecha_inicio_ciclo_normalized': fecha_inicio_ciclo,
+                'dias_trabajo': dias_trabajo,
+                'dias_descanso': dias_descanso,
+                'ciclo_total': ciclo_total,
+            })
+
+            # normalize future start
+            if fecha_inicio_ciclo and fecha_inicio_ciclo > fecha_consulta and ciclo_total:
+                dias_diff = (fecha_inicio_ciclo - fecha_consulta).days
+                ciclos_atras = (dias_diff // ciclo_total) + 1
+                fecha_inicio_ciclo = fecha_inicio_ciclo - timedelta(days=ciclos_atras * ciclo_total)
+                info['fecha_inicio_ciclo_adjusted'] = fecha_inicio_ciclo
+
+            dias_transcurridos = (fecha_consulta - fecha_inicio_ciclo).days
+            posicion_ciclo = dias_transcurridos % ciclo_total if ciclo_total else None
+            mitad = (dias_trabajo + 1) // 2 if dias_trabajo else None
+            info.update({
+                'dias_transcurridos': dias_transcurridos,
+                'posicion_ciclo': posicion_ciclo,
+                'mitad': mitad,
+                'weekday': fecha_consulta.weekday(),
+            })
+
+            # compute result
+            result = None
             try:
-                # Run the same code path but collect internals
-                regimen = trabajador.regimen_laboral
-                fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
-                dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
-                if not regimen:
-                    info['result'] = 'TD'
-                    return info
-
-                if not fecha_inicio_ciclo:
-                    fecha_ref = trabajador.fecha_ingreso or date(2024,1,1)
-                    if dia_cambio is not None:
-                        fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_ref, dia_cambio)
-                    else:
-                        fecha_inicio_ciclo = fecha_ref
-                elif forzar_alineacion and dia_cambio is not None:
-                    fecha_inicio_ciclo = TareoService._snap_a_dia_cambio(fecha_inicio_ciclo, dia_cambio)
-
-                dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG.get(regimen, (None, None))
-                ciclo_total = (dias_trabajo or 0) + (dias_descanso or 0)
-                info.update({
-                    'fecha_inicio_ciclo_normalized': fecha_inicio_ciclo,
-                    'dias_trabajo': dias_trabajo,
-                    'dias_descanso': dias_descanso,
-                    'ciclo_total': ciclo_total,
-                })
-
-                # normalize future start
-                if fecha_inicio_ciclo and fecha_inicio_ciclo > fecha_consulta and ciclo_total:
-                    dias_diff = (fecha_inicio_ciclo - fecha_consulta).days
-                    ciclos_atras = (dias_diff // ciclo_total) + 1
-                    fecha_inicio_ciclo = fecha_inicio_ciclo - timedelta(days=ciclos_atras * ciclo_total)
-                    info['fecha_inicio_ciclo_adjusted'] = fecha_inicio_ciclo
-
-                dias_transcurridos = (fecha_consulta - fecha_inicio_ciclo).days
-                posicion_ciclo = dias_transcurridos % ciclo_total if ciclo_total else None
-                mitad = (dias_trabajo + 1) // 2 if dias_trabajo else None
-                info.update({
-                    'dias_transcurridos': dias_transcurridos,
-                    'posicion_ciclo': posicion_ciclo,
-                    'mitad': mitad,
-                    'weekday': fecha_consulta.weekday(),
-                })
-
-                # compute result
-                result = None
-                try:
-                    if fecha_consulta.weekday() == dia_cambio:
-                        result = 'TD'
-                    elif posicion_ciclo is not None and posicion_ciclo < dias_trabajo:
-                        posicion_en_trabajo = posicion_ciclo
-                        result = 'TD' if posicion_en_trabajo < mitad else 'TN'
-                    else:
-                        result = 'DESCANSO'
-                except Exception as e:
-                    result = f'ERR:{e}'
-
-                info['result'] = result
-                return info
+                if fecha_consulta.weekday() == dia_cambio:
+                    result = 'TD'
+                elif posicion_ciclo is not None and posicion_ciclo < dias_trabajo:
+                    posicion_en_trabajo = posicion_ciclo
+                    result = 'TD' if posicion_en_trabajo < mitad else 'TN'
+                else:
+                    result = 'DESCANSO'
             except Exception as e:
-                info['error'] = str(e)
-                return info
+                result = f'ERR:{e}'
+
+            info['result'] = result
+            return info
+        except Exception as e:
+            info['error'] = str(e)
+            return info
+
     
     @staticmethod
     @transaction.atomic
