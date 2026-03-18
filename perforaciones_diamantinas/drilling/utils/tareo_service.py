@@ -119,9 +119,13 @@ class TareoService:
         regimen = trabajador.regimen_laboral
         fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
         
-        # Si no tiene régimen, asumir turno día (usar TD/TN en lugar de estado genérico 'TRABAJO')
+        # Si no tiene régimen, asumir el régimen por defecto '14x7'
+        # (antes el sistema retornaba 'TD' directamente, lo que producía
+        # incoherencias en proyecciones). Ahora forzamos el régimen por
+        # defecto para que la lógica de ciclo se aplique consistentemente.
         if not regimen:
-            return 'TD'
+            logger.info(f"Trabajador {getattr(trabajador, 'id', '?')} sin régimen; aplicando default '14x7'.")
+            regimen = '14x7'
 
         # Obtener dia_cambio_guardia del contrato una sola vez
         dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
@@ -208,8 +212,8 @@ class TareoService:
             fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
             dia_cambio = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
             if not regimen:
-                info['result'] = 'TD'
-                return info
+                info['note'] = "Sin régimen; aplicando default '14x7'"
+                regimen = '14x7'
 
             if not fecha_inicio_ciclo:
                 fecha_ref = trabajador.fecha_ingreso or date(2024,1,1)
@@ -382,7 +386,44 @@ class TareoService:
                 ).values_list('fecha', flat=True))
 
                 # Iterar sobre cada día del período
+                # Intentar inferir la posición de ciclo a partir del cierre del mes
+                # anterior (día 25). Si existe registro para el día anterior al
+                # periodo operativo, lo usamos para continuar el ciclo en lugar
+                # de recalcular desde `fecha_inicio_ciclo`.
                 fecha_actual = primer_dia
+                usar_estado_previo = False
+                ciclo_pos = None
+                try:
+                    emp_field = _empleado_field_name()
+                    dia_anterior = primer_dia - timedelta(days=1)
+                    # Buscar registro manual preferente
+                    filtros = {f"fecha": dia_anterior, f"{emp_field}__id": trabajador.id}
+                    registro_manual = _manual_filter(AsistenciaDiaria.objects.filter(**filtros)).first()
+                    registro_proy   = _proyeccion_filter(AsistenciaDiaria.objects.filter(**filtros)).first()
+                    registro_last = registro_manual or registro_proy
+                    if registro_last and registro_last.estado in ('TD', 'TN', 'TRABAJO'):
+                        # Contar días consecutivos de trabajo terminando en dia_anterior
+                        dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG.get(trabajador.regimen_laboral or '14x7', (14,7))
+                        ciclo_total = dias_trabajo + dias_descanso
+                        contador = 0
+                        fecha_walk = dia_anterior
+                        # No andamos más atrás que el total de días de trabajo
+                        while contador < dias_trabajo and fecha_walk >= TareoService.HISTORICO_START:
+                            f_filt = {f"fecha": fecha_walk, f"{emp_field}__id": trabajador.id}
+                            r_man = _manual_filter(AsistenciaDiaria.objects.filter(**f_filt)).first()
+                            r_pro = _proyeccion_filter(AsistenciaDiaria.objects.filter(**f_filt)).first()
+                            r = r_man or r_pro
+                            if r and r.estado in ('TD', 'TN', 'TRABAJO'):
+                                contador += 1
+                                fecha_walk = fecha_walk - timedelta(days=1)
+                            else:
+                                break
+
+                        # Posición en el ciclo para primer_dia = (contador) % ciclo_total
+                        ciclo_pos = contador % ciclo_total
+                        usar_estado_previo = True
+                except Exception:
+                    usar_estado_previo = False
                 while fecha_actual <= ultimo_dia:
                     # Nunca tocar correcciones manuales
                     if (trabajador.id, fecha_actual) in registros_manuales:
@@ -396,10 +437,25 @@ class TareoService:
                         fecha_actual += timedelta(days=1)
                         continue
 
-                    # Calcular estado respetando el dia_cambio_guardia del contrato
-                    estado_esperado = TareoService.calcular_estado_dia(
-                        trabajador, fecha_actual, forzar_alineacion=True
-                    )
+                    # Calcular estado: si tenemos datos del día anterior al periodo,
+                    # simulamos el ciclo desde esa posición; si no, usamos la
+                    # función existente que se basa en fecha_inicio_ciclo.
+                    if usar_estado_previo and ciclo_pos is not None:
+                        dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG.get(trabajador.regimen_laboral or '14x7', (14,7))
+                        ciclo_total = dias_trabajo + dias_descanso
+                        # Determinar estado según posición en ciclo
+                        if ciclo_pos < dias_trabajo:
+                            mitad = (dias_trabajo + 1) // 2
+                            posicion_en_trabajo = ciclo_pos
+                            estado_esperado = 'TD' if posicion_en_trabajo < mitad else 'TN'
+                        else:
+                            estado_esperado = 'DESCANSO'
+                        # Avanzar en el ciclo
+                        ciclo_pos = (ciclo_pos + 1) % ciclo_total
+                    else:
+                        estado_esperado = TareoService.calcular_estado_dia(
+                            trabajador, fecha_actual, forzar_alineacion=True
+                        )
 
                     clave = (trabajador.id, fecha_actual)
                     if clave in proyecciones_existentes:
