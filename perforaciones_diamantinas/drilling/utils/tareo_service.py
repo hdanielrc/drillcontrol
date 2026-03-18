@@ -452,12 +452,7 @@ class TareoService:
         # 'DESCANSO' (preferimos la guardia con menos trabajadores).
         try:
             # Build index of entries by (fecha, maquina_id)
-                    python manage.py shell -c "from datetime import date, timedelta; from drilling.utils.tareo_service import TareoService; from drilling.models import Trabajador
-            t=Trabajador.objects.get(id=3712)
-            d=date(2026,2,20)
-            while d<=date(2026,3,15):
-                print(d, TareoService.debug_estado_dia(t,d, forzar_alineacion=True))
-                d += timedelta(days=1)"    entries_map = {}  # (fecha, maq_id) -> guardia_key -> list of (source, ref)
+            entries_map = {}  # (fecha, maq_id) -> guardia_key -> list of (source, ref)
             # registros_a_crear: list of AsistenciaDiaria instances
             for idx, reg in enumerate(registros_a_crear):
                 fecha = reg.fecha
