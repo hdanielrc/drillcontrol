@@ -20,6 +20,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 
 from .models import Contrato, Trabajador, AsistenciaTrabajador, AsistenciaDiaria, HeadCount
+from .utils.tareo_service import _empleado_field_name
 
 # Mapeo de estados V2 (AsistenciaDiaria) a estados V1 para reutilizar los badges
 V2_A_V1 = {
@@ -285,11 +286,10 @@ def organigrama_view(request):
     # Fuente 2: modelo V2 (AsistenciaDiaria) – correcciones manuales tienen
     # prioridad sobre V1; proyecciones solo se usan si no hay dato V1.
     # Leer instancias para soportar ambos esquemas (campo booleano `es_proyeccion` o campo `tipo`)
+    emp_field = _empleado_field_name()
     for a in AsistenciaDiaria.objects.filter(
-        empleado__contrato=contrato,
-        fecha__gte=semana_inicio,
-        fecha__lte=semana_fin,
-    ).select_related('maquina_snapshot'):
+        **{f"{emp_field}__contrato": contrato, 'fecha__gte': semana_inicio, 'fecha__lte': semana_fin}
+    ).select_related(emp_field, 'maquina_snapshot'):
         v1_equiv = V2_A_V1.get(a.estado, a.estado)
         emp_id = getattr(a, 'empleado_id', None) or getattr(a, 'trabajador_id', None)
         existing = tareo_dict.get(emp_id, {}).get(a.fecha)

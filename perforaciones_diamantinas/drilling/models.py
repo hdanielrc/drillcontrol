@@ -1493,14 +1493,12 @@ class CierreMensualTareo(models.Model):
         ultimo_dia = date(self.anio, self.mes, 25)
         
         # Obtener asistencias reales (no proyecciones)
-        asistencias = AsistenciaDiaria.objects.filter(
-            empleado__contrato=self.contrato,
-            fecha__gte=primer_dia,
-            fecha__lte=ultimo_dia,
-            es_proyeccion=False
-        )
-        
-        self.total_trabajadores = asistencias.values('empleado').distinct().count()
+        # Detectar dinámicamente nombre del FK en AsistenciaDiaria
+        emp_field = 'trabajador' if any(f.name == 'trabajador' for f in AsistenciaDiaria._meta.get_fields()) else 'empleado'
+        filter_kwargs = {f"{emp_field}__contrato": self.contrato, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia, 'es_proyeccion': False}
+        asistencias = AsistenciaDiaria.objects.filter(**filter_kwargs)
+
+        self.total_trabajadores = asistencias.values(emp_field).distinct().count()
         self.total_dias_trabajo = asistencias.filter(estado='TRABAJO').count()
         self.total_dias_descanso = asistencias.filter(estado='DESCANSO').count()
         self.total_faltas = asistencias.filter(estado='FALTA').count()
