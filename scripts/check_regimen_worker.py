@@ -24,9 +24,10 @@ de `scripts/set_regimen_14x7.py` y evita el error
 `ModuleNotFoundError: No module named 'perforaciones_diamantinas'`.
 """
 
-# Insertar repo root (dos niveles arriba: ../.. desde scripts/)
+# Insertar el directorio raíz del repositorio (uno arriba de `scripts/`)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
+# Añadir la carpeta del proyecto Django (outer `perforaciones_diamantinas`) al sys.path
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'perforaciones_diamantinas'))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
@@ -71,7 +72,18 @@ def main():
     print(f"Trabajador: {t.nombres} {t.apepat} {t.apemat} (id={t.id})")
     print(f"Periodo operativo: {primer_dia} .. {ultimo_dia} (dia anterior: {dia_anterior})")
 
-    emp_field = 'empleado' if NEW_TAREO else 'trabajador'
+    # Detectar dinámicamente el nombre del FK en AsistenciaDiaria (compatibilidad esquema)
+    try:
+        field_names = [f.name for f in AsistenciaDiaria._meta.get_fields()]
+        if 'trabajador' in field_names:
+            emp_field = 'trabajador'
+        elif 'empleado' in field_names:
+            emp_field = 'empleado'
+        else:
+            emp_field = 'trabajador'
+    except Exception:
+        emp_field = 'trabajador'
+
     filter_kwargs = {f"fecha__gte": dia_anterior, f"fecha__lte": ultimo_dia, f"{emp_field}__id": t.id}
     qs = AsistenciaDiaria.objects.filter(**filter_kwargs).order_by('fecha')
 

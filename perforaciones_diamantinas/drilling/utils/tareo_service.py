@@ -405,6 +405,23 @@ class TareoService:
                     registro_manual = _manual_filter(AsistenciaDiaria.objects.filter(**filtros)).first()
                     registro_proy   = _proyeccion_filter(AsistenciaDiaria.objects.filter(**filtros)).first()
                     registro_last = registro_manual or registro_proy
+                    # Si no existe registro para el día anterior, intentar
+                    # buscar proyecciones previas en los días anteriores
+                    # hasta el tamaño del bloque de trabajo (p. ej. 14 días)
+                    if not registro_last:
+                        try:
+                            dias_trabajo, _ = TareoService.REGIMEN_CONFIG.get(trabajador.regimen_laboral or '14x7', (14,7))
+                            for i in range(dias_trabajo):
+                                fecha_check = dia_anterior - timedelta(days=i)
+                                filtros_check = {f"fecha": fecha_check, f"{emp_field}__id": trabajador.id}
+                                registro_proy_check = _proyeccion_filter(AsistenciaDiaria.objects.filter(**filtros_check)).first()
+                                if registro_proy_check and registro_proy_check.estado in ('TD', 'TN', 'TRABAJO'):
+                                    registro_last = registro_proy_check
+                                    registro_proy = registro_proy_check
+                                    break
+                        except Exception:
+                            pass
+
                     if registro_last and registro_last.estado in ('TD', 'TN', 'TRABAJO'):
                         # Contar días consecutivos de trabajo terminando en dia_anterior
                         dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG.get(trabajador.regimen_laboral or '14x7', (14,7))
@@ -641,7 +658,7 @@ class TareoService:
                     guardia_to_rest = None
 
                 # 2) fallback: seed rotation deterministic but biased by contrato.dia_cambio_guardia
-                    if guardia_to_rest is None and available_ordered:
+                if guardia_to_rest is None and available_ordered:
                     # Use numeric maquina id (maquina_filter) as seed bias instead of
                     # the string group key `maq_id` which may be non-numeric.
                     seed = fecha.toordinal() + (maquina_filter or 0)
