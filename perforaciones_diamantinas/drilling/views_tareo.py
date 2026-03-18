@@ -272,6 +272,9 @@ def tareo_mensual_view(request):
     # Crear diccionario de asistencias a partir de V1
     asistencias_dict = {}
     for asist in asistencias_v1:
+        # Ignorar registros anteriores al inicio histórico del tareo
+        if hasattr(TareoService, 'HISTORICO_START') and asist.fecha < TareoService.HISTORICO_START:
+            continue
         if asist.trabajador.id not in asistencias_dict:
             asistencias_dict[asist.trabajador.id] = {}
         asistencias_dict[asist.trabajador.id][asist.fecha] = {
