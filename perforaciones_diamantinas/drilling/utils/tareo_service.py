@@ -1203,6 +1203,8 @@ class TareoEngine:
     DIAS_TN = 7
     DIAS_DL = 7
     OFFSET = {'A': 0, 'C': 7, 'B': 14}
+    # Normalize OFFSET to A=0, B=7, C=14 (consistent with UI and get_proyeccion)
+    OFFSET = {'A': 0, 'B': 7, 'C': 14}
 
     @staticmethod
     def _fecha_ancla_contrato(contrato, referencia=None):

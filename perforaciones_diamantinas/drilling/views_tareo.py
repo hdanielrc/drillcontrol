@@ -1922,26 +1922,18 @@ def auto_rellenar_asistencia(request):
 
                     # Lógica específica para 14x7 con rotación de 3 guardias (SOLO SI TIENE GUARDIA)
                     elif trabajador.regimen_laboral == '14x7' and trabajador.guardia_asignada:
-                        # Offsets para escalonar las guardias:
-                        # Guardia A: Inicia día 1 (Offset 0)
-                        # Guardia B: Inicia día 8 (Offset 7)
-                        # Guardia C: Inicia día 15 (Offset 14)
-                        offsets = {'A': 0, 'B': 7, 'C': 14}
-                        offset = offsets.get(trabajador.guardia_asignada, 0)
-                        
-                        # Ciclo de 21 días (14 trabajo + 7 descanso)
-                        # Ajustar el día del mes con el offset
-                        dia_mes = fecha.day
-                        dia_ciclo = (dia_mes - 1 - offset) % 21
-                        
-                        # Días 0-13 son trabajo (14 días), 14-20 son descanso (7 días)
-                        # Nota: El módulo puede dar negativo en Python, ajustar si es necesario
-                        # (a % n) tiene el mismo signo que n en Python, así que -7 % 21 = 14. Correcto.
-                        
-                        if 0 <= dia_ciclo < 14:
+                        # Use deterministic TareoEngine to compute TD/TN/DL with guard offsets
+                        from .utils.tareo_service import TareoEngine
+                        try:
+                            estado_tareo = TareoEngine.estado_para_fecha(trabajador, fecha)
+                            # Map engine states to asistencia states
+                            if estado_tareo in ('TD', 'TN'):
+                                estado_regimen = 'TRABAJADO'
+                            else:
+                                estado_regimen = 'DIA_LIBRE'
+                        except Exception:
+                            # Fallback: si falla el motor, marcar TRABAJADO
                             estado_regimen = 'TRABAJADO'
-                        else:
-                            estado_regimen = 'DIA_LIBRE'
                             
                     # Fallback para otros regímenes (lógica simple inicio mes)
                     elif trabajador.regimen_laboral:
