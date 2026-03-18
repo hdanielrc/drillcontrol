@@ -239,7 +239,7 @@ class TareoService:
             qs = AsistenciaDiaria.objects.filter(
                 fecha__gte=primer_dia,
                 fecha__lte=ultimo_dia,
-                **(({'empleado__contrato': contrato}) if contrato else {})
+                **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
             )
             _proyeccion_filter(qs).delete()
             logger.info(f"Proyecciones previas del mes {mes}/{anio} eliminadas")
@@ -250,7 +250,7 @@ class TareoService:
             (lambda: _manual_filter(AsistenciaDiaria.objects.filter(
                 fecha__gte=primer_dia,
                 fecha__lte=ultimo_dia,
-                **(({'empleado__contrato': contrato}) if contrato else {})
+                **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
             )).values_list(f"{_empleado_field_name()}_id", 'fecha'))()
         )
 
