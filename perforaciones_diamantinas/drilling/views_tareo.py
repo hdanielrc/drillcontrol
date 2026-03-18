@@ -420,9 +420,9 @@ def tareo_mensual_view(request):
                         pass
 
             # Calcular estado sugerido si no hay asistencia (solo celdas no bloqueadas)
-            # Usar TareoService.calcular_estado_dia para obtener TD/TN/DESCANSO
+            # No sugerir ni generar estados para fechas anteriores al inicio histórico
             estado_sugerido = None
-            if not asist_dia and not bloqueada:
+            if not asist_dia and not bloqueada and fecha >= TareoService.HISTORICO_START:
                 try:
                     estado_sugerido = TareoService.calcular_estado_dia(trabajador, fecha, forzar_alineacion=True)
                 except Exception:
