@@ -476,20 +476,20 @@ class TareoService:
                     if usar_estado_previo and ciclo_pos is not None:
                         dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG.get(trabajador.regimen_laboral or '14x7', (14,7))
                         ciclo_total = dias_trabajo + dias_descanso
-                            # Determinar estado según posición en ciclo
-                            # Si el día coincide con el `dia_cambio_guardia` del contrato,
-                            # preferimos marcar `TD` para mantener consistencia con la
-                            # lógica de debug y la expectativa operativa.
-                            dia_cambio_local = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
-                            if dia_cambio_local is not None and fecha_actual.weekday() == dia_cambio_local:
-                                estado_esperado = 'TD'
+                        # Determinar estado según posición en ciclo
+                        # Si el día coincide con el `dia_cambio_guardia` del contrato,
+                        # preferimos marcar `TD` para mantener consistencia con la
+                        # lógica de debug y la expectativa operativa.
+                        dia_cambio_local = getattr(getattr(trabajador, 'contrato', None), 'dia_cambio_guardia', None)
+                        if dia_cambio_local is not None and fecha_actual.weekday() == dia_cambio_local:
+                            estado_esperado = 'TD'
+                        else:
+                            if ciclo_pos < dias_trabajo:
+                                mitad = (dias_trabajo + 1) // 2
+                                posicion_en_trabajo = ciclo_pos
+                                estado_esperado = 'TD' if posicion_en_trabajo < mitad else 'TN'
                             else:
-                                if ciclo_pos < dias_trabajo:
-                                    mitad = (dias_trabajo + 1) // 2
-                                    posicion_en_trabajo = ciclo_pos
-                                    estado_esperado = 'TD' if posicion_en_trabajo < mitad else 'TN'
-                                else:
-                                    estado_esperado = 'DESCANSO'
+                                estado_esperado = 'DESCANSO'
                         # Avanzar en el ciclo
                         ciclo_pos = (ciclo_pos + 1) % ciclo_total
                     else:
