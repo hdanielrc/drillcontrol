@@ -769,9 +769,8 @@
                             <!-- Relleno rápido de fila -->
                             <div class="quick-fill-row">
                                 <select class="quick-fill-select" title="Estado para rellenar toda la fila">
-                                    <option value="TRABAJO">T</option>
-                                    <option value="TRABAJO_DIA">TD</option>
-                                    <option value="TRABAJO_NOCHE">TN</option>
+                                    <option value="TD">TD</option>
+                                    <option value="TN">TN</option>
                                     <option value="DESCANSO">DL</option>
                                     <option value="FALTA">F</option>
                                     <option value="DM">DM</option>
@@ -781,6 +780,8 @@
                                     <option value="LICENCIA">L</option>
                                     <option value="INDUCCION">IND</option>
                                     <option value="STAND_BY">SB</option>
+                                    <option value="SUBSIDIO">SUB</option>
+                                    <option value="RECORRIDO">REC</option>
                                     <option value="DIA_APOYO">DA</option>
                                 </select>
                                 <button type="button" class="quick-fill-btn" title="Aplicar a toda la fila">→ Fila</button>
@@ -1182,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             const row = this.closest('tr');
             const select = row.querySelector('.quick-fill-select');
-            const estado = select ? select.value : 'TRABAJO';
+            const estado = select ? select.value : 'TD';
             const estadoSelects = row.querySelectorAll('select[data-tipo="estado"]');
             estadoSelects.forEach(estadoSelect => {
                 estadoSelect.value = estado;
