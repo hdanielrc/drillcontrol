@@ -57,6 +57,15 @@ def _mark_as_proyeccion_defaults():
 def _mark_as_manual_defaults():
     return {'tipo': 'REAL'} if NEW_TAREO else {'es_proyeccion': False}
 
+
+def _trabajadores_vigentes_qs(fecha_inicio=None, fecha_fin=None, contrato=None):
+    qs = Trabajador.objects.filter(contrato__isnull=False)
+    if contrato:
+        qs = qs.filter(contrato=contrato)
+    if fecha_inicio or fecha_fin:
+        qs = qs.filter(Trabajador.vigentes_en_rango_q(fecha_inicio, fecha_fin))
+    return qs
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -147,6 +156,9 @@ class TareoService:
         Returns:
             str: 'TD' | 'TN' | 'DESCANSO' (TD = turno día, TN = turno noche)
         """
+        if not trabajador.vigente_en_fecha(fecha_consulta):
+            return None
+
         if TareoService._usa_rotacion_guardia(trabajador):
             return TareoService._mapear_estado_motor_a_asistencia(
                 TareoEngine.estado_para_fecha(trabajador, fecha_consulta)
@@ -335,12 +347,11 @@ class TareoService:
         primer_dia = max(date(anio_anterior, mes_anterior, 26), TareoService.HISTORICO_START)
         ultimo_dia = date(anio, mes, 25)
 
-        trabajadores_query = Trabajador.objects.filter(
-            estado='ACTIVO',
-            contrato__isnull=False,
+        trabajadores_query = _trabajadores_vigentes_qs(
+            fecha_inicio=primer_dia,
+            fecha_fin=ultimo_dia,
+            contrato=contrato,
         )
-        if contrato:
-            trabajadores_query = trabajadores_query.filter(contrato=contrato)
         trabajadores_query = trabajadores_query.select_related('contrato', 'maquina_asignada')
 
         emp_field = _empleado_field_name()
@@ -402,6 +413,10 @@ class TareoService:
                         fecha_actual,
                         forzar_alineacion=True,
                     )
+
+                    if not estado_esperado:
+                        fecha_actual += timedelta(days=1)
+                        continue
 
                     if clave in proyecciones_existentes:
                         registro = proyecciones_existentes[clave]
@@ -519,10 +534,11 @@ class TareoService:
         ultimo_dia = date(anio, mes, 25)
         
         # Filtrar trabajadores activos con contrato asignado (evitar trabajadores huérfanos)
-        trabajadores_query = Trabajador.objects.filter(estado='ACTIVO', contrato__isnull=False)
-        
-        if contrato:
-            trabajadores_query = trabajadores_query.filter(contrato=contrato)
+        trabajadores_query = _trabajadores_vigentes_qs(
+            fecha_inicio=primer_dia,
+            fecha_fin=ultimo_dia,
+            contrato=contrato,
+        )
         
         trabajadores_query = trabajadores_query.select_related('contrato')
         
@@ -698,6 +714,10 @@ class TareoService:
                         estado_esperado = TareoService.calcular_estado_dia(
                             trabajador, fecha_actual, forzar_alineacion=True
                         )
+
+                    if not estado_esperado:
+                        fecha_actual += timedelta(days=1)
+                        continue
 
                     clave = (trabajador.id, fecha_actual)
                     if clave in proyecciones_existentes:
@@ -1080,9 +1100,10 @@ class TareoService:
             'SERVICIOS_GEOLOGICOS': 3,
             'CONDUCTORES':    4,
         }
-        trabajadores = Trabajador.objects.filter(
+        trabajadores = _trabajadores_vigentes_qs(
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
             contrato=contrato,
-            estado='ACTIVO'
         ).select_related('contrato', 'maquina_asignada').annotate(
             grupo_ord=Case(
                 When(es_standby=True,                       then=Value(5)),
@@ -1624,7 +1645,8 @@ class TareoEngine:
         resultado = []
         f = fecha_inicio
         while f <= fecha_fin:
-            resultado.append({'fecha': f, 'estado': cls.estado_para_fecha(trabajador, f)})
+            if trabajador.vigente_en_fecha(f):
+                resultado.append({'fecha': f, 'estado': cls.estado_para_fecha(trabajador, f)})
             f += timedelta(days=1)
         return resultado
 
@@ -1716,9 +1738,10 @@ class CierreMensualService:
         primer_dia = date(anio_anterior, mes_anterior, 26)
         ultimo_dia = date(anio, mes, 25)
         
-        trabajadores_activos = Trabajador.objects.filter(
+        trabajadores_activos = _trabajadores_vigentes_qs(
+            fecha_inicio=primer_dia,
+            fecha_fin=ultimo_dia,
             contrato=contrato,
-            estado='ACTIVO'
         )
         
         emp_field = _empleado_field_name()
@@ -1826,9 +1849,10 @@ class CierreMensualService:
         ultimo_dia = date(anio, mes, 25)
         num_dias = (ultimo_dia - primer_dia).days + 1  # Total días en el mes operativo
         
-        trabajadores_activos = Trabajador.objects.filter(
+        trabajadores_activos = _trabajadores_vigentes_qs(
+            fecha_inicio=primer_dia,
+            fecha_fin=ultimo_dia,
             contrato=contrato,
-            estado='ACTIVO'
         )
         
         # Resumen por trabajador

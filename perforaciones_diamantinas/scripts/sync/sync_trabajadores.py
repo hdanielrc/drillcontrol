@@ -46,6 +46,29 @@ logger = logging.getLogger(__name__)
 
 API_URL = "https://tic.vilbragroup.net/API/DrillControl/trabajadores?token=cff25a36-682a-4570-ad84-aaaabffc89bf"
 
+
+def _parse_api_date(value):
+    if not value:
+        return None
+    if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+        return value
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(raw[:19], fmt).date()
+        except ValueError:
+            continue
+
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+    except ValueError:
+        logger.warning("No se pudo parsear fecha de API: %s", raw)
+        return None
+
 def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
     logger.info("Iniciando sincronización de trabajadores...")
     
@@ -169,7 +192,12 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
                 'tipo_servicio': tipo_servicio_calculado,
                 'centro_costo': worker.get('centro_costo', ''),
                 'contrato_nombre': worker.get('contrato', ''),
-                'fecha_contratacion': worker.get('fecha_contratacion'), 
+                'fecha_contratacion': _parse_api_date(worker.get('fecha_contratacion')),
+                'fecha_cese': _parse_api_date(
+                    worker.get('fecha_cese')
+                    or worker.get('fecha_baja')
+                    or worker.get('fecha_termino')
+                ),
                 'estado': estado_api,
                 'estado_api': estado_api,
                 'es_standby': es_standby_api,  # sincronizar con API

@@ -84,6 +84,13 @@ def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
     return AsistenciaDiaria.objects.none(), None
 
 
+def _trabajadores_tareo_qs(contrato, fecha_inicio=None, fecha_fin=None):
+    qs = Trabajador.objects.filter(contrato=contrato)
+    if fecha_inicio or fecha_fin:
+        qs = qs.filter(Trabajador.vigentes_en_rango_q(fecha_inicio, fecha_fin))
+    return qs
+
+
 def _trabajador_field_name():
     return 'trabajador'
 
@@ -286,9 +293,10 @@ def tareo_mensual_view(request):
     
     # Obtener trabajadores activos del contrato
     from django.db.models import Case, When, Value, IntegerField as IntF
-    trabajadores = Trabajador.objects.filter(
-        contrato=contrato,
-        estado='ACTIVO'
+    trabajadores = _trabajadores_tareo_qs(
+        contrato,
+        fecha_inicio,
+        fecha_fin,
     ).select_related('maquina_asignada').annotate(
         grupo_ord=Case(
             When(grupo='LINEA_MANDO',          then=Value(1)),
@@ -456,7 +464,10 @@ def tareo_mensual_view(request):
             asist_dia = asistencias_dict.get(trabajador.id, {}).get(fecha)
 
             # Celda bloqueada si la fecha es anterior al inicio de labores del trabajador
-            bloqueada = bool(trabajador.fecha_inicio_labores and fecha < trabajador.fecha_inicio_labores)
+            bloqueada = bool(
+                (trabajador.fecha_inicio_labores and fecha < trabajador.fecha_inicio_labores)
+                or (trabajador.fecha_cese and fecha > trabajador.fecha_cese)
+            )
 
             # Normalizar estados legacy 'TRABAJADO'/'TRABAJO' a 'TD'/'TN' para operadores
             if asist_dia and asist_dia.get('estado') in ('TRABAJADO', 'TRABAJO'):
@@ -1092,9 +1103,10 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         col_num += 1
     
     # DATOS DE TRABAJADORES
-    trabajadores = Trabajador.objects.filter(
-        contrato=contrato,
-        estado='ACTIVO'
+    trabajadores = _trabajadores_tareo_qs(
+        contrato,
+        fecha_inicio,
+        fecha_fin,
     ).order_by('grupo', 'apepat', 'apemat', 'nombres')
     
     # Obtener asistencias desde V2 (AsistenciaDiaria). Usar V1 solo como
@@ -1381,7 +1393,7 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     ws['A2'] = f"Período: {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
     
     # Estadísticas
-    trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO')
+    trabajadores = _trabajadores_tareo_qs(contrato, fecha_inicio, fecha_fin)
     # Preferir AsistenciaDiaria (V2) para estadísticas del informe
     from .tareo_compat import AsistenciaDiaria
     emp_field = _emp_field_name()
@@ -1567,7 +1579,7 @@ def mostrar_tareo_semanal(request):
             proyecciones_count = reales_count = 0
 
         # Trabajadores activos
-        trabajadores = Trabajador.objects.filter(contrato=contrato, estado='ACTIVO').select_related('maquina_asignada')
+        trabajadores = _trabajadores_tareo_qs(contrato, fecha_inicio, fecha_fin).select_related('maquina_asignada')
 
         # Construir estructura por categorias -> maquinas -> guardias -> trabajadores
         import re as _re
@@ -2569,8 +2581,8 @@ def autocompletar_tareo_por_regimen(request):
                 
                 # Para cada trabajador, determinar su estado ese día
                 for trabajador in trabajadores:
-                    # Respetar fecha_inicio_labores: no crear tareo antes del inicio
-                    if trabajador.fecha_inicio_labores and fecha_actual < trabajador.fecha_inicio_labores:
+                    # Respetar ventana vigente del trabajador en el tareo
+                    if not trabajador.vigente_en_fecha(fecha_actual):
                         continue
 
                     # Intenta calcular según régimen configurado (para TODOS, incluida Línea de Mando)

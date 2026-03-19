@@ -1727,6 +1727,7 @@ class Trabajador(models.Model):
     centro_costo = models.CharField(max_length=50, blank=True, null=True, verbose_name='Centro Costo')
     contrato_nombre = models.CharField(max_length=200, blank=True, verbose_name='Contrato (Texto)')
     fecha_contratacion = models.DateField(null=True, blank=True, verbose_name='Fecha Contratación')
+    fecha_cese = models.DateField(null=True, blank=True, verbose_name='Fecha Cese')
     estado = models.CharField(max_length=50, blank=True, verbose_name='Estado')
     estado_api = models.CharField(max_length=50, blank=True, verbose_name='Estado API')
 
@@ -1818,6 +1819,26 @@ class Trabajador(models.Model):
 
     def __str__(self):
         return f"{self.nombres} {self.apepat} - {self.cargo}"
+
+    @classmethod
+    def vigentes_en_rango_q(cls, fecha_inicio=None, fecha_fin=None):
+        q = models.Q()
+        if fecha_fin:
+            q &= (models.Q(fecha_inicio_labores__isnull=True) | models.Q(fecha_inicio_labores__lte=fecha_fin))
+        if fecha_inicio:
+            q &= (models.Q(fecha_cese__isnull=True) | models.Q(fecha_cese__gte=fecha_inicio))
+        return q
+
+    @classmethod
+    def vigentes_en_fecha_q(cls, fecha):
+        return cls.vigentes_en_rango_q(fecha, fecha)
+
+    def vigente_en_fecha(self, fecha):
+        if self.fecha_inicio_labores and fecha < self.fecha_inicio_labores:
+            return False
+        if self.fecha_cese and fecha > self.fecha_cese:
+            return False
+        return True
 
     @property
     def get_full_name(self):
