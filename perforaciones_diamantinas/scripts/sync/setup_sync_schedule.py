@@ -69,7 +69,7 @@ cd /d {project_path}
 "{python_path}" scripts/sync/sync_trabajadores.py
 "{python_path}" manage.py sync_all_contracts
 "{python_path}" manage.py sincronizar_consumos %date:~6,4%%date:~3,2%
-echo Sincronizacion completada: %date% %time% >> sync_log.txt
+echo Sincronizacion completada: %date% %time% >> logs\\sync_diario.log
 """
     
     bat_file = os.path.join(project_path, 'sync_daily.bat')
@@ -114,7 +114,7 @@ def show_linux_instructions():
 # Script de sincronización diaria
 cd {project_path}
 scripts/sync/run_daily_sync.sh
-echo "Sincronización completada: $(date)" >> sync_log.txt
+echo "Sincronización completada: $(date)" >> logs/sync_diario.log
 """
     
     sh_file = os.path.join(project_path, 'sync_daily.sh')
@@ -181,7 +181,10 @@ def main():
     print("  ✓ Consumos")
     print("  ✓ Programación diaria sugerida a las 5:00 AM")
     print("\nLogs de sincronización:")
-    print(f"  Ver archivo: {os.path.join(get_project_path(), 'sync_log.txt')}")
+    print(f"  Maestro: {os.path.join(get_project_path(), 'logs', 'sync_diario.log')}")
+    print(f"  Trabajadores: {os.path.join(get_project_path(), 'logs', 'sync_trabajadores.log')}")
+    print(f"  Inventario: {os.path.join(get_project_path(), 'logs', 'sync_inventario.log')}")
+    print(f"  Consumos: {os.path.join(get_project_path(), 'logs', 'sync_consumos.log')}")
     print("\n" + "="*70 + "\n")
 
 if __name__ == '__main__':
