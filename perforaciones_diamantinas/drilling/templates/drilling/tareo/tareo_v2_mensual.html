@@ -1113,7 +1113,7 @@ function guardarDia(fecha) {
         
         if (estadoSelect) {
             asistencias.push({
-                empleado_id: parseInt(trabajadorId),
+                trabajador_id: parseInt(trabajadorId),
                 estado: estadoSelect.value,
                 maquina_id: maquinaSelect ? (maquinaSelect.value || null) : null,
                 guardia_snapshot: guardiaSelect ? (guardiaSelect.value || null) : null,

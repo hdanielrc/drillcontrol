@@ -84,6 +84,23 @@ def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
     return AsistenciaDiaria.objects.none(), None
 
 
+def _trabajador_field_name():
+    return 'trabajador'
+
+
+def _emp_field_name():
+    return _trabajador_field_name()
+
+
+def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
+    qs = AsistenciaDiaria.objects.filter(
+        trabajador__contrato=contrato,
+        fecha__gte=fecha_inicio,
+        fecha__lte=fecha_fin,
+    ).select_related('trabajador', 'maquina_snapshot')
+    return qs, 'trabajador'
+
+
 # Configurar locale para español
 try:
     locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
@@ -2760,7 +2777,7 @@ def tareo_v2_mensual_view(request):
                                 observaciones = request.POST.get(observaciones_key, '')
                                 
                                 asistencias_data.append({
-                                    'empleado_id': int(trabajador_id),
+                                    'trabajador_id': int(trabajador_id),
                                     'fecha': fecha_asistencia,
                                     'estado': value,
                                     'observaciones': observaciones
@@ -2989,17 +3006,25 @@ def api_corregir_asistencia(request):
         
         # Parsear datos JSON
         data = json.loads(request.body)
-        empleado_id = data.get('empleado_id')
+        trabajador_id = data.get('trabajador_id') or data.get('empleado_id')
         fecha_str = data.get('fecha')
         estado = data.get('estado')
         observaciones = data.get('observaciones', '')
+
+        trabajador = get_object_or_404(Trabajador, id=trabajador_id)
+        if not request.user.has_access_to_all_contracts():
+            if not request.user.contrato_id or trabajador.contrato_id != request.user.contrato_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No tienes acceso al contrato del trabajador'
+                }, status=403)
         
         # Validar fecha
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
         
         # Ejecutar corrección
         asistencia = TareoService.corregir_asistencia(
-            empleado_id=empleado_id,
+            trabajador_id=trabajador_id,
             fecha=fecha,
             nuevo_estado=estado,
             usuario=request.user,
@@ -3063,6 +3088,12 @@ def api_guardar_dia_tareo(request):
         
         # Validar contrato
         contrato = get_object_or_404(Contrato, id=contrato_id, estado='ACTIVO')
+        if not request.user.has_access_to_all_contracts():
+            if not request.user.contrato_id or contrato.id != request.user.contrato_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No tienes acceso a este contrato'
+                }, status=403)
         
         stats = {
             'actualizados': 0,
@@ -3074,17 +3105,17 @@ def api_guardar_dia_tareo(request):
         with transaction.atomic():
             for asist_data in asistencias_data:
                 try:
-                    empleado_id = asist_data.get('empleado_id')
+                    trabajador_id = asist_data.get('trabajador_id') or asist_data.get('empleado_id')
                     estado = asist_data.get('estado')
                     maquina_id = asist_data.get('maquina_id')
                     guardia_snapshot = asist_data.get('guardia_snapshot') if 'guardia_snapshot' in asist_data else None
                     observaciones = asist_data.get('observaciones', '')
                     
-                    if not empleado_id or not estado:
+                    if not trabajador_id or not estado:
                         continue
                     
                     # Obtener trabajador
-                    trabajador = Trabajador.objects.get(id=empleado_id, contrato=contrato)
+                    trabajador = Trabajador.objects.get(id=trabajador_id, contrato=contrato)
                     
                     # Obtener máquina si se especificó
                     maquina = None
@@ -3120,7 +3151,7 @@ def api_guardar_dia_tareo(request):
                         stats['actualizados'] += 1
                     
                 except Exception as e:
-                    stats['errores'].append(f"Error procesando empleado {empleado_id}: {str(e)}")
+                    stats['errores'].append(f"Error procesando trabajador {trabajador_id}: {str(e)}")
                     logger.error(f"Error guardando asistencia: {str(e)}")
         
         return JsonResponse({
@@ -3169,7 +3200,7 @@ def api_guardar_seleccion(request):
         for r in registros:
             try:
                 asistencias_data.append({
-                    'empleado_id':  int(r['trabajador_id']),
+                    'trabajador_id':  int(r['trabajador_id']),
                     'fecha':        datetime.strptime(r['fecha'], '%Y-%m-%d').date(),
                     'estado':       r['estado'],
                     'observaciones': r.get('observaciones', ''),

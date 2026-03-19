@@ -243,6 +243,9 @@ class CustomUser(AbstractUser):
         ('GERENCIA', 'Gerencia'),
         ('GERENTE_GENERAL', 'Gerente General'),
         ('HEADCOUNT', 'Gestión de Personal y Headcount'),
+        # Roles legacy conservados por compatibilidad con usuarios existentes.
+        ('MANAGER_CONTRATO', 'Manager de Contrato'),
+        ('SUPERVISOR', 'Supervisor'),
     ]
     
     # Campos adicionales
@@ -323,7 +326,15 @@ class CustomUser(AbstractUser):
     
     def can_manage_contract_users(self):
         """GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL y ADMINISTRADOR pueden gestionar usuarios"""
-        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'ADMINISTRADOR', 'LOGISTICO']
+        return self.role in [
+            'GERENCIA',
+            'CONTROL_PROYECTOS',
+            'GERENTE_GENERAL',
+            'ADMINISTRADOR',
+            'LOGISTICO',
+            'MANAGER_CONTRATO',
+            'SUPERVISOR',
+        ]
     
     def can_supervise_operations(self):
         """GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL, RESIDENTE, ADMINISTRADOR y LOGISTICO pueden supervisar operaciones"""  
@@ -1247,7 +1258,7 @@ class AsistenciaDiaria(models.Model):
     ]
     
     # Relación al trabajador
-    empleado = models.ForeignKey(
+    trabajador = models.ForeignKey(
         'Trabajador',
         on_delete=models.PROTECT,  # PROTECT para evitar eliminaciones accidentales
         related_name='asistencias_diarias',
@@ -1324,18 +1335,18 @@ class AsistenciaDiaria(models.Model):
         # Constraint único: 1 trabajador solo puede tener 1 registro por fecha
         constraints = [
             models.UniqueConstraint(
-                fields=['empleado', 'fecha'],
-                name='unique_empleado_fecha'
+                fields=['trabajador', 'fecha'],
+                name='unique_trabajador_fecha'
             )
         ]
         
         # Ordenamiento por defecto
-        ordering = ['-fecha', 'empleado__apepat', 'empleado__nombres']
+        ordering = ['-fecha', 'trabajador__apepat', 'trabajador__nombres']
         
         # Índices compuestos para optimización de consultas frecuentes
         indexes = [
             # Consultas por trabajador y fecha (más común)
-            models.Index(fields=['empleado', 'fecha'], name='idx_empleado_fecha'),
+            models.Index(fields=['trabajador', 'fecha'], name='idx_trabajador_fecha'),
             
             # Consultas por rango de fechas
             models.Index(fields=['fecha', 'estado'], name='idx_fecha_estado'),
@@ -1349,15 +1360,32 @@ class AsistenciaDiaria(models.Model):
     
     def __str__(self):
         tipo = "PROY" if self.es_proyeccion else "REAL"
-        return f"[{tipo}] {self.empleado.apellidos}, {self.empleado.nombres} - {self.fecha.strftime('%d/%m/%Y')} - {self.get_estado_display()}"
+        return f"[{tipo}] {self.trabajador.apellidos}, {self.trabajador.nombres} - {self.fecha.strftime('%d/%m/%Y')} - {self.get_estado_display()}"
     
     def save(self, *args, **kwargs):
         """Override save para capturar snapshots automáticamente"""
-        if not self.guardia_snapshot and self.empleado:
-            self.guardia_snapshot = self.empleado.guardia_asignada
-        if not self.maquina_snapshot and self.empleado and self.empleado.maquina_asignada:
-            self.maquina_snapshot = self.empleado.maquina_asignada
+        if not self.guardia_snapshot and self.trabajador:
+            self.guardia_snapshot = self.trabajador.guardia_asignada
+        if not self.maquina_snapshot and self.trabajador and self.trabajador.maquina_asignada:
+            self.maquina_snapshot = self.trabajador.maquina_asignada
         super().save(*args, **kwargs)
+
+    # Compatibilidad temporal mientras se migra el nombre del FK en toda la BD.
+    @property
+    def empleado(self):
+        return self.trabajador
+
+    @empleado.setter
+    def empleado(self, value):
+        self.trabajador = value
+
+    @property
+    def empleado_id(self):
+        return self.trabajador_id
+
+    @empleado_id.setter
+    def empleado_id(self, value):
+        self.trabajador_id = value
 
 
 class CierreMensualTareo(models.Model):
@@ -1494,11 +1522,10 @@ class CierreMensualTareo(models.Model):
         
         # Obtener asistencias reales (no proyecciones)
         # Detectar dinámicamente nombre del FK en AsistenciaDiaria
-        emp_field = 'trabajador' if any(f.name == 'trabajador' for f in AsistenciaDiaria._meta.get_fields()) else 'empleado'
-        filter_kwargs = {f"{emp_field}__contrato": self.contrato, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia, 'es_proyeccion': False}
+        filter_kwargs = {'trabajador__contrato': self.contrato, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia, 'es_proyeccion': False}
         asistencias = AsistenciaDiaria.objects.filter(**filter_kwargs)
-
-        self.total_trabajadores = asistencias.values(emp_field).distinct().count()
+        
+        self.total_trabajadores = asistencias.values('trabajador').distinct().count()
         self.total_dias_trabajo = asistencias.filter(estado='TRABAJO').count()
         self.total_dias_descanso = asistencias.filter(estado='DESCANSO').count()
         self.total_faltas = asistencias.filter(estado='FALTA').count()
@@ -1568,7 +1595,7 @@ class HistorialCambioAsistencia(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.asistencia.empleado} - {self.asistencia.fecha}: {self.estado_anterior} → {self.estado_nuevo}"
+        return f"{self.asistencia.trabajador} - {self.asistencia.fecha}: {self.estado_anterior} → {self.estado_nuevo}"
 
 
 class ConfiguracionHoraExtra(models.Model):

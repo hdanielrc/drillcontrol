@@ -34,6 +34,14 @@ def _empleado_field_name():
             return 'trabajador' if NEW_TAREO else 'empleado'
 
 
+def _trabajador_field_name():
+    return 'trabajador'
+
+
+def _empleado_field_name():
+    return _trabajador_field_name()
+
+
 def _proyeccion_filter(qs):
     return qs.filter(tipo='PROY') if NEW_TAREO else qs.filter(es_proyeccion=True)
 
@@ -71,6 +79,20 @@ class TareoService:
     # Fecha histórica de inicio del calendario de tareo (inclusive).
     # No se deben generar ni procesar registros anteriores a esta fecha.
     HISTORICO_START = date(2026, 2, 26)
+
+    @staticmethod
+    def _usa_rotacion_guardia(trabajador):
+        """
+        En regimen 14x7 con guardias A/B/C la rotacion es colectiva por contrato:
+        dos guardias trabajan y una descansa, alternando cada 7 dias.
+        """
+        guardia = (getattr(trabajador, 'guardia_asignada', None) or '').upper()
+        regimen = getattr(trabajador, 'regimen_laboral', None) or '14x7'
+        return regimen == '14x7' and guardia in {'A', 'B', 'C'}
+
+    @staticmethod
+    def _mapear_estado_motor_a_asistencia(estado_motor):
+        return 'DESCANSO' if estado_motor == 'DL' else estado_motor
     
     @staticmethod
     def _snap_a_dia_cambio(fecha_ref, dia_cambio_guardia):
@@ -125,6 +147,11 @@ class TareoService:
         Returns:
             str: 'TD' | 'TN' | 'DESCANSO' (TD = turno día, TN = turno noche)
         """
+        if TareoService._usa_rotacion_guardia(trabajador):
+            return TareoService._mapear_estado_motor_a_asistencia(
+                TareoEngine.estado_para_fecha(trabajador, fecha_consulta)
+            )
+
         regimen = trabajador.regimen_laboral
         fecha_inicio_ciclo = trabajador.fecha_inicio_ciclo
         
@@ -285,8 +312,160 @@ class TareoService:
 
     
     @staticmethod
+    def _generar_proyeccion_mensual_deterministica(anio, mes, contrato=None, sobrescribir=False):
+        logger.info(f"Iniciando proyeccion mensual para {mes}/{anio}")
+
+        stats = {
+            'trabajadores_procesados': 0,
+            'registros_creados': 0,
+            'registros_actualizados': 0,
+            'registros_existentes_respetados': 0,
+            'errores': [],
+            'ajustes_guardia': [],
+        }
+
+        if not (1 <= mes <= 12):
+            error_msg = f"Mes invalido: {mes}. Debe estar entre 1 y 12."
+            logger.error(error_msg)
+            stats['errores'].append(error_msg)
+            return stats
+
+        mes_anterior = mes - 1 if mes > 1 else 12
+        anio_anterior = anio if mes > 1 else anio - 1
+        primer_dia = max(date(anio_anterior, mes_anterior, 26), TareoService.HISTORICO_START)
+        ultimo_dia = date(anio, mes, 25)
+
+        trabajadores_query = Trabajador.objects.filter(
+            estado='ACTIVO',
+            contrato__isnull=False,
+        )
+        if contrato:
+            trabajadores_query = trabajadores_query.filter(contrato=contrato)
+        trabajadores_query = trabajadores_query.select_related('contrato', 'maquina_asignada')
+
+        emp_field = _empleado_field_name()
+        contrato_filter = ({f"{emp_field}__contrato": contrato} if contrato else {})
+
+        if sobrescribir:
+            qs = AsistenciaDiaria.objects.filter(
+                fecha__gte=primer_dia,
+                fecha__lte=ultimo_dia,
+                **contrato_filter,
+            )
+            _proyeccion_filter(qs).delete()
+
+        registros_manuales = set(
+            _manual_filter(
+                AsistenciaDiaria.objects.filter(
+                    fecha__gte=primer_dia,
+                    fecha__lte=ultimo_dia,
+                    **contrato_filter,
+                )
+            ).values_list(f"{emp_field}_id", 'fecha')
+        )
+
+        proyecciones_existentes = {}
+        for registro in _proyeccion_filter(
+            AsistenciaDiaria.objects.filter(
+                fecha__gte=primer_dia,
+                fecha__lte=ultimo_dia,
+                **contrato_filter,
+            )
+        ):
+            proyecciones_existentes[(getattr(registro, f"{emp_field}_id"), registro.fecha)] = registro
+
+        fechas_cerradas_por_contrato = {}
+        for contrato_id, fecha_cerrada in FechaCerrada.objects.filter(
+            fecha__gte=primer_dia,
+            fecha__lte=ultimo_dia,
+        ).values_list('contrato_id', 'fecha'):
+            fechas_cerradas_por_contrato.setdefault(contrato_id, set()).add(fecha_cerrada)
+
+        registros_a_crear = []
+        registros_a_actualizar = []
+
+        for trabajador in trabajadores_query:
+            try:
+                stats['trabajadores_procesados'] += 1
+                fechas_cerradas_set = fechas_cerradas_por_contrato.get(trabajador.contrato_id, set())
+                fecha_actual = primer_dia
+
+                while fecha_actual <= ultimo_dia:
+                    clave = (trabajador.id, fecha_actual)
+                    if clave in registros_manuales or fecha_actual in fechas_cerradas_set:
+                        stats['registros_existentes_respetados'] += 1
+                        fecha_actual += timedelta(days=1)
+                        continue
+
+                    estado_esperado = TareoService.calcular_estado_dia(
+                        trabajador,
+                        fecha_actual,
+                        forzar_alineacion=True,
+                    )
+
+                    if clave in proyecciones_existentes:
+                        registro = proyecciones_existentes[clave]
+                        registro.estado = estado_esperado
+                        registro.guardia_snapshot = trabajador.guardia_asignada
+                        registro.maquina_snapshot = trabajador.maquina_asignada
+                        registros_a_actualizar.append(registro)
+                    else:
+                        create_kwargs = {
+                            emp_field: trabajador,
+                            'fecha': fecha_actual,
+                            'estado': estado_esperado,
+                            'guardia_snapshot': trabajador.guardia_asignada,
+                            'maquina_snapshot': trabajador.maquina_asignada,
+                            'registrado_por': None,
+                        }
+                        create_kwargs.update(_mark_as_proyeccion_defaults())
+
+                        if NEW_TAREO:
+                            from ..models_tareo import TareoPeriod
+                            periodo_obj, _ = TareoPeriod.objects.get_or_create(
+                                contrato=trabajador.contrato,
+                                anio=anio,
+                                mes=mes,
+                                defaults={'fecha_inicio': primer_dia, 'fecha_fin': ultimo_dia},
+                            )
+                            create_kwargs['periodo'] = periodo_obj
+
+                        registros_a_crear.append(AsistenciaDiaria(**create_kwargs))
+
+                    fecha_actual += timedelta(days=1)
+
+            except Exception as e:
+                error_msg = f"Error procesando trabajador {trabajador.id}: {str(e)}"
+                logger.error(error_msg)
+                stats['errores'].append(error_msg)
+
+        if registros_a_crear:
+            AsistenciaDiaria.objects.bulk_create(
+                registros_a_crear,
+                batch_size=500,
+                ignore_conflicts=True,
+            )
+            stats['registros_creados'] = len(registros_a_crear)
+
+        if registros_a_actualizar:
+            AsistenciaDiaria.objects.bulk_update(
+                registros_a_actualizar,
+                ['estado', 'guardia_snapshot', 'maquina_snapshot'],
+                batch_size=500,
+            )
+            stats['registros_actualizados'] = len(registros_a_actualizar)
+
+        return stats
+
+    @staticmethod
     @transaction.atomic
     def generar_proyeccion_mensual(anio, mes, contrato=None, sobrescribir=False):
+        return TareoService._generar_proyeccion_mensual_deterministica(
+            anio=anio,
+            mes=mes,
+            contrato=contrato,
+            sobrescribir=sobrescribir,
+        )
         """
         Genera la proyección mensual de asistencias para todos los trabajadores activos.
         
@@ -808,12 +987,12 @@ class TareoService:
         return stats
     
     @staticmethod
-    def corregir_asistencia(empleado_id, fecha, nuevo_estado, usuario, observaciones=''):
+    def corregir_asistencia(trabajador_id=None, fecha=None, nuevo_estado=None, usuario=None, observaciones='', empleado_id=None):
         """
         Actualiza o crea una corrección manual de asistencia.
         
         Args:
-            empleado_id (int): ID del trabajador
+            trabajador_id (int): ID del trabajador
             fecha (date): Fecha de la asistencia
             nuevo_estado (str): Nuevo estado (debe estar en ESTADO_CHOICES)
             usuario (CustomUser): Usuario que realiza la corrección
@@ -823,7 +1002,8 @@ class TareoService:
             AsistenciaDiaria: Registro actualizado o creado
         """
         try:
-            trabajador = Trabajador.objects.get(id=empleado_id)
+            trabajador_id = trabajador_id or empleado_id
+            trabajador = Trabajador.objects.get(id=trabajador_id)
 
             # Construir kwargs dinámicos para buscar/crear según el esquema
             lookup = {f"{_empleado_field_name()}": trabajador, 'fecha': fecha}
@@ -852,13 +1032,13 @@ class TareoService:
             )
             
             accion = "creada" if created else "actualizada"
-            logger.info(f"Asistencia {accion}: Trabajador {empleado_id}, Fecha {fecha}, Estado {nuevo_estado}")
+            logger.info(f"Asistencia {accion}: Trabajador {trabajador_id}, Fecha {fecha}, Estado {nuevo_estado}")
             
             return asistencia
             
         except Trabajador.DoesNotExist:
-            logger.error(f"Trabajador con ID {empleado_id} no encontrado")
-            raise ValueError(f"Trabajador con ID {empleado_id} no encontrado")
+            logger.error(f"Trabajador con ID {trabajador_id} no encontrado")
+            raise ValueError(f"Trabajador con ID {trabajador_id} no encontrado")
         
         except Exception as e:
             logger.error(f"Error corrigiendo asistencia: {str(e)}")
@@ -1061,14 +1241,14 @@ class TareoService:
         
         for dato in formset_data:
             try:
-                empleado_id = dato.get('empleado_id')
+                trabajador_id = dato.get('trabajador_id') or dato.get('empleado_id')
                 fecha = dato.get('fecha')
                 estado = dato.get('estado')
                 observaciones = dato.get('observaciones', '')
                 maquina_id = dato.get('maquina_id')
                 guardia_snapshot = dato.get('guardia_snapshot') if 'guardia_snapshot' in dato else None
                 
-                if not all([empleado_id, fecha, estado]):
+                if not all([trabajador_id, fecha, estado]):
                     continue
                 
                 # Obtener máquina si existe
@@ -1082,7 +1262,7 @@ class TareoService:
                 
                 # Buscar si existe
                 try:
-                    lookup_get = {f"{_empleado_field_name()}_id": empleado_id, 'fecha': fecha}
+                    lookup_get = {f"{_empleado_field_name()}_id": trabajador_id, 'fecha': fecha}
                     asistencia = AsistenciaDiaria.objects.get(**lookup_get)
                     # Actualizar campos
                     asistencia.estado = estado
@@ -1100,7 +1280,7 @@ class TareoService:
                     
                 except AsistenciaDiaria.DoesNotExist:
                     # Crear nuevo
-                    trabajador = Trabajador.objects.get(id=empleado_id)
+                    trabajador = Trabajador.objects.get(id=trabajador_id)
                     create_kwargs = {
                         _empleado_field_name(): trabajador,
                         'fecha': fecha,
@@ -1405,14 +1585,7 @@ class TareoEngine:
         del contrato (`created_at`) o 2024-01-01 como fallback.
         """
         if referencia is None:
-            ref = getattr(contrato, 'created_at', None)
-            if ref:
-                try:
-                    referencia = ref.date()
-                except Exception:
-                    referencia = referencia or date(2024, 1, 1)
-            else:
-                referencia = date(2024, 1, 1)
+            referencia = TareoService.HISTORICO_START
 
         dia_cambio = getattr(contrato, 'dia_cambio_guardia', None)
         if dia_cambio is None:
