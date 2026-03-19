@@ -80,9 +80,17 @@
 <script>
 const contratoId = '{{ contrato.id }}';
 const fechaInicioStr = '{{ fecha_inicio|date:"Y-m-d" }}';
+const diaCambioGuardia = Number('{{ contrato.dia_cambio_guardia|default:0 }}');
 
 function toISO(d){ return d.toISOString().slice(0,10); }
-function mondayOf(date){ const dt = new Date(date); const day = dt.getDay(); const diff = (day + 6) % 7; dt.setDate(dt.getDate() - diff); return dt; }
+function operWeekStart(date){
+  const dt = new Date(date);
+  const jsDay = dt.getDay();
+  const pyWeekday = (jsDay + 6) % 7;
+  const diff = (pyWeekday - diaCambioGuardia + 7) % 7;
+  dt.setDate(dt.getDate() - diff);
+  return dt;
+}
 
 document.getElementById('btnDownload').addEventListener('click', function(){
   const el = document.getElementById('distribution');
@@ -100,26 +108,26 @@ document.getElementById('btnDownload').addEventListener('click', function(){
 document.getElementById('prevWeek').addEventListener('click', function(){
   const base = new Date(fechaInicioStr);
   base.setDate(base.getDate() - 7);
-  const monday = mondayOf(base);
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+  const weekStart = operWeekStart(base);
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
 });
 document.getElementById('nextWeek').addEventListener('click', function(){
   const base = new Date(fechaInicioStr);
   base.setDate(base.getDate() + 7);
-  const monday = mondayOf(base);
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+  const weekStart = operWeekStart(base);
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
 });
 document.getElementById('todayWeek').addEventListener('click', function(){
   const today = new Date();
-  const monday = mondayOf(today);
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+  const weekStart = operWeekStart(today);
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
 });
 
-// Selector de fecha: si el usuario escoge una fecha, navegar al LUNES correspondiente
+// Selector de fecha: si el usuario escoge una fecha, navegar al inicio operativo correspondiente
 document.getElementById('pickDate').addEventListener('change', function(e){
   const sel = e.target.value; if(!sel) return;
-  const monday = mondayOf(new Date(sel));
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(monday)}`;
+  const weekStart = operWeekStart(new Date(sel));
+  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
 });
 
 // Inicializar input date con la fecha_inicio visible

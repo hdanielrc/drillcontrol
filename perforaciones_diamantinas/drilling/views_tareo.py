@@ -1421,7 +1421,8 @@ def exportar_tareo_semanal(request):
 
         fecha_inicio_str = request.GET.get('fecha_inicio')
         if fecha_inicio_str:
-            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_inicio_ref = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_inicio = _inicio_semana_operativa(contrato, fecha_inicio_ref)
         else:
             # semana actual: tomar inicio según dia_cambio_guardia del contrato
             fecha_inicio = _inicio_semana_operativa(contrato)
@@ -1474,7 +1475,8 @@ def mostrar_tareo_semanal(request):
 
         fecha_inicio_str = request.GET.get('fecha_inicio')
         if fecha_inicio_str:
-            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_inicio_ref = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_inicio = _inicio_semana_operativa(contrato, fecha_inicio_ref)
         else:
             fecha_inicio = _inicio_semana_operativa(contrato)
 
