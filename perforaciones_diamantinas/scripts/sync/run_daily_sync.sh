@@ -8,6 +8,7 @@ LOCK_FILE="/tmp/drillcontrol_sync_all_contracts.lock"
 PYTHON_BIN="${PYTHON_BIN:-${PROJECT_ROOT}/venv/bin/python}"
 MANAGE_PY="${PROJECT_ROOT}/manage.py"
 TRABAJADORES_SYNC_SCRIPT="${PROJECT_ROOT}/scripts/sync/sync_trabajadores.py"
+PERIODO_ACTUAL="$(date '+%Y%m')"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 
 mkdir -p "${LOG_DIR}"
@@ -39,5 +40,7 @@ trap 'rm -f "${LOCK_FILE}"' EXIT
   "${PYTHON_BIN}" "${TRABAJADORES_SYNC_SCRIPT}"
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Sync inventario contratos"
   "${PYTHON_BIN}" "${MANAGE_PY}" sync_all_contracts
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Sync consumos periodo ${PERIODO_ACTUAL}"
+  "${PYTHON_BIN}" "${MANAGE_PY}" sincronizar_consumos "${PERIODO_ACTUAL}"
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Fin sincronizacion diaria"
 } >> "${LOG_DIR}/sync_all_contracts.log" 2>&1

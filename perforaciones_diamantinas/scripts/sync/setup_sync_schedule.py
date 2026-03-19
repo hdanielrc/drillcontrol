@@ -6,6 +6,11 @@ usando diferentes métodos según tu sistema operativo.
 
 Windows: Programador de tareas (Task Scheduler)
 Linux/Mac: Cron
+
+La tarea diaria ejecuta:
+- sincronización de trabajadores
+- sincronización de inventario
+- sincronización de consumos del periodo actual
 """
 
 import os
@@ -19,6 +24,11 @@ def get_project_path():
 def get_python_path():
     """Obtiene la ruta del ejecutable de Python"""
     return sys.executable
+
+def get_sync_runner_path():
+    """Obtiene la ruta del runner diario Linux/Windows"""
+    project_path = get_project_path()
+    return os.path.join(project_path, 'scripts', 'sync', 'run_daily_sync.sh')
 
 def show_windows_instructions():
     """Muestra instrucciones para Windows"""
@@ -38,15 +48,16 @@ def show_windows_instructions():
     print("\n2. Crea una nueva tarea:")
     print("   - Clic en 'Crear tarea básica'")
     print("   - Nombre: Sincronización Drilling Control")
-    print("   - Descripción: Sincroniza inventario desde API Vilbragroup")
+    print("   - Descripción: Sincroniza trabajadores, inventario y consumos")
     print("\n3. Configurar desencadenador:")
     print("   - Selecciona 'Diariamente'")
     print("   - Hora: 02:00 AM (o la hora que prefieras)")
     print("\n4. Configurar acción:")
     print("   - Selecciona 'Iniciar un programa'")
     print(f"   - Programa: {python_path}")
-    print(f"   - Argumentos: manage.py sync_all_contracts")
+    print(f"   - Argumentos: scripts/sync/sync_trabajadores.py")
     print(f"   - Iniciar en: {project_path}")
+    print("   - Crea una segunda tarea para inventario/consumos o usa WSL/bash con run_daily_sync.sh")
     print("\n5. Finalizar y guardar")
     
     print("\n\nOpción 2: Script BAT (Manual)")
@@ -55,7 +66,9 @@ def show_windows_instructions():
     bat_content = f"""@echo off
 REM Script de sincronización diaria
 cd /d {project_path}
+"{python_path}" scripts/sync/sync_trabajadores.py
 "{python_path}" manage.py sync_all_contracts
+"{python_path}" manage.py sincronizar_consumos %date:~6,4%%date:~3,2%
 echo Sincronizacion completada: %date% %time% >> sync_log.txt
 """
     
@@ -81,7 +94,8 @@ def show_linux_instructions():
     print("Usando Cron:")
     print("-" * 70)
     
-    cron_line = f"0 2 * * * cd {project_path} && {python_path} manage.py sync_all_contracts >> sync_log.txt 2>&1"
+    sync_runner = get_sync_runner_path()
+    cron_line = f"0 5 * * * {sync_runner}"
     
     print("\n1. Abre el crontab:")
     print("   crontab -e")
@@ -92,14 +106,14 @@ def show_linux_instructions():
     print("   crontab -l")
     
     print("\n\nExplicación:")
-    print("  0 2 * * * = Todos los días a las 2:00 AM")
-    print("  Puedes cambiar la hora modificando '0 2' (minuto hora)")
+    print("  0 5 * * * = Todos los días a las 5:00 AM")
+    print("  Puedes cambiar la hora modificando '0 5' (minuto hora)")
     
     # Crear script shell
     sh_content = f"""#!/bin/bash
 # Script de sincronización diaria
 cd {project_path}
-{python_path} manage.py sync_all_contracts
+scripts/sync/run_daily_sync.sh
 echo "Sincronización completada: $(date)" >> sync_log.txt
 """
     
@@ -124,17 +138,19 @@ def show_manual_instructions():
     
     print("Ejecuta este comando cuando necesites sincronizar:")
     print(f"\n  cd {project_path}")
+    print("  python scripts/sync/sync_trabajadores.py")
     print("  python manage.py sync_all_contracts")
+    print("  python manage.py sincronizar_consumos $(date +%Y%m)")
     
     print("\n\nOpciones disponibles:")
-    print("  --dry-run     : Simular sin hacer cambios")
-    print("  --verbose     : Mostrar información detallada")
-    print("  --skip-pdd    : Omitir productos diamantados")
-    print("  --skip-adit   : Omitir aditivos")
+    print("  sync_trabajadores.py : Sincroniza trabajadores")
+    print("  sync_all_contracts   : Sincroniza inventario")
+    print("  sincronizar_consumos : Sincroniza consumos del periodo YYYYMM")
     
     print("\n\nEjemplos:")
-    print("  python manage.py sync_all_contracts --dry-run")
+    print("  python scripts/sync/sync_trabajadores.py")
     print("  python manage.py sync_all_contracts --verbose")
+    print("  python manage.py sincronizar_consumos 202603")
 
 def main():
     """Función principal"""
@@ -159,9 +175,11 @@ def main():
     print("\n" + "="*70)
     print("INFORMACIÓN ADICIONAL")
     print("="*70)
-    print("\nLa sincronización automática también se ejecuta:")
-    print("  ✓ Al iniciar el servidor Django (en segundo plano)")
-    print("  ✓ Se recomienda programar actualización diaria a las 2:00 AM")
+    print("\nLa sincronización automática recomendada ejecuta:")
+    print("  ✓ Trabajadores")
+    print("  ✓ Inventario")
+    print("  ✓ Consumos")
+    print("  ✓ Programación diaria sugerida a las 5:00 AM")
     print("\nLogs de sincronización:")
     print(f"  Ver archivo: {os.path.join(get_project_path(), 'sync_log.txt')}")
     print("\n" + "="*70 + "\n")
