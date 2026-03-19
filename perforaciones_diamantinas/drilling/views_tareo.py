@@ -1490,10 +1490,27 @@ def mostrar_tareo_semanal(request):
             asistencias_v2 = AsistenciaDiaria.objects.none()
 
         asist_dict = {}
+        asistencias_v1 = AsistenciaTrabajador.objects.filter(
+            trabajador__contrato=contrato,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin,
+        ).select_related('trabajador')
+        for asist in asistencias_v1:
+            asist_dict.setdefault(asist.trabajador_id, {})[asist.fecha] = {
+                'estado': asist.estado,
+                'guardia_snapshot': getattr(asist, 'guardia_snapshot', None) or '',
+                'maquina_snapshot': getattr(asist.trabajador, 'maquina_asignada', None),
+                'es_proyeccion': False,
+            }
         if asistencias_v2.exists():
             for asist in asistencias_v2:
                 emp_id = getattr(asist, f"{emp_field}_id")
-                asist_dict.setdefault(emp_id, {})[asist.fecha] = asist
+                asist_dict.setdefault(emp_id, {})[asist.fecha] = {
+                    'estado': getattr(asist, 'estado', '') or '',
+                    'guardia_snapshot': getattr(asist, 'guardia_snapshot', None) or '',
+                    'maquina_snapshot': getattr(asist, 'maquina_snapshot', None),
+                    'es_proyeccion': getattr(asist, 'es_proyeccion', False) if hasattr(asist, 'es_proyeccion') else (getattr(asist, 'tipo', None) == 'PROY'),
+                }
 
         # Estadísticas de verificación: cuántas filas son proyección vs reales
         try:
@@ -1559,9 +1576,9 @@ def mostrar_tareo_semanal(request):
             while d <= fecha_fin:
                 asist = asist_dict.get(trabajador.id, {}).get(d)
                 if asist:
-                    codigo = MAPEO_CODIGOS.get(getattr(asist, 'estado', '') or '', '')
-                    guardia_snap = getattr(asist, 'guardia_snapshot', None) or ''
-                    maq_snap = getattr(asist, 'maquina_snapshot', None)
+                    codigo = MAPEO_CODIGOS.get(asist.get('estado', '') or '', '')
+                    guardia_snap = asist.get('guardia_snapshot', '') or ''
+                    maq_snap = asist.get('maquina_snapshot', None)
                     maq_snap_name = maq_snap.nombre if maq_snap else ''
                 else:
                     # si no existe registro, dejar vacío (puede usarse proyección)
@@ -1714,19 +1731,34 @@ def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
         dias.append(fecha)
         fecha += timedelta(days=1)
 
-    # Obtener asistencias V2 para el rango
+    # Obtener asistencias V1 y V2 para el rango, priorizando V2 cuando exista.
     from .tareo_compat import AsistenciaDiaria
     emp_field = _emp_field_name()
-    asist_v2 = AsistenciaDiaria.objects.filter(**{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(emp_field)
-
-    # Mapear por (maquina, guardia, fecha) -> lista trabajadores
     distrib = {}
-    for a in asist_v2:
-        maq = getattr(a, 'maquina_snapshot', None)
+
+    asist_v1 = AsistenciaTrabajador.objects.filter(
+        trabajador__contrato=contrato,
+        fecha__gte=fecha_inicio,
+        fecha__lte=fecha_fin,
+    ).select_related('trabajador', 'trabajador__maquina_asignada')
+    for a in asist_v1:
+        maq = getattr(a.trabajador, 'maquina_asignada', None)
         maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
-        empleado_obj = getattr(a, emp_field)
-        guardia = getattr(a, 'guardia_snapshot', None) or (getattr(empleado_obj, 'guardia_asignada', None) or 'SIN_GUARDIA')
-        distrib.setdefault(maq_key, {}).setdefault(guardia, {}).setdefault(a.fecha, []).append(empleado_obj)
+        guardia = getattr(a, 'guardia_snapshot', None) or (getattr(a.trabajador, 'guardia_asignada', None) or 'SIN_GUARDIA')
+        distrib.setdefault(maq_key, {}).setdefault(guardia, {}).setdefault(a.fecha, []).append(a.trabajador)
+
+    asist_v2 = AsistenciaDiaria.objects.filter(
+        **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+    ).select_related(emp_field, 'maquina_snapshot')
+    for a in asist_v2:
+        maq = getattr(a, 'maquina_snapshot', None) or getattr(getattr(a, emp_field), 'maquina_asignada', None)
+        maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
+        trabajador_obj = getattr(a, emp_field)
+        guardia = getattr(a, 'guardia_snapshot', None) or (getattr(trabajador_obj, 'guardia_asignada', None) or 'SIN_GUARDIA')
+        bucket = distrib.setdefault(maq_key, {}).setdefault(guardia, {}).setdefault(a.fecha, [])
+        bucket = [t for t in bucket if getattr(t, 'id', None) != getattr(trabajador_obj, 'id', None)]
+        bucket.append(trabajador_obj)
+        distrib[maq_key][guardia][a.fecha] = bucket
 
     # Ordenar máquinas
     sorted_maqs = sorted(distrib.items(), key=lambda kv: (kv[0] == '__SIN_MAQUINA__', kv[0]))
