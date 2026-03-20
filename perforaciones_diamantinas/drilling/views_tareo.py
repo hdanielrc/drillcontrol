@@ -85,9 +85,19 @@ def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
 
 
 def _trabajadores_tareo_qs(contrato, fecha_inicio=None, fecha_fin=None):
+    from django.db.models import Q
     qs = Trabajador.objects.filter(contrato=contrato)
     if fecha_inicio or fecha_fin:
-        qs = qs.filter(Trabajador.vigentes_en_rango_q(fecha_inicio, fecha_fin))
+        # Trabajadores activos (estado ACTIVO) o inactivos que trabajaron en el rango
+        activos = Q(estado="ACTIVO")
+        inactivos_en_rango = (
+            ~Q(estado="ACTIVO") &
+            (
+                (Q(fecha_inicio_labores__isnull=True) | Q(fecha_inicio_labores__lte=fecha_fin)) &
+                (Q(fecha_cese__isnull=True) | Q(fecha_cese__gte=fecha_inicio))
+            )
+        )
+        qs = qs.filter(activos | inactivos_en_rango)
     return qs
 
 

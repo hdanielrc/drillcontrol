@@ -59,11 +59,20 @@ def _mark_as_manual_defaults():
 
 
 def _trabajadores_vigentes_qs(fecha_inicio=None, fecha_fin=None, contrato=None):
+    from django.db.models import Q
     qs = Trabajador.objects.filter(contrato__isnull=False)
     if contrato:
         qs = qs.filter(contrato=contrato)
     if fecha_inicio or fecha_fin:
-        qs = qs.filter(Trabajador.vigentes_en_rango_q(fecha_inicio, fecha_fin))
+        activos = Q(estado="ACTIVO")
+        inactivos_en_rango = (
+            ~Q(estado="ACTIVO") &
+            (
+                (Q(fecha_inicio_labores__isnull=True) | Q(fecha_inicio_labores__lte=fecha_fin)) &
+                (Q(fecha_cese__isnull=True) | Q(fecha_cese__gte=fecha_inicio))
+            )
+        )
+        qs = qs.filter(activos | inactivos_en_rango)
     return qs
 
 import logging
