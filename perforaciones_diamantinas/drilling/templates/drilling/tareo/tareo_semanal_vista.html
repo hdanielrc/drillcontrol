@@ -5,743 +5,592 @@
 
 {% block extra_css %}
 <style>
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Variables
-═══════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 :root {
-    --bg:          #f1f5f9;
-    --surface:     #ffffff;
-    --border:      #e2e8f0;
-    --border-soft: #f1f5f9;
-    --primary:     #0f172a;
-    --primary-s:   #0470ac;
-    --muted:       #64748b;
-    --muted-light: #94a3b8;
-    --radius:      10px;
-    --radius-sm:   6px;
+    --bg:       #f1f5f9;
+    --surface:  #ffffff;
+    --border:   #e2e8f0;
+    --primary:  #0f172a;
+    --primary-s:#0470ac;
+    --muted:    #64748b;
+    --muted-lt: #94a3b8;
+    --radius:   10px;
+    --rsm:      6px;
 
-    /* Guardia palette */
-    --ga:    #1d4ed8; --ga-bg: #dbeafe; --ga-mid: #bfdbfe;
-    --gb:    #b45309; --gb-bg: #fef3c7; --gb-mid: #fde68a;
-    --gc:    #7c3aed; --gc-bg: #ede9fe; --gc-mid: #ddd6fe;
-    --gd:    #0f766e; --gd-bg: #ccfbf1; --gd-mid: #99f6e4;
-    --gsin:  #475569; --gsin-bg:#f1f5f9; --gsin-mid:#e2e8f0;
+    /* Guardia colors */
+    --ga:#1d4ed8; --ga-bg:#dbeafe; --ga-mid:#bfdbfe;
+    --gb:#b45309; --gb-bg:#fef3c7; --gb-mid:#fde68a;
+    --gc:#7c3aed; --gc-bg:#ede9fe; --gc-mid:#ddd6fe;
+    --gd:#0f766e; --gd-bg:#ccfbf1; --gd-mid:#99f6e4;
+    --gx:#475569; --gx-bg:#f1f5f9; --gx-mid:#e2e8f0;
 
-    /* Machine accent palette (8 colors, used by JS) */
-    --mac-0: #0470ac;
-    --mac-1: #059669;
-    --mac-2: #d97706;
-    --mac-3: #7c3aed;
-    --mac-4: #0f766e;
-    --mac-5: #dc2626;
-    --mac-6: #db2777;
-    --mac-7: #78350f;
+    /* Machine accent palette */
+    --m0:#0470ac; --m1:#059669; --m2:#d97706; --m3:#7c3aed;
+    --m4:#0f766e; --m5:#dc2626; --m6:#db2777; --m7:#78350f;
 
-    /* Today accent */
-    --today-bg:     #fefce8;
-    --today-border: #fbbf24;
-    --today-header-bg: #fffbeb;
+    /* Today */
+    --today-bg:#fffbeb; --today-bd:#fbbf24;
+
+    /* Cell size — single source of truth */
+    --cell:   36px;
+    --cgap:   4px;
+    --nw:     148px;   /* worker-name column width */
+    --cpads:  10px;    /* horizontal padding inside card */
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Page shell
-═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   Page
+═══════════════════════════════════════════════════════════ */
 body { background: var(--bg); }
-.dist-page { padding: 16px 20px 56px; max-width: 100%; }
+.dist-page { padding: 14px 18px 56px; }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Topbar
-═══════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 .dist-topbar {
     display: flex; align-items: center; flex-wrap: wrap;
-    gap: 10px; margin-bottom: 14px;
+    gap: 8px; margin-bottom: 12px;
 }
-.dist-topbar-title {
-    font-size: 1rem; font-weight: 700; color: var(--primary);
-    margin: 0; margin-right: auto;
-}
-.dist-nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.dist-topbar h1 { font-size: 1rem; font-weight: 700; color: var(--primary); margin: 0 auto 0 0; }
 
-/* Buttons */
-.btn { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--radius-sm); font-size: .8rem; font-weight: 600; cursor: pointer; padding: 7px 13px; transition: all .15s; white-space: nowrap; text-decoration: none; border: none; }
-.btn-ghost  { background: var(--surface); border: 1.5px solid var(--border); color: var(--primary); }
-.btn-ghost:hover { background: #f8fafc; border-color: #cbd5e1; }
-.btn-blue   { background: var(--primary-s); color: #fff; }
-.btn-blue:hover { opacity: .88; }
-.btn-amber  { background: #f59e0b; color: #fff; }
-.btn-amber:hover { opacity: .88; }
-.btn-green  { background: #16a34a; color: #fff; }
-.btn-green:hover { opacity: .88; }
-.btn-slate  { background: #475569; color: #fff; }
-.btn-slate:hover { opacity: .88; }
+.btn { display:inline-flex; align-items:center; gap:5px; border-radius:var(--rsm); font-size:.8rem; font-weight:600; cursor:pointer; padding:6px 12px; transition:all .15s; white-space:nowrap; text-decoration:none; border:none; }
+.btn-ghost  { background:var(--surface); border:1.5px solid var(--border); color:var(--primary); }
+.btn-ghost:hover { background:#f8fafc; }
+.btn-blue   { background:var(--primary-s); color:#fff; }
+.btn-blue:hover { opacity:.88; }
+.btn-amber  { background:#f59e0b; color:#fff; }
+.btn-amber:hover { opacity:.88; }
+.btn-slate  { background:#475569; color:#fff; }
+.btn-slate:hover { opacity:.88; }
+input.date-pick { padding:6px 10px; border-radius:var(--rsm); border:1.5px solid var(--border); font-size:.8rem; color:var(--primary); background:var(--surface); cursor:pointer; }
 
-input.date-pick {
-    padding: 7px 10px; border-radius: var(--radius-sm);
-    border: 1.5px solid var(--border); font-size: .8rem;
-    color: var(--primary); background: var(--surface); cursor: pointer;
-}
-
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Stats bar
-═══════════════════════════════════════════════════════════════ */
-.stats-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
-.stat-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 12px; border-radius: 20px; font-size: .78rem;
-    background: var(--surface); border: 1.5px solid var(--border); color: var(--primary);
-}
-.stat-chip strong { font-weight: 700; }
-.stat-chip.sc-week   { border-color: var(--primary-s); color: var(--primary-s); background: #eff6ff; }
-.stat-chip.sc-real   { border-color: #16a34a; color: #166534; background: #dcfce7; }
-.stat-chip.sc-proy   { border-color: #d97706; color: #92400e; background: #fef3c7; }
+═══════════════════════════════════════════════════════════ */
+.stats-bar { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
+.sc { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:20px; font-size:.77rem; background:var(--surface); border:1.5px solid var(--border); color:var(--primary); }
+.sc strong { font-weight:700; }
+.sc-week  { border-color:var(--primary-s); color:var(--primary-s); background:#eff6ff; }
+.sc-real  { border-color:#16a34a; color:#166534; background:#dcfce7; }
+.sc-proy  { border-color:#d97706; color:#92400e; background:#fef3c7; }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Legend panel
-═══════════════════════════════════════════════════════════════ */
-.legend-panel {
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
-    margin-bottom: 18px;
-    overflow: hidden;
-}
-.legend-toggle {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px; cursor: pointer; user-select: none;
-    background: #f8fafc;
-}
-.legend-toggle h4 { font-size: .82rem; font-weight: 700; color: var(--primary); margin: 0; }
-.legend-chevron { font-size: .8rem; color: var(--muted); transition: transform .2s; }
-.legend-body { display: none; padding: 12px 16px; }
-.legend-grid { display: flex; flex-wrap: wrap; gap: 7px; }
-.legend-item {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 20px;
-    border: 1px solid rgba(0,0,0,.08);
-    font-size: .73rem; font-weight: 600; color: #fff;
-    white-space: nowrap;
-}
-.legend-item .lcode { font-weight: 800; }
-.legend-item .lname { font-weight: 400; opacity: .9; }
-/* projection note */
-.legend-proy {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 20px;
-    border: 1.5px dashed #d97706;
-    font-size: .73rem; color: #92400e; background: #fef3c7;
-    white-space: nowrap;
-}
+═══════════════════════════════════════════════════════════ */
+.legend-panel { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; }
+.legend-toggle { display:flex; align-items:center; justify-content:space-between; padding:9px 15px; cursor:pointer; user-select:none; background:#f8fafc; }
+.legend-toggle h4 { font-size:.82rem; font-weight:700; color:var(--primary); margin:0; }
+.legend-chevron { font-size:.8rem; color:var(--muted); transition:transform .2s; }
+.legend-body { display:none; padding:10px 15px 12px; }
+.legend-grid { display:flex; flex-wrap:wrap; gap:6px; }
+.li { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; border:1px solid rgba(0,0,0,.1); font-size:.71rem; font-weight:600; color:#fff; white-space:nowrap; }
+.li .ln { font-weight:400; opacity:.88; }
+.li-proy { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; border:1.5px dashed #d97706; font-size:.71rem; color:#92400e; background:#fef3c7; }
 
-/* ═══════════════════════════════════════════════════════════════
-   Machine grid
-═══════════════════════════════════════════════════════════════ */
-.cat-header {
-    display: flex; align-items: center; gap: 9px;
-    margin: 22px 0 12px; padding-bottom: 9px;
-    border-bottom: 2px solid var(--border);
-}
-.cat-header h3 { font-size: .9rem; font-weight: 700; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: .6px; }
+/* ═══════════════════════════════════════════════════════════
+   Category header
+═══════════════════════════════════════════════════════════ */
+.cat-header { display:flex; align-items:center; gap:8px; margin:20px 0 10px; padding-bottom:8px; border-bottom:2px solid var(--border); }
+.cat-header h3 { font-size:.88rem; font-weight:700; color:var(--primary); margin:0; text-transform:uppercase; letter-spacing:.6px; }
 
+/* ═══════════════════════════════════════════════════════════
+   Machine grid  —  auto-fill, respeta ancho mínimo del contenido
+═══════════════════════════════════════════════════════════ */
 .maquinas-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
-    gap: 14px;
-    margin-bottom: 8px;
+    /* minmax = nw + 7 celdas + 6 gaps entre celdas + 1 gap nw→días + padding×2 + borde-izq */
+    grid-template-columns: repeat(auto-fill,
+        minmax(calc(var(--nw) + 7*var(--cell) + 6*var(--cgap) + var(--cgap) + var(--cpads)*2 + 4px + 4px), 1fr));
+    gap: 12px;
+    margin-bottom: 6px;
 }
+/* Línea de Mando: siempre 1 columna (no tiene máquinas) */
+.maquinas-grid.grid-flat { grid-template-columns: 1fr; }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Machine card
-═══════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 .maquina-card {
     background: var(--surface);
     border: 1.5px solid var(--border);
+    border-left: 4px solid var(--mac-accent, var(--primary-s));
     border-radius: var(--radius);
     overflow: hidden;
-    border-left: 4px solid var(--mac-accent, var(--primary-s));
-    display: flex; flex-direction: column;
+    min-width: 0;           /* permite que el grid comprima si es necesario */
 }
 .maquina-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px;
-    background: var(--primary);
-    color: #fff;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 9px 13px;
+    background: var(--primary); color: #fff;
 }
-.maquina-header-left { display: flex; align-items: center; gap: 8px; }
-.maquina-name { font-size: .88rem; font-weight: 700; }
-.maquina-badges { display: flex; gap: 5px; }
-.maq-badge {
-    font-size: .68rem; font-weight: 600; padding: 2px 7px;
-    border-radius: 10px; background: rgba(255,255,255,.18); color: #fff;
-}
+.maquina-name { font-size:.87rem; font-weight:700; display:flex; align-items:center; gap:7px; }
+.maq-badges { display:flex; gap:5px; }
+.maq-badge { font-size:.68rem; font-weight:600; padding:2px 7px; border-radius:10px; background:rgba(255,255,255,.18); color:#fff; }
 
-/* ═══════════════════════════════════════════════════════════════
-   Day header row inside card
-═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   Day header row
+═══════════════════════════════════════════════════════════ */
 .day-header-row {
-    display: flex; align-items: center; gap: 5px;
-    padding: 5px 12px;
+    display: flex; align-items: center; gap: var(--cgap);
+    padding: 5px var(--cpads);
     background: #f8fafc; border-bottom: 1.5px solid var(--border);
-    position: sticky; top: 0; z-index: 2;
 }
-.dhr-spacer { min-width: 170px; max-width: 170px; }
+.dhr-spacer  { width: var(--nw); min-width: var(--nw); flex-shrink: 0; }
 .dhr-cell {
-    width: 40px; min-width: 40px; text-align: center;
-    font-size: .63rem; line-height: 1.3;
-    padding: 3px 2px; border-radius: 5px;
-    transition: background .15s;
+    width: var(--cell); min-width: var(--cell); flex-shrink: 0;
+    text-align: center; font-size: .62rem; line-height: 1.25;
+    padding: 2px 1px; border-radius: 5px;
 }
-.dhr-cell .dh-name { font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .3px; }
-.dhr-cell .dh-date { color: var(--muted); }
-.dhr-cell.is-today { background: var(--today-header-bg); border: 1.5px solid var(--today-border); }
-.dhr-cell.is-today .dh-name { color: #92400e; }
-.dhr-cell.is-today .dh-date { color: #b45309; }
+.dhr-cell .dh-n { font-weight:700; color:var(--primary); text-transform:uppercase; }
+.dhr-cell .dh-d { color:var(--muted); }
+.dhr-cell.is-today { background:var(--today-bg); border:1.5px solid var(--today-bd); }
+.dhr-cell.is-today .dh-n { color:#92400e; }
+.dhr-cell.is-today .dh-d { color:#b45309; }
 
-/* ═══════════════════════════════════════════════════════════════
-   Guardia sub-section
-═══════════════════════════════════════════════════════════════ */
-.guardia-section { border-top: 1px solid var(--border-soft); }
-.guardia-section:first-child { border-top: none; }
-.guardia-section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 12px;
+/* ═══════════════════════════════════════════════════════════
+   Guardia section
+═══════════════════════════════════════════════════════════ */
+.gsec { border-top:1px solid #f1f5f9; }
+.gsec:first-child { border-top:none; }
+.gsec-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 6px var(--cpads);
 }
-/* Guardia A */
-.gs-a .guardia-section-header { background: var(--ga-bg); border-bottom: 1px solid var(--ga-mid); }
-.gs-a .g-badge { background: var(--ga); color: #fff; }
-/* Guardia B */
-.gs-b .guardia-section-header { background: var(--gb-bg); border-bottom: 1px solid var(--gb-mid); }
-.gs-b .g-badge { background: var(--gb); color: #fff; }
-/* Guardia C */
-.gs-c .guardia-section-header { background: var(--gc-bg); border-bottom: 1px solid var(--gc-mid); }
-.gs-c .g-badge { background: var(--gc); color: #fff; }
-/* Guardia D */
-.gs-d .guardia-section-header { background: var(--gd-bg); border-bottom: 1px solid var(--gd-mid); }
-.gs-d .g-badge { background: var(--gd); color: #fff; }
-/* Sin guardia */
-.gs-sin .guardia-section-header { background: var(--gsin-bg); border-bottom: 1px solid var(--gsin-mid); }
-.gs-sin .g-badge { background: var(--gsin); color: #fff; }
+.gs-a .gsec-header { background:var(--ga-bg); border-bottom:1px solid var(--ga-mid); }
+.gs-a .gbadge { background:var(--ga); }
+.gs-b .gsec-header { background:var(--gb-bg); border-bottom:1px solid var(--gb-mid); }
+.gs-b .gbadge { background:var(--gb); }
+.gs-c .gsec-header { background:var(--gc-bg); border-bottom:1px solid var(--gc-mid); }
+.gs-c .gbadge { background:var(--gc); }
+.gs-d .gsec-header { background:var(--gd-bg); border-bottom:1px solid var(--gd-mid); }
+.gs-d .gbadge { background:var(--gd); }
+.gs-x .gsec-header { background:var(--gx-bg); border-bottom:1px solid var(--gx-mid); }
+.gs-x .gbadge { background:var(--gx); }
 
-.g-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px; border-radius: 20px;
-    font-size: .7rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
-}
-.g-count { font-size: .7rem; color: var(--muted); font-weight: 500; }
+.gbadge { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:20px; font-size:.68rem; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:.4px; }
+.gcnt { font-size:.69rem; color:var(--muted); }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Workers
-═══════════════════════════════════════════════════════════════ */
-.guardia-workers { padding: 6px 10px 8px; }
+═══════════════════════════════════════════════════════════ */
+.gworkers { padding: 5px var(--cpads) 8px; }
+.wrow { display:flex; gap:var(--cgap); align-items:center; padding:3px 2px; border-radius:5px; transition:background .1s; }
+.wrow:nth-child(even) { background:#fafbfc; }
+.wrow:hover { background:#f0f7ff; }
 
-.worker-row {
-    display: flex; gap: 5px; align-items: center;
-    padding: 4px 2px; border-radius: 5px;
-    transition: background .1s;
-}
-.worker-row:nth-child(even) { background: #fafbfc; }
-.worker-row:hover { background: #f0f7ff; }
+.winfo { width:var(--nw); min-width:var(--nw); flex-shrink:0; padding-right:3px; overflow:hidden; }
+.wname { font-size:.76rem; font-weight:700; color:var(--primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+.wcargo { font-size:.63rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
 
-.worker-info { min-width: 170px; max-width: 170px; padding-right: 4px; }
-.worker-name {
-    font-size: .78rem; font-weight: 700; color: var(--primary);
-    line-height: 1.2; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
-}
-.worker-cargo {
-    font-size: .65rem; color: var(--muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
-}
+.dias-row { display:flex; gap:var(--cgap); flex-wrap:nowrap; }
 
-.dias-row { display: flex; gap: 5px; flex-wrap: nowrap; }
-
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Day cells
-═══════════════════════════════════════════════════════════════ */
-.dia-cell {
-    width: 40px; min-width: 40px; height: 40px;
-    border-radius: var(--radius-sm);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    font-weight: 800; font-size: .78rem; color: #fff;
+═══════════════════════════════════════════════════════════ */
+.dc {
+    width: var(--cell); min-width: var(--cell); height: var(--cell);
+    flex-shrink: 0;
+    border-radius: var(--rsm);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: .75rem; color: #fff;
     position: relative; cursor: default;
     transition: transform .12s, box-shadow .12s;
-    box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    box-shadow: 0 1px 3px rgba(0,0,0,.14);
 }
-.dia-cell:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,.18); z-index: 10; }
+.dc:hover { transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.2); z-index:5; }
+.dc.is-today { outline:2px solid var(--today-bd); outline-offset:1px; }
 
-.dia-cell.is-today {
-    outline: 2px solid var(--today-border);
-    outline-offset: 1px;
-}
+/* Projection stripes */
+.dc.is-proy::before { content:''; position:absolute; inset:0; border-radius:var(--rsm); background:repeating-linear-gradient(45deg,transparent 0,transparent 4px,rgba(255,255,255,.2) 4px,rgba(255,255,255,.2) 5px); pointer-events:none; }
+.dc.is-proy::after  { content:'~'; position:absolute; bottom:1px; right:2px; font-size:.48rem; font-weight:900; opacity:.85; color:#fff; pointer-events:none; line-height:1; }
 
-/* Projection overlay — subtle diagonal stripes + indicator dot */
-.dia-cell.is-proy::before {
-    content: '';
-    position: absolute; inset: 0;
-    border-radius: var(--radius-sm);
-    background: repeating-linear-gradient(
-        45deg,
-        rgba(255,255,255,.0) 0px,
-        rgba(255,255,255,.0) 4px,
-        rgba(255,255,255,.18) 4px,
-        rgba(255,255,255,.18) 5px
-    );
-    pointer-events: none;
-}
-.dia-cell.is-proy::after {
-    content: '~';
-    position: absolute; bottom: 1px; right: 3px;
-    font-size: .5rem; font-weight: 900; opacity: .85; color: #fff;
-    pointer-events: none; line-height: 1;
-}
+.dc.empty { background:#f1f5f9 !important; color:var(--muted-lt); border:1.5px dashed var(--border); box-shadow:none; font-weight:400; font-size:.62rem; }
+.dc.empty:hover { transform:none; box-shadow:none; }
 
-.dia-cell.empty {
-    background: #f1f5f9 !important;
-    color: var(--muted-light);
-    border: 1.5px dashed var(--border);
-    box-shadow: none;
-    font-weight: 400; font-size: .65rem;
-}
-.dia-cell.empty:hover { transform: none; box-shadow: none; }
+/* ═══════════════════════════════════════════════════════════
+   Flat-card layout (Línea de Mando — per-guardia cards)
+═══════════════════════════════════════════════════════════ */
+.flat-card .maquina-header { display:none; }   /* no hay máquina que mostrar */
+/* El header de guardia actúa como titular */
+.flat-card .gsec-header { padding: 8px var(--cpads); }
+.flat-card .gbadge { font-size:.75rem; padding:3px 12px; }
 
-/* ═══════════════════════════════════════════════════════════════
-   Empty state
-═══════════════════════════════════════════════════════════════ */
-.empty-state {
-    text-align: center; padding: 56px 20px; color: var(--muted);
-}
-.empty-guardia { font-size: .75rem; color: var(--muted-light); font-style: italic; padding: 8px 2px 4px; }
+/* ═══════════════════════════════════════════════════════════
+   Empty states
+═══════════════════════════════════════════════════════════ */
+.empty-g { font-size:.74rem; color:var(--muted-lt); font-style:italic; padding:6px 2px 4px; }
+.empty-page { text-align:center; padding:56px 20px; color:var(--muted); }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Custom tooltip
-═══════════════════════════════════════════════════════════════ */
-#cell-tooltip {
-    position: fixed; z-index: 9999; pointer-events: none;
-    background: #1e293b; color: #f8fafc;
-    padding: 7px 11px; border-radius: 7px;
-    font-size: .75rem; line-height: 1.4;
-    box-shadow: 0 4px 16px rgba(0,0,0,.25);
-    max-width: 200px;
-    display: none;
-    white-space: nowrap;
-}
-#cell-tooltip .tt-code { font-weight: 800; font-size: .85rem; }
-#cell-tooltip .tt-name { color: #94a3b8; }
-#cell-tooltip .tt-date { color: #64748b; font-size: .7rem; margin-top: 2px; }
-#cell-tooltip .tt-proy { color: #fbbf24; font-size: .68rem; margin-top: 2px; }
+═══════════════════════════════════════════════════════════ */
+#ctt { position:fixed; z-index:9999; pointer-events:none; background:#1e293b; color:#f8fafc; padding:7px 11px; border-radius:7px; font-size:.74rem; line-height:1.5; box-shadow:0 4px 16px rgba(0,0,0,.25); display:none; white-space:nowrap; }
+#ctt .tc  { font-weight:800; font-size:.82rem; }
+#ctt .tn  { color:#94a3b8; }
+#ctt .td  { color:#64748b; font-size:.68rem; margin-top:1px; }
+#ctt .tp  { color:#fbbf24; font-size:.67rem; margin-top:2px; }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    Print
-═══════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
 @media print {
-    @page { size: A3 landscape; margin: 10mm 8mm; }
-    body { background: #fff !important; font-size: 11px; }
-    .no-print { display: none !important; }
-    .print-header { display: block !important; }
-    .legend-body { display: block !important; }
-    .dist-page { padding: 0; }
-    .maquinas-grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
-    .maquina-card { break-inside: avoid; border-left-width: 3px; }
-    .maquina-header, .guardia-section-header, .g-badge, .dia-cell {
-        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    @page { size: A3 landscape; margin: 9mm 8mm; }
+    :root { --cell:30px; --nw:140px; --cgap:3px; --cpads:8px; }
+    body { background:#fff !important; }
+    .no-print { display:none !important; }
+    .print-hdr { display:block !important; }
+    .legend-body { display:block !important; }
+    .dist-page { padding:0; }
+    .maquinas-grid { gap:7px; }
+    .maquina-card { break-inside:avoid; border-left-width:3px; }
+    .maquina-header, .gsec-header, .gbadge, .dc {
+        -webkit-print-color-adjust:exact; print-color-adjust:exact;
     }
-    .dia-cell { width: 34px; min-width: 34px; height: 34px; font-size: .68rem; }
-    .dhr-cell { width: 34px; min-width: 34px; }
-    .dhr-spacer { min-width: 160px; max-width: 160px; }
-    .worker-info { min-width: 160px; max-width: 160px; }
 }
 </style>
 {% endblock %}
 
 
 {% block content %}
+
 <!-- Floating tooltip -->
-<div id="cell-tooltip">
-    <div class="tt-code" id="tt-code"></div>
-    <div class="tt-name" id="tt-name"></div>
-    <div class="tt-date" id="tt-date"></div>
-    <div class="tt-proy" id="tt-proy" style="display:none;">~ Proyección (no confirmado)</div>
-</div>
+<div id="ctt"><div class="tc" id="ct-c"></div><div class="tn" id="ct-n"></div><div class="td" id="ct-d"></div><div class="tp" id="ct-p" style="display:none">~ Proyección — no confirmado</div></div>
 
 <div class="dist-page">
 
-    <!-- ══════════════════════════════════════════════════════════
-         PRINT HEADER (hidden on screen)
-    ══════════════════════════════════════════════════════════════ -->
-    <div class="print-header" style="display:none; margin-bottom:12px;">
+    <!-- Print header (hidden on screen) -->
+    <div class="print-hdr" style="display:none; margin-bottom:10px;">
         <div style="font-size:1rem;font-weight:700;color:#0f172a;">Distribución de Guardias — {{ contrato.nombre_contrato }}</div>
-        <div style="font-size:.8rem;color:#64748b;margin-top:2px;">
-            Semana operativa: {{ fecha_inicio|date:'d/m/Y' }} – {{ fecha_fin|date:'d/m/Y' }}
-            &nbsp;|&nbsp; Día de cambio: {{ contrato.dia_cambio_guardia|default:"—" }}
-        </div>
+        <div style="font-size:.78rem;color:#64748b;margin-top:2px;">Semana: {{ fecha_inicio|date:'d/m/Y' }} – {{ fecha_fin|date:'d/m/Y' }} &nbsp;|&nbsp; Inicio semana: día {{ contrato.dia_cambio_guardia|default:"—" }}</div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════
-         TOPBAR
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ TOPBAR ══════════════════════════════════════════════ -->
     <div class="dist-topbar no-print">
-        <h1 class="dist-topbar-title">Distribución de Guardias</h1>
-        <div class="dist-nav">
+        <h1>Distribución de Guardias — {{ contrato.nombre_contrato }}</h1>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <button id="prevWeek" class="btn btn-ghost">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                Anterior
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Anterior
             </button>
             <button id="todayWeek" class="btn btn-amber">Hoy</button>
-            <button id="nextWeek" class="btn btn-ghost">
-                Siguiente
+            <button id="nextWeek" class="btn btn-ghost">Siguiente
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
-            <input id="pickDate" type="date" class="date-pick" title="Ir a semana" />
+            <input id="pickDate" type="date" class="date-pick" />
             <a href="{% url 'tareo-v2-mensual' %}?contrato={{ contrato.id }}" class="btn btn-ghost">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                Volver
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Volver
             </a>
-            <button id="btnDownload" class="btn btn-slate">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Imagen
+            <button id="btnDL" class="btn btn-slate">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Imagen
             </button>
             <button onclick="window.print()" class="btn btn-blue">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                Imprimir
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir
             </button>
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════
-         STATS BAR
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ STATS BAR ══════════════════════════════════════════ -->
     <div class="stats-bar">
-        <span class="stat-chip sc-week">
+        <span class="sc sc-week">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <strong>{{ fecha_inicio|date:'d/m/Y' }}</strong>&nbsp;–&nbsp;<strong>{{ fecha_fin|date:'d/m/Y' }}</strong>
         </span>
-        {% if reales_count > 0 %}
-        <span class="stat-chip sc-real">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <strong>{{ reales_count }}</strong> registros confirmados
-        </span>
-        {% endif %}
-        {% if proyecciones_count > 0 %}
-        <span class="stat-chip sc-proy">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <strong>{{ proyecciones_count }}</strong> proyecciones
-        </span>
-        {% endif %}
-        <span class="stat-chip" style="color:var(--muted);font-size:.72rem;">
-            Semana inicia: día {{ contrato.dia_cambio_guardia|default:"—" }}
-        </span>
+        {% if reales_count > 0 %}<span class="sc sc-real"><strong>{{ reales_count }}</strong> confirmados</span>{% endif %}
+        {% if proyecciones_count > 0 %}<span class="sc sc-proy"><strong>{{ proyecciones_count }}</strong> proyecciones</span>{% endif %}
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════
-         LEGEND PANEL
-    ══════════════════════════════════════════════════════════════ -->
-    <div class="legend-panel">
-        <div class="legend-toggle" onclick="toggleLegend()" id="legend-hdr">
-            <h4>
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Leyenda de estados de asistencia
-            </h4>
-            <span class="legend-chevron" id="legend-chevron">▾</span>
+    <!-- ══ LEGEND ══════════════════════════════════════════════ -->
+    <div class="legend-panel no-print">
+        <div class="legend-toggle" onclick="toggleLegend()">
+            <h4>Leyenda de estados</h4>
+            <span class="legend-chevron" id="lgchev">▾</span>
         </div>
-        <div class="legend-body" id="legend-body">
+        <div class="legend-body" id="lgbody">
             <div class="legend-grid">
-                <span class="legend-item" style="background:#00C853;"><span class="lcode">T</span><span class="lname">Trabajado</span></span>
-                <span class="legend-item" style="background:#FFB300;color:#1a1a1a;"><span class="lcode">TD</span><span class="lname">Trabajo Día</span></span>
-                <span class="legend-item" style="background:#0D47A1;"><span class="lcode">TN</span><span class="lname">Trabajo Noche</span></span>
-                <span class="legend-item" style="background:#FF1744;"><span class="lcode">TC</span><span class="lname">Trab. en Caliente</span></span>
-                <span class="legend-item" style="background:#2979FF;"><span class="lcode">DL</span><span class="lname">Día Libre</span></span>
-                <span class="legend-item" style="background:#1565C0;"><span class="lcode">DA</span><span class="lname">Día Apoyo</span></span>
-                <span class="legend-item" style="background:#00BFA5;"><span class="lcode">SB</span><span class="lname">Stand By</span></span>
-                <span class="legend-item" style="background:#FF6D00;"><span class="lcode">IND</span><span class="lname">Inducción</span></span>
-                <span class="legend-item" style="background:#558B2F;"><span class="lcode">REC</span><span class="lname">Recorrido</span></span>
-                <span class="legend-item" style="background:#D50000;"><span class="lcode">DM</span><span class="lname">Desc. Médico</span></span>
-                <span class="legend-item" style="background:#B71C1C;"><span class="lcode">F</span><span class="lname">Falta</span></span>
-                <span class="legend-item" style="background:#E65100;"><span class="lcode">P</span><span class="lname">Permiso</span></span>
-                <span class="legend-item" style="background:#880E4F;"><span class="lcode">S</span><span class="lname">Suspensión</span></span>
-                <span class="legend-item" style="background:#6A1B9A;"><span class="lcode">V</span><span class="lname">Vacaciones</span></span>
-                <span class="legend-item" style="background:#455A64;"><span class="lcode">L</span><span class="lname">Licencia</span></span>
-                <span class="legend-item" style="background:#6D4C41;"><span class="lcode">SUB</span><span class="lname">Subsidio</span></span>
-                <span class="legend-item" style="background:#212121;"><span class="lcode">C</span><span class="lname">Cesado</span></span>
-                <span class="legend-proy">~ <strong>Celda con rayas</strong> = proyección (no confirmado)</span>
+                <span class="li" style="background:#00C853">T <span class="ln">Trabajado</span></span>
+                <span class="li" style="background:#FFB300;color:#1a1a1a">TD <span class="ln">Trabajo Día</span></span>
+                <span class="li" style="background:#0D47A1">TN <span class="ln">Trabajo Noche</span></span>
+                <span class="li" style="background:#FF1744">TC <span class="ln">Trab. Caliente</span></span>
+                <span class="li" style="background:#2979FF">DL <span class="ln">Día Libre</span></span>
+                <span class="li" style="background:#1565C0">DA <span class="ln">Día Apoyo</span></span>
+                <span class="li" style="background:#00BFA5">SB <span class="ln">Stand By</span></span>
+                <span class="li" style="background:#FF6D00">IND <span class="ln">Inducción</span></span>
+                <span class="li" style="background:#558B2F">REC <span class="ln">Recorrido</span></span>
+                <span class="li" style="background:#D50000">DM <span class="ln">Desc. Médico</span></span>
+                <span class="li" style="background:#B71C1C">F <span class="ln">Falta</span></span>
+                <span class="li" style="background:#E65100">P <span class="ln">Permiso</span></span>
+                <span class="li" style="background:#880E4F">S <span class="ln">Suspensión</span></span>
+                <span class="li" style="background:#6A1B9A">V <span class="ln">Vacaciones</span></span>
+                <span class="li" style="background:#455A64">L <span class="ln">Licencia</span></span>
+                <span class="li" style="background:#6D4C41">SUB <span class="ln">Subsidio</span></span>
+                <span class="li" style="background:#212121">C <span class="ln">Cesado</span></span>
+                <span class="li-proy">~ rayas = proyección</span>
             </div>
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════
-         DISTRIBUTION GRID
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ DISTRIBUTION ════════════════════════════════════════ -->
     <div id="distribution">
     {% for categoria in categorias %}
+
         <div class="cat-header">
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <h3>{{ categoria.nombre }}</h3>
         </div>
 
+        {% if categoria.key == 'LINEA_MANDO' %}
+        {# ── Línea de Mando: nunca tiene máquina → tarjetas por guardia ── #}
         <div class="maquinas-grid">
-        {% for maq in categoria.maquinas %}
-            <div class="maquina-card" data-maq-idx="{{ forloop.counter0 }}">
+            {% for maq in categoria.maquinas %}
+            {% for guardia in maq.guardias %}
+            {% with gk=guardia.key %}
+            <div class="maquina-card flat-card"
+                 style="--mac-accent:{% if gk == 'A' %}var(--ga){% elif gk == 'B' %}var(--gb){% elif gk == 'C' %}var(--gc){% elif gk == 'D' %}var(--gd){% else %}var(--gx){% endif %}">
 
-                <!-- Machine header -->
-                <div class="maquina-header">
-                    <div class="maquina-header-left">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                        <span class="maquina-name">{{ maq.nombre }}</span>
-                    </div>
-                    <div class="maquina-badges">
-                        <span class="maq-badge">{{ maq.guardias|length }} guardia{{ maq.guardias|length|pluralize }}</span>
-                        <span class="maq-badge" id="maq-wcount-{{ forloop.counter0 }}">
-                            {% with total=0 %}
-                            {% for g in maq.guardias %}{% for t in g.trabajadores %}{% with total=total|add:1 %}{% endwith %}{% endfor %}{% endfor %}
-                            — trabajadores
-                            {% endwith %}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Day header row -->
+                <!-- Day header -->
                 <div class="day-header-row">
                     <div class="dhr-spacer"></div>
                     {% for dia in dias %}
-                    <div class="dhr-cell" data-col="{{ forloop.counter0 }}" data-fecha="{{ dia|date:'Y-m-d' }}">
-                        <div class="dh-name">{{ dia|date:"D"|slice:":2" }}</div>
-                        <div class="dh-date">{{ dia|date:"d/m" }}</div>
+                    <div class="dhr-cell" data-col="{{ forloop.counter0 }}">
+                        <div class="dh-n">{{ dia|date:"D"|slice:":2" }}</div>
+                        <div class="dh-d">{{ dia|date:"d/m" }}</div>
                     </div>
                     {% endfor %}
                 </div>
 
-                <!-- Guardia sections -->
-                {% for guardia in maq.guardias %}
-                <div class="guardia-section
-                    {% if guardia.key == 'A' %}gs-a
-                    {% elif guardia.key == 'B' %}gs-b
-                    {% elif guardia.key == 'C' %}gs-c
-                    {% elif guardia.key == 'D' %}gs-d
-                    {% else %}gs-sin{% endif %}">
-
-                    <div class="guardia-section-header">
-                        <span class="g-badge">
+                <!-- Single guardia section acting as card header -->
+                <div class="gsec gs-{% if gk == 'A' %}a{% elif gk == 'B' %}b{% elif gk == 'C' %}c{% elif gk == 'D' %}d{% else %}x{% endif %}">
+                    <div class="gsec-header">
+                        <span class="gbadge">
                             <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                            Guardia {{ guardia.key }}
+                            {% if gk == 'SIN_GUARDIA' %}Sin Guardia{% else %}Guardia {{ gk }}{% endif %}
                         </span>
-                        <span class="g-count">{{ guardia.trabajadores|length }} trabajador{{ guardia.trabajadores|length|pluralize }}</span>
+                        <span class="gcnt">{{ guardia.trabajadores|length }} trabajador{{ guardia.trabajadores|length|pluralize }}</span>
                     </div>
-
-                    <div class="guardia-workers">
+                    <div class="gworkers">
                     {% if guardia.trabajadores %}
                         {% for t in guardia.trabajadores %}
-                        <div class="worker-row">
-                            <div class="worker-info">
-                                <div class="worker-name"
-                                     title="{{ t.trabajador.apepat }} {{ t.trabajador.apemat }}, {{ t.trabajador.nombres }}">
-                                    {{ t.trabajador.apepat }}{% if t.trabajador.apemat %} {{ t.trabajador.apemat|slice:":1" }}.{% endif %}, {{ t.trabajador.nombres|truncatechars:13 }}
+                        <div class="wrow">
+                            <div class="winfo">
+                                <div class="wname" title="{{ t.trabajador.apepat }} {{ t.trabajador.apemat }}, {{ t.trabajador.nombres }}">
+                                    {{ t.trabajador.apepat }}{% if t.trabajador.apemat %} {{ t.trabajador.apemat|slice:":1" }}.{% endif %}, {{ t.trabajador.nombres|truncatechars:12 }}
                                 </div>
-                                {% if t.trabajador.cargo %}
-                                <div class="worker-cargo">{{ t.trabajador.cargo }}</div>
-                                {% endif %}
+                                {% if t.trabajador.cargo %}<div class="wcargo">{{ t.trabajador.cargo }}</div>{% endif %}
                             </div>
                             <div class="dias-row">
                                 {% for d in t.dias %}
                                 {% if d.color %}
-                                    <div class="dia-cell {% if d.es_proyeccion %}is-proy{% endif %}"
+                                    <div class="dc {% if d.es_proyeccion %}is-proy{% endif %}"
                                          style="background:#{{ d.color }};"
                                          data-col="{{ forloop.counter0 }}"
                                          data-codigo="{{ d.codigo }}"
                                          data-fecha="{{ d.fecha|date:'d/m/Y' }}"
-                                         data-proy="{% if d.es_proyeccion %}1{% else %}0{% endif %}">
-                                        {{ d.codigo }}
-                                    </div>
+                                         data-proy="{% if d.es_proyeccion %}1{% else %}0{% endif %}">{{ d.codigo }}</div>
                                 {% else %}
-                                    <div class="dia-cell empty"
-                                         data-col="{{ forloop.counter0 }}"
-                                         data-fecha="{{ d.fecha|date:'d/m/Y' }}">
-                                        —
-                                    </div>
+                                    <div class="dc empty" data-col="{{ forloop.counter0 }}" data-fecha="{{ d.fecha|date:'d/m/Y' }}">—</div>
                                 {% endif %}
                                 {% endfor %}
                             </div>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <div class="empty-guardia">Sin trabajadores asignados esta semana</div>
+                        <div class="empty-g">Sin trabajadores esta semana</div>
                     {% endif %}
                     </div>
                 </div>
-                {% endfor %}
 
             </div>
+            {% endwith %}
+            {% endfor %}
+            {% endfor %}
+        </div>
+
+        {% else %}
+        {# ── Categorías con máquina (OPERADORES, CONDUCTORES, etc.) ── #}
+        <div class="maquinas-grid">
+        {% for maq in categoria.maquinas %}
+        <div class="maquina-card" data-maq-idx="{{ forloop.counter0 }}">
+
+            <!-- Machine header -->
+            <div class="maquina-header">
+                <div class="maquina-name">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    {{ maq.nombre }}
+                </div>
+                <div class="maq-badges">
+                    <span class="maq-badge">{{ maq.total_workers }} trab.</span>
+                    <span class="maq-badge">{{ maq.guardias|length }} gdia{{ maq.guardias|length|pluralize }}</span>
+                </div>
+            </div>
+
+            <!-- Day header -->
+            <div class="day-header-row">
+                <div class="dhr-spacer"></div>
+                {% for dia in dias %}
+                <div class="dhr-cell" data-col="{{ forloop.counter0 }}">
+                    <div class="dh-n">{{ dia|date:"D"|slice:":2" }}</div>
+                    <div class="dh-d">{{ dia|date:"d/m" }}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Guardia sections -->
+            {% for guardia in maq.guardias %}
+            {% with gk=guardia.key %}
+            <div class="gsec gs-{% if gk == 'A' %}a{% elif gk == 'B' %}b{% elif gk == 'C' %}c{% elif gk == 'D' %}d{% else %}x{% endif %}">
+                <div class="gsec-header">
+                    <span class="gbadge">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        {% if gk == 'SIN_GUARDIA' %}Sin Guardia{% else %}Guardia {{ gk }}{% endif %}
+                    </span>
+                    <span class="gcnt">{{ guardia.trabajadores|length }} trabajador{{ guardia.trabajadores|length|pluralize }}</span>
+                </div>
+                <div class="gworkers">
+                {% if guardia.trabajadores %}
+                    {% for t in guardia.trabajadores %}
+                    <div class="wrow">
+                        <div class="winfo">
+                            <div class="wname" title="{{ t.trabajador.apepat }} {{ t.trabajador.apemat }}, {{ t.trabajador.nombres }}">
+                                {{ t.trabajador.apepat }}{% if t.trabajador.apemat %} {{ t.trabajador.apemat|slice:":1" }}.{% endif %}, {{ t.trabajador.nombres|truncatechars:12 }}
+                            </div>
+                            {% if t.trabajador.cargo %}<div class="wcargo">{{ t.trabajador.cargo }}</div>{% endif %}
+                        </div>
+                        <div class="dias-row">
+                            {% for d in t.dias %}
+                            {% if d.color %}
+                                <div class="dc {% if d.es_proyeccion %}is-proy{% endif %}"
+                                     style="background:#{{ d.color }};"
+                                     data-col="{{ forloop.counter0 }}"
+                                     data-codigo="{{ d.codigo }}"
+                                     data-fecha="{{ d.fecha|date:'d/m/Y' }}"
+                                     data-proy="{% if d.es_proyeccion %}1{% else %}0{% endif %}">{{ d.codigo }}</div>
+                            {% else %}
+                                <div class="dc empty" data-col="{{ forloop.counter0 }}" data-fecha="{{ d.fecha|date:'d/m/Y' }}">—</div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-g">Sin trabajadores esta semana</div>
+                {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+
+        </div>
         {% endfor %}
         </div>
+        {% endif %}
+
     {% empty %}
-        <div class="empty-state">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.3;margin-bottom:12px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            <p style="font-size:.9rem;font-weight:700;margin:0 0 4px;">Sin trabajadores para esta semana</p>
-            <p style="font-size:.8rem;">Verifica que el período tenga asistencias registradas.</p>
+        <div class="empty-page">
+            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.3;margin-bottom:10px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            <p style="font-size:.9rem;font-weight:700;margin:0 0 4px">Sin trabajadores para esta semana</p>
+            <p style="font-size:.8rem">Verifica que el período tenga asistencias registradas.</p>
         </div>
     {% endfor %}
-    </div><!-- /#distribution -->
+    </div>
 
-</div><!-- /.dist-page -->
+</div>
 {% endblock %}
 
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
-/* ─────────────────────────────────────────────────────────────
-   CONSTANTES
-───────────────────────────────────────────────────────────── */
 const contratoId       = '{{ contrato.id }}';
 const fechaInicioStr   = '{{ fecha_inicio|date:"Y-m-d" }}';
 const diaCambioGuardia = Number('{{ contrato.dia_cambio_guardia|default:0 }}');
 
-/* Mapa código → nombre completo para el tooltip */
 const LEYENDA = {
-    'T':'Trabajado','TD':'Trabajo Día','TN':'Trabajo Noche','TC':'Trabajo en Caliente',
-    'DL':'Día Libre','DA':'Día Apoyo','DM':'Descanso Médico','SB':'Stand By',
-    'SUB':'Subsidio','IND':'Inducción','REC':'Recorrido','F':'Falta',
-    'P':'Permiso','S':'Suspensión','V':'Vacaciones','L':'Licencia','C':'Cesado',
+    T:'Trabajado', TD:'Trabajo Día', TN:'Trabajo Noche', TC:'Trabajo en Caliente',
+    DL:'Día Libre', DA:'Día Apoyo', DM:'Descanso Médico', SB:'Stand By',
+    SUB:'Subsidio', IND:'Inducción', REC:'Recorrido', F:'Falta',
+    P:'Permiso', S:'Suspensión', V:'Vacaciones', L:'Licencia', C:'Cesado',
 };
 
-/* Paleta de 8 colores para acento de tarjetas de máquina */
-const MAC_PALETTE = [
-    '#0470ac','#059669','#d97706','#7c3aed',
-    '#0f766e','#dc2626','#db2777','#78350f',
-];
+const MAC_PALETTE = ['#0470ac','#059669','#d97706','#7c3aed','#0f766e','#dc2626','#db2777','#78350f'];
 
-/* ─────────────────────────────────────────────────────────────
-   B: COLUMNA "HOY" RESALTADA
-───────────────────────────────────────────────────────────── */
-(function highlightToday() {
+/* ─ Resaltar "Hoy" ─────────────────────────────────────── */
+(function() {
     const base  = new Date(fechaInicioStr + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((today - base) / 86400000);
-    if (diffDays >= 0 && diffDays < 7) {
-        document.querySelectorAll(`[data-col="${diffDays}"]`).forEach(el => {
-            el.classList.add('is-today');
-        });
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diff  = Math.round((today - base) / 86400000);
+    if (diff >= 0 && diff < 7) {
+        document.querySelectorAll(`[data-col="${diff}"]`).forEach(el => el.classList.add('is-today'));
     }
 })();
 
-/* ─────────────────────────────────────────────────────────────
-   G: ACENTO DE COLOR POR MÁQUINA
-───────────────────────────────────────────────────────────── */
+/* ─ Acento de color por máquina ────────────────────────── */
+function shade(hex, p) {
+    let [r,g,b] = [1,3,5].map(i => Math.max(0,Math.min(255,parseInt(hex.slice(i,i+2),16)+p)));
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
 document.querySelectorAll('.maquina-card[data-maq-idx]').forEach(card => {
-    const idx   = parseInt(card.dataset.maqIdx, 10);
-    const color = MAC_PALETTE[idx % MAC_PALETTE.length];
-    card.style.setProperty('--mac-accent', color);
-    /* Tint the machine header with the same accent (dark overlay) */
-    const header = card.querySelector('.maquina-header');
-    if (header) header.style.background = shadeColor(color, -40);
+    const c = MAC_PALETTE[parseInt(card.dataset.maqIdx,10) % MAC_PALETTE.length];
+    card.style.setProperty('--mac-accent', c);
+    const hdr = card.querySelector('.maquina-header');
+    if (hdr) hdr.style.background = shade(c, -38);
 });
 
-function shadeColor(hex, percent) {
-    let r = parseInt(hex.slice(1,3),16);
-    let g = parseInt(hex.slice(3,5),16);
-    let b = parseInt(hex.slice(5,7),16);
-    r = Math.max(0, Math.min(255, r + percent));
-    g = Math.max(0, Math.min(255, g + percent));
-    b = Math.max(0, Math.min(255, b + percent));
-    return '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
-}
-
-/* ─────────────────────────────────────────────────────────────
-   F: TOOLTIP ENRIQUECIDO
-───────────────────────────────────────────────────────────── */
-const tooltip = document.getElementById('cell-tooltip');
-const ttCode  = document.getElementById('tt-code');
-const ttName  = document.getElementById('tt-name');
-const ttDate  = document.getElementById('tt-date');
-const ttProy  = document.getElementById('tt-proy');
-
-document.querySelectorAll('.dia-cell[data-codigo]').forEach(cell => {
-    cell.addEventListener('mouseenter', function(e) {
-        const codigo = this.dataset.codigo || '';
-        const fecha  = this.dataset.fecha  || '';
-        const isProy = this.dataset.proy === '1';
-        ttCode.textContent = codigo;
-        ttName.textContent = LEYENDA[codigo] || codigo;
-        ttDate.textContent = fecha;
-        ttProy.style.display = isProy ? 'block' : 'none';
-        tooltip.style.display = 'block';
-        positionTooltip(e);
+/* ─ Tooltip enriquecido ─────────────────────────────────── */
+const TT = document.getElementById('ctt');
+const [TTC,TTN,TTD,TTP] = ['ct-c','ct-n','ct-d','ct-p'].map(id=>document.getElementById(id));
+document.querySelectorAll('.dc[data-codigo]').forEach(el => {
+    el.addEventListener('mouseenter', function(e){
+        const c = this.dataset.codigo||'';
+        TTC.textContent = c;
+        TTN.textContent = LEYENDA[c]||c;
+        TTD.textContent = this.dataset.fecha||'';
+        TTP.style.display = this.dataset.proy==='1' ? 'block' : 'none';
+        TT.style.display = 'block'; posTT(e);
     });
-    cell.addEventListener('mousemove', positionTooltip);
-    cell.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    el.addEventListener('mousemove', posTT);
+    el.addEventListener('mouseleave', ()=>TT.style.display='none');
 });
-
-function positionTooltip(e) {
-    const x = e.clientX + 14;
-    const y = e.clientY - 10;
-    const tw = tooltip.offsetWidth  || 160;
-    const th = tooltip.offsetHeight || 60;
-    tooltip.style.left = (x + tw > window.innerWidth  ? e.clientX - tw - 8 : x) + 'px';
-    tooltip.style.top  = (y + th > window.innerHeight ? e.clientY - th - 8 : y) + 'px';
+function posTT(e){
+    const x=e.clientX+14, y=e.clientY-10, tw=TT.offsetWidth||160, th=TT.offsetHeight||60;
+    TT.style.left=(x+tw>window.innerWidth  ? e.clientX-tw-8 : x)+'px';
+    TT.style.top =(y+th>window.innerHeight ? e.clientY-th-8 : y)+'px';
 }
 
-/* ─────────────────────────────────────────────────────────────
-   A: TOGGLE LEYENDA
-───────────────────────────────────────────────────────────── */
-function toggleLegend() {
-    const body    = document.getElementById('legend-body');
-    const chevron = document.getElementById('legend-chevron');
-    const open    = body.style.display === 'block';
-    body.style.display      = open ? 'none' : 'block';
-    chevron.style.transform = open ? '' : 'rotate(180deg)';
+/* ─ Toggle leyenda ──────────────────────────────────────── */
+function toggleLegend(){
+    const b=document.getElementById('lgbody'), c=document.getElementById('lgchev'), open=b.style.display==='block';
+    b.style.display=open?'none':'block'; c.style.transform=open?'':'rotate(180deg)';
 }
 
-/* ─────────────────────────────────────────────────────────────
-   NAVEGACIÓN DE SEMANAS
-   La semana operativa empieza en contrato.dia_cambio_guardia
-   (0=lunes … 6=domingo, convención Python weekday)
-───────────────────────────────────────────────────────────── */
-function toISO(d) { return d.toISOString().slice(0, 10); }
-
-function operWeekStart(date) {
-    const dt    = new Date(date);
-    const pyDay = (dt.getDay() + 6) % 7;          // JS→Python weekday
-    const diff  = (pyDay - diaCambioGuardia + 7) % 7;
-    dt.setDate(dt.getDate() - diff);
-    return dt;
+/* ─ Navegación semanal ──────────────────────────────────── */
+function toISO(d){ return d.toISOString().slice(0,10); }
+function operWeekStart(date){
+    const dt=new Date(date), pyDay=(dt.getDay()+6)%7, diff=(pyDay-diaCambioGuardia+7)%7;
+    dt.setDate(dt.getDate()-diff); return dt;
 }
-
-function navToWeek(baseDate, offsetDays) {
-    const shifted = new Date(baseDate);
-    shifted.setDate(shifted.getDate() + offsetDays);
-    const ws = operWeekStart(shifted);
-    window.location.href =
-        `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(ws)}`;
+function navWeek(base, offset){
+    const d=new Date(base); d.setDate(d.getDate()+offset);
+    window.location.href=`{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(operWeekStart(d))}`;
 }
-
-document.getElementById('prevWeek').addEventListener('click',  () => navToWeek(new Date(fechaInicioStr), -7));
-document.getElementById('nextWeek').addEventListener('click',  () => navToWeek(new Date(fechaInicioStr), +7));
-document.getElementById('todayWeek').addEventListener('click', () => navToWeek(new Date(), 0));
-
-document.getElementById('pickDate').addEventListener('change', function(e) {
-    if (!e.target.value) return;
-    navToWeek(new Date(e.target.value), 0);
-});
+document.getElementById('prevWeek').onclick  = ()=>navWeek(new Date(fechaInicioStr),-7);
+document.getElementById('nextWeek').onclick  = ()=>navWeek(new Date(fechaInicioStr),+7);
+document.getElementById('todayWeek').onclick = ()=>navWeek(new Date(),0);
+document.getElementById('pickDate').addEventListener('change', e=>{ if(e.target.value) navWeek(new Date(e.target.value),0); });
 document.getElementById('pickDate').value = fechaInicioStr;
 
-/* ─────────────────────────────────────────────────────────────
-   DESCARGA COMO IMAGEN
-───────────────────────────────────────────────────────────── */
-document.getElementById('btnDownload').addEventListener('click', function() {
-    const el = document.getElementById('distribution');
-    this.disabled = true;
-    this.textContent = 'Generando…';
-    html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f1f5f9' }).then(canvas => {
-        const a = document.createElement('a');
-        a.href     = canvas.toDataURL('image/png');
-        a.download = `guardias_{{ contrato.nombre_contrato|slugify }}_{{ fecha_inicio|date:'Ymd' }}.png`;
-        document.body.appendChild(a); a.click(); a.remove();
-    }).catch(err => console.error('html2canvas:', err))
-      .finally(() => { this.disabled = false; this.textContent = 'Imagen'; });
+/* ─ Descarga imagen ─────────────────────────────────────── */
+document.getElementById('btnDL').addEventListener('click', function(){
+    this.disabled=true; this.textContent='Generando…';
+    html2canvas(document.getElementById('distribution'),{scale:2,useCORS:true,backgroundColor:'#f1f5f9'})
+        .then(c=>{ const a=document.createElement('a'); a.href=c.toDataURL('image/png');
+            a.download='guardias_{{ contrato.nombre_contrato|slugify }}_{{ fecha_inicio|date:"Ymd" }}.png';
+            document.body.appendChild(a); a.click(); a.remove(); })
+        .catch(e=>console.error(e))
+        .finally(()=>{ this.disabled=false; this.textContent='Imagen'; });
 });
 
 /* Abrir leyenda al imprimir */
-window.addEventListener('beforeprint', () => {
-    document.getElementById('legend-body').style.display = 'block';
-});
+window.addEventListener('beforeprint',()=>{ document.getElementById('lgbody').style.display='block'; });
 </script>
 {% endblock %}

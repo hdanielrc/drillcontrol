@@ -1710,7 +1710,8 @@ def mostrar_tareo_semanal(request):
                     guardias_list = []
                     for gk, tlist in md['guardias'].items():
                         guardias_list.append({'key': gk, 'trabajadores': tlist})
-                    maquinas_list.append({'key': mk, 'nombre': md['nombre'], 'css': md['css'], 'guardias': guardias_list})
+                    total_workers = sum(len(tlist) for tlist in md['guardias'].values())
+                    maquinas_list.append({'key': mk, 'nombre': md['nombre'], 'css': md['css'], 'guardias': guardias_list, 'total_workers': total_workers})
                 categorias_list.append({'key': key, 'nombre': v['nombre'], 'maquinas': maquinas_list})
 
         # Añadir el resto de categorías que no están en preferred_order, ordenadas por key
