@@ -812,48 +812,46 @@
                         {% comment %} Normalizar estados equivalentes para visualización y select {% endcomment %}
                         {# Normalización segura de estados para Django template #}
                         {% with data.estado|default:'TD' as estado_code %}
-                            {% if estado_code == 'DESCANSO' %}{% with 'DL' as estado_code2 %}
-                            {% elif estado_code == 'TRABAJO' or estado_code == 'TRABAJADO' %}{% with 'T' as estado_code2 %}
-                            {% elif estado_code == 'TRABAJADO_DIA' %}{% with 'TD' as estado_code2 %}
-                            {% elif estado_code == 'TRABAJADO_NOCHE' %}{% with 'TN' as estado_code2 %}
-                            {% else %}{% with estado_code as estado_code2 %}
+                            {% if estado_code == 'DESCANSO' %}
+                                {% with 'DL' as estado_code2 %}
+                                    <td class="celda-DL {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
+                                        data-estado="DL"
+                                >
+                                {% include 'drilling/tareo/estado_select_options.html' with estado_code2='DL' %}
+                                {% endwith %}
+                            {% elif estado_code == 'TRABAJO' or estado_code == 'TRABAJADO' %}
+                                {% with 'T' as estado_code2 %}
+                                    <td class="celda-T {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
+                                        data-estado="T"
+                                >
+                                {% include 'drilling/tareo/estado_select_options.html' with estado_code2='T' %}
+                                {% endwith %}
+                            {% elif estado_code == 'TRABAJADO_DIA' %}
+                                {% with 'TD' as estado_code2 %}
+                                    <td class="celda-TD {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
+                                        data-estado="TD"
+                                >
+                                {% include 'drilling/tareo/estado_select_options.html' with estado_code2='TD' %}
+                                {% endwith %}
+                            {% elif estado_code == 'TRABAJADO_NOCHE' %}
+                                {% with 'TN' as estado_code2 %}
+                                    <td class="celda-TN {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
+                                        data-estado="TN"
+                                >
+                                {% include 'drilling/tareo/estado_select_options.html' with estado_code2='TN' %}
+                                {% endwith %}
+                            {% else %}
+                                <td class="celda-{{ estado_code }} {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
+                                    data-estado="{{ estado_code }}"
+                                >
+                                {% include 'drilling/tareo/estado_select_options.html' with estado_code2=estado_code %}
                             {% endif %}
-                                <td class="celda-{{ estado_code2 }} {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
-                                    data-estado="{{ estado_code2 }}"
                             data-trabajador-id="{{ row.trabajador.id }}" 
                             data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
                             <!-- Grid de Estados -->
                             <!-- Select clásico de Estado -->
-                            <select 
-                                name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
-                                class="estado-select estado-{{ estado_code2 }}"
-                                data-tipo="estado"
-                                onchange="(function(sel){ sel.className='estado-select estado-' + sel.value; var td=sel.closest('td'); var tr=td.closest('tr'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); tr.classList.add('dirty-row'); if (typeof actualizarSummaryRows === 'function') actualizarSummaryRows(); })(this)"
-                                title="{{ estado_code2 }}"
-                            >
-                                <option value="T"    {% if estado_code2 == 'T'    %}selected{% endif %}>T</option>
-                                <option value="TD"   {% if estado_code2 == 'TD'   or not estado_code2 %}selected{% endif %}>TD</option>
-                                <option value="TN"   {% if estado_code2 == 'TN'   %}selected{% endif %}>TN</option>
-                                <option value="TI"   {% if estado_code2 == 'TI'   %}selected{% endif %}>TI</option>
-                                <option value="DL"   {% if estado_code2 == 'DL'   %}selected{% endif %}>DL</option>
-                                <option value="DA"   {% if estado_code2 == 'DA'   %}selected{% endif %}>DA</option>
-                                <option value="PT"   {% if estado_code2 == 'PT'   %}selected{% endif %}>PT</option>
-                                <option value="DM"   {% if estado_code2 == 'DM'   %}selected{% endif %}>DM</option>
-                                <option value="SB"   {% if estado_code2 == 'SB'   %}selected{% endif %}>SB</option>
-                                <option value="SUB"  {% if estado_code2 == 'SUB'  %}selected{% endif %}>SUB</option>
-                                <option value="I"    {% if estado_code2 == 'I'    %}selected{% endif %}>I</option>
-                                <option value="IV"   {% if estado_code2 == 'IV'   %}selected{% endif %}>IV</option>
-                                <option value="R"    {% if estado_code2 == 'R'    %}selected{% endif %}>R</option>
-                                <option value="F"    {% if estado_code2 == 'F'    %}selected{% endif %}>F</option>
-                                <option value="S"    {% if estado_code2 == 'S'    %}selected{% endif %}>S</option>
-                                <option value="V"    {% if estado_code2 == 'V'    %}selected{% endif %}>V</option>
-                                <option value="LSG"  {% if estado_code2 == 'LSG'  %}selected{% endif %}>LSG</option>
-                                <option value="C"    {% if estado_code2 == 'C'    %}selected{% endif %}>C</option>
-                                <option value="TC1"  {% if estado_code2 == 'TC1'  %}selected{% endif %}>TC1</option>
-                                <option value="LFC"  {% if estado_code2 == 'LFC'  %}selected{% endif %}>LFC</option>
-                                <option value="DA1"  {% if estado_code2 == 'DA1'  %}selected{% endif %}>DA1</option>
-                                <option value="LCG"  {% if estado_code2 == 'LCG'  %}selected{% endif %}>LCG</option>
-                    {% endwith %}
+{# El select y las opciones se mueven a un include para evitar duplicidad y errores de cierre de bloques #}
+                            {# NOTA: crea un archivo drilling/tareo/estado_select_options.html con el contenido del select y las opciones, usando la variable estado_code2 #}
                             </select>
                             </div>
                             <style>
