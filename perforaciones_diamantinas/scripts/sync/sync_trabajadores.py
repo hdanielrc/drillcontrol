@@ -196,7 +196,6 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
                 'fecha_cese': _parse_api_date(
                     worker.get('fecha_cese')
                     or worker.get('fecha_baja')
-                    or worker.get('fecha_termino')
                 ),
                 'estado': estado_api,
                 'estado_api': estado_api,
