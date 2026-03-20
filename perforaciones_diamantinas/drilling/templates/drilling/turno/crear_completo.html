@@ -1242,89 +1242,77 @@
         { id: "{{ actividad.id }}", nombre: "{{ actividad.nombre|escapejs }}" },
         {% endfor %}
     ];
+    // Lista global de trabajadores para construir opciones dinámicamente
+    window.listaTrabajadores = [
+        {% for t in trabajadores_disponibles %}
+        { id: "{{ t.id }}", nombre: "{{ t.apellidos|escapejs }}, {{ t.nombres|escapejs }} - {{ t.cargo.nombre|escapejs }}", cargo: "{{ t.cargo.nombre|escapejs }}" },
+        {% endfor %}
+    ];
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // NOTE: Select2, client-side date default and inline activity creation were removed to
     // keep `crear_completo.html` focused on serializing dynamic rows. The master list of
     // actividades must be managed separately and assigned to contracts via a dedicated view.
+
+    // =============================================
+    // HELPER: TOAST DE NOTIFICACIONES (reemplaza alert/confirm nativos)
+    // =============================================
+    function mostrarToast(mensaje, tipo, duracion) {
+        tipo = tipo || 'info'; // 'success', 'danger', 'warning', 'info'
+        duracion = duracion || 4000;
+        var container = document.getElementById('toast-container-turno');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container-turno';
+            container.style.cssText = 'position:fixed;top:70px;right:16px;z-index:9999;min-width:280px;max-width:400px;';
+            document.body.appendChild(container);
+        }
+        var toast = document.createElement('div');
+        var icons = { success: 'fa-check-circle', danger: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+        toast.className = 'alert alert-' + tipo + ' alert-dismissible shadow-sm fade show';
+        toast.style.cssText = 'margin-bottom:8px;font-size:0.9rem;';
+        toast.innerHTML = '<i class="fas ' + (icons[tipo] || icons.info) + ' me-2"></i>' + mensaje +
+            '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+        container.appendChild(toast);
+        setTimeout(function() { if (toast.parentNode) toast.remove(); }, duracion);
+    }
+
+    function confirmarAccion(mensaje, callbackSi) {
+        var modal = document.getElementById('modal-confirm-turno');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-confirm-turno';
+            modal.className = 'modal fade';
+            modal.setAttribute('tabindex', '-1');
+            modal.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">' +
+                '<div class="modal-header"><h5 class="modal-title"><i class="fas fa-question-circle text-warning me-2"></i>Confirmar</h5>' +
+                '<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>' +
+                '<div class="modal-body" id="modal-confirm-msg"></div>' +
+                '<div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+                '<button type="button" class="btn btn-primary" id="modal-confirm-si">Confirmar</button></div>' +
+                '</div></div>';
+            document.body.appendChild(modal);
+        }
+        document.getElementById('modal-confirm-msg').innerHTML = mensaje;
+        var bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        var btnSi = document.getElementById('modal-confirm-si');
+        var handler = function() {
+            bsModal.hide();
+            btnSi.removeEventListener('click', handler);
+            callbackSi();
+        };
+        btnSi.addEventListener('click', handler);
+    }
+
     // =============================================
     // FUNCIONES PARA TRABAJADORES
     // =============================================
-    
-    function crearTrabajadorRow() {
-        const trabajadorCount = document.querySelectorAll('.trabajador-row').length;
-        return `
-        <div class="trabajador-row border rounded p-3 mb-3 bg-light">
-            <div class="row">
-                <div class="col-md-3">
-                    <label class="form-label">Trabajador</label>
-                    <select name="trabajador_${trabajadorCount}" class="form-select" required>
-                        <option value="">Seleccionar trabajador</option>
-                        {% for trabajador in trabajadores %}
-                        <option value="{{ trabajador.id }}">{{ trabajador.apellidos }}, {{ trabajador.nombres }} — {{ trabajador.cargo }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Función</label>
-                    <select name="funcion_${trabajadorCount}" class="form-select" required>
-                        <option value="">Seleccionar función</option>
-                        <option value="PERFORISTA">Perforista</option>
-                        <option value="AYUDANTE">Ayudante</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Asistencia</label>
-                    <select name="estado_asistencia_${trabajadorCount}" class="form-select asistencia-select">
-                        <option value="TRABAJADO" selected>Trabajado</option>
-                        <option value="FALTA">Falta</option>
-                        <option value="DESCANSO_MEDICO">Descanso Médico</option>
-                        <option value="PERMISO">Permiso</option>
-                        <option value="VACACIONES">Vacaciones</option>
-                        <option value="LICENCIA_SIN_GOCE">Lic. Sin Goce</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Observaciones</label>
-                    <input type="text" name="obs_${trabajadorCount}" class="form-control" placeholder="Observaciones">
-                </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-trabajador">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        </div>`;
-    }
-    
+
+    // Función única para crear filas de trabajador (manual o desde tareo)
     document.getElementById('agregar-trabajador-btn').addEventListener('click', function() {
-        const emptyState = document.getElementById('empty-trabajadores');
-        if (emptyState) {
-            emptyState.remove();
-        }
-        
-        document.getElementById('trabajadores-seccion').insertAdjacentHTML('beforeend', crearTrabajadorRow());
-    });
-    
-    document.getElementById('trabajadores-seccion').addEventListener('click', function(event) {
-        if (event.target.closest('.btn-remove-trabajador')) {
-            event.target.closest('.trabajador-row').remove();
-            
-            // Verificar si quedan trabajadores
-            const container = document.getElementById('trabajadores-seccion');
-            if (container.querySelectorAll('.trabajador-row').length === 0) {
-                // Solo agregar si no existe ya
-                if (!document.getElementById('empty-trabajadores')) {
-                    container.insertAdjacentHTML('beforeend', `
-                        <div class="section-empty-state" id="empty-trabajadores">
-                            <i class="fas fa-user-plus"></i>
-                            <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" o use el selector de Guardia para comenzar.</p>
-                        </div>
-                    `);
-                }
-            }
-        }
+        agregarTrabajadorRow(null);
     });
     
     // =============================================
@@ -1358,14 +1346,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="number" step="0.01" name="metros_turno_${complementoCount}" class="form-control" readonly>
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-complemento">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-complemento" aria-label="Eliminar complemento">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
         </div>`;
     }
-    
+
     // Si existe el botón global (compatibilidad), evitar errores
     var addCompBtn = document.getElementById('agregar-complemento-btn');
     if (addCompBtn) {
@@ -1504,31 +1492,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!subsection) return;
         
         let totalMetraje = 0;
-        let detalleCalculo = [];
-        
+
         subsection.querySelectorAll('.complemento-row').forEach(function(row) {
             const metrosTurno = parseFloat(row.querySelector('input[name*="metros_turno"]')?.value) || 0;
             const categoria = row.getAttribute('data-categoria') || '';
-            const serie = row.querySelector('.input-serie')?.value || 'Sin serie';
-            
             // SOLO sumar si es una BROCA (no reamers ni otros complementos)
-            if (metrosTurno > 0) {
-                if (categoria === 'BROCA') {
-                    totalMetraje += metrosTurno;
-                    detalleCalculo.push(`✓ ${serie} (BROCA): ${metrosTurno}m`);
-                } else {
-                    detalleCalculo.push(`✗ ${serie} (${categoria || 'SIN CATEGORIA'}): ${metrosTurno}m - EXCLUIDO`);
-                }
+            if (metrosTurno > 0 && categoria === 'BROCA') {
+                totalMetraje += metrosTurno;
             }
         });
-        
-        // Log para debug (puedes removerlo después)
-        if (detalleCalculo.length > 0) {
-            console.log('=== Cálculo de Metraje Sondaje ' + sondajeId + ' ===');
-            detalleCalculo.forEach(d => console.log(d));
-            console.log('Total: ' + totalMetraje + 'm');
-            console.log('========================================');
-        }
         
         // Buscar la fila del sondaje y actualizar su campo de metraje
         const sondajeRows = document.querySelectorAll('.sondaje-row');
@@ -1587,14 +1559,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="hidden" name="unidad_medida_${aditivoCount}" value="{{ unidad_kg_id|default:'' }}">
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-aditivo">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-aditivo" aria-label="Eliminar aditivo">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
         </div>`;
     }
-    
+
     var addAditBtn = document.getElementById('agregar-aditivo-btn');
     if (addAditBtn) {
         addAditBtn.addEventListener('click', function() {
@@ -1841,14 +1813,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 recalcularMetrajeSondaje(sondajeId);
 
-                // Notificación breve bajo el header de la subsección
+                // Notificación persistente bajo el header (se cierra manualmente)
                 const header = subsectionDiv.querySelector('.sondaje-subsection-header');
                 if (header) {
                     const notif = document.createElement('div');
                     notif.style.cssText = 'font-size:0.78rem;padding:4px 10px;background:#e8f4fd;border-left:3px solid #0d6efd;margin:4px 0;border-radius:0 4px 4px 0;display:flex;align-items:center;gap:6px;color:#0a58ca;';
-                    notif.innerHTML = `<i class="fas fa-history"></i> Pre-cargado desde historial: <strong>${seriesAdded.join(', ')}</strong> — verifique y ajuste los metros.`;
+                    notif.innerHTML = `<i class="fas fa-history"></i> Pre-cargado desde historial: <strong>${seriesAdded.join(', ')}</strong> — verifique y ajuste los metros.`
+                        + ' <button type="button" style="margin-left:auto;background:none;border:none;font-size:0.85rem;color:#0a58ca;cursor:pointer;" onclick="this.parentNode.remove()" aria-label="Cerrar">✕</button>';
                     header.insertAdjacentElement('afterend', notif);
-                    setTimeout(() => notif.remove(), 8000);
                 }
             })
             .catch(err => console.warn('Error obteniendo última broca del sondaje:', err));
@@ -2058,11 +2030,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const contratoId = "{{ user.contrato.id }}";
 
             if (!fecha) {
-                alert('Por favor seleccione una fecha primero.');
+                mostrarToast('Por favor seleccione una fecha primero.', 'warning');
                 return;
             }
             if (!maquinaId) {
-                alert('Por favor seleccione una máquina primero.');
+                mostrarToast('Por favor seleccione una máquina primero.', 'warning');
                 return;
             }
 
@@ -2075,30 +2047,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.success && data.trabajadores && data.trabajadores.length > 0) {
                         const maquinaNombre = data.maquina_nombre || `Máquina #${maquinaId}`;
-                        if (confirm(`Se encontraron ${data.trabajadores.length} trabajador(es) en el tareo para ${maquinaNombre} el ${fecha}.\n¿Desea añadirlos al turno?`)) {
-                            data.trabajadores.forEach(trabajador => {
-                                agregarTrabajadorRow(trabajador);
-                            });
-                            actualizarBadges();
-
-                            const successMsg = document.createElement('div');
-                            successMsg.className = 'alert alert-success alert-dismissible fade show mt-2';
-                            successMsg.innerHTML = `
-                                <i class="fas fa-check-circle"></i>
-                                Se cargaron ${data.trabajadores.length} trabajador(es) desde el tareo de <strong>${maquinaNombre}</strong>.
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            `;
-                            document.querySelector('#seccion-trabajadores .section-card-body').prepend(successMsg);
-                            setTimeout(() => { if (successMsg.parentNode) successMsg.remove(); }, 6000);
-                        }
+                        confirmarAccion(
+                            `Se encontraron <strong>${data.trabajadores.length}</strong> trabajador(es) en el tareo para <strong>${maquinaNombre}</strong> el <strong>${fecha}</strong>.<br>¿Desea añadirlos al turno?`,
+                            function() {
+                                data.trabajadores.forEach(trabajador => agregarTrabajadorRow(trabajador));
+                                actualizarBadges();
+                                mostrarToast(`Se cargaron ${data.trabajadores.length} trabajador(es) desde el tareo de <strong>${maquinaNombre}</strong>.`, 'success', 6000);
+                            }
+                        );
                     } else {
-                        const msg = data.error || `No hay trabajadores registrados en el tareo para esta máquina y fecha.\n\nVerifique que el tareo esté completo para el ${fecha}.`;
-                        alert(msg);
+                        const msg = data.error || `No hay trabajadores registrados en el tareo para esta máquina y fecha. Verifique que el tareo esté completo para el ${fecha}.`;
+                        mostrarToast(msg, 'warning', 7000);
                     }
                 })
                 .catch(error => {
                     console.error('Error al cargar trabajadores desde tareo:', error);
-                    alert('Error de conexión al consultar el tareo.');
+                    mostrarToast('Error de conexión al consultar el tareo.', 'danger');
                 })
                 .finally(() => {
                     this.innerHTML = originalHTML;
@@ -2107,40 +2071,44 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Helper para añadir trabajador con datos prellenados
-    function agregarTrabajadorRow(data = null) {
+    // Función única para crear filas de trabajador: acepta datos del tareo o null (manual)
+    function agregarTrabajadorRow(data) {
+        data = data || null;
         const container = document.getElementById('trabajadores-seccion');
         const emptyState = document.getElementById('empty-trabajadores');
         if (emptyState) emptyState.remove();
 
-        // 1. Crear el elemento DOM para la fila
         const div = document.createElement('div');
         div.className = 'trabajador-row dynamic-row';
-        
-        // 2. Generar IDs únicos
-        const timestamp = Date.now() + Math.random().toString(36).substring(7);
-        
-        // 3. Determinar valores iniciales (si vienen de auto-rellenado o edición)
-        const trabajadorId = data ? data.id : '';
-        const funcion = data ? (data.cargo || '') : ''; // Si viene cargo se usa como función inicial
+
+        const trabajadorId = data ? String(data.id || '') : '';
+        const funcion      = data ? (data.cargo || '') : '';
         const observaciones = data ? (data.observaciones || '') : '';
-        const asistencia = data ? (data.estado_asistencia || 'TRABAJADO') : 'TRABAJADO';
-        
-        // 4. HTML de la fila
+        const asistencia   = data ? (data.estado_asistencia || 'TRABAJADO') : 'TRABAJADO';
+
+        // Construir opciones desde la lista global (sin Django tags en el template literal)
+        let optionsHtml = '<option value="">Seleccionar trabajador...</option>';
+        (window.listaTrabajadores || []).forEach(function(t) {
+            const sel = (trabajadorId && String(t.id) === trabajadorId) ? 'selected' : '';
+            optionsHtml += `<option value="${t.id}" data-cargo="${t.cargo}" ${sel}>${t.nombre}</option>`;
+        });
+        // Si viene del tareo y no está en la lista, agregar la opción dinámicamente
+        if (trabajadorId && data && data.nombre_completo) {
+            const yaEsta = (window.listaTrabajadores || []).some(t => String(t.id) === trabajadorId);
+            if (!yaEsta) {
+                optionsHtml += `<option value="${trabajadorId}" data-cargo="${data.cargo || ''}" selected>${data.nombre_completo}</option>`;
+            }
+        }
+
         div.innerHTML = `
-            <button type="button" class="btn-remove-row btn-outline-danger" onclick="eliminarFila(this)">
+            <button type="button" class="btn-remove-row btn-outline-danger" onclick="eliminarFila(this)" aria-label="Eliminar trabajador">
                 <i class="fas fa-times"></i>
             </button>
             <div class="row align-items-end g-3">
                 <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold text-uppercase">Trabajador</label>
                     <select class="form-select select-trabajador" required onchange="actualizarFuncionTrabajador(this)">
-                        <option value="">Seleccionar trabajador...</option>
-                        {% for t in trabajadores_disponibles %}
-                        <option value="{{ t.id }}" data-cargo="{{ t.cargo.nombre }}" ${trabajadorId == '{{ t.id }}' ? 'selected' : ''}>
-                            {{ t.apellidos }}, {{ t.nombres }} - {{ t.cargo.nombre }}
-                        </option>
-                        {% endfor %}
+                        ${optionsHtml}
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -2149,13 +2117,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="col-md-2">
                     <label class="form-label text-muted small fw-bold text-uppercase">Asistencia</label>
-                    <select class="form-select status-selector" onchange="actualizarEstiloFila(this)">
-                        <option value="TRABAJADO" ${asistencia === 'TRABAJADO' ? 'selected' : ''}>Trabajado</option>
-                        <option value="FALTA" ${asistencia === 'FALTA' ? 'selected' : ''}>Falta</option>
-                        <option value="DESCANSO_MEDICO" ${asistencia === 'DESCANSO_MEDICO' ? 'selected' : ''}>Descanso Médico</option>
-                        <option value="PERMISO" ${asistencia === 'PERMISO' ? 'selected' : ''}>Permiso</option>
-                        <option value="VACACIONES" ${asistencia === 'VACACIONES' ? 'selected' : ''}>Vacaciones</option>
-                        <option value="LICENCIA_SIN_GOCE" ${asistencia === 'LICENCIA_SIN_GOCE' ? 'selected' : ''}>Lic. Sin Goce</option>
+                    <select class="form-select status-selector" onchange="window.actualizarEstiloFila(this)">
+                        <option value="TRABAJADO"          ${asistencia === 'TRABAJADO'          ? 'selected' : ''}>Trabajado</option>
+                        <option value="FALTA"              ${asistencia === 'FALTA'              ? 'selected' : ''}>Falta</option>
+                        <option value="DESCANSO_MEDICO"    ${asistencia === 'DESCANSO_MEDICO'    ? 'selected' : ''}>Descanso Médico</option>
+                        <option value="PERMISO"            ${asistencia === 'PERMISO'            ? 'selected' : ''}>Permiso</option>
+                        <option value="VACACIONES"         ${asistencia === 'VACACIONES'         ? 'selected' : ''}>Vacaciones</option>
+                        <option value="LICENCIA_SIN_GOCE"  ${asistencia === 'LICENCIA_SIN_GOCE'  ? 'selected' : ''}>Lic. Sin Goce</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -2164,41 +2132,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `;
-        
-        // 5. Añadir al contenedor
+
         container.appendChild(div);
-        
-        // 6. Si viene data del API (auto-rellenado), agregar option dinámicamente si no existe
-        if (data && trabajadorId) {
-            const select = div.querySelector('.select-trabajador');
-            
-            // Verificar si el trabajador ya existe en las opciones
-            let optionExists = false;
-            for (let option of select.options) {
-                if (option.value == trabajadorId) {
-                    optionExists = true;
-                    break;
-                }
-            }
-            
-            // Si no existe, crear la option dinámicamente
-            if (!optionExists && data.nombre_completo) {
-                const newOption = document.createElement('option');
-                newOption.value = trabajadorId;
-                newOption.textContent = data.nombre_completo;
-                newOption.setAttribute('data-cargo', data.cargo || '');
-                select.appendChild(newOption);
-            }
-            
-            // Seleccionar el trabajador
-            select.value = trabajadorId;
-            
-            // Disparar actualización de función si no vino predefinida
-            if (!funcion && data.cargo) {
-                actualizarFuncionTrabajador(select);
-            }
-        }
-        
+
+        // Aplicar estilo si el estado no es TRABAJADO
+        const statusSel = div.querySelector('.status-selector');
+        if (statusSel && asistencia !== 'TRABAJADO') window.actualizarEstiloFila(statusSel);
+
         actualizarBadges();
     }
 
@@ -2281,30 +2221,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn('No se pudieron poblar campos principales desde editData:', e);
             }
 
+            // Poblar trabajadores usando la función unificada
             (editData.trabajadores || []).forEach(function(t) {
-                document.getElementById('agregar-trabajador-btn').click();
-                var last = document.querySelectorAll('.trabajador-row');
-                var row = last[last.length - 1];
-                if (!row) return;
-                
-                var selTrab = row.querySelector('select[name^="trabajador_"]');
-                if (selTrab) selTrab.value = t.trabajador_id || '';
-                
-                var selFunc = row.querySelector('select[name^="funcion_"]');
-                if (selFunc) selFunc.value = t.funcion || '';
-                
-                var obs = row.querySelector('input[name^="obs_"]');
-                if (obs) obs.value = t.observaciones || '';
-                
-                // CRITICAL FIX: Restore attendance status
-                var selAsist = row.querySelector('select[name^="estado_asistencia_"]');
-                if (selAsist) {
-                    selAsist.value = t.estado_asistencia || 'TRABAJADO';
-                    // Trigger visual update for non-TRABAJADO rows (yellow background)
-                    if (typeof actualizarEstiloFila === 'function') {
-                        actualizarEstiloFila(selAsist);
-                    }
-                }
+                // Crear fila con datos del servidor (cargo + estado + observaciones)
+                agregarTrabajadorRow({
+                    id:               t.trabajador_id,
+                    cargo:            t.funcion || '',
+                    observaciones:    t.observaciones || '',
+                    estado_asistencia: t.estado_asistencia || 'TRABAJADO',
+                    nombre_completo:  '' // ya debería estar en listaTrabajadores
+                });
             });
 
             // Usar setTimeout para asegurar que las subsecciones se hayan creado
@@ -2585,7 +2511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="text" name="obs_act_${actividadCount}" class="form-control" placeholder="Observaciones">
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger btn-sm btn-remove-actividad">
+                    <button type="button" class="btn btn-danger btn-sm btn-remove-actividad" aria-label="Eliminar actividad">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -3137,17 +3063,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (totalCorridas <= 0) return;
         const sondajeRows = document.querySelectorAll('.sondaje-row');
         if (sondajeRows.length === 0) return;
-        const porSondaje = sondajeRows.length === 1
-            ? totalCorridas.toFixed(2)
-            : (totalCorridas / sondajeRows.length).toFixed(2);
-        sondajeRows.forEach(function(sr) {
-            const inp = sr.querySelector('input[name="sondajes_metraje"]');
-            if (inp) {
-                inp.value = porSondaje;
-                inp.classList.add('bg-success-subtle');
-                setTimeout(() => inp.classList.remove('bg-success-subtle'), 700);
-            }
-        });
+        if (sondajeRows.length > 1) {
+            mostrarToast(
+                'Hay <strong>' + sondajeRows.length + ' sondajes</strong>. La distribución automática no aplica — ajuste el metraje de cada sondaje manualmente.',
+                'warning', 7000
+            );
+            return;
+        }
+        // Un solo sondaje: asignar el total directo
+        const inp = sondajeRows[0].querySelector('input[name="sondajes_metraje"]');
+        if (inp) {
+            inp.value = totalCorridas.toFixed(2);
+            inp.classList.add('bg-success-subtle');
+            setTimeout(() => inp.classList.remove('bg-success-subtle'), 700);
+        }
         verificarConcordanciaCorridas(totalCorridas);
     });
 
@@ -3213,10 +3142,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const estaEnUltimoCorrida = !row.nextElementSibling || !row.nextElementSibling.classList.contains('corrida-row');
         const esTextareaLitologia = target.matches('textarea[name*="litologia_"]');
 
-        // TAB en la textarea litología de la ÚLTIMA corrida → crear nueva y enfocar primer campo
+        // TAB en la textarea litología de la ÚLTIMA corrida → crear nueva solo si la actual tiene metros válidos
         if (esTextareaLitologia && estaEnUltimoCorrida) {
             event.preventDefault();
-            document.getElementById('agregar-corrida-btn').click();
+            const desde = parseFloat(row.querySelector('.metro-desde')?.value) || 0;
+            const hasta = parseFloat(row.querySelector('.metro-hasta')?.value) || 0;
+            if (hasta > desde) {
+                document.getElementById('agregar-corrida-btn').click();
+            } else {
+                mostrarToast('Complete los metros Desde/Hasta de la corrida actual antes de agregar una nueva.', 'warning', 4000);
+            }
             return;
         }
 
@@ -3396,25 +3331,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.innerHTML = `
                     <div class="section-empty-state" id="empty-trabajadores">
                         <i class="fas fa-user-plus"></i>
-                        <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" o use el selector de Guardia para comenzar.</p>
+                        <p>No hay trabajadores asignados.<br>Haz clic en "Agregar Trabajador" o use "Cargar desde Tareo" para comenzar.</p>
                     </div>
                 `;
             }
         }
     };
     
-    function actualizarEstiloFila(select) {
+    window.actualizarEstiloFila = function(select) {
         const row = select.closest('.trabajador-row');
+        if (!row) return;
         if (select.value !== 'TRABAJADO') {
-            row.style.backgroundColor = '#fff3cd'; // Amarillo alerta
-            row.style.borderLeft = '4px solid #ffc107'; 
+            row.style.backgroundColor = '#fff3cd';
+            row.style.borderLeft = '4px solid #ffc107';
         } else {
             row.style.backgroundColor = '';
             row.style.borderLeft = '';
         }
-    }
+    };
 
     document.getElementById('form-turno').addEventListener('submit', function(e) {
+        // Deshabilitar botón para evitar doble envío
+        const submitBtn = this.querySelector('[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
+        }
+        // Re-habilitar si la validación falla
+        function rehabilitarSubmit() {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> {% if edit_mode %}Guardar Cambios{% else %}Crear Turno{% endif %}';
+            }
+        }
+
         // Recolectar trabajadores
         const trabajadores = [];
         document.querySelectorAll('.trabajador-row').forEach(row => {
@@ -3552,7 +3502,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // VALIDACIONES
         // =============================================
-        // Validación cliente: horómetro numeric y horómetro fin >= inicio
+        // Validación: horómetro numérico y fin >= inicio
         try {
             const hIniEl = document.getElementById('hora_inicio_maq');
             const hFinEl = document.getElementById('hora_fin_maq');
@@ -3564,12 +3514,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     const hfNum = parseFloat(hf);
                     if (isNaN(hiNum) || isNaN(hfNum)) {
                         e.preventDefault();
-                        alert('Por favor ingrese valores numéricos válidos para Horómetro Inicio/Fin.');
+                        rehabilitarSubmit();
+                        mostrarToast('Por favor ingrese valores numéricos válidos para Horómetro Inicio/Fin.', 'danger', 6000);
+                        document.getElementById('hora_inicio_maq').focus();
                         return;
                     }
                     if (hfNum < hiNum) {
                         e.preventDefault();
-                        alert('Horómetro Fin debe ser mayor o igual que Horómetro Inicio.');
+                        rehabilitarSubmit();
+                        mostrarToast('Horómetro Fin debe ser mayor o igual que Horómetro Inicio.', 'danger', 6000);
+                        document.getElementById('hora_fin_maq').focus();
                         return;
                     }
                 }
@@ -3577,26 +3531,43 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (err) {
             console.warn('Validación de horómetro falló:', err);
         }
-        // VALIDACIÓN: para cada sondaje que tenga complementos o aditivos, exigir metraje > 0
+        // Validación: actividades sin tipo seleccionado
+        try {
+            const actRows = document.querySelectorAll('.actividad-row');
+            for (const row of actRows) {
+                const hidSel = row.querySelector('.actividad-select-hidden');
+                if (!hidSel || !hidSel.value) {
+                    e.preventDefault();
+                    rehabilitarSubmit();
+                    const searchInput = row.querySelector('.actividad-search-input');
+                    mostrarToast('Una o más actividades no tienen tipo seleccionado. Busque y seleccione una actividad del listado desplegable.', 'warning', 7000);
+                    if (searchInput) searchInput.focus();
+                    return;
+                }
+            }
+        } catch (err) {
+            console.warn('Validación de actividades falló:', err);
+        }
+        // Validación: sondaje con complementos/aditivos debe tener metraje > 0
         try {
             const sondajeRows = Array.from(document.querySelectorAll('.sondaje-row'));
             for (const row of sondajeRows) {
                 const sel = row.querySelector('select[name="sondajes"]');
                 const metInput = row.querySelector('input[name="sondajes_metraje"]');
                 const sondajeId = sel ? sel.value : null;
-                const sondajeText = sel ? (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '') : '';
-                if (!sondajeId) continue; // saltar filas vacías
-
-                // comprobar si existen complementos/aditivos para este sondaje
+                const sondajeText = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+                if (!sondajeId) continue;
                 const compSub = document.querySelector('.complemento-subsection[data-sondaje-id="' + sondajeId + '"]');
                 const aditSub = document.querySelector('.aditivo-subsection[data-sondaje-id="' + sondajeId + '"]');
                 const hasComp = compSub && compSub.querySelector('.complemento-row');
                 const hasAdit = aditSub && aditSub.querySelector('.aditivo-row');
-                if ((hasComp || hasAdit)) {
+                if (hasComp || hasAdit) {
                     const metVal = metInput ? metInput.value : '';
                     if (metVal === '' || isNaN(parseFloat(metVal)) || parseFloat(metVal) <= 0) {
                         e.preventDefault();
-                        alert('El sondaje "' + (sondajeText || sondajeId) + '" tiene productos diamantados/aditivos asociados pero no tiene metraje válido. Por favor indique el metraje (mayor que 0) en esa fila antes de guardar.');
+                        rehabilitarSubmit();
+                        mostrarToast('El sondaje <strong>' + (sondajeText || sondajeId) + '</strong> tiene productos diamantados/aditivos sin metraje válido. Indique un metraje mayor a 0.', 'danger', 8000);
+                        if (metInput) metInput.focus();
                         return;
                     }
                 }
@@ -3664,7 +3635,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (fechaInput) fechaInput.value = '{{ today|date:"Y-m-d" }}';
 
                 // Mostrar mensaje de éxito
-                alert('✓ Sondaje "' + nuevoSondaje.nombre_sondaje + '" creado exitosamente');
+                mostrarToast('Sondaje <strong>' + nuevoSondaje.nombre_sondaje + '</strong> creado exitosamente.', 'success');
 
                 // Si hay un selector de sondaje vacío, autoseleccionar el nuevo
                 // Priorizar el primer selector disponible
@@ -3675,12 +3646,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     firstEmpty.dispatchEvent(new Event('change'));
                 }
             } else {
-                alert('Error: ' + (data.error || 'No se pudo crear el sondaje'));
+                mostrarToast('Error: ' + (data.error || 'No se pudo crear el sondaje'), 'danger');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error al crear el sondaje. Intente nuevamente.');
+            mostrarToast('Error al crear el sondaje. Intente nuevamente.', 'danger');
         })
         .finally(() => {
             btn.disabled = false;
