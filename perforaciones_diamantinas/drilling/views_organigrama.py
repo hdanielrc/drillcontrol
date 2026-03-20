@@ -371,6 +371,8 @@ def organigrama_view(request):
             vacantes = hc.cantidad_requerida - assigned_count
             total_vacantes += vacantes
             total_slots += hc.cantidad_requerida
+            slot_pct = int(assigned_count / hc.cantidad_requerida * 100) if hc.cantidad_requerida > 0 else 0
+            slot_status = 'ok' if vacantes == 0 else 'warn' if vacantes < hc.cantidad_requerida else 'crit'
             slot = {
                 'cargo': hc.cargo,
                 'label': hc.get_cargo_display() or hc.cargo,
@@ -379,6 +381,9 @@ def organigrama_view(request):
                 'cantidad': hc.cantidad_requerida,
                 'assignments': assignments,
                 'vacantes': vacantes,
+                'vacantes_items': list(range(vacantes)),   # para iterar vacantes en el template
+                'pct_cobertura': slot_pct,
+                'status_cobertura': slot_status,
                 'section': _section_for_cargo(hc.cargo),
                 'categoria': hc.categoria,
                 'servicio': service_code,
@@ -394,15 +399,20 @@ def organigrama_view(request):
         for slot in service_slots:
             section_bucket = sections_by_key.get(slot['section']) or sections_by_key[DEFAULT_SECTION_KEY]
             section_bucket['slots'].append(slot)
+        svc_assigned = sum(1 for slot in service_slots for assignment in slot['assignments'] if assignment['type'] == 'worker')
+        svc_total = sum(slot['cantidad'] for slot in service_slots)
+        svc_vacantes = sum(slot['vacantes'] for slot in service_slots)
+        svc_pct = int(svc_assigned / svc_total * 100) if svc_total > 0 else 0
+        svc_status = 'ok' if svc_pct >= 80 else 'warn' if svc_pct >= 50 else 'crit'
         services_layout.append({
             'code': service_code,
             'label': SERVICE_DISPLAY_LABELS.get(service_code, service_code),
             'sections': list(sections_by_key.values()),
-            'total_slots': sum(slot['cantidad'] for slot in service_slots),
-            'total_assigned': sum(
-                1 for slot in service_slots for assignment in slot['assignments'] if assignment['type'] == 'worker'
-            ),
-            'total_vacantes': sum(slot['vacantes'] for slot in service_slots),
+            'total_slots': svc_total,
+            'total_assigned': svc_assigned,
+            'total_vacantes': svc_vacantes,
+            'pct_cobertura': svc_pct,
+            'status_cobertura': svc_status,
         })
 
     # Build groups layout (Línea de mando, Operativos, Conductores) from all services

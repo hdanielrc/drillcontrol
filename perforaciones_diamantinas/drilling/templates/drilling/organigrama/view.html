@@ -2,646 +2,554 @@
 {% load static %}
 {% load dict_filters %}
 
-{% block title %}Organigrama – {{ contrato.nombre_contrato }}{% endblock %}
+{% block title %}Organigrama SIG – {{ contrato.nombre_contrato }}{% endblock %}
 
 {% block extra_css %}
 <style>
+/* ─── Variables ─────────────────────────────────────────────── */
 :root {
     --bg: #f4f6fb;
     --card-bg: #ffffff;
     --card-border: #e2e8f0;
     --primary: #0f172a;
     --primary-soft: #0470ac;
-    --muted: #475569;
-    --danger: #dc2626;
-    --vacant: #fee2e2;
+    --muted: #64748b;
+    --ok:   #16a34a;
+    --warn: #d97706;
+    --crit: #dc2626;
+    --ok-bg:   #dcfce7;
+    --warn-bg: #fef3c7;
+    --crit-bg: #fee2e2;
+    --radius: 8px;
 }
+
+/* ─── Layout base ───────────────────────────────────────────── */
 body { background: var(--bg); }
-.org-page {
-    padding: 20px 24px 40px;
-    min-height: calc(100vh - 120px);
-}
+.org-page { padding: 20px 24px 48px; min-height: calc(100vh - 120px); }
+
+/* ─── Topbar ────────────────────────────────────────────────── */
 .org-topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
-.org-topbar h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.org-topbar h1 { font-size: 1.25rem; font-weight: 700; color: var(--primary); margin: 0; }
+.org-topbar .actions { display: flex; gap: 8px; align-items: center; }
+.btn-outline {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: var(--radius);
+    border: 1.5px solid var(--card-border); background: var(--card-bg);
+    font-size: .85rem; font-weight: 500; color: var(--primary);
+    cursor: pointer; text-decoration: none; transition: background .15s;
 }
-.contract-sel select {
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    padding: 6px 12px;
-    background: #fff;
-    font-size: .95rem;
+.btn-outline:hover { background: #f1f5f9; }
+.btn-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: var(--radius);
+    background: var(--primary-soft); color: #fff;
+    font-size: .85rem; font-weight: 600; cursor: pointer;
+    border: none; text-decoration: none; transition: opacity .15s;
 }
-.semana-nav {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 8px 16px;
-    margin-bottom: 18px;
-    box-shadow: 0 1px 4px rgba(15,23,42,.08);
-    flex-wrap: wrap;
+.btn-primary:hover { opacity: .88; }
+
+/* ─── SIG Document Header ───────────────────────────────────── */
+.sig-header {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    overflow: hidden;
 }
-.semana-nav .nav-btn {
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 5px 12px;
-    font-size: .85rem;
-    font-weight: 600;
-    color: var(--primary);
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.semana-nav .nav-btn:hover {
-    background: #e2e8f0;
-}
-.semana-nav .hoy-btn {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-}
-.semana-nav .hoy-btn:hover {
-    background: #0a3f6f;
-}
-.semana-label {
-    font-weight: 700;
-    color: #0f172a;
-    font-size: .95rem;
-    min-width: 220px;
-    text-align: center;
-}
-.semana-dias {
-    display: flex;
-    gap: 4px;
-    margin-left: auto;
-}
-.dia-head {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .75rem;
-    font-weight: 700;
-    background: #f1f5f9;
-    color: #475569;
-}
-.dia-head.hoy {
-    background: var(--primary);
-    color: #fff;
-}
-.dia-head.fin-semana {
-    background: #fee2e2;
-    color: #991b1b;
-}
-.org-stats {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-}
-.stat-chip {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    padding: 6px 14px;
-    font-size: .85rem;
-    font-weight: 600;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    box-shadow: 0 2px 9px rgba(15,23,42,.08);
-}
-.stat-chip span:first-child {
-    font-size: .65rem;
-    font-weight: 500;
-    color: #94a3b8;
-}
-.stat-chip.vacancy {
-    border-color: rgba(220,38,38,.4);
-    color: var(--danger);
-}
-.legend {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 22px;
-    font-size: .7rem;
-    color: #475569;
-}
-.tw-badge {
-    border-radius: 8px;
-    padding: 2px 8px;
-    font-weight: 700;
-    font-size: .68rem;
-}
-.services-container {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-}
-.org-service {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 18px;
-    padding: 20px;
-    box-shadow: 0 8px 24px rgba(15,23,42,.08);
-}
-.org-service-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 18px;
-}
-.org-service-label {
-    margin: 0;
-    font-size: .75rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: .2em;
-}
-.org-service-header h3 {
-    margin: 4px 0 0;
-    font-size: 1.4rem;
-}
-.org-service-meta {
-    display: flex;
-    gap: 14px;
-    align-items: center;
-    flex-wrap: wrap;
-    font-size: .9rem;
-    color: #475569;
-}
-.vacante-chip {
-    color: var(--danger);
-    font-weight: 700;
-}
-.org-service-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-.root-row {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-.columns-row {
+.sig-header-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: 80px 1fr auto;
+    gap: 0;
+}
+.sig-header-logo {
+    display: flex; align-items: center; justify-content: center;
+    padding: 14px; border-right: 1.5px solid var(--card-border);
+    background: var(--primary);
+}
+.sig-header-logo span {
+    font-size: 1.3rem; font-weight: 900; color: #fff; letter-spacing: 1px;
+}
+.sig-header-title {
+    padding: 12px 18px;
+    border-right: 1.5px solid var(--card-border);
+}
+.sig-header-title h2 {
+    font-size: 1rem; font-weight: 700; color: var(--primary); margin: 0 0 4px;
+    text-transform: uppercase; letter-spacing: .5px;
+}
+.sig-header-title p { font-size: .82rem; color: var(--muted); margin: 0; }
+.sig-header-meta {
+    display: grid;
+    grid-template-rows: repeat(3, 1fr);
+    min-width: 240px;
+}
+.sig-meta-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--card-border);
+    font-size: .78rem;
+}
+.sig-meta-row:last-child { border-bottom: none; }
+.sig-meta-label { color: var(--muted); font-weight: 600; min-width: 70px; }
+.sig-meta-value { color: var(--primary); font-weight: 500; }
+
+/* Signature block — hidden on screen, visible only in print */
+.sig-signature {
+    display: none;
+    border-top: 1.5px solid var(--card-border);
+    padding: 12px 18px;
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
 }
-.org-column {
+.sig-sign-box { text-align: center; }
+.sig-sign-line { border-top: 1px solid var(--primary); margin: 0 16px 4px; }
+.sig-sign-label { font-size: .72rem; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+
+/* ─── Coverage Panel ────────────────────────────────────────── */
+.coverage-panel {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+.coverage-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px;
     background: #f8fafc;
-    border: 1px solid #e0e7ff;
-    border-radius: 14px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
+    border-bottom: 1.5px solid var(--card-border);
+}
+.coverage-panel-header h3 { font-size: .9rem; font-weight: 700; color: var(--primary); margin: 0; }
+.coverage-rows { padding: 10px 18px; display: flex; flex-direction: column; gap: 10px; }
+.coverage-row { display: flex; align-items: center; gap: 14px; }
+.cov-label { font-size: .82rem; font-weight: 600; color: var(--primary); min-width: 140px; }
+.cov-bar-track {
+    flex: 1; height: 14px; background: #e2e8f0;
+    border-radius: 20px; overflow: hidden; position: relative;
+}
+.cov-bar-fill {
+    height: 100%; border-radius: 20px; transition: width .4s ease;
+}
+.cov-bar-fill.ok   { background: var(--ok); }
+.cov-bar-fill.warn { background: var(--warn); }
+.cov-bar-fill.crit { background: var(--crit); }
+.cov-stats { display: flex; gap: 6px; align-items: center; font-size: .78rem; min-width: 150px; }
+.cov-pct   { font-weight: 700; }
+.cov-pct.ok   { color: var(--ok); }
+.cov-pct.warn { color: var(--warn); }
+.cov-pct.crit { color: var(--crit); }
+.cov-detail { color: var(--muted); }
+
+/* ─── Service Sections ──────────────────────────────────────── */
+.service-block { margin-bottom: 32px; }
+.service-block-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 2px solid var(--card-border);
+}
+.service-badge {
+    padding: 4px 12px; border-radius: 20px;
+    font-size: .78rem; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; color: #fff; background: var(--primary-soft);
+}
+.service-block-header h2 {
+    font-size: 1rem; font-weight: 700; color: var(--primary); margin: 0;
+}
+.service-summary { margin-left: auto; font-size: .78rem; color: var(--muted); }
+
+.section-block { margin-bottom: 18px; }
+.section-label {
+    font-size: .72rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+/* ─── Slot Grid ─────────────────────────────────────────────── */
+.slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 12px;
-    min-height: 230px;
 }
-.column-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    font-size: .75rem;
-    text-transform: uppercase;
-    letter-spacing: .2em;
-    color: #475569;
-}
-.column-title {
-    font-weight: 700;
-}
-.column-count {
-    font-size: .7rem;
-    color: #64748b;
-}
-.column-empty {
-    margin: 12px 0 0;
-    font-size: .85rem;
-    color: #94a3b8;
-}
-.column-label {
-    font-size: .7rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-}
+
+/* ─── Slot Card ─────────────────────────────────────────────── */
 .slot-card {
     background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: 12px;
-    box-shadow: 0 6px 18px rgba(15,23,42,.08);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    border: 1.5px solid var(--card-border);
+    border-left: 4px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    position: relative;
 }
-.slot-card-root {
-    background: linear-gradient(135deg, #084163, #0470ac);
-    border-color: transparent;
-    color: #fff;
-    min-width: 220px;
-    box-shadow: 0 10px 22px rgba(8,65,99,.4);
+.slot-card.occupied { border-left-color: var(--ok); }
+.slot-card.partial  { border-left-color: var(--warn); }
+.slot-card.vacant   {
+    border-left-color: var(--crit);
+    border-style: dashed;
+    background: #fff9f9;
 }
-.slot-card-root .slot-title,
-.slot-card-root .slot-level,
-.slot-card-root .slot-count,
-.slot-card-root .column-label {
-    color: #f8fafc;
-}
-.slot-card-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    align-items: center;
-}
-.slot-title {
-    font-weight: 700;
-    font-size: 1rem;
-    display: inline-block;
-}
-.slot-level {
-    margin-left: 6px;
-    border-radius: 9px;
-    padding: 2px 8px;
-    font-size: .7rem;
-    background: rgba(255,255,255,.2);
-}
-.slot-count {
-    font-size: .8rem;
-    color: var(--muted);
-}
-.slot-meta {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    font-size: .78rem;
-    color: #475569;
-    align-items: center;
-}
-.slot-workers {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.worker-pill {
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 8px 10px;
-    background: #f8fafc;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.worker-pill.vacant {
-    background: var(--vacant);
-    border-color: rgba(220,38,38,.4);
-    color: var(--danger);
-    font-weight: 600;
-}
-.worker-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+.slot-cargo {
+    font-size: .7rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px;
 }
 .worker-name {
-    font-weight: 700;
-    font-size: .9rem;
-    color: #0f172a;
+    font-size: .88rem; font-weight: 600; color: var(--primary); margin-bottom: 2px;
 }
-.worker-cargo {
-    font-size: .78rem;
-    color: #475569;
+.worker-meta { font-size: .75rem; color: var(--muted); }
+.slot-status-chip {
+    display: inline-block; margin-top: 6px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: .68rem; font-weight: 700; letter-spacing: .4px;
 }
-.worker-week {
-    display: flex;
+.chip-ok   { background: var(--ok-bg);   color: var(--ok); }
+.chip-warn { background: var(--warn-bg); color: var(--warn); }
+.chip-crit { background: var(--crit-bg); color: var(--crit); }
+
+.vacant-placeholder {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 10px 0 4px;
     gap: 4px;
-    flex-wrap: wrap;
 }
-.day-badge {
-    font-size: .65rem;
-    border-radius: 6px;
-    padding: 2px 6px;
-    min-width: 24px;
-    text-align: center;
-    font-weight: 700;
+.vacant-placeholder svg { opacity: .35; }
+.vacant-text { font-size: .78rem; font-weight: 600; color: var(--crit); }
+.vacant-sub  { font-size: .7rem; color: var(--muted); }
+
+/* ─── Brechas Table ─────────────────────────────────────────── */
+.brechas-panel {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--radius);
+    margin-bottom: 32px;
+    overflow: hidden;
 }
-.sb-t { background: #d1fae5; color: #065f46; }
-.sb-dl { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
-.sb-f { background: #fee2e2; color: #991b1b; }
-.sb-dm { background: #fef3c7; color: #92400e; }
-.sb-v { background: #dbeafe; color: #1d4ed8; }
-.sb-p { background: #ede9fe; color: #7c3aed; }
-.sb-sb { background: #fef9c3; color: #713f12; }
-.sb-i { background: #cffafe; color: #0e7490; }
-.sb-r { background: #e0f2fe; color: #0369a1; }
-.sb-da { background: #f0fdf4; color: #16a34a; }
-.sb-sus { background: #fee2e2; color: #991b1b; }
-.sb-nd { background: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; }
-.empty-state {
-    text-align: center;
-    padding: 20px 0;
-    color: #475569;
-    border: 1px dashed #cbd5e1;
-    border-radius: 14px;
-    background: #fff;
-}
-.unassigned {
-    margin-top: 32px;
-    border: 1px solid #e2e8f0;
-    border-radius: 18px;
-    background: #fff;
-    padding: 20px;
-    box-shadow: 0 8px 24px rgba(15,23,42,.08);
-}
-.unassigned-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-.unassigned-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 12px;
-}
-.unassigned-card {
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 12px;
+.brechas-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px;
     background: #f8fafc;
+    border-bottom: 1.5px solid var(--card-border);
+    cursor: pointer; user-select: none;
 }
-.unassigned-card strong {
-    display: block;
-    font-size: .92rem;
-    margin-bottom: 4px;
+.brechas-panel-header h3 { font-size: .9rem; font-weight: 700; color: var(--primary); margin: 0; }
+.toggle-icon { font-size: .9rem; color: var(--muted); transition: transform .2s; }
+.brechas-body { overflow: hidden; }
+.brechas-table {
+    width: 100%; border-collapse: collapse; font-size: .82rem;
 }
-.unassigned-card span {
-    display: block;
-    font-size: .78rem;
-    color: #475569;
+.brechas-table th {
+    padding: 8px 14px; text-align: left;
+    background: #f1f5f9; color: var(--muted);
+    font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    border-bottom: 1.5px solid var(--card-border);
 }
-.muted {
-    color: #94a3b8;
+.brechas-table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--primary);
+    vertical-align: middle;
 }
-@media (max-width: 1000px) {
-    .columns-row {
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-    .org-service-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .org-stats {
-        flex-direction: column;
-    }
+.brechas-table tr:last-child td { border-bottom: none; }
+.brechas-table tr:hover td { background: #fafbfc; }
+.brechas-table .num { text-align: center; }
+.brechas-table .vacante-cell { font-weight: 700; }
+.vacante-cell.ok   { color: var(--ok); }
+.vacante-cell.warn { color: var(--warn); }
+.vacante-cell.crit { color: var(--crit); }
+.pct-bar-cell { min-width: 120px; }
+.mini-bar-track {
+    height: 8px; background: #e2e8f0; border-radius: 8px; overflow: hidden; display: inline-block;
+    width: 80px; vertical-align: middle; margin-right: 6px;
+}
+.mini-bar-fill { height: 100%; border-radius: 8px; }
+.mini-bar-fill.ok   { background: var(--ok); }
+.mini-bar-fill.warn { background: var(--warn); }
+.mini-bar-fill.crit { background: var(--crit); }
+
+/* ─── Print Styles ──────────────────────────────────────────── */
+@media print {
+    @page { size: A3 landscape; margin: 15mm 12mm; }
+
+    body { background: #fff !important; }
+    .no-print { display: none !important; }
+
+    .sig-signature { display: grid !important; }
+
+    .org-page { padding: 0; }
+    .sig-header { border: 1px solid #ccc; }
+    .coverage-panel, .brechas-panel { border: 1px solid #ccc; }
+    .slot-card { break-inside: avoid; }
+    .service-block { break-inside: avoid; }
+    .brechas-body { display: block !important; }
+
+    .slots-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+    a { text-decoration: none !important; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="org-page">
-    <div class="org-topbar">
-        <h2><i class="fas fa-sitemap"></i> Organigrama</h2>
-        {% if contratos_disponibles %}
-        <div class="contract-sel">
-            <label><i class="fas fa-hard-hat"></i></label>
-            <select onchange="location='?contrato='+this.value+'&semana_offset={{ semana_offset }}'">
-                {% for c in contratos_disponibles %}
-                <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>{{ c.nombre_contrato }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endif %}
-    </div>
-    {% if services_present %}
-    <div class="service-filter" style="margin:10px 0 18px;">
-        <button class="service-btn active" data-service="ALL">Todos</button>
-        {% for s in services_present %}
-        <button class="service-btn" data-service="{{ s.code }}">{{ s.label }}</button>
-        {% endfor %}
-    </div>
-    <style>
-    .service-btn { margin-right:8px; padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; }
-    .service-btn.active { background:#0470ac; color:#fff; border-color:#0470ac; }
-    </style>
-    <div class="semana-nav">
-        <a href="?contrato={{ contrato.id }}&semana_offset={{ semana_offset|add:-1 }}" class="nav-btn">
-            <i class="fas fa-chevron-left"></i> Anterior
-        </a>
-        <span class="semana-label"><i class="fas fa-calendar-week"></i> {{ label_semana }}</span>
-        <a href="?contrato={{ contrato.id }}&semana_offset={{ semana_offset|add:1 }}" class="nav-btn">
-            Siguiente <i class="fas fa-chevron-right"></i>
-        </a>
-        {% if semana_offset != 0 %}
-        <a href="?contrato={{ contrato.id }}&semana_offset=0" class="nav-btn hoy-btn">
-            <i class="fas fa-dot-circle"></i> Semana actual
-        </a>
-        {% endif %}
-        <div class="semana-dias">
-            {% for d in dias_semana %}
-            <div class="dia-head{% if d == today %} hoy{% elif d.weekday >= 5 %} fin-semana{% endif %}">
-                {{ d.day }}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    <div class="org-stats">
-        <div class="stat-chip">
-            <span>Total activos</span>
-            {{ total_trabajadores }}
-        </div>
-        <div class="stat-chip">
-            <span>Planificados</span>
-            {{ total_headcount_slots }}
-        </div>
-        <div class="stat-chip">
-            <span>Ocupados</span>
-            {{ total_headcount_assignments }}
-        </div>
-        <div class="stat-chip vacancy">
-            <span>Vacantes</span>
-            {{ total_vacantes }}
-        </div>
-    </div>
-    <div class="legend">
-        <span class="tw-badge sb-t">T = Trabajado</span>
-        <span class="tw-badge sb-dl">DL = Día libre</span>
-        <span class="tw-badge sb-f">F = Falta</span>
-        <span class="tw-badge sb-dm">DM = Desc. médico</span>
-        <span class="tw-badge sb-v">V = Vacaciones</span>
-        <span class="tw-badge sb-p">P = Permiso</span>
-        <span class="tw-badge sb-sb">SB = Stand by</span>
-        <span class="tw-badge sb-i">I = Inducción</span>
-        <span class="tw-badge sb-nd">— = Sin registro</span>
-    </div>
-    {# 'direccion' slots are rendered inside the Línea de mando group below. #}
-    <div class="services-container">
-        {% for group in groups_layout %}
-        <section class="org-service group-{{ group.key }}">
-            <header class="org-service-header">
-                <div>
-                    <p class="org-service-label">Grupo</p>
-                    <h3>{{ group.label }}</h3>
-                </div>
-                <div class="org-service-meta">
-                    <span>{{ group.total_slots }} puesto{{ group.total_slots|pluralize:"s" }}</span>
-                    <span>{{ group.total_assigned }} ocupado{{ group.total_assigned|pluralize:"s" }}</span>
-                    <span class="vacante-chip">{{ group.total_vacantes }} vacante{{ group.total_vacantes|pluralize:"s" }}</span>
-                </div>
-            </header>
-            {% if group.key == 'LINEA DE MANDO' %}
-            <div class="row root-row">
-                {% for slot in group.root_slots %}
-                <div class="col root-slot">
-                    <div class="slot-card slot-card-root {% if slot.vacantes == 0 %}filled{% endif %}">
-                        <div class="slot-title">{{ slot.label }}</div>
-                        <div class="slot-count">{{ slot.cantidad }} / {{ slot.assignments|length }}</div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+
+    <!-- Topbar -->
+    <div class="org-topbar no-print">
+        <h1>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><rect x="2" y="7" width="5" height="5" rx="1"/><rect x="9" y="7" width="5" height="5" rx="1"/><rect x="16" y="7" width="5" height="5" rx="1"/><path d="M4.5 12v3a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3"/><path d="M11.5 12v4"/></svg>
+            Organigrama SIG
+        </h1>
+        <div class="actions">
+            {% if contratos_disponibles|length > 1 %}
+            <form method="get" style="display:inline-flex;gap:6px;align-items:center;">
+                <select name="contrato" onchange="this.form.submit()" style="font-size:.82rem;padding:6px 10px;border-radius:6px;border:1.5px solid var(--card-border);">
+                    {% for c in contratos_disponibles %}
+                    <option value="{{ c.id }}" {% if c.id == contrato.id %}selected{% endif %}>{{ c.nombre_contrato }}</option>
+                    {% endfor %}
+                </select>
+            </form>
             {% endif %}
-            <div class="org-service-grid">
-                <div class="columns-row">
-                    {% if group.key == 'OPERATIVO' %}
-                        {% for maq_id, bucket in group.maquinas.items %}
-                        <div class="org-column">
-                            <div class="column-head">
-                                <span class="column-title">{% if bucket.maquina %}{{ bucket.maquina.nombre }}{% else %}Sin máquina{% endif %}</span>
-                                <span class="column-count">{{ bucket.workers|length }} trabajador{{ bucket.workers|length|pluralize:"s" }}</span>
-                            </div>
-                                <div class="slot-workers">
-                                    {% if bucket.guardias %}
-                                        {% for gkey, guardia in bucket.guardias.items %}
-                                        <div class="column-label">{{ guardia.nombre }}</div>
-                                        {% for w in guardia.workers %}
-                                        <div class="worker-pill">
-                                            <div class="worker-info">
-                                                <span class="worker-name">{{ w.obj.apepat }}, {{ w.obj.nombres }}</span>
-                                                <span class="worker-cargo">{{ w.obj.cargo_headcount|default:w.obj.cargo }}</span>
-                                            </div>
-                                            <div class="worker-week">
-                                                {% for day in w.semana %}
-                                                <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                        {% endfor %}
-                                    {% endif %}
-                                    {% if bucket.vacantes %}
-                                    <div class="worker-pill vacant">
-                                        <i class="fas fa-user-plus"></i> {{ bucket.vacantes }} vacante{{ bucket.vacantes|pluralize:"s" }}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        {% for slot in group.slots %}
-                        <div class="org-column">
-                            <div class="column-head">
-                                <span class="column-title">{{ slot.label }}</span>
-                                <span class="column-count">{{ slot.cantidad }} planificado{{ slot.cantidad|pluralize:"s" }}</span>
-                            </div>
-                            <div class="slot-workers">
-                                {% if slot.assignments %}
-                                    {% for assignment in slot.assignments %}
-                                    <div class="worker-pill">
-                                        <div class="worker-info">
-                                            <span class="worker-name">{{ assignment.worker.obj.apepat }}, {{ assignment.worker.obj.nombres }}</span>
-                                            <span class="worker-cargo">{{ assignment.worker.obj.cargo_headcount|default:assignment.worker.obj.cargo }}</span>
-                                        </div>
-                                        <div class="worker-week">
-                                            {% for day in assignment.worker.semana %}
-                                            <span class="day-badge {{ day.css }}" title="{{ day.fecha|date:'d M' }}">{{ day.codigo }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <div class="worker-pill vacant">
-                                        <i class="fas fa-user-plus"></i> Vacante
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endfor %}
+            <button onclick="window.print()" class="btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Imprimir / PDF
+            </button>
+            <a href="{% url 'drilling:dashboard' %}" class="btn-outline">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         D: CABECERA DOCUMENTO SIG
+    ══════════════════════════════════════════════ -->
+    <div class="sig-header">
+        <div class="sig-header-grid">
+            <div class="sig-header-logo">
+                <span>SIG</span>
+            </div>
+            <div class="sig-header-title">
+                <h2>Organigrama de Dotación — Análisis de Brechas</h2>
+                <p>Contrato: <strong>{{ contrato.nombre_contrato }}</strong>{% if contrato.codigo_contrato %} &mdash; Cód. {{ contrato.codigo_contrato }}{% endif %}</p>
+                <p style="margin-top:4px;font-size:.78rem;color:var(--muted);">
+                    Total requerido: <strong>{{ total_headcount_slots }}</strong>
+                    &nbsp;|&nbsp; Contratado: <strong>{{ total_headcount_assignments }}</strong>
+                    &nbsp;|&nbsp; Vacantes: <strong>{{ total_vacantes }}</strong>
+                </p>
+            </div>
+            <div class="sig-header-meta">
+                <div class="sig-meta-row">
+                    <span class="sig-meta-label">Código:</span>
+                    <span class="sig-meta-value">ORG-DC-001</span>
+                </div>
+                <div class="sig-meta-row">
+                    <span class="sig-meta-label">Revisión:</span>
+                    <span class="sig-meta-value">00</span>
+                </div>
+                <div class="sig-meta-row">
+                    <span class="sig-meta-label">Fecha:</span>
+                    <span class="sig-meta-value" id="sig-fecha">—</span>
+                </div>
+            </div>
+        </div>
+        <!-- Signature block: visible only when printing -->
+        <div class="sig-signature">
+            <div class="sig-sign-box">
+                <div style="height:36px;"></div>
+                <div class="sig-sign-line"></div>
+                <div class="sig-sign-label">Elaborado por</div>
+            </div>
+            <div class="sig-sign-box">
+                <div style="height:36px;"></div>
+                <div class="sig-sign-line"></div>
+                <div class="sig-sign-label">Revisado por</div>
+            </div>
+            <div class="sig-sign-box">
+                <div style="height:36px;"></div>
+                <div class="sig-sign-line"></div>
+                <div class="sig-sign-label">Aprobado por</div>
+            </div>
+            <div class="sig-sign-box">
+                <div style="height:36px;"></div>
+                <div class="sig-sign-line"></div>
+                <div class="sig-sign-label">Jefe de Proyecto</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         A: PANEL DE COBERTURA POR SERVICIO
+    ══════════════════════════════════════════════ -->
+    <div class="coverage-panel">
+        <div class="coverage-panel-header">
+            <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Cobertura por Servicio
+            </h3>
+        </div>
+        <div class="coverage-rows">
+            {% for svc in services_layout %}
+            <div class="coverage-row">
+                <div class="cov-label">{{ svc.label }}</div>
+                <div class="cov-bar-track">
+                    <div class="cov-bar-fill {{ svc.status_cobertura }}" style="width:{{ svc.pct_cobertura }}%;"></div>
+                </div>
+                <div class="cov-stats">
+                    <span class="cov-pct {{ svc.status_cobertura }}">{{ svc.pct_cobertura }}%</span>
+                    <span class="cov-detail">{{ svc.total_assigned }}/{{ svc.total_slots }} pos.</span>
+                    {% if svc.total_vacantes > 0 %}
+                    <span class="slot-status-chip chip-crit">{{ svc.total_vacantes }} vac.</span>
                     {% endif %}
                 </div>
             </div>
-        </section>
-        {% endfor %}
-    </div>
-    {% endif %}
-    <section class="unassigned">
-        <div class="unassigned-header">
-            <h3>Trabajadores sin headcount</h3>
-            <span>{{ trabajadores_sin_headcount|length }}</span>
-        </div>
-        {% if trabajadores_sin_headcount %}
-        <div class="unassigned-grid">
-            {% for worker in trabajadores_sin_headcount %}
-            <article class="unassigned-card">
-                <strong>{{ worker.obj.apepat }}, {{ worker.obj.nombres }}</strong>
-                <span>{{ worker.obj.cargo }}</span>
-                <span class="muted">{{ worker.obj.servicio|default:worker.obj.tipo_servicio|default:"-" }}</span>
-            </article>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="empty-state">Todos los trabajadores están planificados en el headcount.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         E: TABLA DE BRECHAS (colapsable)
+    ══════════════════════════════════════════════ -->
+    <div class="brechas-panel">
+        <div class="brechas-panel-header no-print" onclick="toggleBrechas()" id="brechas-toggle">
+            <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Tabla de Brechas por Cargo
+            </h3>
+            <span class="toggle-icon" id="brechas-chevron">▾</span>
+        </div>
+        <div class="brechas-body" id="brechas-body" style="display:none;">
+            <table class="brechas-table">
+                <thead>
+                    <tr>
+                        <th>Servicio</th>
+                        <th>Cargo</th>
+                        <th class="num">Requerido</th>
+                        <th class="num">Contratado</th>
+                        <th class="num">Vacante</th>
+                        <th>Cobertura</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for svc in services_layout %}
+                    {% for section in svc.sections %}
+                    {% for slot in section.slots %}
+                    <tr>
+                        <td>{{ svc.label }}</td>
+                        <td>{{ slot.label }}</td>
+                        <td class="num">{{ slot.cantidad }}</td>
+                        <td class="num">{{ slot.assignments|length }}</td>
+                        <td class="num vacante-cell {% if slot.vacantes == 0 %}ok{% elif slot.vacantes < slot.cantidad %}warn{% else %}crit{% endif %}">
+                            {{ slot.vacantes }}
+                        </td>
+                        <td class="pct-bar-cell">
+                            <div class="mini-bar-track">
+                                <div class="mini-bar-fill {{ slot.status_cobertura }}" style="width:{{ slot.pct_cobertura }}%;"></div>
+                            </div>
+                            <span style="font-size:.75rem;font-weight:600;color:{% if slot.status_cobertura == 'ok' %}var(--ok){% elif slot.status_cobertura == 'warn' %}var(--warn){% else %}var(--crit){% endif %};">{{ slot.pct_cobertura }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         B: SLOTS EXPLÍCITOS POR SERVICIO
+    ══════════════════════════════════════════════ -->
+    {% for svc in services_layout %}
+    <div class="service-block">
+        <div class="service-block-header">
+            <span class="service-badge">{{ svc.code }}</span>
+            <h2>{{ svc.label }}</h2>
+            <div class="service-summary">
+                <span class="slot-status-chip {% if svc.status_cobertura == 'ok' %}chip-ok{% elif svc.status_cobertura == 'warn' %}chip-warn{% else %}chip-crit{% endif %}">
+                    {{ svc.total_assigned }}/{{ svc.total_slots }} &mdash; {{ svc.pct_cobertura }}%
+                </span>
+            </div>
+        </div>
+
+        {% for section in svc.sections %}
+        {% if section.slots %}
+        <div class="section-block">
+            <div class="section-label">{{ section.label }}</div>
+            <div class="slots-grid">
+                {% for slot in section.slots %}
+
+                {% comment %}─── Occupied slots ───{% endcomment %}
+                {% for assignment in slot.assignments %}
+                {% if assignment.type == 'worker' %}
+                <div class="slot-card occupied">
+                    <div class="slot-cargo">{{ slot.label }}</div>
+                    <div class="worker-name">{{ assignment.worker.obj.nombre_completo }}</div>
+                    <div class="worker-meta">
+                        {{ assignment.worker.obj.dni|default:"Sin DNI" }}
+                        {% if assignment.worker.trabajado_count is not None %}
+                        &nbsp;&middot;&nbsp;
+                        <span style="font-size:.7rem;" title="Días trabajados esta semana">
+                            {{ assignment.worker.trabajado_count }}d/sem
+                        </span>
+                        {% endif %}
+                    </div>
+                    <span class="slot-status-chip chip-ok">Activo</span>
+                </div>
+                {% endif %}
+                {% endfor %}
+
+                {% comment %}─── Vacant slots ───{% endcomment %}
+                {% for v in slot.vacantes_items %}
+                <div class="slot-card vacant">
+                    <div class="slot-cargo">{{ slot.label }}</div>
+                    <div class="vacant-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/><line x1="12" y1="3" x2="12" y2="5"/></svg>
+                        <div class="vacant-text">VACANTE</div>
+                        <div class="vacant-sub">Por contratar</div>
+                    </div>
+                    <span class="slot-status-chip chip-crit">Sin cubrir</span>
+                </div>
+                {% endfor %}
+
+                {% endfor %} {# end slot #}
+            </div>
+        </div>
         {% endif %}
-    </section>
+        {% endfor %} {# end section #}
+
+    </div>
+    {% endfor %} {# end service #}
+
 </div>
-    <script>
-    document.addEventListener('DOMContentLoaded', function(){
-        const buttons = document.querySelectorAll('.service-btn');
-        const sections = document.querySelectorAll('.org-service');
-        function setActive(btn){
-            buttons.forEach(b=>b.classList.remove('active'));
-            btn.classList.add('active');
-        }
-        function showService(code){
-            sections.forEach(s=>{
-                if(code === 'ALL') s.style.display = '';
-                else s.style.display = (s.dataset.service === code) ? '' : 'none';
-            });
-        }
-        buttons.forEach(btn=>{
-            btn.addEventListener('click', function(){
-                const svc = this.dataset.service;
-                setActive(this);
-                showService(svc);
-            });
-        });
-    });
-    </script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Set today's date in the SIG header */
+(function(){
+    const d = new Date();
+    const fmt = d.toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'});
+    const el = document.getElementById('sig-fecha');
+    if (el) el.textContent = fmt;
+})();
+
+/* Toggle brechas table */
+function toggleBrechas() {
+    const body    = document.getElementById('brechas-body');
+    const chevron = document.getElementById('brechas-chevron');
+    const open    = body.style.display !== 'none';
+    body.style.display    = open ? 'none'  : 'block';
+    chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+/* Open brechas when printing */
+window.addEventListener('beforeprint', function() {
+    const body = document.getElementById('brechas-body');
+    if (body) body.style.display = 'block';
+});
+</script>
 {% endblock %}
