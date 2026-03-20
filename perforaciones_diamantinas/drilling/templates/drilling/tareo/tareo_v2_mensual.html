@@ -819,9 +819,32 @@
                                 {{ data.estado|default:'TD' }}
                             </button>
                             <div class="estado-grid-dropdown" style="display:none; position:absolute;">
-                                {% for cod in "T,TD,TN,TI,DL,DA,PT,DM,SB,SUB,I,IV,R,F,PT1,S,V,LSG,C,TC1,LFC,DA1,IVN,LCG,LOG".split(',') %}
-                                <button type="button" class="estado-btn" data-cod="{{ cod }}" onclick="seleccionarEstado(this)">{{ cod }}</button>
-                                {% endfor %}
+                                <button type="button" class="estado-btn" data-cod="T" onclick="seleccionarEstado(this)">T</button>
+                                <button type="button" class="estado-btn" data-cod="TD" onclick="seleccionarEstado(this)">TD</button>
+                                <button type="button" class="estado-btn" data-cod="TN" onclick="seleccionarEstado(this)">TN</button>
+                                <button type="button" class="estado-btn" data-cod="TI" onclick="seleccionarEstado(this)">TI</button>
+                                <button type="button" class="estado-btn" data-cod="DL" onclick="seleccionarEstado(this)">DL</button>
+                                <button type="button" class="estado-btn" data-cod="DA" onclick="seleccionarEstado(this)">DA</button>
+                                <button type="button" class="estado-btn" data-cod="PT" onclick="seleccionarEstado(this)">PT</button>
+                                <button type="button" class="estado-btn" data-cod="DM" onclick="seleccionarEstado(this)">DM</button>
+                                <button type="button" class="estado-btn" data-cod="SB" onclick="seleccionarEstado(this)">SB</button>
+                                <button type="button" class="estado-btn" data-cod="SUB" onclick="seleccionarEstado(this)">SUB</button>
+                                <button type="button" class="estado-btn" data-cod="I" onclick="seleccionarEstado(this)">I</button>
+                                <button type="button" class="estado-btn" data-cod="IV" onclick="seleccionarEstado(this)">IV</button>
+                                <button type="button" class="estado-btn" data-cod="R" onclick="seleccionarEstado(this)">R</button>
+                                <button type="button" class="estado-btn" data-cod="F" onclick="seleccionarEstado(this)">F</button>
+                                <button type="button" class="estado-btn" data-cod="PT1" onclick="seleccionarEstado(this)">PT1</button>
+                                <button type="button" class="estado-btn" data-cod="S" onclick="seleccionarEstado(this)">S</button>
+                                <button type="button" class="estado-btn" data-cod="V" onclick="seleccionarEstado(this)">V</button>
+                                <button type="button" class="estado-btn" data-cod="LSG" onclick="seleccionarEstado(this)">LSG</button>
+                                <button type="button" class="estado-btn" data-cod="C" onclick="seleccionarEstado(this)">C</button>
+                                <button type="button" class="estado-btn" data-cod="TC1" onclick="seleccionarEstado(this)">TC1</button>
+                                <button type="button" class="estado-btn" data-cod="LFC" onclick="seleccionarEstado(this)">LFC</button>
+                                <button type="button" class="estado-btn" data-cod="DA1" onclick="seleccionarEstado(this)">DA1</button>
+                                <button type="button" class="estado-btn" data-cod="IVN" onclick="seleccionarEstado(this)">IVN</button>
+                                <button type="button" class="estado-btn" data-cod="LCG" onclick="seleccionarEstado(this)">LCG</button>
+                                <button type="button" class="estado-btn" data-cod="LOG" onclick="seleccionarEstado(this)">LOG</button>
+                            </div>
                             </div>
                             <style>
                             .estado-grid-dropdown {
