@@ -1623,11 +1623,13 @@ def mostrar_tareo_semanal(request):
                     guardia_snap = asist.get('guardia_snapshot', '') or ''
                     maq_snap = asist.get('maquina_snapshot', None)
                     maq_snap_name = maq_snap.nombre if maq_snap else ''
+                    es_proy = asist.get('es_proyeccion', False)
                 else:
                     # si no existe registro, dejar vacío (puede usarse proyección)
                     codigo = ''
                     guardia_snap = ''
                     maq_snap_name = ''
+                    es_proy = False
                 color = COLORES_EXCEL.get(codigo, '') if codigo else ''
                 # COLORES_EXCEL guarda valores ARGB (8 hex), pero CSS expects
                 # #RRGGBB (or #RRGGBBAA). If the value is ARGB with full alpha
@@ -1642,7 +1644,7 @@ def mostrar_tareo_semanal(request):
                         c = c[2:]
                     # ensure we send 6-char hex (fallback to empty if malformed)
                     color = c if len(c) == 6 else ''
-                dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color, 'maquina_snapshot': maq_snap_name})
+                dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color, 'maquina_snapshot': maq_snap_name, 'es_proyeccion': es_proy})
                 d += timedelta(days=1)
 
             # Determinar si hay una máquina asignada en las celdas (maquina_snapshot)
