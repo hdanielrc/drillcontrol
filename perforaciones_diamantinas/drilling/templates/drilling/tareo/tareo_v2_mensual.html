@@ -813,29 +813,117 @@
                             data-estado="{{ data.estado|default:'TD' }}"
                             data-trabajador-id="{{ row.trabajador.id }}" 
                             data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
-                            <!-- Select de Estado -->
-                            <select 
-                                name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
-                                class="estado-select estado-{{ data.estado|default:'TRABAJO' }}"
-                                data-tipo="estado"
-                                onchange="(function(sel){ sel.className='estado-select'; var td=sel.closest('td'); var tr=td.closest('tr'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); tr.classList.add('dirty-row'); actualizarSummaryRows(); })(this)"
-                                title="{{ data.estado|default:'TRABAJO' }}"
-                            >
-                                <option value="TD" {% if data.estado == 'TD' or data.estado == 'TRABAJO_DIA' or not data.estado %}selected{% endif %}>TD</option>
-                                <option value="TN" {% if data.estado == 'TN' or data.estado == 'TRABAJO_NOCHE' %}selected{% endif %}>TN</option>
-                                <option value="DESCANSO"   {% if data.estado == 'DESCANSO'   %}selected{% endif %}>DL</option>
-                                <option value="FALTA"      {% if data.estado == 'FALTA'      %}selected{% endif %}>F</option>
-                                <option value="DM"         {% if data.estado == 'DM'         %}selected{% endif %}>DM</option>
-                                <option value="VACACIONES" {% if data.estado == 'VACACIONES' %}selected{% endif %}>V</option>
-                                <option value="PERMISO"    {% if data.estado == 'PERMISO'    %}selected{% endif %}>P</option>
-                                <option value="SUSPENSION" {% if data.estado == 'SUSPENSION' %}selected{% endif %}>S</option>
-                                <option value="LICENCIA"   {% if data.estado == 'LICENCIA'   %}selected{% endif %}>L</option>
-                                <option value="INDUCCION"  {% if data.estado == 'INDUCCION'  %}selected{% endif %}>IND</option>
-                                <option value="STAND_BY"   {% if data.estado == 'STAND_BY'   %}selected{% endif %}>SB</option>
-                                <option value="DIA_APOYO"  {% if data.estado == 'DIA_APOYO'  %}selected{% endif %}>DA</option>
-                                <option value="SUBSIDIO"   {% if data.estado == 'SUBSIDIO'   %}selected{% endif %}>SUB</option>
-                                <option value="RECORRIDO"  {% if data.estado == 'RECORRIDO'  %}selected{% endif %}>REC</option>
-                            </select>
+                            <!-- Grid de Estados -->
+                            <input type="hidden" name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" value="{{ data.estado|default:'TD' }}" class="estado-hidden-input">
+                            <button type="button" class="estado-select-btn estado-{{ data.estado|default:'TD' }}" onclick="abrirEstadoGrid(this)">
+                                {{ data.estado|default:'TD' }}
+                            </button>
+                            <div class="estado-grid-dropdown" style="display:none; position:absolute;">
+                                {% for cod in "T,TD,TN,TI,DL,DA,PT,DM,SB,SUB,I,IV,R,F,PT1,S,V,LSG,C,TC1,LFC,DA1,IVN,LCG,LOG".split(',') %}
+                                <button type="button" class="estado-btn" data-cod="{{ cod }}" onclick="seleccionarEstado(this)">{{ cod }}</button>
+                                {% endfor %}
+                            </div>
+                            <style>
+                            .estado-grid-dropdown {
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 4px;
+                                min-width: 90px;
+                                background: #fff;
+                                border: 1px solid #bbb;
+                                border-radius: 6px;
+                                padding: 4px;
+                                z-index: 1000;
+                                position: absolute;
+                            }
+                            .estado-btn {
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-weight: bold;
+                                color: #fff;
+                                border: none;
+                                border-radius: 4px;
+                                height: 28px;
+                                cursor: pointer;
+                                font-size: 13px;
+                            }
+                            .estado-btn[data-cod="T"]    { background: #27ae60; }
+                            .estado-btn[data-cod="TD"]   { background: #FFB300; }
+                            .estado-btn[data-cod="TN"]   { background: #0D47A1; }
+                            .estado-btn[data-cod="TI"]   { background: #388e3c; }
+                            .estado-btn[data-cod="DL"]   { background: #2980b9; }
+                            .estado-btn[data-cod="DA"]   { background: #1f618d; }
+                            .estado-btn[data-cod="PT"]   { background: #d35400; }
+                            .estado-btn[data-cod="DM"]   { background: #1a5276; }
+                            .estado-btn[data-cod="SB"]   { background: #148f77; }
+                            .estado-btn[data-cod="SUB"]  { background: #424949; }
+                            .estado-btn[data-cod="I"]    { background: #d68910; }
+                            .estado-btn[data-cod="IV"]   { background: #6c3483; }
+                            .estado-btn[data-cod="R"]    { background: #16a085; }
+                            .estado-btn[data-cod="F"]    { background: #e74c3c; }
+                            .estado-btn[data-cod="PT1"]  { background: #d35400; }
+                            .estado-btn[data-cod="S"]    { background: #922b21; }
+                            .estado-btn[data-cod="V"]    { background: #8e44ad; }
+                            .estado-btn[data-cod="LSG"]  { background: #5d6d7e; }
+                            .estado-btn[data-cod="C"]    { background: #616161; }
+                            .estado-btn[data-cod="TC1"]  { background: #b9770e; }
+                            .estado-btn[data-cod="LFC"]  { background: #b03a2e; }
+                            .estado-btn[data-cod="DA1"]  { background: #117864; }
+                            .estado-btn[data-cod="IVN"]  { background: #76448a; }
+                            .estado-btn[data-cod="LCG"]  { background: #2874a6; }
+                            .estado-btn[data-cod="LOG"]  { background: #2874a6; }
+                            .estado-select-btn {
+                                min-width: 38px;
+                                min-height: 28px;
+                                border-radius: 4px;
+                                border: 1px solid #bbb;
+                                font-weight: bold;
+                                font-size: 13px;
+                                background: #f8f9fa;
+                                cursor: pointer;
+                            }
+                            </style>
+                            <script>
+                            function abrirEstadoGrid(btn) {
+                                // Cerrar otros grids
+                                document.querySelectorAll('.estado-grid-dropdown').forEach(function(g) { g.style.display = 'none'; });
+                                var grid = btn.nextElementSibling;
+                                grid.style.display = (grid.style.display === 'none' ? 'grid' : 'none');
+                                // Posicionar grid
+                                var rect = btn.getBoundingClientRect();
+                                grid.style.left = (btn.offsetLeft) + 'px';
+                                grid.style.top = (btn.offsetTop + btn.offsetHeight + 2) + 'px';
+                            }
+                            function seleccionarEstado(btn) {
+                                var cod = btn.getAttribute('data-cod');
+                                var grid = btn.closest('.estado-grid-dropdown');
+                                var celda = grid.closest('td');
+                                // Actualizar input hidden
+                                var input = celda.querySelector('.estado-hidden-input');
+                                input.value = cod;
+                                // Actualizar botón
+                                var btnSelect = celda.querySelector('.estado-select-btn');
+                                btnSelect.textContent = cod;
+                                btnSelect.className = 'estado-select-btn estado-' + cod;
+                                // Actualizar clase de celda
+                                celda.className = celda.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+cod;
+                                celda.setAttribute('data-estado', cod);
+                                // Marcar fila como editada
+                                var tr = celda.closest('tr');
+                                tr.classList.add('dirty-row');
+                                // Cerrar grid
+                                grid.style.display = 'none';
+                                // Actualizar resumen si aplica
+                                if (typeof actualizarSummaryRows === 'function') actualizarSummaryRows();
+                            }
+                            // Cerrar grids al hacer click fuera
+                            document.addEventListener('click', function(e) {
+                                if (!e.target.classList.contains('estado-select-btn') && !e.target.classList.contains('estado-btn')) {
+                                    document.querySelectorAll('.estado-grid-dropdown').forEach(function(g) { g.style.display = 'none'; });
+                                }
+                            });
+                            </script>
                             
                             <!-- Select de Máquina (siempre visible) -->
                             <select 
