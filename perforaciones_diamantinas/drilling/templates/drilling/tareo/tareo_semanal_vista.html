@@ -218,6 +218,43 @@ input.date-pick { padding:6px 10px; border-radius:var(--rsm); border:1.5px solid
 .flat-card .gbadge { font-size:.75rem; padding:3px 12px; }
 
 /* ═══════════════════════════════════════════════════════════
+   Guardia note / comment field
+═══════════════════════════════════════════════════════════ */
+.gsec-note {
+    display: block;
+    width: calc(100% - var(--cpads) * 2);
+    margin: 3px var(--cpads) 7px;
+    padding: 5px 8px;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: var(--rsm);
+    font-size: .71rem;
+    color: var(--primary);
+    background: transparent;
+    resize: none;
+    font-family: inherit;
+    outline: none;
+    overflow: hidden;
+    min-height: 26px;
+    line-height: 1.45;
+    transition: border-color .15s, background .15s;
+    box-sizing: border-box;
+}
+.gsec-note:focus {
+    border-color: #94a3b8;
+    border-style: solid;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(4,112,172,.08);
+}
+.gsec-note::placeholder { color: #cbd5e1; font-style: italic; }
+.gsec-note.has-content { border-color: #94a3b8; border-style: solid; background: #f8fafc; }
+
+/* En impresión, ocultar notas vacías y estilizar las que tienen contenido */
+@media print {
+    .gsec-note:not(.has-content) { display: none; }
+    .gsec-note.has-content { border: 1px solid #94a3b8; background: #fff; }
+}
+
+/* ═══════════════════════════════════════════════════════════
    Empty states
 ═══════════════════════════════════════════════════════════ */
 .empty-g { font-size:.74rem; color:var(--muted-lt); font-style:italic; padding:6px 2px 4px; }
@@ -407,6 +444,10 @@ input.date-pick { padding:6px 10px; border-radius:var(--rsm); border:1.5px solid
                         <div class="empty-g">Sin trabajadores esta semana</div>
                     {% endif %}
                     </div>
+                    <textarea class="gsec-note"
+                              data-key="{{ contrato.id }}-{{ categoria.key }}-{{ maq.key }}-{{ gk }}-{{ fecha_inicio|date:'Ymd' }}"
+                              placeholder="Observación o nota para esta guardia…"
+                              rows="1"></textarea>
                 </div>
 
             </div>
@@ -485,6 +526,10 @@ input.date-pick { padding:6px 10px; border-radius:var(--rsm); border:1.5px solid
                     <div class="empty-g">Sin trabajadores esta semana</div>
                 {% endif %}
                 </div>
+                <textarea class="gsec-note"
+                          data-key="{{ contrato.id }}-{{ categoria.key }}-{{ maq.key }}-{{ gk }}-{{ fecha_inicio|date:'Ymd' }}"
+                          placeholder="Observación o nota para esta guardia…"
+                          rows="1"></textarea>
             </div>
             {% endwith %}
             {% endfor %}
@@ -566,6 +611,23 @@ function posTT(e){
     TT.style.top =(y+th>window.innerHeight ? e.clientY-th-8 : y)+'px';
 }
 
+/* ─ Notas por guardia (localStorage) ───────────────────── */
+function autoResize(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.max(26, ta.scrollHeight) + 'px';
+}
+document.querySelectorAll('.gsec-note').forEach(ta => {
+    const key = 'dist_note_' + ta.dataset.key;
+    const saved = localStorage.getItem(key);
+    if (saved) { ta.value = saved; ta.classList.add('has-content'); autoResize(ta); }
+    ta.addEventListener('input', function() {
+        const v = this.value.trim();
+        localStorage.setItem(key, this.value);
+        this.classList.toggle('has-content', v.length > 0);
+        autoResize(this);
+    });
+});
+
 /* ─ Toggle leyenda ──────────────────────────────────────── */
 function toggleLegend(){
     const b=document.getElementById('lgbody'), c=document.getElementById('lgchev'), open=b.style.display==='block';
@@ -596,12 +658,15 @@ document.getElementById('btnDL').addEventListener('click', function(){
     const fechaGen = document.getElementById('img-fecha-gen');
     if (fechaGen) fechaGen.textContent = new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'});
     hdr.style.display = 'block';
+    // Ocultar notas vacías para que no aparezcan en la imagen
+    const emptyNotes = document.querySelectorAll('.gsec-note:not(.has-content)');
+    emptyNotes.forEach(n => n.style.display = 'none');
     html2canvas(document.getElementById('distribution'),{scale:2,useCORS:true,backgroundColor:'#f1f5f9'})
         .then(c=>{ const a=document.createElement('a'); a.href=c.toDataURL('image/png');
             a.download='guardias_{{ contrato.nombre_contrato|slugify }}_{{ fecha_inicio|date:"Ymd" }}.png';
             document.body.appendChild(a); a.click(); a.remove(); })
         .catch(e=>console.error(e))
-        .finally(()=>{ hdr.style.display='none'; this.disabled=false; this.textContent='Imagen'; });
+        .finally(()=>{ hdr.style.display='none'; emptyNotes.forEach(n=>n.style.display=''); this.disabled=false; this.textContent='Imagen'; });
 });
 
 /* Abrir leyenda al imprimir */
