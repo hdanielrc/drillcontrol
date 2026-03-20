@@ -578,6 +578,33 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
+
+    /* Colores para cada opción del select de estado */
+    .estado-select option[value="T"]    { background: #27ae60; color: #fff; }
+    .estado-select option[value="TD"]   { background: #FFB300; color: #fff; }
+    .estado-select option[value="TN"]   { background: #0D47A1; color: #fff; }
+    .estado-select option[value="TI"]   { background: #388e3c; color: #fff; }
+    .estado-select option[value="DL"]   { background: #2980b9; color: #fff; }
+    .estado-select option[value="DA"]   { background: #1f618d; color: #fff; }
+    .estado-select option[value="PT"]   { background: #d35400; color: #fff; }
+    .estado-select option[value="DM"]   { background: #1a5276; color: #fff; }
+    .estado-select option[value="SB"]   { background: #148f77; color: #fff; }
+    .estado-select option[value="SUB"]  { background: #424949; color: #fff; }
+    .estado-select option[value="I"]    { background: #d68910; color: #fff; }
+    .estado-select option[value="IV"]   { background: #6c3483; color: #fff; }
+    .estado-select option[value="R"]    { background: #16a085; color: #fff; }
+    .estado-select option[value="F"]    { background: #e74c3c; color: #fff; }
+    .estado-select option[value="PT1"]  { background: #d35400; color: #fff; }
+    .estado-select option[value="S"]    { background: #922b21; color: #fff; }
+    .estado-select option[value="V"]    { background: #8e44ad; color: #fff; }
+    .estado-select option[value="LSG"]  { background: #5d6d7e; color: #fff; }
+    .estado-select option[value="C"]    { background: #616161; color: #fff; }
+    .estado-select option[value="TC1"]  { background: #b9770e; color: #fff; }
+    .estado-select option[value="LFC"]  { background: #b03a2e; color: #fff; }
+    .estado-select option[value="DA1"]  { background: #117864; color: #fff; }
+    .estado-select option[value="IVN"]  { background: #76448a; color: #fff; }
+    .estado-select option[value="LCG"]  { background: #2874a6; color: #fff; }
+    .estado-select option[value="LOG"]  { background: #2874a6; color: #fff; }
 </style>
 {% endblock %}
 
@@ -840,95 +867,6 @@
                                 {% endwith %}
                             {% endfor %}
                         {% endif %}
-                            <!-- Grid de Estados -->
-                            <!-- Select clásico de Estado -->
-{# El select y las opciones se mueven a un include para evitar duplicidad y errores de cierre de bloques #}
-                            {# NOTA: crea un archivo drilling/tareo/estado_select_options.html con el contenido del select y las opciones, usando la variable estado_code2 #}
-                            </select>
-                            </div>
-                            <style>
-                            /* Colores para cada opción del select de estado */
-                            .estado-select option[value="T"]    { background: #27ae60; color: #fff; }
-                            .estado-select option[value="TD"]   { background: #FFB300; color: #fff; }
-                            .estado-select option[value="TN"]   { background: #0D47A1; color: #fff; }
-                            .estado-select option[value="TI"]   { background: #388e3c; color: #fff; }
-                            .estado-select option[value="DL"]   { background: #2980b9; color: #fff; }
-                            .estado-select option[value="DA"]   { background: #1f618d; color: #fff; }
-                            .estado-select option[value="PT"]   { background: #d35400; color: #fff; }
-                            .estado-select option[value="DM"]   { background: #1a5276; color: #fff; }
-                            .estado-select option[value="SB"]   { background: #148f77; color: #fff; }
-                            .estado-select option[value="SUB"]  { background: #424949; color: #fff; }
-                            .estado-select option[value="I"]    { background: #d68910; color: #fff; }
-                            .estado-select option[value="IV"]   { background: #6c3483; color: #fff; }
-                            .estado-select option[value="R"]    { background: #16a085; color: #fff; }
-                            .estado-select option[value="F"]    { background: #e74c3c; color: #fff; }
-                            .estado-select option[value="PT1"]  { background: #d35400; color: #fff; }
-                            .estado-select option[value="S"]    { background: #922b21; color: #fff; }
-                            .estado-select option[value="V"]    { background: #8e44ad; color: #fff; }
-                            .estado-select option[value="LSG"]  { background: #5d6d7e; color: #fff; }
-                            .estado-select option[value="C"]    { background: #616161; color: #fff; }
-                            .estado-select option[value="TC1"]  { background: #b9770e; color: #fff; }
-                            .estado-select option[value="LFC"]  { background: #b03a2e; color: #fff; }
-                            .estado-select option[value="DA1"]  { background: #117864; color: #fff; }
-                            .estado-select option[value="IVN"]  { background: #76448a; color: #fff; }
-                            .estado-select option[value="LCG"]  { background: #2874a6; color: #fff; }
-                            .estado-select option[value="LOG"]  { background: #2874a6; color: #fff; }
-                            </style>
-                            
-                            <!-- Select de Máquina (siempre visible) -->
-                            <select 
-                                name="maquina_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
-                                class="maquina-select"
-                                data-tipo="maquina"
-                                style="margin-top: 4px; font-size: 10px; padding: 3px; width: 100%; border: 1px solid #95a5a6; border-radius: 3px; background: #f8f9fa; font-weight: 600;"
-                                title="Máquina asignada para este día específico">
-                                <option value="">Sin máquina</option>
-                                {% for maq in maquinas_disponibles %}
-                                <option value="{{ maq.id }}" 
-                                    {% if data and data.maquina_id and data.maquina_id == maq.id %}
-                                        selected
-                                    {% elif not data and row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}
-                                        selected
-                                    {% endif %}>
-                                    🚜 {{ maq.codigo|default:maq.nombre }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            
-                            <!-- Indicadores de estado del registro -->
-                            <div style="margin-top: 3px; font-size: 10px;">
-                                {% if data %}
-                                    {% if data.es_proyeccion or data.tipo == 'PROY' %}
-                                        <span class="proyeccion-indicator es-proyeccion" title="Proyección automática">P</span>
-                                    {% else %}
-                                        <span class="proyeccion-indicator es-correccion" title="Registro manual confirmado">✓</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span style="background: #fff3cd; color: #856404; padding: 2px 4px; border-radius: 3px; font-size: 9px;" title="Sin registro">⚠️</span>
-                                {% endif %}
-
-                                <!-- Selector por celda: Guardia (override) -->
-                                <div style="margin-top:6px;">
-                                    <select name="guardia_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}"
-                                            class="guardia-cell-select"
-                                            data-tipo="guardia_snapshot"
-                                            style="font-size:11px; padding:2px 4px; border-radius:3px; width:56px;">
-                                        <option value="" {% if not data.guardia_snapshot %}selected{% endif %}>—</option>
-                                        <option value="A" {% if data.guardia_snapshot == 'A' %}selected{% endif %}>A</option>
-                                        <option value="B" {% if data.guardia_snapshot == 'B' %}selected{% endif %}>B</option>
-                                        <option value="C" {% if data.guardia_snapshot == 'C' %}selected{% endif %}>C</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <!-- Campo oculto para observaciones (commit forzado para subir cambios de sintaxis) -->
-                            <input type="hidden" 
-                                   name="observaciones_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
-                                   data-tipo="observaciones"
-                                   value="{{ data.observaciones|default:'' }}">
-                        </td>
-
-                        {% endfor %}
                     </tr>
                 {% endif %}
             {% endfor %}

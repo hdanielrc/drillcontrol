@@ -32,6 +32,25 @@
         <option value="DA1"  {% if estado_code2 == 'DA1'  %}selected{% endif %}>DA1</option>
         <option value="LCG"  {% if estado_code2 == 'LCG'  %}selected{% endif %}>LCG</option>
     </select>
+    <!-- Select de Máquina por día -->
+    <select
+        name="maquina_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}"
+        class="maquina-select"
+        data-tipo="maquina"
+        style="margin-top: 4px; font-size: 10px; padding: 3px; width: 100%; border: 1px solid #95a5a6; border-radius: 3px; background: #f8f9fa; font-weight: 600;"
+        title="Máquina asignada para este día específico">
+        <option value="">Sin máquina</option>
+        {% for maq in maquinas_disponibles %}
+        <option value="{{ maq.id }}"
+            {% if data and data.maquina_id and data.maquina_id == maq.id %}
+                selected
+            {% elif not data and row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}
+                selected
+            {% endif %}>
+            🚜 {{ maq.codigo|default:maq.nombre }}
+        </option>
+        {% endfor %}
+    </select>
     <!-- Indicadores de estado del registro -->
     <div style="margin-top: 3px; font-size: 10px;">
         {% if data %}
