@@ -809,41 +809,49 @@
                         {% for dia in dias_rango %}
                         {% with asist=row.asistencias %}
                         {% with data=asist|get_item:dia.fecha %}
-                        <td class="celda-{{ data.estado|default:'TRABAJO' }} {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
-                            data-estado="{{ data.estado|default:'TD' }}"
+                        {% comment %} Normalizar estados equivalentes para visualización y select {% endcomment %}
+                        {% with estado_code=(data.estado|default:'TD') %}
+                        {% if estado_code == 'DESCANSO' %}{% with 'DL' as estado_code %}{% endif %}
+                        {% if estado_code == 'TRABAJO' %}{% with 'T' as estado_code %}{% endif %}
+                        {% if estado_code == 'TRABAJADO' %}{% with 'T' as estado_code %}{% endif %}
+                        {% if estado_code == 'TRABAJADO_DIA' %}{% with 'TD' as estado_code %}{% endif %}
+                        {% if estado_code == 'TRABAJADO_NOCHE' %}{% with 'TN' as estado_code %}{% endif %}
+                        <td class="celda-{{ estado_code }} {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
+                            data-estado="{{ estado_code }}"
                             data-trabajador-id="{{ row.trabajador.id }}" 
                             data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
                             <!-- Grid de Estados -->
                             <!-- Select clásico de Estado -->
                             <select 
                                 name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
-                                class="estado-select estado-{{ data.estado|default:'TD' }}"
+                                class="estado-select estado-{{ estado_code }}"
                                 data-tipo="estado"
                                 onchange="(function(sel){ sel.className='estado-select estado-' + sel.value; var td=sel.closest('td'); var tr=td.closest('tr'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); tr.classList.add('dirty-row'); if (typeof actualizarSummaryRows === 'function') actualizarSummaryRows(); })(this)"
-                                title="{{ data.estado|default:'TD' }}"
+                                title="{{ estado_code }}"
                             >
-                                <option value="T"    {% if data.estado == 'T'    %}selected{% endif %}>T</option>
-                                <option value="TD"   {% if data.estado == 'TD'   or not data.estado %}selected{% endif %}>TD</option>
-                                <option value="TN"   {% if data.estado == 'TN'   %}selected{% endif %}>TN</option>
-                                <option value="TI"   {% if data.estado == 'TI'   %}selected{% endif %}>TI</option>
-                                <option value="DL"   {% if data.estado == 'DL'   %}selected{% endif %}>DL</option>
-                                <option value="DA"   {% if data.estado == 'DA'   %}selected{% endif %}>DA</option>
-                                <option value="PT"   {% if data.estado == 'PT'   %}selected{% endif %}>PT</option>
-                                <option value="DM"   {% if data.estado == 'DM'   %}selected{% endif %}>DM</option>
-                                <option value="SB"   {% if data.estado == 'SB'   %}selected{% endif %}>SB</option>
-                                <option value="SUB"  {% if data.estado == 'SUB'  %}selected{% endif %}>SUB</option>
-                                <option value="I"    {% if data.estado == 'I'    %}selected{% endif %}>I</option>
-                                <option value="IV"   {% if data.estado == 'IV'   %}selected{% endif %}>IV</option>
-                                <option value="R"    {% if data.estado == 'R'    %}selected{% endif %}>R</option>
-                                <option value="F"    {% if data.estado == 'F'    %}selected{% endif %}>F</option>
-                                <option value="S"    {% if data.estado == 'S'    %}selected{% endif %}>S</option>
-                                <option value="V"    {% if data.estado == 'V'    %}selected{% endif %}>V</option>
-                                <option value="LSG"  {% if data.estado == 'LSG'  %}selected{% endif %}>LSG</option>
-                                <option value="C"    {% if data.estado == 'C'    %}selected{% endif %}>C</option>
-                                <option value="TC1"  {% if data.estado == 'TC1'  %}selected{% endif %}>TC1</option>
-                                <option value="LFC"  {% if data.estado == 'LFC'  %}selected{% endif %}>LFC</option>
-                                <option value="DA1"  {% if data.estado == 'DA1'  %}selected{% endif %}>DA1</option>
-                                <option value="LCG"  {% if data.estado == 'LCG'  %}selected{% endif %}>LCG</option>
+                                <option value="T"    {% if estado_code == 'T'    %}selected{% endif %}>T</option>
+                                <option value="TD"   {% if estado_code == 'TD'   or not estado_code %}selected{% endif %}>TD</option>
+                                <option value="TN"   {% if estado_code == 'TN'   %}selected{% endif %}>TN</option>
+                                <option value="TI"   {% if estado_code == 'TI'   %}selected{% endif %}>TI</option>
+                                <option value="DL"   {% if estado_code == 'DL'   %}selected{% endif %}>DL</option>
+                                <option value="DA"   {% if estado_code == 'DA'   %}selected{% endif %}>DA</option>
+                                <option value="PT"   {% if estado_code == 'PT'   %}selected{% endif %}>PT</option>
+                                <option value="DM"   {% if estado_code == 'DM'   %}selected{% endif %}>DM</option>
+                                <option value="SB"   {% if estado_code == 'SB'   %}selected{% endif %}>SB</option>
+                                <option value="SUB"  {% if estado_code == 'SUB'  %}selected{% endif %}>SUB</option>
+                                <option value="I"    {% if estado_code == 'I'    %}selected{% endif %}>I</option>
+                                <option value="IV"   {% if estado_code == 'IV'   %}selected{% endif %}>IV</option>
+                                <option value="R"    {% if estado_code == 'R'    %}selected{% endif %}>R</option>
+                                <option value="F"    {% if estado_code == 'F'    %}selected{% endif %}>F</option>
+                                <option value="S"    {% if estado_code == 'S'    %}selected{% endif %}>S</option>
+                                <option value="V"    {% if estado_code == 'V'    %}selected{% endif %}>V</option>
+                                <option value="LSG"  {% if estado_code == 'LSG'  %}selected{% endif %}>LSG</option>
+                                <option value="C"    {% if estado_code == 'C'    %}selected{% endif %}>C</option>
+                                <option value="TC1"  {% if estado_code == 'TC1'  %}selected{% endif %}>TC1</option>
+                                <option value="LFC"  {% if estado_code == 'LFC'  %}selected{% endif %}>LFC</option>
+                                <option value="DA1"  {% if estado_code == 'DA1'  %}selected{% endif %}>DA1</option>
+                                <option value="LCG"  {% if estado_code == 'LCG'  %}selected{% endif %}>LCG</option>
+                            {% endwith %}
                             </select>
                             </div>
                             <style>
