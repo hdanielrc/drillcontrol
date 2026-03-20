@@ -806,33 +806,35 @@
                         </td>
                         
                         <!-- Celdas de días -->
-                        {% for dia in dias_rango %}
-                            {% with asist=row.asistencias %}
-                                {% with data=asist|get_item:dia.fecha %}
-                                    {% with data.estado|default:'TD' as estado_code %}
-                                        {% if estado_code == 'DESCANSO' %}
-                                            {% with 'DL' as estado_code2 %}
-                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                            {% endwith %}
-                                        {% elif estado_code == 'TRABAJO' or estado_code == 'TRABAJADO' %}
-                                            {% with 'T' as estado_code2 %}
-                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                            {% endwith %}
-                                        {% elif estado_code == 'TRABAJADO_DIA' %}
-                                            {% with 'TD' as estado_code2 %}
-                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                            {% endwith %}
-                                        {% elif estado_code == 'TRABAJADO_NOCHE' %}
-                                            {% with 'TN' as estado_code2 %}
-                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                            {% endwith %}
-                                        {% else %}
-                                            {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code data=data row=row dia=dia %}
-                                        {% endif %}
+                        {% if dias_rango %}
+                            {% for dia in dias_rango %}
+                                {% with asist=row.asistencias %}
+                                    {% with data=asist|get_item:dia.fecha %}
+                                        {% with data.estado|default:'TD' as estado_code %}
+                                            {% if estado_code == 'DESCANSO' %}
+                                                {% with 'DL' as estado_code2 %}
+                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                {% endwith %}
+                                            {% elif estado_code == 'TRABAJO' or estado_code == 'TRABAJADO' %}
+                                                {% with 'T' as estado_code2 %}
+                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                {% endwith %}
+                                            {% elif estado_code == 'TRABAJADO_DIA' %}
+                                                {% with 'TD' as estado_code2 %}
+                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                {% endwith %}
+                                            {% elif estado_code == 'TRABAJADO_NOCHE' %}
+                                                {% with 'TN' as estado_code2 %}
+                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                {% endwith %}
+                                            {% else %}
+                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code data=data row=row dia=dia %}
+                                            {% endif %}
+                                        {% endwith %}
                                     {% endwith %}
                                 {% endwith %}
-                            {% endwith %}
-                        {% endfor %}
+                            {% endfor %}
+                        {% endif %}
                             <!-- Grid de Estados -->
                             <!-- Select clásico de Estado -->
 {# El select y las opciones se mueven a un include para evitar duplicidad y errores de cierre de bloques #}
