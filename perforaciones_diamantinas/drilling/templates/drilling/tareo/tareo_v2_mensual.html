@@ -812,51 +812,27 @@
                                     {% with data.estado|default:'TD' as estado_code %}
                                         {% if estado_code == 'DESCANSO' %}
                                             {% with 'DL' as estado_code2 %}
-                                                <td class="celda-DL {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
-                                                    data-estado="DL"
-                                                    data-trabajador-id="{{ row.trabajador.id }}"
-                                                    data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
-                                                    {% include 'drilling/tareo/estado_select_options.html' with estado_code2='DL' %}
-                                            </td>
+                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
                                             {% endwith %}
                                         {% elif estado_code == 'TRABAJO' or estado_code == 'TRABAJADO' %}
                                             {% with 'T' as estado_code2 %}
-                                                <td class="celda-T {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
-                                                    data-estado="T"
-                                                    data-trabajador-id="{{ row.trabajador.id }}"
-                                                    data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
-                                                    {% include 'drilling/tareo/estado_select_options.html' with estado_code2='T' %}
-                                            </td>
+                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
                                             {% endwith %}
                                         {% elif estado_code == 'TRABAJADO_DIA' %}
                                             {% with 'TD' as estado_code2 %}
-                                                <td class="celda-TD {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
-                                                    data-estado="TD"
-                                                    data-trabajador-id="{{ row.trabajador.id }}"
-                                                    data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
-                                                    {% include 'drilling/tareo/estado_select_options.html' with estado_code2='TD' %}
-                                            </td>
+                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
                                             {% endwith %}
                                         {% elif estado_code == 'TRABAJADO_NOCHE' %}
                                             {% with 'TN' as estado_code2 %}
-                                                <td class="celda-TN {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
-                                                    data-estado="TN"
-                                                    data-trabajador-id="{{ row.trabajador.id }}"
-                                                    data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
-                                                    {% include 'drilling/tareo/estado_select_options.html' with estado_code2='TN' %}
-                                            </td>
+                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
                                             {% endwith %}
                                         {% else %}
-                                            <td class="celda-{{ estado_code }} {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}"
-                                                data-estado="{{ estado_code }}"
-                                                data-trabajador-id="{{ row.trabajador.id }}"
-                                                data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
-                                                {% include 'drilling/tareo/estado_select_options.html' with estado_code2=estado_code %}
-                                            </td>
+                                            {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code data=data row=row dia=dia %}
                                         {% endif %}
                                     {% endwith %}
                                 {% endwith %}
                             {% endwith %}
+                        {% endfor %}
                             <!-- Grid de Estados -->
                             <!-- Select clásico de Estado -->
 {# El select y las opciones se mueven a un include para evitar duplicidad y errores de cierre de bloques #}
