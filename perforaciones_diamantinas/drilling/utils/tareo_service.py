@@ -484,35 +484,19 @@ class TareoService:
     @staticmethod
     @transaction.atomic
     def generar_proyeccion_mensual(anio, mes, contrato=None, sobrescribir=False):
-        return TareoService._generar_proyeccion_mensual_deterministica(
-            anio=anio,
-            mes=mes,
-            contrato=contrato,
-            sobrescribir=sobrescribir,
-        )
         """
         Genera la proyección mensual de asistencias para todos los trabajadores activos.
-        
-        Este método:
-        1. Itera sobre todos los empleados activos del contrato especificado
-        2. Calcula matemáticamente si les toca TRABAJO o DESCANSO según su régimen
-        3. Inserta masivamente (bulk_create) los registros como proyección
-        4. Respeta excepciones ya registradas (vacaciones, permisos, etc.)
-        
+        Incluye la lógica de rotación determinista de guardias (máx. 2 guardias
+        trabajando por máquina por día).
+
         Args:
             anio (int): Año de la proyección (ej: 2026)
             mes (int): Mes de la proyección (1-12)
             contrato (Contrato, optional): Contrato específico. Si es None, procesa todos.
             sobrescribir (bool): Si True, elimina proyecciones previas del mes
-            
+
         Returns:
             dict: Estadísticas de la operación
-                {
-                    'trabajadores_procesados': int,
-                    'registros_creados': int,
-                    'registros_existentes_respetados': int,
-                    'errores': list
-                }
         """
         logger.info(f"Iniciando proyección mensual para {mes}/{anio}")
         
@@ -909,12 +893,12 @@ class TareoService:
                 # 1) intentar inferir última guardia en DESCANSO manual para la máquina
                 try:
                     if maq_id is not None and available_ordered:
-                        last_manual = AsistenciaDiaria.objects.filter(
+                        _manual_qs = _manual_filter(AsistenciaDiaria.objects.filter(
                             maquina_snapshot_id=maq_id,
                             fecha__lt=fecha,
-                            es_proyeccion=False,
                             estado='DESCANSO'
-                        ).order_by('-fecha').values_list('guardia_snapshot', flat=True).first()
+                        ))
+                        last_manual = _manual_qs.order_by('-fecha').values_list('guardia_snapshot', flat=True).first()
                         if last_manual and last_manual in rotation_order:
                             idx = rotation_order.index(last_manual)
                             for off in range(1, len(rotation_order)+1):
@@ -1864,9 +1848,11 @@ class CierreMensualService:
             contrato=contrato,
         )
         
+        emp_field = _empleado_field_name()
+
         # Resumen por trabajador
         resumen_trabajadores = []
-        
+
         for trabajador in trabajadores_activos:
             asistencias = AsistenciaDiaria.objects.filter(
                 **{f"{emp_field}": trabajador, 'fecha__gte': primer_dia, 'fecha__lte': ultimo_dia}
@@ -2002,6 +1988,8 @@ class AuditoriaAsistenciaService:
         from datetime import date
         from ..models import HistorialCambioAsistencia, CierreMensualTareo
         
+        emp_field = _empleado_field_name()
+
         try:
             cierre = CierreMensualTareo.objects.get(
                 contrato=contrato,
@@ -2009,7 +1997,7 @@ class AuditoriaAsistenciaService:
                 mes=mes,
                 estado='CERRADO'
             )
-            
+
             cambios = HistorialCambioAsistencia.objects.filter(
                 **{f"asistencia__{emp_field}__contrato": contrato, 'asistencia__fecha__year': anio, 'asistencia__fecha__month': mes, 'fecha_cambio__gt': cierre.fecha_cierre, 'mes_cerrado': True}
             ).select_related(f"asistencia__{emp_field}", 'usuario')

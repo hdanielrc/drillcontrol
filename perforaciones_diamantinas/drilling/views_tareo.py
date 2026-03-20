@@ -2850,12 +2850,16 @@ def tareo_v2_mensual_view(request):
                                 fecha_asistencia = datetime.strptime(fecha_str, '%Y-%m-%d').date()
                                 observaciones_key = f"observaciones_{trabajador_id}_{anio_str}_{mes_dia_str}"
                                 observaciones = request.POST.get(observaciones_key, '')
-                                
+                                maquina_raw = request.POST.get(f"maquina_{trabajador_id}_{anio_str}_{mes_dia_str}", '')
+                                guardia_raw = request.POST.get(f"guardia_{trabajador_id}_{anio_str}_{mes_dia_str}", '')
+
                                 asistencias_data.append({
                                     'trabajador_id': int(trabajador_id),
                                     'fecha': fecha_asistencia,
                                     'estado': value,
-                                    'observaciones': observaciones
+                                    'observaciones': observaciones,
+                                    'maquina_id': int(maquina_raw) if maquina_raw else None,
+                                    'guardia_snapshot': guardia_raw or None,
                                 })
                             except ValueError:
                                 continue
