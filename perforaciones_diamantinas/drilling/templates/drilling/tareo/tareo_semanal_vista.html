@@ -332,6 +332,15 @@ input.date-pick { padding:6px 10px; border-radius:var(--rsm); border:1.5px solid
 
     <!-- ══ DISTRIBUTION ════════════════════════════════════════ -->
     <div id="distribution">
+
+    <!-- Encabezado visible solo en la imagen descargada -->
+    <div id="img-header" style="display:none; background:#0f172a; color:#fff; border-radius:8px; padding:10px 16px; margin-bottom:12px; display:none;">
+        <div style="font-size:.95rem; font-weight:700; letter-spacing:.3px;">{{ contrato.nombre_contrato }} — Distribución de Guardias</div>
+        <div style="font-size:.78rem; color:#94a3b8; margin-top:3px;">
+            Semana: {{ fecha_inicio|date:'d/m/Y' }} – {{ fecha_fin|date:'d/m/Y' }}
+            &nbsp;·&nbsp; Generado el <span id="img-fecha-gen"></span>
+        </div>
+    </div>
     {% for categoria in categorias %}
 
         <div class="cat-header">
@@ -582,12 +591,17 @@ document.getElementById('pickDate').value = fechaInicioStr;
 /* ─ Descarga imagen ─────────────────────────────────────── */
 document.getElementById('btnDL').addEventListener('click', function(){
     this.disabled=true; this.textContent='Generando…';
+    // Mostrar encabezado con rango de semana en la imagen
+    const hdr = document.getElementById('img-header');
+    const fechaGen = document.getElementById('img-fecha-gen');
+    if (fechaGen) fechaGen.textContent = new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'});
+    hdr.style.display = 'block';
     html2canvas(document.getElementById('distribution'),{scale:2,useCORS:true,backgroundColor:'#f1f5f9'})
         .then(c=>{ const a=document.createElement('a'); a.href=c.toDataURL('image/png');
             a.download='guardias_{{ contrato.nombre_contrato|slugify }}_{{ fecha_inicio|date:"Ymd" }}.png';
             document.body.appendChild(a); a.click(); a.remove(); })
         .catch(e=>console.error(e))
-        .finally(()=>{ this.disabled=false; this.textContent='Imagen'; });
+        .finally(()=>{ hdr.style.display='none'; this.disabled=false; this.textContent='Imagen'; });
 });
 
 /* Abrir leyenda al imprimir */
