@@ -1820,28 +1820,13 @@ class Trabajador(models.Model):
     def __str__(self):
         return f"{self.nombres} {self.apepat} - {self.cargo}"
 
-    @staticmethod
-    def _estado_operativo_activo_q():
-        return (
-            models.Q(estado__iexact='ACTIVO')
-            | models.Q(estado_api__iexact='ACTIVO')
-            | models.Q(estado__iexact='STAND_BY')
-            | models.Q(estado_api__iexact='STAND_BY')
-            | models.Q(estado_api__iexact='STAND_BY_CLIENTE')
-            | models.Q(estado_api__iexact='STAND_BY_ROCKDRILL')
-        )
-
     @classmethod
     def vigentes_en_rango_q(cls, fecha_inicio=None, fecha_fin=None):
         q = models.Q()
         if fecha_fin:
             q &= (models.Q(fecha_inicio_labores__isnull=True) | models.Q(fecha_inicio_labores__lte=fecha_fin))
         if fecha_inicio:
-            q &= (
-                cls._estado_operativo_activo_q()
-                | models.Q(fecha_cese__isnull=True)
-                | models.Q(fecha_cese__gte=fecha_inicio)
-            )
+            q &= (models.Q(fecha_cese__isnull=True) | models.Q(fecha_cese__gte=fecha_inicio))
         return q
 
     @classmethod
@@ -1851,9 +1836,6 @@ class Trabajador(models.Model):
     def vigente_en_fecha(self, fecha):
         if self.fecha_inicio_labores and fecha < self.fecha_inicio_labores:
             return False
-        estado_norm = (self.estado_api or self.estado or '').strip().upper()
-        if estado_norm in {'ACTIVO', 'STAND_BY', 'STAND_BY_CLIENTE', 'STAND_BY_ROCKDRILL'}:
-            return True
         if self.fecha_cese and fecha > self.fecha_cese:
             return False
         return True
