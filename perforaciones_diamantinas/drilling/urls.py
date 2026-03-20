@@ -229,6 +229,7 @@ urlpatterns = [
     # APIs Tareo - Grupos y Trabajadores
     path('api/tareo/grupos-disponibles/', api_views.api_grupos_disponibles_por_fecha, name='api-grupos-disponibles'),
     path('api/tareo/trabajadores-por-grupo/', api_views.api_trabajadores_por_grupo_fecha, name='api-trabajadores-por-grupo'),
+    path('api/tareo/trabajadores-por-maquina/', api_views.api_trabajadores_por_maquina, name='api-trabajadores-por-maquina'),
     
     # Abastecimiento CRUD Completo
     path('abastecimiento/', views.AbastecimientoListView.as_view(), name='abastecimiento-list'),

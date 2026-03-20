@@ -652,3 +652,123 @@ def api_ultimo_horometro_maquina(request, maquina_id):
     except Exception as e:
         logger.error(f"Error obteniendo último horómetro de la máquina {maquina_id}: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_trabajadores_por_maquina(request):
+    """
+    Retorna los trabajadores que el tareo V2 (AsistenciaDiaria) asigna a una
+    máquina específica en una fecha dada.
+
+    Parámetros GET:
+        - fecha      (requerido): YYYY-MM-DD
+        - maquina_id (requerido): ID de la máquina
+        - contrato_id (opcional): ID del contrato; si se omite usa el del usuario
+
+    Retorna JSON:
+        {
+            "success": true,
+            "fecha": "2026-03-20",
+            "maquina_id": 3,
+            "trabajadores": [
+                {
+                    "id": 42,
+                    "nombres": "Juan",
+                    "apellidos": "Pérez",
+                    "nombre_completo": "Juan Pérez",
+                    "cargo": "Perforista",
+                    "guardia": "A",
+                    "estado_tareo": "TD"
+                },
+                ...
+            ],
+            "count": 2
+        }
+    """
+    from .models import Contrato, Maquina
+    from .tareo_compat import AsistenciaDiaria
+    from datetime import datetime
+
+    # ── Parámetros ────────────────────────────────────────────────────────────
+    fecha_str  = request.GET.get('fecha')
+    maquina_id = request.GET.get('maquina_id')
+    contrato_id = request.GET.get('contrato_id')
+
+    if not fecha_str or not maquina_id:
+        return JsonResponse(
+            {'success': False, 'error': 'Debe proporcionar fecha y maquina_id'},
+            status=400
+        )
+
+    try:
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse(
+            {'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'},
+            status=400
+        )
+
+    # ── Contrato ──────────────────────────────────────────────────────────────
+    if contrato_id:
+        try:
+            contrato = Contrato.objects.get(id=contrato_id)
+        except Contrato.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Contrato no encontrado'}, status=404)
+    elif hasattr(request.user, 'contrato') and request.user.contrato:
+        contrato = request.user.contrato
+    else:
+        return JsonResponse({'success': False, 'error': 'No se pudo determinar el contrato'}, status=400)
+
+    # ── Máquina ───────────────────────────────────────────────────────────────
+    try:
+        maquina = Maquina.objects.get(id=maquina_id)
+    except Maquina.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Máquina no encontrada'}, status=404)
+
+    try:
+        # Estados que representan jornada trabajada
+        ESTADOS_TRABAJO = {'T', 'TD', 'TN', 'TI', 'TC1', 'DA', 'DA1', 'REC'}
+
+        asistencias = (
+            AsistenciaDiaria.objects
+            .filter(
+                trabajador__contrato=contrato,
+                fecha=fecha,
+                maquina_snapshot=maquina,
+                estado__in=ESTADOS_TRABAJO,
+            )
+            .select_related('trabajador')
+            .order_by('guardia_snapshot', 'trabajador__apepat', 'trabajador__apemat')
+        )
+
+        trabajadores_data = []
+        for asist in asistencias:
+            t = asist.trabajador
+            trabajadores_data.append({
+                'id': t.id,
+                'nombres': t.nombres,
+                'apellidos': f"{t.apepat} {t.apemat}".strip(),
+                'nombre_completo': f"{t.apepat} {t.apemat}, {t.nombres}".strip(', '),
+                'cargo': t.cargo or '',
+                'guardia': asist.guardia_snapshot or '',
+                'estado_tareo': asist.estado,
+            })
+
+        logger.info(
+            f"api_trabajadores_por_maquina: fecha={fecha_str} maquina={maquina.nombre} "
+            f"→ {len(trabajadores_data)} trabajadores"
+        )
+
+        return JsonResponse({
+            'success': True,
+            'fecha': fecha_str,
+            'maquina_id': int(maquina_id),
+            'maquina_nombre': maquina.nombre,
+            'trabajadores': trabajadores_data,
+            'count': len(trabajadores_data),
+        })
+
+    except Exception as e:
+        logger.error(f"Error en api_trabajadores_por_maquina: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
