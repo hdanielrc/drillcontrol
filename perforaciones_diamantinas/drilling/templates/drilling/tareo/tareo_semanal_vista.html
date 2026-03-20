@@ -1,136 +1,467 @@
 {% extends "drilling/base.html" %}
 {% load static %}
 
-{% block title %}Tareo Semanal — Visualización{% endblock %}
+{% block title %}Distribución de Guardias — {{ contrato.nombre_contrato }}{% endblock %}
 
 {% block extra_css %}
 <style>
-  .semanal-container { padding: 18px; }
-  .maquinas-wrap { display:flex; flex-wrap:wrap; gap:10px; }
-  .maquina-block { border: 1px solid #ccc; border-radius: 6px; margin:8px; padding:12px; box-sizing:border-box; flex: 0 0 420px; max-width:420px; min-width:320px; background:#fff; }
-  .maquina-title { font-weight:700; background:#1565c0; color:#fff; padding:6px; border-radius:4px; }
-  .guardia-block { margin-top:8px; }
-  .worker-row { display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; }
-  .worker-name { min-width:160px; max-width:260px; font-size:13px; font-weight:700; line-height:1.1; display:block; white-space:normal; overflow:visible; word-break:break-word; }
-  .worker-cargo { font-size:11px; color:#7f8c8d; margin-top:3px; max-width:260px; white-space:normal; overflow:visible; color:#6c757d; }
-  .dias-row { display:flex; gap:6px; flex-wrap:nowrap; overflow:auto; padding-bottom:2px; }
-  .dia-cell { width:44px; height:56px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:14px; box-shadow:0 1px 0 rgba(0,0,0,0.06); }
-  .dia-cell.empty { background:#efefef; color:#000; }
-  .download-btn { margin-bottom:10px; }
-  /* make scrollbars unobtrusive */
-  .dias-row::-webkit-scrollbar{ height:8px; }
-  .dias-row::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.12); border-radius:4px; }
+/* ─── Variables ─────────────────────────────────────────────── */
+:root {
+    --bg: #f4f6fb;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --primary: #0f172a;
+    --primary-soft: #0470ac;
+    --muted: #64748b;
+    --radius: 8px;
+
+    /* Guardia colors */
+    --g-a:   #1d4ed8;  /* Guardia A — azul */
+    --g-a-bg:#dbeafe;
+    --g-b:   #b45309;  /* Guardia B — ámbar */
+    --g-b-bg:#fef3c7;
+    --g-c:   #7c3aed;  /* Guardia C — violeta */
+    --g-c-bg:#ede9fe;
+    --g-d:   #0f766e;  /* Guardia D — teal */
+    --g-d-bg:#ccfbf1;
+    --g-sin: #475569;
+    --g-sin-bg:#f1f5f9;
+}
+
+body { background: var(--bg); }
+.dist-page { padding: 18px 20px 48px; }
+
+/* ─── Topbar ────────────────────────────────────────────────── */
+.dist-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.dist-topbar h1 {
+    font-size: 1.1rem; font-weight: 700; color: var(--primary); margin: 0;
+}
+.dist-nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+.btn-outline {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 13px; border-radius: var(--radius);
+    border: 1.5px solid var(--card-border); background: var(--card-bg);
+    font-size: .82rem; font-weight: 500; color: var(--primary);
+    cursor: pointer; text-decoration: none; transition: background .15s;
+    white-space: nowrap;
+}
+.btn-outline:hover { background: #f1f5f9; }
+.btn-primary {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 13px; border-radius: var(--radius);
+    background: var(--primary-soft); color: #fff;
+    font-size: .82rem; font-weight: 600; cursor: pointer;
+    border: none; text-decoration: none; transition: opacity .15s; white-space: nowrap;
+}
+.btn-primary:hover { opacity: .88; }
+.btn-today {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 13px; border-radius: var(--radius);
+    background: #f59e0b; color: #fff;
+    font-size: .82rem; font-weight: 600; cursor: pointer;
+    border: none; transition: opacity .15s; white-space: nowrap;
+}
+.btn-today:hover { opacity: .88; }
+
+input[type="date"].date-pick {
+    padding: 6px 10px; border-radius: var(--radius);
+    border: 1.5px solid var(--card-border); font-size: .82rem;
+    color: var(--primary); background: var(--card-bg);
+    cursor: pointer;
+}
+
+/* ─── Stats bar ─────────────────────────────────────────────── */
+.stats-bar {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+.stat-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 20px;
+    background: var(--card-bg); border: 1.5px solid var(--card-border);
+    font-size: .8rem; color: var(--primary);
+}
+.stat-chip strong { font-weight: 700; }
+.stat-chip.reales { border-color: #16a34a; color: #166534; background: #dcfce7; }
+.stat-chip.proyec { border-color: #d97706; color: #92400e; background: #fef3c7; }
+.stat-chip.week   { border-color: var(--primary-soft); color: var(--primary-soft); background: #eff6ff; }
+
+/* ─── Day reference legend ───────────────────────────────────── */
+.week-legend {
+    display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; align-items: center;
+}
+.week-legend-label { font-size: .75rem; font-weight: 600; color: var(--muted); margin-right: 4px; }
+.day-ref {
+    width: 44px; text-align: center; font-size: .7rem;
+    color: var(--primary); background: var(--card-bg);
+    border: 1.5px solid var(--card-border); border-radius: 5px;
+    padding: 3px 0;
+}
+.day-ref .day-name { font-weight: 700; text-transform: uppercase; }
+.day-ref .day-date { color: var(--muted); font-size: .65rem; }
+
+/* ─── Category header ───────────────────────────────────────── */
+.cat-header {
+    display: flex; align-items: center; gap: 10px;
+    margin: 22px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--card-border);
+}
+.cat-header h3 {
+    font-size: .95rem; font-weight: 700; color: var(--primary); margin: 0;
+    text-transform: uppercase; letter-spacing: .5px;
+}
+
+/* ─── Machine grid ──────────────────────────────────────────── */
+.maquinas-wrap {
+    display: flex; flex-wrap: wrap; gap: 14px;
+}
+
+/* ─── Machine card ──────────────────────────────────────────── */
+.maquina-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    flex: 0 0 auto;
+    min-width: 380px;
+    max-width: 560px;
+}
+.maquina-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px;
+    background: var(--primary); color: #fff;
+}
+.maquina-header-name {
+    font-size: .88rem; font-weight: 700; letter-spacing: .3px;
+    display: flex; align-items: center; gap: 7px;
+}
+.maquina-worker-count {
+    font-size: .72rem; font-weight: 600;
+    background: rgba(255,255,255,.2); border-radius: 10px;
+    padding: 2px 8px; color: #fff;
+}
+
+/* ─── Day header row ────────────────────────────────────────── */
+.day-header-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    background: #f8fafc;
+    border-bottom: 1.5px solid var(--card-border);
+}
+.day-header-name-spacer {
+    min-width: 170px; max-width: 170px;
+}
+.day-header-cell {
+    width: 44px; min-width: 44px; text-align: center;
+    font-size: .65rem; line-height: 1.2;
+}
+.day-header-cell .dh-name { font-weight: 700; color: var(--primary); text-transform: uppercase; }
+.day-header-cell .dh-date { color: var(--muted); }
+
+/* ─── Guardia block ─────────────────────────────────────────── */
+.guardia-block { padding: 8px 14px; }
+.guardia-block + .guardia-block { border-top: 1px solid var(--card-border); }
+.guardia-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: .7rem; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; margin-bottom: 8px;
+}
+.guardia-badge.g-a   { background: var(--g-a-bg);   color: var(--g-a); }
+.guardia-badge.g-b   { background: var(--g-b-bg);   color: var(--g-b); }
+.guardia-badge.g-c   { background: var(--g-c-bg);   color: var(--g-c); }
+.guardia-badge.g-d   { background: var(--g-d-bg);   color: var(--g-d); }
+.guardia-badge.g-sin { background: var(--g-sin-bg); color: var(--g-sin); }
+
+/* ─── Worker row ────────────────────────────────────────────── */
+.worker-row {
+    display: flex; gap: 6px; align-items: center;
+    margin-bottom: 6px;
+}
+.worker-info {
+    min-width: 170px; max-width: 170px;
+    display: flex; flex-direction: column;
+}
+.worker-name {
+    font-size: .8rem; font-weight: 700; color: var(--primary);
+    line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.worker-cargo {
+    font-size: .68rem; color: var(--muted); margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dias-row { display: flex; gap: 6px; flex-wrap: nowrap; }
+.dia-cell {
+    width: 44px; min-width: 44px; height: 44px;
+    border-radius: 6px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-weight: 700; font-size: .8rem; color: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    line-height: 1;
+}
+.dia-cell.empty {
+    background: #f1f5f9; color: var(--muted);
+    border: 1.5px dashed var(--card-border);
+    box-shadow: none;
+}
+.dia-cell .dc-code { font-size: .78rem; font-weight: 800; }
+.dia-cell .dc-proy { font-size: .5rem; margin-top: 1px; opacity: .8; letter-spacing: .3px; }
+
+/* ─── Empty state ───────────────────────────────────────────── */
+.empty-guardia {
+    font-size: .78rem; color: var(--muted); font-style: italic;
+    padding: 6px 0;
+}
+
+/* ─── Print ─────────────────────────────────────────────────── */
+@media print {
+    @page { size: A3 landscape; margin: 12mm 10mm; }
+    body { background: #fff !important; }
+    .no-print { display: none !important; }
+    .dist-page { padding: 0; }
+    .maquinas-wrap { gap: 8px; }
+    .maquina-card { break-inside: avoid; border: 1px solid #ccc; min-width: 280px; }
+    .maquina-header { background: #0f172a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .dia-cell { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .guardia-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="semanal-container">
-  <h2>📋 Tareo Semanal — {{ fecha_inicio|date:'d/m/Y' }} - {{ fecha_fin|date:'d/m/Y' }}</h2>
-  <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-    <a href="{% url 'tareo-v2-mensual' %}?contrato={{ contrato.id }}" class="btn-proyeccion">← Volver</a>
-    <div style="display:flex; gap:6px; align-items:center; margin-left:8px;">
-      <button id="prevWeek" class="btn-proyeccion" style="background:#95a5a6;">◀ Semana Anterior</button>
-      <button id="nextWeek" class="btn-proyeccion" style="background:#95a5a6;">Semana Siguiente ▶</button>
-      <button id="todayWeek" class="btn-proyeccion" style="background:#f39c12;color:#fff;">Hoy</button>
-      <input id="pickDate" type="date" style="padding:6px;border-radius:4px;border:1px solid #ccc;margin-left:6px;" />
+<div class="dist-page">
+
+    <!-- ══ Topbar ══════════════════════════════════════════════ -->
+    <div class="dist-topbar no-print">
+        <h1>Distribución de Guardias — {{ contrato.nombre_contrato }}</h1>
+        <div class="dist-nav">
+            <button id="prevWeek" class="btn-outline">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Anterior
+            </button>
+            <button id="todayWeek" class="btn-today">Hoy</button>
+            <button id="nextWeek" class="btn-outline">
+                Siguiente
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <input id="pickDate" type="date" class="date-pick" title="Ir a semana" />
+            <a href="{% url 'tareo-v2-mensual' %}?contrato={{ contrato.id }}" class="btn-outline">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                Volver
+            </a>
+            <button id="btnDownload" class="btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Imagen
+            </button>
+            <button onclick="window.print()" class="btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Imprimir
+            </button>
+        </div>
     </div>
-    <button id="btnDownload" class="btn-proyeccion download-btn" style="background:#117a65; margin-left:auto;">⬇️ Descargar vista como imagen</button>
-  </div>
 
-  <div id="distribution">
-    {% for categoria in categorias %}
-      <h3 style="margin-top:18px;">{{ categoria.nombre }}</h3>
-      <div class="maquinas-wrap">
-        {% for maq in categoria.maquinas %}
-          <div class="maquina-block">
-            <div class="maquina-title">🚜 {{ maq.nombre }}</div>
-            {% for guardia in maq.guardias %}
-              <div class="guardia-block">
-                <div style="font-weight:700; margin-bottom:6px;">Guardia {{ guardia.key }}</div>
-                {% for t in guardia.trabajadores %}
-                  <div class="worker-row">
-                    <div style="display:flex; flex-direction:column;">
-                      <div class="worker-name">{{ t.trabajador.apellidos }}, {{ t.trabajador.nombres }}</div>
-                      {% if t.trabajador.cargo %}<div class="worker-cargo">{{ t.trabajador.cargo }}</div>{% endif %}
-                    </div>
-                    <div class="dias-row">
-                      {% for d in t.dias %}
-                        {% if d.color %}
-                          <div class="dia-cell" style="background:#{{ d.color }};">{{ d.codigo }}</div>
-                        {% else %}
-                          <div class="dia-cell empty">{{ d.codigo }}</div>
-                        {% endif %}
-                      {% endfor %}
-                    </div>
-                  </div>
-                {% endfor %}
-              </div>
-            {% endfor %}
-          </div>
+    <!-- Título visible en impresión -->
+    <div style="display:none;" class="print-only-title">
+        <h2 style="font-size:1rem;font-weight:700;margin:0 0 4px;">Distribución de Guardias — {{ contrato.nombre_contrato }}</h2>
+        <p style="font-size:.8rem;color:#64748b;margin:0;">Semana: {{ fecha_inicio|date:'d/m/Y' }} – {{ fecha_fin|date:'d/m/Y' }}</p>
+    </div>
+    <style>@media print { .print-only-title { display: block !important; margin-bottom: 12px; } }</style>
+
+    <!-- ══ Stats bar ═══════════════════════════════════════════ -->
+    <div class="stats-bar">
+        <span class="stat-chip week">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <strong>Semana:</strong> {{ fecha_inicio|date:'d/m/Y' }} – {{ fecha_fin|date:'d/m/Y' }}
+        </span>
+        {% if reales_count > 0 %}
+        <span class="stat-chip reales">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <strong>{{ reales_count }}</strong> registros reales
+        </span>
+        {% endif %}
+        {% if proyecciones_count > 0 %}
+        <span class="stat-chip proyec">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <strong>{{ proyecciones_count }}</strong> proyecciones
+        </span>
+        {% endif %}
+    </div>
+
+    <!-- ══ Leyenda de días (referencia global de la semana) ═════ -->
+    <div class="week-legend no-print">
+        <span class="week-legend-label">Semana:</span>
+        {% for dia in dias %}
+        <div class="day-ref">
+            <div class="day-name">{{ dia|date:"D"|slice:":2" }}</div>
+            <div class="day-date">{{ dia|date:"d/m" }}</div>
+        </div>
         {% endfor %}
-      </div>
-    {% endfor %}
-  </div>
-</div>
+    </div>
 
+    <!-- ══ Categorías ══════════════════════════════════════════ -->
+    <div id="distribution">
+    {% for categoria in categorias %}
+        <div class="cat-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <h3>{{ categoria.nombre }}</h3>
+        </div>
+        <div class="maquinas-wrap">
+            {% for maq in categoria.maquinas %}
+            {# Contar total de trabajadores en esta máquina #}
+            {% with worker_count=0 %}
+            <div class="maquina-card">
+
+                <!-- Cabecera de máquina -->
+                <div class="maquina-header">
+                    <div class="maquina-header-name">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        {{ maq.nombre }}
+                    </div>
+                    <span class="maquina-worker-count">
+                        {% with cnt=0 %}
+                        {% for g in maq.guardias %}{% for t in g.trabajadores %}{% with cnt=cnt|add:1 %}{% endwith %}{% endfor %}{% endfor %}
+                        {{ maq.guardias|length }} guardia{{ maq.guardias|length|pluralize }}
+                        {% endwith %}
+                    </span>
+                </div>
+
+                <!-- Encabezado de días alineado con las celdas de asistencia -->
+                <div class="day-header-row">
+                    <div class="day-header-name-spacer"></div>
+                    {% for dia in dias %}
+                    <div class="day-header-cell">
+                        <div class="dh-name">{{ dia|date:"D"|slice:":2" }}</div>
+                        <div class="dh-date">{{ dia|date:"d/m" }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Guardias -->
+                {% for guardia in maq.guardias %}
+                <div class="guardia-block">
+                    {% with gkey=guardia.key|lower %}
+                    <div class="guardia-badge
+                        {% if guardia.key == 'A' %}g-a
+                        {% elif guardia.key == 'B' %}g-b
+                        {% elif guardia.key == 'C' %}g-c
+                        {% elif guardia.key == 'D' %}g-d
+                        {% else %}g-sin{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        Guardia {{ guardia.key }}
+                        <span style="font-weight:500;opacity:.75;">({{ guardia.trabajadores|length }})</span>
+                    </div>
+                    {% endwith %}
+
+                    {% if guardia.trabajadores %}
+                        {% for t in guardia.trabajadores %}
+                        <div class="worker-row">
+                            <div class="worker-info">
+                                <div class="worker-name" title="{{ t.trabajador.apepat }} {{ t.trabajador.apemat }}, {{ t.trabajador.nombres }}">
+                                    {{ t.trabajador.apepat }}{% if t.trabajador.apemat %} {{ t.trabajador.apemat|slice:":1" }}.{% endif %}, {{ t.trabajador.nombres|truncatechars:14 }}
+                                </div>
+                                {% if t.trabajador.cargo %}
+                                <div class="worker-cargo" title="{{ t.trabajador.cargo }}">{{ t.trabajador.cargo }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="dias-row">
+                                {% for d in t.dias %}
+                                {% if d.color %}
+                                    <div class="dia-cell" style="background:#{{ d.color }};" title="{{ d.fecha|date:'d/m' }}: {{ d.codigo }}">
+                                        <span class="dc-code">{{ d.codigo }}</span>
+                                    </div>
+                                {% else %}
+                                    <div class="dia-cell empty" title="{{ d.fecha|date:'d/m' }}: sin registro">
+                                        <span class="dc-code" style="font-size:.65rem;font-weight:400;">—</span>
+                                    </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-guardia">Sin trabajadores asignados esta semana</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    {% empty %}
+        <div style="text-align:center;padding:48px 20px;color:var(--muted);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:.4;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            <p style="font-size:.9rem;font-weight:600;">Sin trabajadores para esta semana</p>
+            <p style="font-size:.8rem;margin-top:4px;">Verifica que el período tenga asistencias registradas.</p>
+        </div>
+    {% endfor %}
+    </div>
+
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
-const contratoId = '{{ contrato.id }}';
-const fechaInicioStr = '{{ fecha_inicio|date:"Y-m-d" }}';
+const contratoId       = '{{ contrato.id }}';
+const fechaInicioStr   = '{{ fecha_inicio|date:"Y-m-d" }}';
 const diaCambioGuardia = Number('{{ contrato.dia_cambio_guardia|default:0 }}');
 
+// La semana operativa empieza en el día de cambio de guardia definido en el contrato.
+// diaCambioGuardia: 0=lunes, 1=martes, ... 6=domingo (convención Python/weekday).
 function toISO(d){ return d.toISOString().slice(0,10); }
-function operWeekStart(date){
-  const dt = new Date(date);
-  const jsDay = dt.getDay();
-  const pyWeekday = (jsDay + 6) % 7;
-  const diff = (pyWeekday - diaCambioGuardia + 7) % 7;
-  dt.setDate(dt.getDate() - diff);
-  return dt;
+
+function operWeekStart(date) {
+    const dt = new Date(date);
+    // JS getDay(): 0=domingo, 1=lunes, ... 6=sábado
+    // Python weekday(): 0=lunes, ... 6=domingo
+    // Convertir JS → Python weekday
+    const jsDay   = dt.getDay();
+    const pyDay   = (jsDay + 6) % 7;  // 0=lunes
+    // Cuántos días retroceder hasta el inicio de semana operativa
+    const diff    = (pyDay - diaCambioGuardia + 7) % 7;
+    dt.setDate(dt.getDate() - diff);
+    return dt;
 }
 
-document.getElementById('btnDownload').addEventListener('click', function(){
-  const el = document.getElementById('distribution');
-  html2canvas(el, {scale:2}).then(canvas => {
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = `tareo_semanal_{{ contrato.nombre_contrato|slugify }}_{{ fecha_inicio|date:'Ymd' }}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }).catch(err=>alert('Error al generar imagen: '+err));
-});
+function navToWeek(baseDate, offsetDays) {
+    const shifted = new Date(baseDate);
+    shifted.setDate(shifted.getDate() + offsetDays);
+    const weekStart = operWeekStart(shifted);
+    window.location.href =
+        `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
+}
 
-// Navegación de semanas
-document.getElementById('prevWeek').addEventListener('click', function(){
-  const base = new Date(fechaInicioStr);
-  base.setDate(base.getDate() - 7);
-  const weekStart = operWeekStart(base);
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
-});
-document.getElementById('nextWeek').addEventListener('click', function(){
-  const base = new Date(fechaInicioStr);
-  base.setDate(base.getDate() + 7);
-  const weekStart = operWeekStart(base);
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
-});
-document.getElementById('todayWeek').addEventListener('click', function(){
-  const today = new Date();
-  const weekStart = operWeekStart(today);
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
-});
+document.getElementById('prevWeek').addEventListener('click', () => navToWeek(new Date(fechaInicioStr), -7));
+document.getElementById('nextWeek').addEventListener('click', () => navToWeek(new Date(fechaInicioStr), +7));
+document.getElementById('todayWeek').addEventListener('click', () => navToWeek(new Date(), 0));
 
-// Selector de fecha: si el usuario escoge una fecha, navegar al inicio operativo correspondiente
-document.getElementById('pickDate').addEventListener('change', function(e){
-  const sel = e.target.value; if(!sel) return;
-  const weekStart = operWeekStart(new Date(sel));
-  window.location.href = `{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(weekStart)}`;
+document.getElementById('pickDate').addEventListener('change', function(e) {
+    if (!e.target.value) return;
+    navToWeek(new Date(e.target.value), 0);
 });
-
-// Inicializar input date con la fecha_inicio visible
 document.getElementById('pickDate').value = fechaInicioStr;
+
+// Descarga como imagen
+document.getElementById('btnDownload').addEventListener('click', function() {
+    const el = document.getElementById('distribution');
+    html2canvas(el, { scale: 2, useCORS: true }).then(canvas => {
+        const a = document.createElement('a');
+        a.href     = canvas.toDataURL('image/png');
+        a.download = `guardia_{{ contrato.nombre_contrato|slugify }}_{{ fecha_inicio|date:'Ymd' }}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }).catch(err => console.error('html2canvas error:', err));
+});
 </script>
 {% endblock %}
