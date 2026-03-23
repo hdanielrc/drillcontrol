@@ -635,19 +635,27 @@ function toggleLegend(){
 }
 
 /* ─ Navegación semanal ──────────────────────────────────── */
-function toISO(d){ return d.toISOString().slice(0,10); }
-function operWeekStart(date){
-    const dt=new Date(date), pyDay=(dt.getDay()+6)%7, diff=(pyDay-diaCambioGuardia+7)%7;
-    dt.setDate(dt.getDate()-diff); return dt;
+// Parsea 'YYYY-MM-DD' como fecha LOCAL (new Date(str) la interpreta como UTC → desfase en UTC-5)
+function parseLocalDate(str){
+    const [y,m,d]=str.split('-').map(Number);
+    return new Date(y,m-1,d,12,0,0); // mediodía local → inmune a saltos de DST
 }
-function navWeek(base, offset){
-    const d=new Date(base); d.setDate(d.getDate()+offset);
-    window.location.href=`{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${toISO(operWeekStart(d))}`;
+// Devuelve 'YYYY-MM-DD' usando la fecha LOCAL (toISOString() devuelve UTC → día incorrecto en UTC-5)
+function toISO(d){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
 }
-document.getElementById('prevWeek').onclick  = ()=>navWeek(new Date(fechaInicioStr),-7);
-document.getElementById('nextWeek').onclick  = ()=>navWeek(new Date(fechaInicioStr),+7);
-document.getElementById('todayWeek').onclick = ()=>navWeek(new Date(),0);
-document.getElementById('pickDate').addEventListener('change', e=>{ if(e.target.value) navWeek(new Date(e.target.value),0); });
+function navTo(isoDate){
+    window.location.href=`{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}&fecha_inicio=${isoDate}`;
+}
+// Anterior / Siguiente: fechaInicioStr ya es el inicio de semana correcto (calculado por el servidor)
+// Solo sumamos ±7 días en tiempo local — el servidor re-ancla con _inicio_semana_operativa si hace falta
+document.getElementById('prevWeek').onclick = ()=>{ const d=parseLocalDate(fechaInicioStr); d.setDate(d.getDate()-7); navTo(toISO(d)); };
+document.getElementById('nextWeek').onclick = ()=>{ const d=parseLocalDate(fechaInicioStr); d.setDate(d.getDate()+7); navTo(toISO(d)); };
+// Hoy: sin fecha_inicio → el servidor calcula desde hoy con dia_cambio_guardia
+document.getElementById('todayWeek').onclick = ()=>{ window.location.href=`{% url 'tareo-v2-semana-visualizar' %}?contrato=${contratoId}`; };
+// Selector de fecha: enviar fecha local elegida; el servidor la ancla al dia_cambio_guardia correcto
+document.getElementById('pickDate').addEventListener('change', e=>{ if(e.target.value) navTo(e.target.value); });
 document.getElementById('pickDate').value = fechaInicioStr;
 
 /* ─ Descarga imagen ─────────────────────────────────────── */
