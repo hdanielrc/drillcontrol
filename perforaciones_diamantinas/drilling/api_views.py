@@ -691,9 +691,10 @@ def api_trabajadores_por_maquina(request):
     from datetime import datetime
 
     # ── Parámetros ────────────────────────────────────────────────────────────
-    fecha_str  = request.GET.get('fecha')
-    maquina_id = request.GET.get('maquina_id')
-    contrato_id = request.GET.get('contrato_id')
+    fecha_str       = request.GET.get('fecha')
+    maquina_id      = request.GET.get('maquina_id')
+    contrato_id     = request.GET.get('contrato_id')
+    tipo_turno_nombre = request.GET.get('tipo_turno_nombre', '').strip().upper()
 
     if not fecha_str or not maquina_id:
         return JsonResponse(
@@ -727,8 +728,19 @@ def api_trabajadores_por_maquina(request):
         return JsonResponse({'success': False, 'error': 'Máquina no encontrada'}, status=404)
 
     try:
-        # Estados que representan jornada trabajada
-        ESTADOS_TRABAJO = {'T', 'TD', 'TN', 'TI', 'TC1', 'DA', 'DA1', 'REC'}
+        # Determinar si el turno es DIA o NOCHE según el nombre del TipoTurno
+        ES_DIA   = any(k in tipo_turno_nombre for k in ('DIA', 'DIURNO', 'DIA', 'TD'))
+        ES_NOCHE = any(k in tipo_turno_nombre for k in ('NOCHE', 'NOCTURNO', 'TN'))
+
+        if ES_DIA:
+            # Solo trabajadores con turno día: TD, T (ambos turnos), y apoyo
+            ESTADOS_TRABAJO = {'T', 'TD', 'TI', 'TC1', 'DA', 'DA1', 'REC'}
+        elif ES_NOCHE:
+            # Solo trabajadores con turno noche: TN, T (ambos turnos), y apoyo
+            ESTADOS_TRABAJO = {'T', 'TN', 'TI', 'TC1', 'DA', 'DA1', 'REC'}
+        else:
+            # Sin filtro de turno: retorna todos los que trabajaron ese día en la máquina
+            ESTADOS_TRABAJO = {'T', 'TD', 'TN', 'TI', 'TC1', 'DA', 'DA1', 'REC'}
 
         asistencias = (
             AsistenciaDiaria.objects
@@ -760,6 +772,7 @@ def api_trabajadores_por_maquina(request):
             f"→ {len(trabajadores_data)} trabajadores"
         )
 
+        turno_tipo_aplicado = 'DIA' if ES_DIA else ('NOCHE' if ES_NOCHE else 'TODOS')
         return JsonResponse({
             'success': True,
             'fecha': fecha_str,
@@ -767,6 +780,7 @@ def api_trabajadores_por_maquina(request):
             'maquina_nombre': maquina.nombre,
             'trabajadores': trabajadores_data,
             'count': len(trabajadores_data),
+            'filtro_turno': turno_tipo_aplicado,
         })
 
     except Exception as e:

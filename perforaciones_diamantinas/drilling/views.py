@@ -1725,18 +1725,22 @@ def crear_turno_completo(request, pk=None):
                     aditivos_raw = json.loads(aditivos_data)
                     for a in aditivos_raw:
                         try:
-                            # Unidad siempre KG — buscar o crear si no viene en payload
-                            _kg_id = int(a['unidad_medida_id']) if a.get('unidad_medida_id') else None
-                            if not _kg_id:
-                                _kg_id = (UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first() or
-                                          UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first())
+                            # Usar la unidad del aditivo seleccionado; fallback a KG si no viene en payload
+                            _unidad_id = int(a['unidad_medida_id']) if a.get('unidad_medida_id') else None
+                            if not _unidad_id:
+                                _unidad_id = (UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first() or
+                                              UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first())
+                            _kg_id = _unidad_id
+                            if _kg_id is None:
+                                messages.warning(request, 'Aditivo omitido: no se encontró unidad de medida KG en el sistema.')
+                                continue
                             aditivos_parsed.append({
                                 'tipo_aditivo_id': int(a['tipo_aditivo_id']),
                                 'cantidad_usada': float(a['cantidad_usada']),
                                 'unidad_medida_id': int(_kg_id),
                                 'sondaje_id': int(a.get('sondaje_id')) if a.get('sondaje_id') else None,
                             })
-                        except (KeyError, ValueError):
+                        except (KeyError, ValueError, TypeError):
                             messages.warning(request, 'Aditivo con datos inválidos será omitido')
                 except json.JSONDecodeError as e:
                     messages.error(request, f'JSON invÃ¡lido en aditivos: {e}')
@@ -1755,7 +1759,7 @@ def crear_turno_completo(request, pk=None):
                                 'hora_fin': convert_to_time(act.get('hora_fin')),
                                 'observaciones': act.get('observaciones', '')
                             })
-                        except (KeyError, ValueError):
+                        except (KeyError, ValueError, TypeError):
                             messages.warning(request, 'Actividad con datos invÃ¡lidos serÃ¡ omitida')
                 except json.JSONDecodeError as e:
                     messages.error(request, f'JSON invÃ¡lido en actividades: {e}')
@@ -1777,7 +1781,7 @@ def crear_turno_completo(request, pk=None):
                                 'pct_retorno_agua': float(cr['pct_retorno_agua']),
                                 'litologia': cr.get('litologia', '')
                             })
-                        except (KeyError, ValueError):
+                        except (KeyError, ValueError, TypeError):
                             messages.warning(request, 'Corrida con datos invÃ¡lidos serÃ¡ omitida')
                 except json.JSONDecodeError as e:
                     messages.error(request, f'JSON invÃ¡lido en corridas: {e}')
@@ -2502,7 +2506,9 @@ def _get_tipos_aditivo_desde_abastecimiento(contract):
 
     return TipoAditivo.objects.filter(
         contrato=contract
-    ).select_related('contrato').only('id', 'nombre', 'codigo', 'contrato')
+    ).select_related('contrato', 'unidad_medida_default').only(
+        'id', 'nombre', 'codigo', 'contrato', 'unidad_medida_default'
+    )
 
 
 def get_context_data(request):

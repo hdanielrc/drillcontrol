@@ -674,6 +674,86 @@
     color: #ff9800 !important;
     font-style: italic;
 }
+
+/* === SIDEBAR: INDICADORES DE COMPLETITUD === */
+.nav-sidebar-status {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 700;
+    min-width: 18px;
+    text-align: center;
+}
+.nav-sidebar-item .nav-sidebar-badge + .nav-sidebar-status {
+    margin-left: 4px;
+}
+.sidebar-ok   { color: #28a745; }
+.sidebar-warn { color: #fd7e14; }
+.sidebar-err  { color: #dc3545; }
+.nav-sidebar-item.sidebar-section-ok   { border-left: 3px solid #28a745; }
+.nav-sidebar-item.sidebar-section-warn { border-left: 3px solid #fd7e14; }
+.nav-sidebar-item.sidebar-section-err  { border-left: 3px solid #dc3545; animation: pulseErr 1.5s ease-in-out infinite; }
+.nav-sidebar-item { border-left: 3px solid transparent; }
+@keyframes pulseErr {
+    0%,100% { background: transparent; }
+    50%      { background: rgba(220,53,69,0.07); }
+}
+
+/* === MÁQUINA: COLOR DINÁMICO DE SELECTS === */
+.select-operativo  { border-color: #28a745 !important; color: #155724 !important; background-color: #f0fff4 !important; }
+.select-deficiente { border-color: #fd7e14 !important; color: #7d3600 !important; background-color: #fff8f0 !important; }
+.select-inoperativo{ border-color: #dc3545 !important; color: #721c24 !important; background-color: #fff5f5 !important; }
+
+/* === ACTIVIDADES: CONTADOR DE HORAS === */
+.actividades-horas-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #e0f7fa;
+    border: 1px solid #b2ebf2;
+    color: #00838f;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+.actividades-horas-badge.horas-ok    { background:#e8f5e9; border-color:#c8e6c9; color:#2e7d32; }
+.actividades-horas-badge.horas-warn  { background:#fff3e0; border-color:#ffe0b2; color:#e65100; }
+.actividades-horas-badge.horas-error { background:#ffebee; border-color:#ffcdd2; color:#c62828; }
+
+/* === MINI GRÁFICO RECUPERACIÓN CORRIDAS === */
+#corridas-recovery-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 44px;
+    padding: 8px 0 0;
+    margin-bottom: 4px;
+    overflow-x: auto;
+}
+.rec-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 18px;
+    flex: 1;
+    max-width: 36px;
+}
+.rec-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    transition: height 0.3s ease;
+    min-height: 3px;
+}
+.rec-bar-label {
+    font-size: 0.6rem;
+    color: #888;
+    white-space: nowrap;
+}
+.rec-green  { background: #43a047; }
+.rec-orange { background: #fb8c00; }
+.rec-red    { background: #e53935; }
 </style>
 {% endblock %}
 
@@ -689,39 +769,47 @@
             <a href="#seccion-basicos" class="nav-sidebar-item active" data-section="basicos">
                 <i class="fas fa-info-circle"></i>
                 <span>Información</span>
+                <span class="nav-sidebar-status" id="status-basicos"></span>
+            </a>
+            <a href="#seccion-maquina" class="nav-sidebar-item" data-section="maquina">
+                <i class="fas fa-cogs"></i>
+                <span>Máquina</span>
+                <span class="nav-sidebar-status" id="status-maquina"></span>
             </a>
             <a href="#seccion-trabajadores" class="nav-sidebar-item" data-section="trabajadores">
                 <i class="fas fa-users"></i>
                 <span>Trabajadores</span>
                 <span class="nav-sidebar-badge" id="badge-trabajadores">0</span>
-            </a>
-            <a href="#seccion-maquina" class="nav-sidebar-item" data-section="maquina">
-                <i class="fas fa-cogs"></i>
-                <span>Máquina</span>
+                <span class="nav-sidebar-status" id="status-trabajadores"></span>
             </a>
             <a href="#seccion-diamantados" class="nav-sidebar-item" data-section="diamantados">
                 <i class="fas fa-ring"></i>
                 <span>Diamantados</span>
                 <span class="nav-sidebar-badge" id="badge-diamantados">0</span>
+                <span class="nav-sidebar-status" id="status-diamantados"></span>
             </a>
             <a href="#seccion-aditivos" class="nav-sidebar-item" data-section="aditivos">
                 <i class="fas fa-flask"></i>
                 <span>Aditivos</span>
                 <span class="nav-sidebar-badge" id="badge-aditivos">0</span>
+                <span class="nav-sidebar-status" id="status-aditivos"></span>
             </a>
             <a href="#seccion-actividades" class="nav-sidebar-item" data-section="actividades">
                 <i class="fas fa-tasks"></i>
                 <span>Actividades</span>
                 <span class="nav-sidebar-badge" id="badge-actividades">0</span>
+                <span class="nav-sidebar-status" id="status-actividades"></span>
             </a>
             <a href="#seccion-corridas" class="nav-sidebar-item" data-section="corridas">
                 <i class="fas fa-layer-group"></i>
                 <span>Corridas</span>
                 <span class="nav-sidebar-badge" id="badge-corridas">0</span>
+                <span class="nav-sidebar-status" id="status-corridas"></span>
             </a>
             <a href="#seccion-comentarios" class="nav-sidebar-item" data-section="comentarios">
                 <i class="fas fa-comment-dots"></i>
                 <span>Comentarios</span>
+                <span class="nav-sidebar-status" id="status-comentarios"></span>
             </a>
             <a href="#seccion-estado" class="nav-sidebar-item" data-section="estado">
                 <i class="fas fa-exchange-alt"></i>
@@ -861,36 +949,7 @@
         </div>
     </div>
 
-    <!-- SECCIÓN 2: Trabajadores del turno -->
-    <div id="seccion-trabajadores" class="section-card section-trabajadores">
-        <div class="section-card-header">
-            <h5 class="section-card-title">
-                <span class="section-card-icon"><i class="fas fa-users"></i></span>
-                Trabajadores del Turno
-            </h5>
-            <div class="d-flex gap-2 align-items-center">
-                <button class="btn btn-primary btn-sm" type="button" id="btn-cargar-tareo"
-                        title="Carga automáticamente los trabajadores del tareo para la fecha y máquina seleccionadas">
-                    <i class="fas fa-magic"></i> Cargar desde Tareo
-                </button>
-                <div class="vr mx-1"></div>
-                <button type="button" class="btn btn-add-item btn-sm" id="agregar-trabajador-btn">
-                    <i class="fas fa-plus"></i> Agregar Trabajador
-                </button>
-            </div>
-        </div>
-        <div class="section-card-body">
-            <div id="trabajadores-seccion">
-                <!-- Trabajadores se agregan aquí dinámicamente -->
-                <div class="section-empty-state" id="empty-trabajadores">
-                    <i class="fas fa-user-plus"></i>
-                    <p>No hay trabajadores asignados.<br>Selecciona fecha y máquina, luego haz clic en <strong>Cargar desde Tareo</strong>, o añade manualmente.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SECCIÓN 3: Detalles de la máquina -->
+    <!-- SECCIÓN 2: Detalles de la máquina -->
     <div id="seccion-maquina" class="section-card section-maquina">
         <div class="section-card-header">
             <h5 class="section-card-title">
@@ -956,6 +1015,35 @@
         </div>
     </div>
 
+    <!-- SECCIÓN 3: Trabajadores del turno -->
+    <div id="seccion-trabajadores" class="section-card section-trabajadores">
+        <div class="section-card-header">
+            <h5 class="section-card-title">
+                <span class="section-card-icon"><i class="fas fa-users"></i></span>
+                Trabajadores del Turno
+                <span id="trabajadores-summary" class="ms-2 fs-6 fw-normal text-muted"></span>
+            </h5>
+            <div class="d-flex gap-2 align-items-center">
+                <button class="btn btn-primary btn-sm" type="button" id="btn-cargar-tareo"
+                        title="Carga automáticamente los trabajadores del tareo para la fecha, máquina y tipo de turno seleccionados">
+                    <i class="fas fa-magic"></i> Cargar desde Tareo
+                </button>
+                <div class="vr mx-1"></div>
+                <button type="button" class="btn btn-add-item btn-sm" id="agregar-trabajador-btn">
+                    <i class="fas fa-plus"></i> Agregar Trabajador
+                </button>
+            </div>
+        </div>
+        <div class="section-card-body">
+            <div id="trabajadores-seccion">
+                <div class="section-empty-state" id="empty-trabajadores">
+                    <i class="fas fa-user-plus"></i>
+                    <p>No hay trabajadores asignados.<br>Selecciona fecha, máquina y <strong>tipo de turno</strong>, luego haz clic en <strong>Cargar desde Tareo</strong>, o añade manualmente.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SECCIÓN 4: Productos Diamantados -->
     <div id="seccion-diamantados" class="section-card section-diamantados">
         <div class="section-card-header">
@@ -988,7 +1076,10 @@
             <div id="complementos-seccion">
                 <div class="section-empty-state" id="empty-diamantados">
                     <i class="fas fa-ring"></i>
-                    <p>Agregue sondajes en la sección de información básica<br>para asignar productos diamantados.</p>
+                    <p>Primero seleccione uno o más sondajes en la sección de Información.</p>
+                    <a href="#seccion-basicos" class="btn btn-sm btn-outline-primary mt-2" onclick="document.getElementById('seccion-basicos').scrollIntoView({behavior:'smooth'});return false;">
+                        <i class="fas fa-arrow-up"></i> Ir a Información y seleccionar sondajes
+                    </a>
                 </div>
             </div>
         </div>
@@ -1007,7 +1098,10 @@
             <div id="aditivos-seccion">
                 <div class="section-empty-state" id="empty-aditivos">
                     <i class="fas fa-flask"></i>
-                    <p>Agregue sondajes en la sección de información básica<br>para asignar aditivos.</p>
+                    <p>Primero seleccione uno o más sondajes en la sección de Información.</p>
+                    <a href="#seccion-basicos" class="btn btn-sm btn-outline-primary mt-2" onclick="document.getElementById('seccion-basicos').scrollIntoView({behavior:'smooth'});return false;">
+                        <i class="fas fa-arrow-up"></i> Ir a Información y seleccionar sondajes
+                    </a>
                 </div>
             </div>
         </div>
@@ -1019,6 +1113,9 @@
             <h5 class="section-card-title">
                 <span class="section-card-icon"><i class="fas fa-tasks"></i></span>
                 Actividades del Turno
+                <span id="actividades-horas-counter" class="actividades-horas-badge ms-2 d-none">
+                    <i class="fas fa-clock"></i> <span id="counter-horas-text">0h</span>
+                </span>
             </h5>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="nueva-actividad-btn" data-bs-toggle="modal" data-bs-target="#modalNuevaActividad">
@@ -1033,13 +1130,13 @@
             <div id="actividades-seccion">
                 <div class="section-empty-state" id="empty-actividades">
                     <i class="fas fa-tasks"></i>
-                    <p>No hay actividades registradas.<br>Haz clic en "Agregar" para añadir actividades.</p>
+                    <p>No hay actividades registradas.<br>Haz clic en <strong>Agregar</strong> para añadir actividades.</p>
                 </div>
             </div>
-            <!-- Resumen de horas -->
+            <!-- Resumen de horas (legacy, se mantiene para lógica existente) -->
             <div id="resumen-horas" class="alert alert-warning d-none mt-3">
-                <i class="fas fa-clock"></i> 
-                <strong>Total de horas:</strong> <span id="total-horas-actividades">0</span> / 
+                <i class="fas fa-clock"></i>
+                <strong>Total de horas:</strong> <span id="total-horas-actividades">0</span> /
                 <span id="horas-requeridas">12</span> horas requeridas
             </div>
         </div>
@@ -1086,6 +1183,9 @@
                 </div>
             </div>
 
+            <!-- Mini gráfico de recuperación por corrida -->
+            <div id="corridas-recovery-chart" class="d-none" title="Recuperación (%) por corrida"></div>
+
             <!-- Banner de concordancia -->
             <div id="corridas-concordancia-banner" class="concordancia-banner d-none">
                 <i id="concordancia-icono" class="fas fa-check-circle"></i>
@@ -1118,8 +1218,13 @@
         </div>
         <div class="section-card-body">
             <div class="alert alert-info mb-3">
-                <i class="fas fa-info-circle"></i> 
+                <i class="fas fa-info-circle"></i>
                 Si deseas cambiar el estado de algún sondaje después de registrar este turno, selecciona el nuevo estado.
+            </div>
+            <div id="alerta-estado-critico" class="alert alert-danger d-none mb-3">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>¡Atención!</strong> Estás a punto de cambiar el estado a <strong id="alerta-estado-nombre"></strong>.
+                Esta acción es <strong>difícil de revertir</strong>. Asegúrate de que sea la decisión correcta antes de guardar.
             </div>
             <div id="cambios-estado-seccion">
                 <!-- Se generarán selectores por cada sondaje agregado -->
@@ -1541,22 +1646,25 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="row align-items-end">
                 <div class="col-md-7">
                     <label class="form-label">Tipo de Aditivo</label>
-                    <select name="tipo_aditivo_${aditivoCount}" class="form-select" required>
+                    <select name="tipo_aditivo_${aditivoCount}" class="form-select aditivo-tipo-select" required>
                         <option value="">Seleccionar aditivo</option>
                         {% for aditivo in tipos_aditivo %}
-                        <option value="{{ aditivo.id }}" data-codigo="{{ aditivo.codigo }}">
+                        <option value="{{ aditivo.id }}"
+                                data-codigo="{{ aditivo.codigo }}"
+                                data-unidad-id="{{ aditivo.unidad_medida_default_id|default:'' }}"
+                                data-unidad-simbolo="{{ aditivo.unidad_medida_default.simbolo|default:'KG' }}">
                             {{ aditivo.nombre }}{% if aditivo.codigo %} ({{ aditivo.codigo }}){% endif %}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Cantidad (KG)</label>
+                    <label class="form-label">Cantidad (<span class="aditivo-unidad-label">KG</span>)</label>
                     <div class="input-group">
                         <input type="number" step="0.01" name="cantidad_usada_${aditivoCount}" class="form-control" min="0" required placeholder="0.00">
-                        <span class="input-group-text fw-bold text-success bg-light" title="Kilogramos">KG</span>
+                        <span class="input-group-text fw-bold text-success bg-light aditivo-unidad-badge">KG</span>
                     </div>
-                    <input type="hidden" name="unidad_medida_${aditivoCount}" value="{{ unidad_kg_id|default:'' }}">
+                    <input type="hidden" name="unidad_medida_${aditivoCount}" class="aditivo-unidad-id" value="{{ unidad_kg_id|default:'' }}">
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
                     <button type="button" class="btn btn-danger btn-sm btn-remove-aditivo" aria-label="Eliminar aditivo">
@@ -1907,6 +2015,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Actualizar unidad de medida dinámicamente al seleccionar tipo de aditivo
+    document.getElementById('aditivos-seccion').addEventListener('change', function(event) {
+        if (event.target.classList.contains('aditivo-tipo-select')) {
+            const row = event.target.closest('.aditivo-row');
+            if (!row) return;
+            const selectedOption = event.target.options[event.target.selectedIndex];
+            const unidadId = selectedOption.dataset.unidadId || '';
+            const unidadSimbolo = selectedOption.dataset.unidadSimbolo || 'KG';
+            const hiddenInput = row.querySelector('.aditivo-unidad-id');
+            if (hiddenInput) hiddenInput.value = unidadId;
+            row.querySelectorAll('.aditivo-unidad-badge, .aditivo-unidad-label').forEach(el => {
+                el.textContent = unidadSimbolo;
+            });
+        }
+    });
+
     function crearComplementoRowForSondaje(sondajeId){
         const idx = document.querySelectorAll('.complemento-row').length;
         return `
@@ -1952,22 +2076,25 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="row align-items-end">
                 <div class="col-md-6">
                     <label class="form-label fw-semibold"><i class="fas fa-flask text-muted"></i> Tipo de Aditivo</label>
-                    <select name="tipo_aditivo_${idx}" class="form-select">
+                    <select name="tipo_aditivo_${idx}" class="form-select aditivo-tipo-select">
                         <option value="">Seleccionar aditivo</option>
                         {% for aditivo in tipos_aditivo %}
-                        <option value="{{ aditivo.id }}" data-codigo="{{ aditivo.codigo }}">
+                        <option value="{{ aditivo.id }}"
+                                data-codigo="{{ aditivo.codigo }}"
+                                data-unidad-id="{{ aditivo.unidad_medida_default_id|default:'' }}"
+                                data-unidad-simbolo="{{ aditivo.unidad_medida_default.simbolo|default:'KG' }}">
                             {{ aditivo.nombre }}{% if aditivo.codigo %} ({{ aditivo.codigo }}){% endif %}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold">Cantidad (KG)</label>
+                    <label class="form-label fw-semibold">Cantidad (<span class="aditivo-unidad-label">KG</span>)</label>
                     <div class="input-group">
                         <input type="number" step="0.01" name="cantidad_usada_${idx}" class="form-control" min="0" placeholder="0.00">
-                        <span class="input-group-text fw-bold text-success bg-light" title="Kilogramos">KG</span>
+                        <span class="input-group-text fw-bold text-success bg-light aditivo-unidad-badge">KG</span>
                     </div>
-                    <input type="hidden" name="unidad_medida_${idx}" value="{{ unidad_kg_id|default:'' }}">
+                    <input type="hidden" name="unidad_medida_${idx}" class="aditivo-unidad-id" value="{{ unidad_kg_id|default:'' }}">
                 </div>
                 <div class="col-md-3 d-flex align-items-end justify-content-between">
                     <div></div>
@@ -2025,9 +2152,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnCargarTareo = document.getElementById('btn-cargar-tareo');
     if (btnCargarTareo) {
         btnCargarTareo.addEventListener('click', function() {
-            const fecha     = document.getElementById('fecha').value;
-            const maquinaId = document.getElementById('maquina').value;
-            const contratoId = "{{ user.contrato.id }}";
+            const fecha       = document.getElementById('fecha').value;
+            const maquinaId   = document.getElementById('maquina').value;
+            const contratoId  = "{{ user.contrato.id }}";
+            // Obtener nombre del tipo de turno para filtrar TD/TN
+            const tipoTurnoSel = document.getElementById('tipo_turno');
+            const tipoTurnoNombre = tipoTurnoSel && tipoTurnoSel.selectedIndex > 0
+                ? tipoTurnoSel.options[tipoTurnoSel.selectedIndex].text.trim().toUpperCase()
+                : '';
 
             if (!fecha) {
                 mostrarToast('Por favor seleccione una fecha primero.', 'warning');
@@ -2037,26 +2169,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 mostrarToast('Por favor seleccione una máquina primero.', 'warning');
                 return;
             }
+            if (!tipoTurnoNombre) {
+                mostrarToast('Por favor seleccione el tipo de turno (Día/Noche) antes de cargar desde el tareo.', 'warning');
+                return;
+            }
 
             const originalHTML = this.innerHTML;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
             this.disabled = true;
 
-            fetch(`/api/tareo/trabajadores-por-maquina/?fecha=${fecha}&maquina_id=${maquinaId}&contrato_id=${contratoId}`)
+            const url = `/api/tareo/trabajadores-por-maquina/?fecha=${fecha}&maquina_id=${maquinaId}&contrato_id=${contratoId}&tipo_turno_nombre=${encodeURIComponent(tipoTurnoNombre)}`;
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.trabajadores && data.trabajadores.length > 0) {
                         const maquinaNombre = data.maquina_nombre || `Máquina #${maquinaId}`;
+                        const filtroLabel = data.filtro_turno === 'DIA' ? 'Turno DÍA (TD)' :
+                                            data.filtro_turno === 'NOCHE' ? 'Turno NOCHE (TN)' : 'todos los turnos';
                         confirmarAccion(
-                            `Se encontraron <strong>${data.trabajadores.length}</strong> trabajador(es) en el tareo para <strong>${maquinaNombre}</strong> el <strong>${fecha}</strong>.<br>¿Desea añadirlos al turno?`,
+                            `Se encontraron <strong>${data.trabajadores.length}</strong> trabajador(es) en el tareo de <strong>${filtroLabel}</strong> para <strong>${maquinaNombre}</strong> el <strong>${fecha}</strong>.<br>¿Desea añadirlos al turno?`,
                             function() {
                                 data.trabajadores.forEach(trabajador => agregarTrabajadorRow(trabajador));
                                 actualizarBadges();
-                                mostrarToast(`Se cargaron ${data.trabajadores.length} trabajador(es) desde el tareo de <strong>${maquinaNombre}</strong>.`, 'success', 6000);
+                                actualizarResumenTrabajadores();
+                                mostrarToast(`Se cargaron ${data.trabajadores.length} trabajador(es) — ${filtroLabel} — desde el tareo de <strong>${maquinaNombre}</strong>.`, 'success', 6000);
                             }
                         );
                     } else {
-                        const msg = data.error || `No hay trabajadores registrados en el tareo para esta máquina y fecha. Verifique que el tareo esté completo para el ${fecha}.`;
+                        const tipoLabel = tipoTurnoNombre || 'seleccionado';
+                        const msg = data.error || `No hay trabajadores registrados en el tareo de <strong>${tipoLabel}</strong> para esta máquina y fecha. Verifique que el tareo esté completo para el ${fecha}.`;
                         mostrarToast(msg, 'warning', 7000);
                     }
                 })
@@ -2140,6 +2281,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (statusSel && asistencia !== 'TRABAJADO') window.actualizarEstiloFila(statusSel);
 
         actualizarBadges();
+        if (typeof actualizarResumenTrabajadores === 'function') actualizarResumenTrabajadores();
     }
 
     // Actualiza el campo "Función" cuando se selecciona un trabajador
@@ -2883,6 +3025,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="mt-2">
                     <label class="form-label form-label-sm mb-1 fw-semibold"><i class="fas fa-mountain text-muted me-1"></i>Litología <small class="text-muted fw-normal">(tipo de roca, RQD, fracturas...)</small></label>
                     <textarea name="litologia_${corridaCount}" class="form-control form-control-sm" rows="2" placeholder="Ej: Diorita alterada, RQD 65%, fracturación moderada, húmedo..."></textarea>
+                    <small class="text-muted d-block mt-1"><i class="fas fa-keyboard me-1"></i>Presiona <kbd>Tab</kbd> al finalizar para agregar la siguiente corrida automáticamente.</small>
                 </div>
             </div>
         </div>`;
@@ -3324,7 +3467,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (row) {
             row.remove();
             actualizarBadges();
-            
+            if (typeof actualizarResumenTrabajadores === 'function') actualizarResumenTrabajadores();
+
             // Mostrar empty state si no quedan trabajadores
             const container = document.getElementById('trabajadores-seccion');
             if (container.querySelectorAll('.trabajador-row').length === 0) {
@@ -3516,6 +3660,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         e.preventDefault();
                         rehabilitarSubmit();
                         mostrarToast('Por favor ingrese valores numéricos válidos para Horómetro Inicio/Fin.', 'danger', 6000);
+                        scrollToSectionError('seccion-maquina');
                         document.getElementById('hora_inicio_maq').focus();
                         return;
                     }
@@ -3523,6 +3668,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         e.preventDefault();
                         rehabilitarSubmit();
                         mostrarToast('Horómetro Fin debe ser mayor o igual que Horómetro Inicio.', 'danger', 6000);
+                        scrollToSectionError('seccion-maquina');
                         document.getElementById('hora_fin_maq').focus();
                         return;
                     }
@@ -3541,6 +3687,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     rehabilitarSubmit();
                     const searchInput = row.querySelector('.actividad-search-input');
                     mostrarToast('Una o más actividades no tienen tipo seleccionado. Busque y seleccione una actividad del listado desplegable.', 'warning', 7000);
+                    scrollToSectionError('seccion-actividades');
                     if (searchInput) searchInput.focus();
                     return;
                 }
@@ -3567,6 +3714,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         e.preventDefault();
                         rehabilitarSubmit();
                         mostrarToast('El sondaje <strong>' + (sondajeText || sondajeId) + '</strong> tiene productos diamantados/aditivos sin metraje válido. Indique un metraje mayor a 0.', 'danger', 8000);
+                        scrollToSectionError('seccion-basicos');
                         if (metInput) metInput.focus();
                         return;
                     }
@@ -3707,6 +3855,262 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         {% endif %}
     }
+
+    // ============================================================
+    // SIDEBAR: INDICADORES DE COMPLETITUD
+    // ============================================================
+    function setSidebarStatus(section, estado) {
+        // estado: 'ok' | 'warn' | 'err' | ''
+        const el  = document.getElementById('status-' + section);
+        const nav = document.querySelector('.nav-sidebar-item[data-section="' + section + '"]');
+        if (!el || !nav) return;
+        nav.classList.remove('sidebar-section-ok', 'sidebar-section-warn', 'sidebar-section-err');
+        el.className = 'nav-sidebar-status';
+        if (estado === 'ok')   { el.innerHTML = '<i class="fas fa-check-circle sidebar-ok"></i>';       nav.classList.add('sidebar-section-ok'); }
+        if (estado === 'warn') { el.innerHTML = '<i class="fas fa-exclamation-circle sidebar-warn"></i>'; nav.classList.add('sidebar-section-warn'); }
+        if (estado === 'err')  { el.innerHTML = '<i class="fas fa-times-circle sidebar-err"></i>';      nav.classList.add('sidebar-section-err'); }
+        if (estado === '')     { el.innerHTML = ''; }
+    }
+
+    function actualizarEstadoSidebar() {
+        // Información básica: sondaje + máquina + tipo_turno + fecha
+        const tieneSondaje   = document.querySelectorAll('.sondaje-row select[name="sondajes"]').length > 0 &&
+                               !!document.querySelector('.sondaje-row select[name="sondajes"]').value;
+        const tieneMaquinaB  = !!document.getElementById('maquina')?.value;
+        const tieneTipoTurno = !!document.getElementById('tipo_turno')?.value;
+        const tieneFecha     = !!document.getElementById('fecha')?.value;
+        const basicosOk = tieneSondaje && tieneMaquinaB && tieneTipoTurno && tieneFecha;
+        setSidebarStatus('basicos', basicosOk ? 'ok' : (tieneSondaje || tieneMaquinaB ? 'warn' : ''));
+
+        // Máquina: horómetro inicio (opcional pero bueno tener)
+        const hIni = document.getElementById('hora_inicio_maq')?.value;
+        const hFin = document.getElementById('hora_fin_maq')?.value;
+        if (hIni && hFin) setSidebarStatus('maquina', 'ok');
+        else if (hIni)    setSidebarStatus('maquina', 'warn');
+        else              setSidebarStatus('maquina', '');
+
+        // Trabajadores
+        const nTrab = document.querySelectorAll('.trabajador-row').length;
+        setSidebarStatus('trabajadores', nTrab > 0 ? 'ok' : '');
+
+        // Diamantados
+        const nDiam = document.querySelectorAll('.complemento-row').length;
+        setSidebarStatus('diamantados', nDiam > 0 ? 'ok' : '');
+
+        // Aditivos
+        const nAdit = document.querySelectorAll('.aditivo-row').length;
+        setSidebarStatus('aditivos', nAdit > 0 ? 'ok' : '');
+
+        // Actividades
+        const nActs   = document.querySelectorAll('.actividad-row').length;
+        const durReq  = parseFloat(document.getElementById('horas-requeridas')?.textContent) || 0;
+        const durActual = parseFloat(document.getElementById('total-horas-actividades')?.textContent) || 0;
+        if (nActs === 0)                          setSidebarStatus('actividades', '');
+        else if (durReq > 0 && durActual < durReq) setSidebarStatus('actividades', 'warn');
+        else                                       setSidebarStatus('actividades', 'ok');
+
+        // Corridas
+        const nCorr = document.querySelectorAll('.corrida-row').length;
+        setSidebarStatus('corridas', nCorr > 0 ? 'ok' : '');
+
+        // Comentarios
+        const comentarios = document.getElementById('comentarios_perforistas')?.value?.trim();
+        setSidebarStatus('comentarios', comentarios ? 'ok' : '');
+    }
+
+    // Llamar en cada cambio relevante
+    document.getElementById('form-turno').addEventListener('input', actualizarEstadoSidebar);
+    document.getElementById('form-turno').addEventListener('change', actualizarEstadoSidebar);
+    // Observar cambios de DOM en secciones dinámicas
+    const _sidebarObserver = new MutationObserver(actualizarEstadoSidebar);
+    ['trabajadores-seccion','complementos-seccion','aditivos-seccion','actividades-seccion','corridas-seccion'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) _sidebarObserver.observe(el, { childList: true, subtree: true });
+    });
+    setTimeout(actualizarEstadoSidebar, 500); // inicial
+
+    // ============================================================
+    // SUBMIT: SCROLL AL PRIMER ERROR + RESALTAR SECCIÓN
+    // ============================================================
+    function scrollToSectionError(sectionId) {
+        const el = document.getElementById(sectionId);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            el.style.outline = '3px solid #dc3545';
+            el.style.outlineOffset = '4px';
+            setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+        }
+        setSidebarStatus(sectionId.replace('seccion-',''), 'err');
+    }
+    // Patch del evento submit para scroll + sidebar error
+    document.getElementById('form-turno').addEventListener('submit', function _scrollPatch(e) {
+        // Esperar que el handler principal procese (se ejecuta antes que el nativo)
+        setTimeout(() => { actualizarEstadoSidebar(); }, 200);
+    }, true); // capture=true para ejecutar antes
+
+    // ============================================================
+    // BEFOREUNLOAD: ALERTA DE CAMBIOS SIN GUARDAR
+    // ============================================================
+    let _formModificado = false;
+    document.getElementById('form-turno').addEventListener('input', () => { _formModificado = true; });
+    document.getElementById('form-turno').addEventListener('change', () => { _formModificado = true; });
+    document.getElementById('form-turno').addEventListener('submit', () => { _formModificado = false; });
+    document.querySelector('a[href="{% url "listar-turnos" %}"]')?.addEventListener('click', () => { _formModificado = false; });
+    window.addEventListener('beforeunload', function(e) {
+        const hasDynamic = document.querySelectorAll('.trabajador-row, .complemento-row, .aditivo-row, .actividad-row, .corrida-row').length > 0;
+        if (_formModificado || hasDynamic) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    // ============================================================
+    // ACTIVIDADES: CONTADOR DE HORAS EN TIEMPO REAL
+    // ============================================================
+    function actualizarContadorHorasActividades() {
+        const rows = document.querySelectorAll('.actividad-row');
+        const badge  = document.getElementById('actividades-horas-counter');
+        const text   = document.getElementById('counter-horas-text');
+        const durReq = parseFloat(document.getElementById('horas-requeridas')?.textContent) || 0;
+        if (!badge || !text) return;
+
+        let totalMin = 0;
+        rows.forEach(row => {
+            const hi = row.querySelector('input[name*="hora_inicio_act_"]')?.value;
+            const hf = row.querySelector('input[name*="hora_fin_act_"]')?.value;
+            if (hi && hf) {
+                let [hh, mm] = hi.split(':').map(Number);
+                let [hf_h, hf_m] = hf.split(':').map(Number);
+                let startMin = hh * 60 + mm;
+                let endMin   = hf_h * 60 + hf_m;
+                if (endMin < startMin) endMin += 1440;
+                totalMin += (endMin - startMin);
+            }
+        });
+
+        const totalH = totalMin / 60;
+        const hh = Math.floor(totalH);
+        const mm = Math.round((totalH - hh) * 60);
+        text.textContent = `${hh}h ${mm > 0 ? mm + 'm' : ''} / ${durReq}h`;
+
+        badge.classList.remove('d-none','horas-ok','horas-warn','horas-error');
+        if (rows.length === 0) { badge.classList.add('d-none'); return; }
+        if (durReq > 0) {
+            if (totalH >= durReq)       badge.classList.add('horas-ok');
+            else if (totalH >= durReq * 0.7) badge.classList.add('horas-warn');
+            else                        badge.classList.add('horas-error');
+        }
+        // Actualizar también el resumen legacy
+        const legacyTotal = document.getElementById('total-horas-actividades');
+        if (legacyTotal) legacyTotal.textContent = totalH.toFixed(2);
+    }
+    // Hook en el container de actividades
+    document.getElementById('actividades-seccion').addEventListener('input', actualizarContadorHorasActividades);
+    document.getElementById('actividades-seccion').addEventListener('change', actualizarContadorHorasActividades);
+    new MutationObserver(actualizarContadorHorasActividades).observe(
+        document.getElementById('actividades-seccion'), { childList: true, subtree: false }
+    );
+
+    // ============================================================
+    // TRABAJADORES: RESUMEN TRABAJARON vs AUSENTES
+    // ============================================================
+    function actualizarResumenTrabajadores() {
+        const rows    = document.querySelectorAll('.trabajador-row');
+        const summary = document.getElementById('trabajadores-summary');
+        if (!summary) return;
+        if (rows.length === 0) { summary.textContent = ''; return; }
+        let trabajaron = 0, ausentes = 0;
+        rows.forEach(row => {
+            const estado = row.querySelector('.status-selector')?.value || 'TRABAJADO';
+            if (estado === 'TRABAJADO') trabajaron++;
+            else ausentes++;
+        });
+        summary.innerHTML = ausentes > 0
+            ? `<span class="text-success">${trabajaron} trabajaron</span> · <span class="text-warning">${ausentes} ausentes</span>`
+            : `<span class="text-success">${trabajaron} trabajaron</span>`;
+    }
+    document.getElementById('trabajadores-seccion').addEventListener('change', function(e) {
+        if (e.target.classList.contains('status-selector')) actualizarResumenTrabajadores();
+    });
+    new MutationObserver(actualizarResumenTrabajadores).observe(
+        document.getElementById('trabajadores-seccion'), { childList: true, subtree: false }
+    );
+
+    // ============================================================
+    // MÁQUINA: COLOR DINÁMICO EN SELECTS DE ESTADO
+    // ============================================================
+    function aplicarColorEstadoMaquina(sel) {
+        sel.classList.remove('select-operativo','select-deficiente','select-inoperativo');
+        if (sel.value === 'OPERATIVO')   sel.classList.add('select-operativo');
+        if (sel.value === 'DEFICIENTE')  sel.classList.add('select-deficiente');
+        if (sel.value === 'INOPERATIVO') sel.classList.add('select-inoperativo');
+    }
+    ['estado_bomba','estado_unidad','estado_rotacion'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        aplicarColorEstadoMaquina(sel);
+        sel.addEventListener('change', () => aplicarColorEstadoMaquina(sel));
+    });
+
+    // ============================================================
+    // CORRIDAS: GRÁFICO MINI DE RECUPERACIÓN
+    // ============================================================
+    function actualizarGraficoRecuperacion() {
+        const chart = document.getElementById('corridas-recovery-chart');
+        if (!chart) return;
+        const rows = document.querySelectorAll('.corrida-row');
+        if (rows.length === 0) { chart.classList.add('d-none'); chart.innerHTML = ''; return; }
+        chart.classList.remove('d-none');
+        chart.innerHTML = '';
+        rows.forEach((row, i) => {
+            const pct = parseFloat(row.querySelector('.pct-recuperacion')?.value) || 0;
+            const desde = parseFloat(row.querySelector('.metro-desde')?.value) || 0;
+            const hasta = parseFloat(row.querySelector('.metro-hasta')?.value) || 0;
+            const metros = (hasta - desde).toFixed(1);
+            const barH = Math.max(4, Math.round(pct * 0.36)); // max 36px
+            const colorClass = pct >= 85 ? 'rec-green' : pct >= 60 ? 'rec-orange' : 'rec-red';
+            const wrap = document.createElement('div');
+            wrap.className = 'rec-bar-wrap';
+            wrap.title = `Corrida ${i+1}: ${pct.toFixed(0)}% rec. | ${metros}m`;
+            wrap.innerHTML = `<div class="rec-bar ${colorClass}" style="height:${barH}px"></div><div class="rec-bar-label">${i+1}</div>`;
+            chart.appendChild(wrap);
+        });
+    }
+    // Integrar con actualizarPanelCorridas (patch)
+    const _origActualizarPanel = typeof actualizarPanelCorridas === 'function' ? actualizarPanelCorridas : null;
+    if (_origActualizarPanel) {
+        window.actualizarPanelCorridas = function() {
+            _origActualizarPanel();
+            actualizarGraficoRecuperacion();
+        };
+    }
+    document.getElementById('corridas-seccion').addEventListener('input', actualizarGraficoRecuperacion);
+    new MutationObserver(actualizarGraficoRecuperacion).observe(
+        document.getElementById('corridas-seccion'), { childList: true, subtree: false }
+    );
+
+    // ============================================================
+    // ESTADO SONDAJE: WARNING AL SELECCIONAR FINALIZADO/CANCELADO
+    // ============================================================
+    document.getElementById('cambios-estado-seccion').addEventListener('change', function(e) {
+        if (!e.target.classList.contains('estado-sondaje-select')) return;
+        const alerta = document.getElementById('alerta-estado-critico');
+        const alertaNombre = document.getElementById('alerta-estado-nombre');
+        if (!alerta || !alertaNombre) return;
+        const allSelects = document.querySelectorAll('.estado-sondaje-select');
+        const hasCritico = Array.from(allSelects).some(s => s.value === 'FINALIZADO' || s.value === 'CANCELADO');
+        if (hasCritico) {
+            const criticos = Array.from(allSelects)
+                .filter(s => s.value === 'FINALIZADO' || s.value === 'CANCELADO')
+                .map(s => s.value)
+                .join(' / ');
+            alertaNombre.textContent = criticos;
+            alerta.classList.remove('d-none');
+        } else {
+            alerta.classList.add('d-none');
+        }
+    });
+
 });
 </script>
 {% endblock %}
