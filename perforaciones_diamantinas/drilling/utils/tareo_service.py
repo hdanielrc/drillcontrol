@@ -1099,11 +1099,14 @@ class TareoService:
             contrato=contrato,
         ).select_related('contrato', 'maquina_asignada').annotate(
             grupo_ord=Case(
-                When(es_standby=True,                       then=Value(5)),
-                When(grupo='LINEA_MANDO',                   then=Value(1)),
-                When(grupo='OPERADORES',                    then=Value(2)),
-                When(grupo='SERVICIOS_GEOLOGICOS',          then=Value(3)),
-                When(grupo='CONDUCTORES',             then=Value(4)),
+                When(grupo='LINEA_MANDO',                              then=Value(1)),
+                When(grupo='CONDUCTORES',                              then=Value(2)),
+                # Standby con máquina → orden 3 (sección Operadores, junto a su máquina)
+                When(es_standby=True, maquina_asignada__isnull=False,  then=Value(3)),
+                When(grupo='OPERADORES',                               then=Value(3)),
+                # Standby sin máquina → orden 4 (sección Stand By)
+                When(es_standby=True, maquina_asignada__isnull=True,   then=Value(4)),
+                When(grupo='SERVICIOS_GEOLOGICOS',                     then=Value(5)),
                 default=Value(6),
                 output_field=IntegerField()
             )
@@ -1143,16 +1146,17 @@ class TareoService:
         # Construir matriz agrupada por grupo
         GRUPO_META = {
             'LINEA_MANDO':          ('Línea de Mando',       'lm'),
+            'CONDUCTORES':          ('Conductores',           'aux'),
             'OPERADORES':           ('Operadores',            'op'),
-            'SERVICIOS_GEOLOGICOS': ('Servicios Geológicos',  'geo'),
-            'CONDUCTORES':    ('Conductores',     'aux'),
             '__STAND_BY__':         ('Personal Stand By',     'sb'),
+            'SERVICIOS_GEOLOGICOS': ('Servicios Geológicos',  'geo'),
             '__SIN_GRUPO__':        ('Sin Grupo Asignado',    'sin'),
         }
 
         grupos_dict = {}  # grupo_key -> {'grupo_nombre': str, 'order': int, 'rows': []}
         for trabajador in trabajadores:
-            if trabajador.es_standby:
+            tiene_maquina = bool(getattr(trabajador, 'maquina_asignada', None))
+            if trabajador.es_standby and not tiene_maquina:
                 grupo_key = '__STAND_BY__'
                 orden = 5
             elif trabajador.grupo:

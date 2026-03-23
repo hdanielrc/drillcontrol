@@ -179,9 +179,6 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
             tipo_servicio_calculado = Trabajador.calcular_tipo_servicio_desde_cargo(cargo_api)
             
             estado_api = worker.get('estado', '')
-            # Si la API marca al trabajador como standby, reflejarlo en el flag.
-            # Cualquier otro estado (ACTIVO, INACTIVO, etc.) → es_standby=False.
-            es_standby_api = estado_api.upper() in ('STAND_BY_CLIENTE', 'STAND_BY_ROCKDRILL', 'STAND_BY')
 
             defaults = {
                 'nombres': nombres,
@@ -199,7 +196,9 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
                 ),
                 'estado': estado_api,
                 'estado_api': estado_api,
-                'es_standby': es_standby_api,  # sincronizar con API
+                # es_standby NO se sincroniza desde la API — es un campo manual
+                # gestionado desde el panel de administración. La API puede tener
+                # un estado diferente al que el usuario asignó manualmente.
                 'synced': True
             }
 

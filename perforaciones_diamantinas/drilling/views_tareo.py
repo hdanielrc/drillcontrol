@@ -394,17 +394,18 @@ def tareo_mensual_view(request):
     # Combinar trabajadores con sus asistencias y agrupar por campo `grupo`
     GRUPO_META = {
         'LINEA_MANDO':         {'nombre': 'Línea de Mando',       'order': 1},
-        'OPERADORES':          {'nombre': 'Operadores',            'order': 2},
-        'SERVICIOS_GEOLOGICOS':{'nombre': 'Servicios Geológicos',  'order': 3},
-        'CONDUCTORES':   {'nombre': 'Conductores',     'order': 4},
-        '__STAND_BY__':        {'nombre': 'Personal Stand By',     'order': 5},
+        'CONDUCTORES':         {'nombre': 'Conductores',           'order': 2},
+        'OPERADORES':          {'nombre': 'Operadores',            'order': 3},
+        '__STAND_BY__':        {'nombre': 'Personal Stand By',     'order': 4},
+        'SERVICIOS_GEOLOGICOS':{'nombre': 'Servicios Geológicos',  'order': 5},
         '__SIN_GRUPO__':       {'nombre': 'Sin Grupo Asignado',    'order': 6},
     }
 
     trabajadores_por_grupo = {}
 
     for trabajador in trabajadores:
-        if trabajador.es_standby:
+        tiene_maquina = bool(getattr(trabajador, 'maquina_asignada', None))
+        if trabajador.es_standby and not tiene_maquina:
             primary_key = '__STAND_BY__'
         else:
             primary_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
@@ -1152,15 +1153,16 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     categorias = {}
     order_map = {
         'LINEA_MANDO': 1,
-        'OPERADORES': 2,
-        'SERVICIOS_GEOLOGICOS': 3,
-        'CONDUCTORES': 4,
-        '__STAND_BY__': 5,
+        'CONDUCTORES': 2,
+        'OPERADORES': 3,
+        '__STAND_BY__': 4,
+        'SERVICIOS_GEOLOGICOS': 5,
         '__SIN_GRUPO__': 6
     }
 
     for trabajador in trabajadores:
-        if getattr(trabajador, 'es_standby', False):
+        tiene_maquina = bool(getattr(trabajador, 'maquina_asignada', None))
+        if getattr(trabajador, 'es_standby', False) and not tiene_maquina:
             cat_key = '__STAND_BY__'
         else:
             cat_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
@@ -1595,7 +1597,8 @@ def mostrar_tareo_semanal(request):
         import re as _re
         categorias = {}
         for trabajador in trabajadores.order_by('grupo', 'maquina_asignada__nombre', 'apepat'):
-            if getattr(trabajador, 'es_standby', False):
+            tiene_maquina = bool(getattr(trabajador, 'maquina_asignada', None))
+            if getattr(trabajador, 'es_standby', False) and not tiene_maquina:
                 cat_key = '__STAND_BY__'
             else:
                 cat_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
@@ -2213,8 +2216,8 @@ def actualizar_grupos_trabajadores(request):
 
         stats = {}
         standby_count = 0
-        for t in qs.only('grupo', 'es_standby'):
-            if t.es_standby:
+        for t in qs.only('grupo', 'es_standby', 'maquina_asignada'):
+            if t.es_standby and not t.maquina_asignada_id:
                 standby_count += 1
                 key = 'Stand By'
             else:
