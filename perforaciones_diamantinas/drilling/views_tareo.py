@@ -1595,6 +1595,14 @@ def mostrar_tareo_semanal(request):
 
         # Construir estructura por categorias -> maquinas -> guardias -> trabajadores
         import re as _re
+        CAT_NOMBRES = {
+            'LINEA_MANDO':          'Línea de Mando',
+            'CONDUCTORES':          'Conductores',
+            'OPERADORES':           'Operadores',
+            '__STAND_BY__':         'Personal Stand By',
+            'SERVICIOS_GEOLOGICOS': 'Servicios Geológicos',
+            '__SIN_GRUPO__':        'Sin Grupo Asignado',
+        }
         categorias = {}
         for trabajador in trabajadores.order_by('grupo', 'maquina_asignada__nombre', 'apepat'):
             tiene_maquina = bool(getattr(trabajador, 'maquina_asignada', None))
@@ -1604,7 +1612,7 @@ def mostrar_tareo_semanal(request):
                 cat_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
 
             if cat_key not in categorias:
-                categorias[cat_key] = {'nombre': cat_key, 'maquinas': {}}
+                categorias[cat_key] = {'nombre': CAT_NOMBRES.get(cat_key, cat_key), 'maquinas': {}}
 
             maq = trabajador.maquina_asignada
             maq_key = maq.nombre if maq else '__SIN_MAQUINA__'
@@ -1703,8 +1711,7 @@ def mostrar_tareo_semanal(request):
                 })
 
         # Pasar a lista ordenada para el template
-        # Orden explícita: LINEA_MANDO, OPERADORES, __STAND_BY__, CONDUCTORES, luego el resto
-        preferred_order = ['LINEA_MANDO', 'OPERADORES', '__STAND_BY__', 'CONDUCTORES']
+        preferred_order = ['LINEA_MANDO', 'CONDUCTORES', 'OPERADORES', '__STAND_BY__', 'SERVICIOS_GEOLOGICOS', '__SIN_GRUPO__']
         categorias_list = []
         # Añadir en el orden preferido si existen
         for key in preferred_order:
@@ -2748,7 +2755,7 @@ def tareo_v2_mensual_view(request):
     semana_offset = int(request.GET.get('semana_offset', 0))
 
     # Día de cambio de guardia (necesario para ambos modos de vista)
-    dia_cambio_guardia = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 6
+    dia_cambio_guardia = contrato.dia_cambio_guardia if contrato.dia_cambio_guardia is not None else 0
     dia_previo_cambio  = (dia_cambio_guardia - 1) % 7
 
     meses_es = {
