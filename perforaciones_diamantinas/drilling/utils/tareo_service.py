@@ -684,24 +684,23 @@ class TareoService:
                         fecha_actual += timedelta(days=1)
                         continue
 
-                    # Calcular estado: si tenemos datos del día anterior al periodo,
-                    # simulamos el ciclo desde esa posición; si no, usamos la
-                    # función existente que se basa en fecha_inicio_ciclo.
-                    if usar_estado_previo and ciclo_pos is not None:
+                    # Calcular estado:
+                    # - Para trabajadores con rotación de guardia (14x7 + A/B/C):
+                    #   SIEMPRE usar TareoEngine (fórmula determinista con offset de guardia).
+                    #   La lógica de continuación ignora el offset → resultados incorrectos
+                    #   para guardias B y C.
+                    # - Para el resto: usar continuación de ciclo si tenemos datos del
+                    #   día anterior al periodo; si no, calcular desde fecha_inicio_ciclo.
+                    usa_rotacion = TareoService._usa_rotacion_guardia(trabajador)
+                    if usar_estado_previo and ciclo_pos is not None and not usa_rotacion:
                         dias_trabajo, dias_descanso = TareoService.REGIMEN_CONFIG.get(trabajador.regimen_laboral or '14x7', (14,7))
                         ciclo_total = dias_trabajo + dias_descanso
-                        # Determinar estado según posición en ciclo. Use la posición
-                        # calculada (ciclo_pos) de forma consistente — no forzamos
-                        # `TD` en el día de cambio de guardia aquí, para evitar
-                        # discrepancias entre la simulación y la fórmula basada
-                        # en `fecha_inicio_ciclo`.
                         if ciclo_pos < dias_trabajo:
                             mitad = (dias_trabajo + 1) // 2
                             posicion_en_trabajo = ciclo_pos
                             estado_esperado = 'TD' if posicion_en_trabajo < mitad else 'TN'
                         else:
                             estado_esperado = 'DESCANSO'
-                        # Avanzar en el ciclo
                         ciclo_pos = (ciclo_pos + 1) % ciclo_total
                     else:
                         estado_esperado = TareoService.calcular_estado_dia(
