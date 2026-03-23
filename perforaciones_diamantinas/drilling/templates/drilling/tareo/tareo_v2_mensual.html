@@ -141,9 +141,11 @@
         left: 260px;
         z-index: 5;
         background: #ecf0f1;
-        min-width: 80px;
-        max-width: 80px;
+        min-width: 150px;
+        max-width: 150px;
         text-align: center;
+        vertical-align: middle;
+        padding: 4px 6px;
     }
 
     .select-guardia {
@@ -161,6 +163,48 @@
     .select-guardia:focus { outline: none; border-color: #3498db; }
     .select-guardia.saved  { border-color: #27ae60; background: #eafaf1; }
     .select-guardia.error  { border-color: #e74c3c; background: #fdf2f2; }
+
+    /* Panel de acciones por fila (dentro de col-guardia) */
+    .row-fill-panel {
+        margin-top: 5px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        align-items: stretch;
+    }
+    .row-fill-selects {
+        display: flex;
+        gap: 3px;
+        align-items: center;
+    }
+    .row-fill-estado {
+        font-size: 10px;
+        padding: 2px 3px;
+        border-radius: 3px;
+        background: #e8f4f8;
+        border: 1px solid #90cdf4;
+        cursor: pointer;
+        width: 50px;
+        font-weight: 700;
+        color: #1e3a5f;
+        flex-shrink: 0;
+    }
+    .row-fill-maquina {
+        font-size: 10px;
+        padding: 2px 3px;
+        border-radius: 3px;
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        font-weight: 600;
+        color: #14532d;
+    }
+    .row-fill-btns {
+        display: flex;
+        gap: 3px;
+    }
         /* Worker info: normalize name length and show cargo/máquina */
         .worker-fullname {
             font-size: 13px;
@@ -458,24 +502,7 @@
         color: #1e3a5f;
     }
 
-    /* ── Control de relleno rápido por fila ─────────────────────────────────── */
-    .quick-fill-row {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        margin-top: 5px;
-    }
-    .quick-fill-select {
-        font-size: 10px;
-        padding: 2px 3px;
-        border-radius: 3px;
-        background: #e8f4f8;
-        border: 1px solid #90cdf4;
-        cursor: pointer;
-        width: 52px;
-        font-weight: 700;
-        color: #1e3a5f;
-    }
+    /* ── Control de relleno rápido por fila (en col-guardia) ──────────────── */
     .quick-fill-btn {
         font-size: 10px;
         padding: 2px 6px;
@@ -486,6 +513,7 @@
         cursor: pointer;
         font-weight: 600;
         white-space: nowrap;
+        flex: 1;
     }
     .quick-fill-btn:hover { background: #1a6492; }
 
@@ -798,43 +826,57 @@
                             <br>
                             <small style="color: #3498db;">🚜 {{ row.trabajador.maquina_asignada.nombre }}</small>
                             {% endif %}
-                            <!-- Relleno rápido de fila -->
-                            <div class="quick-fill-row">
-                                <select class="quick-fill-select" title="Estado para rellenar toda la fila">
-                                    <option value="TD">TD</option>
-                                    <option value="TN">TN</option>
-                                    <option value="DESCANSO">DL</option>
-                                    <option value="FALTA">F</option>
-                                    <option value="DM">DM</option>
-                                    <option value="VACACIONES">V</option>
-                                    <option value="PERMISO">P</option>
-                                    <option value="SUSPENSION">S</option>
-                                    <option value="LICENCIA">L</option>
-                                    <option value="INDUCCION">IND</option>
-                                    <option value="STAND_BY">SB</option>
-                                    <option value="SUBSIDIO">SUB</option>
-                                    <option value="RECORRIDO">REC</option>
-                                    <option value="DIA_APOYO">DA</option>
-                                </select>
-                                <button type="button" class="quick-fill-btn" title="Aplicar a toda la fila">→ Fila</button>
-                                <button type="button" class="btn-save-fila"
-                                        data-trabajador="{{ row.trabajador.id }}"
-                                        data-contrato="{{ contrato.id }}"
-                                        title="Guardar solo esta fila">💾</button>
-                            </div>
                         </td>
-                        
-                        <!-- Columna Guardia (fija) -->
+
+                        <!-- Columna Guardia + Relleno rápido por fila -->
                         <td class="col-guardia">
+                            <!-- Guardia asignada -->
                             <select class="select-guardia"
                                     data-trabajador-id="{{ row.trabajador.id }}"
                                     onchange="actualizarGuardia(this)"
-                                    title="Guardia asignada">
+                                    title="Guardia asignada (A/B/C)">
                                 <option value="" {% if not row.guardia %}selected{% endif %}>—</option>
                                 <option value="A" {% if row.guardia == 'A' %}selected{% endif %}>A</option>
                                 <option value="B" {% if row.guardia == 'B' %}selected{% endif %}>B</option>
                                 <option value="C" {% if row.guardia == 'C' %}selected{% endif %}>C</option>
                             </select>
+                            <!-- Panel relleno rápido -->
+                            <div class="row-fill-panel">
+                                <div class="row-fill-selects">
+                                    <select class="row-fill-estado" title="Estado a aplicar en toda la fila">
+                                        <option value="TD">TD</option>
+                                        <option value="TN">TN</option>
+                                        <option value="DESCANSO">DL</option>
+                                        <option value="FALTA">F</option>
+                                        <option value="DM">DM</option>
+                                        <option value="VACACIONES">V</option>
+                                        <option value="PERMISO">P</option>
+                                        <option value="SUSPENSION">S</option>
+                                        <option value="LICENCIA">L</option>
+                                        <option value="INDUCCION">IND</option>
+                                        <option value="STAND_BY">SB</option>
+                                        <option value="SUBSIDIO">SUB</option>
+                                        <option value="RECORRIDO">REC</option>
+                                        <option value="DIA_APOYO">DA</option>
+                                    </select>
+                                    <select class="row-fill-maquina" title="Máquina a aplicar en toda la fila">
+                                        <option value="">— Maq</option>
+                                        {% for maq in maquinas_disponibles %}
+                                        <option value="{{ maq.id }}"
+                                            {% if row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}selected{% endif %}>
+                                            {{ maq.codigo|default:maq.nombre }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="row-fill-btns">
+                                    <button type="button" class="quick-fill-btn" title="Aplicar estado y máquina a toda la fila">→ Fila</button>
+                                    <button type="button" class="btn-save-fila"
+                                            data-trabajador="{{ row.trabajador.id }}"
+                                            data-contrato="{{ contrato.id }}"
+                                            title="Guardar solo esta fila">💾</button>
+                                </div>
+                            </div>
                         </td>
                         
                         <!-- Celdas de días -->
@@ -1157,17 +1199,29 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.quick-fill-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const row = this.closest('tr');
-            const select = row.querySelector('.quick-fill-select');
-            const estado = select ? select.value : 'TD';
-            const estadoSelects = row.querySelectorAll('select[data-tipo="estado"]');
-            estadoSelects.forEach(estadoSelect => {
+            // Estado: leer de .row-fill-estado (nuevo) o .quick-fill-select (legado)
+            const estadoSel = row.querySelector('.row-fill-estado') || row.querySelector('.quick-fill-select');
+            const estado = estadoSel ? estadoSel.value : 'TD';
+            // Máquina: leer de .row-fill-maquina
+            const maquinaSel = row.querySelector('.row-fill-maquina');
+            const maquinaId = maquinaSel ? maquinaSel.value : '';
+
+            // Aplicar estado a todas las celdas de la fila
+            row.querySelectorAll('select[data-tipo="estado"]').forEach(estadoSelect => {
                 estadoSelect.value = estado;
-                // Actualizar color de celda (replicate inline onchange)
-                estadoSelect.className = 'estado-select';
+                estadoSelect.className = 'estado-select estado-' + estado;
                 const td = estadoSelect.closest('td');
                 td.className = td.className.replace(/\bcelda-\S+/g, '').trim() + ' celda-' + estado;
                 td.setAttribute('data-estado', estado);
             });
+
+            // Aplicar máquina a todas las celdas si se seleccionó una
+            if (maquinaId) {
+                row.querySelectorAll('select[data-tipo="maquina"]').forEach(maqSelect => {
+                    maqSelect.value = maquinaId;
+                });
+            }
+
             row.classList.add('dirty-row');
             actualizarSummaryRows();
         });
