@@ -1435,7 +1435,8 @@ class TareoService:
 
                     if sobrescribir_proyecciones:
                         existente.estado = estado_v2
-                        existente.guardia_snapshot = reg.guardia_snapshot
+                        # Usar guardia_snapshot del V1 si existe; si no, usar la guardia actual del trabajador.
+                        existente.guardia_snapshot = reg.guardia_snapshot or reg.trabajador.guardia_asignada
                         existente.observaciones = reg.observaciones or ''
                         existente.registrado_por = usuario
                         actualizar.append(existente)
@@ -1444,7 +1445,7 @@ class TareoService:
                         _empleado_field_name(): reg.trabajador,
                         'fecha': reg.fecha,
                         'estado': estado_v2,
-                        'guardia_snapshot': reg.guardia_snapshot,
+                        'guardia_snapshot': reg.guardia_snapshot or reg.trabajador.guardia_asignada,
                         'observaciones': reg.observaciones or '',
                         'registrado_por': usuario,
                     }

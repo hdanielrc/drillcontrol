@@ -1660,8 +1660,8 @@ def mostrar_tareo_semanal(request):
             else:
                 maq_name_from_cells = ''
 
-            # Build per-combination (maquina, guardia) segments so a worker can appear
-            # in multiple machines/guardias across the week according to cell snapshots.
+            # Guardia es fija por trabajador: siempre usar guardia_asignada para agrupar.
+            # La máquina puede variar por día según maquina_snapshot.
             assigned_maq_name = trabajador.maquina_asignada.nombre if getattr(trabajador, 'maquina_asignada', None) else '__SIN_MAQUINA__'
             assigned_guardia = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
 
@@ -1672,7 +1672,9 @@ def mostrar_tareo_semanal(request):
 
             for idx, day in enumerate(dias):
                 day_maq = day.get('maquina_snapshot') or assigned_maq_name
-                day_guardia = day.get('guardia_snapshot') or assigned_guardia
+                # La guardia NO cambia por día: siempre se agrupa por guardia_asignada del trabajador.
+                # El guardia_snapshot es solo metadata histórica por celda, no define el grupo.
+                day_guardia = assigned_guardia
                 combo = (day_maq, day_guardia)
                 if combo not in comb_map:
                     comb_map[combo] = empty_week()
