@@ -647,14 +647,12 @@
 
         <!-- Toggle de vista: Mes ↔ Semana de Guardia -->
         <div class="vista-toggle-bar">
-            {% if tabla %}
-                <a href="?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset }}" class="btn-vista-toggle {% if vista == 'mes' %}active{% endif %}">
-                    📅 Vista Mes
-                </a>
-                <a href="?contrato={{ contrato.id }}&vista=semana&semana_offset=0" class="btn-vista-toggle {% if vista == 'semana' %}active{% endif %}">
-                    📋 Semana de Guardia
-                </a>
-            {% endif %}
+            <a href="?contrato={{ contrato.id }}&vista=mes&mes_offset={{ mes_offset }}" class="btn-vista-toggle {% if vista == 'mes' %}active{% endif %}">
+                📅 Vista Mes
+            </a>
+            <a href="?contrato={{ contrato.id }}&vista=semana&semana_offset=0" class="btn-vista-toggle {% if vista == 'semana' %}active{% endif %}">
+                📋 Semana de Guardia
+            </a>
         </div>
 
         <div class="tareo-controls">
