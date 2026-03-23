@@ -1150,9 +1150,13 @@ class TareoService:
             '__SIN_GRUPO__':        ('Sin Grupo Asignado',    'sin'),
         }
 
+        # Grupos que no requieren máquina (no se reclasifican como Stand By por falta de máquina)
+        GRUPOS_SIN_MAQUINA = {'LINEA_MANDO', 'SERVICIOS_GEOLOGICOS'}
+
         grupos_dict = {}  # grupo_key -> {'grupo_nombre': str, 'order': int, 'rows': []}
         for trabajador in trabajadores:
-            if trabajador.es_standby:
+            sin_maquina = not trabajador.maquina_asignada
+            if trabajador.es_standby or (sin_maquina and (trabajador.grupo or '') not in GRUPOS_SIN_MAQUINA):
                 grupo_key = '__STAND_BY__'
                 orden = 5
             elif trabajador.grupo:

@@ -403,11 +403,14 @@ def tareo_mensual_view(request):
 
     trabajadores_por_grupo = {}
 
+    GRUPOS_SIN_MAQUINA_V1 = {'LINEA_MANDO', 'SERVICIOS_GEOLOGICOS'}
     for trabajador in trabajadores:
-        if trabajador.es_standby:
+        sin_maquina = not trabajador.maquina_asignada
+        grupo = trabajador.grupo or ''
+        if trabajador.es_standby or (sin_maquina and grupo not in GRUPOS_SIN_MAQUINA_V1):
             primary_key = '__STAND_BY__'
         else:
-            primary_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
+            primary_key = grupo if grupo else '__SIN_GRUPO__'
         guardia_key = trabajador.guardia_asignada if trabajador.guardia_asignada else 'SIN_GUARDIA'
 
         if primary_key not in trabajadores_por_grupo:
@@ -1594,11 +1597,16 @@ def mostrar_tareo_semanal(request):
         # Construir estructura por categorias -> maquinas -> guardias -> trabajadores
         import re as _re
         categorias = {}
+        # Grupos que NO requieren máquina (no se reclasifican como Stand By por falta de máquina)
+        GRUPOS_SIN_MAQUINA = {'LINEA_MANDO', 'SERVICIOS_GEOLOGICOS'}
+
         for trabajador in trabajadores.order_by('grupo', 'maquina_asignada__nombre', 'apepat'):
-            if getattr(trabajador, 'es_standby', False):
+            sin_maquina = not getattr(trabajador, 'maquina_asignada', None)
+            grupo = trabajador.grupo or ''
+            if getattr(trabajador, 'es_standby', False) or (sin_maquina and grupo not in GRUPOS_SIN_MAQUINA):
                 cat_key = '__STAND_BY__'
             else:
-                cat_key = trabajador.grupo if trabajador.grupo else '__SIN_GRUPO__'
+                cat_key = grupo if grupo else '__SIN_GRUPO__'
 
             if cat_key not in categorias:
                 categorias[cat_key] = {'nombre': cat_key, 'maquinas': {}}
