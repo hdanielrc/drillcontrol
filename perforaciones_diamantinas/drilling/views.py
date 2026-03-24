@@ -2530,7 +2530,7 @@ def get_context_data(request):
             tipo_servicio='DDH',
             grupo='OPERADORES',
             estado='ACTIVO'
-        ).only(
+        ).select_related('cargo').only(
             'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     else:
@@ -2545,7 +2545,7 @@ def get_context_data(request):
             tipo_servicio='DDH',
             grupo='OPERADORES',
             estado='ACTIVO'
-        ).only(
+        ).select_related('cargo').only(
             'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     
@@ -2582,6 +2582,7 @@ def get_context_data(request):
         'sondajes': sondajes.filter(estado='ACTIVO'),
         'maquinas': maquinas.filter(estado='OPERATIVO'),
         'trabajadores': trabajadores.filter(estado='ACTIVO'),
+        'trabajadores_disponibles': trabajadores.filter(estado='ACTIVO'),
         'tipos_turno': tipos_turno_data,
         'tipos_actividad': tipos_actividad_qs,
         'brocas_disponibles': HistorialBroca.objects.filter(
