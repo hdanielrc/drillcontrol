@@ -2530,7 +2530,7 @@ def get_context_data(request):
             tipo_servicio='DDH',
             grupo='OPERADORES',
             estado='ACTIVO'
-        ).select_related('cargo').only(
+        ).only(
             'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     else:
@@ -2545,7 +2545,7 @@ def get_context_data(request):
             tipo_servicio='DDH',
             grupo='OPERADORES',
             estado='ACTIVO'
-        ).select_related('cargo').only(
+        ).only(
             'id', 'nombres', 'apepat', 'apemat', 'dni', 'estado', 'contrato', 'cargo'
         )
     
