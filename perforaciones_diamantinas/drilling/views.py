@@ -2273,9 +2273,14 @@ def crear_turno_completo(request, pk=None):
         turno = get_object_or_404(Turno, pk=pk)
         # preparar listas JSON para inyectar en template
         trabajadores = []
+        # Pre-fetch AsistenciaTrabajador records para obtener el estado real guardado
+        _trab_ids_for_asist = list(TurnoTrabajador.objects.filter(turno=turno).values_list('trabajador_id', flat=True))
+        _asistencias_map = {
+            a.trabajador_id: a.estado
+            for a in AsistenciaTrabajador.objects.filter(trabajador_id__in=_trab_ids_for_asist, fecha=turno.fecha)
+        }
         for tt in TurnoTrabajador.objects.filter(turno=turno).select_related('trabajador'):
-            # Obtener estado de asistencia si existe el campo en el modelo, sino default
-            estado_asist = getattr(tt, 'estado_asistencia', 'TRABAJADO')
+            estado_asist = _asistencias_map.get(tt.trabajador_id, 'TRABAJADO')
             trabajadores.append({
                 'trabajador_id': tt.trabajador.id,  # Validado: usar ID (PK) para coincidir con <option value="{{ id }}">
                 'funcion': tt.funcion,
