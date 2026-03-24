@@ -2309,7 +2309,7 @@ def crear_turno_completo(request, pk=None):
             })
 
         actividades = []
-        for act in TurnoActividad.objects.filter(turno=turno).select_related('actividad'):
+        for act in TurnoActividad.objects.filter(turno=turno).select_related('actividad').order_by('hora_inicio'):
             actividades.append({
                 'actividad_id': act.actividad_id,
                 'hora_inicio': act.hora_inicio.isoformat() if act.hora_inicio else '',
