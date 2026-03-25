@@ -32,14 +32,14 @@
         <option value="DA1"  {% if estado_code2 == 'DA1'  %}selected{% endif %}>DA1</option>
         <option value="LCG"  {% if estado_code2 == 'LCG'  %}selected{% endif %}>LCG</option>
     </select>
-    <!-- Select de Máquina por día -->
+    <!-- Select de Máquina por día (hidden, visible on hover via CSS) -->
     <select
         name="maquina_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}"
         class="maquina-select"
         data-tipo="maquina"
-        style="margin-top: 4px; font-size: 10px; padding: 3px; width: 100%; border: 1px solid #95a5a6; border-radius: 3px; background: #f8f9fa; font-weight: 600;"
+        style="margin-top:2px; font-size:9px; padding:1px; width:100%; border:1px solid #95a5a6; border-radius:3px; background:#f8f9fa; font-weight:600;"
         title="Máquina asignada para este día específico">
-        <option value="">Sin máquina</option>
+        <option value="">—</option>
         {% for maq in maquinas_disponibles %}
         <option value="{{ maq.id }}"
             {% if data and data.maquina_id and data.maquina_id == maq.id %}
@@ -47,12 +47,12 @@
             {% elif not data and row.trabajador.maquina_asignada and row.trabajador.maquina_asignada.id == maq.id %}
                 selected
             {% endif %}>
-            🚜 {{ maq.codigo|default:maq.nombre }}
+            {{ maq.codigo|default:maq.nombre }}
         </option>
         {% endfor %}
     </select>
-    <!-- Indicadores de estado del registro -->
-    <div style="margin-top: 3px; font-size: 10px;">
+    <!-- Indicador compacto -->
+    <div style="margin-top:1px; font-size:9px; line-height:1;">
         {% if data %}
             {% if data.es_proyeccion or data.tipo == 'PROY' %}
                 <span class="proyeccion-indicator es-proyeccion" title="Proyección automática">P</span>
@@ -60,20 +60,18 @@
                 <span class="proyeccion-indicator es-correccion" title="Registro manual confirmado">✓</span>
             {% endif %}
         {% else %}
-            <span style="background: #fff3cd; color: #856404; padding: 2px 4px; border-radius: 3px; font-size: 9px;" title="Sin registro">⚠️</span>
+            <span style="background:#fff3cd;color:#856404;padding:1px 2px;border-radius:2px;font-size:8px;" title="Sin registro">⚠️</span>
         {% endif %}
-        <!-- Selector por celda: Guardia (override) -->
-        <div style="margin-top:6px;">
-            <select name="guardia_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}"
-                    class="guardia-cell-select"
-                    data-tipo="guardia_snapshot"
-                    style="font-size:11px; padding:2px 4px; border-radius:3px; width:56px;">
-                <option value="" {% if not data.guardia_snapshot %}selected{% endif %}>—</option>
-                <option value="A" {% if data.guardia_snapshot == 'A' %}selected{% endif %}>A</option>
-                <option value="B" {% if data.guardia_snapshot == 'B' %}selected{% endif %}>B</option>
-                <option value="C" {% if data.guardia_snapshot == 'C' %}selected{% endif %}>C</option>
-            </select>
-        </div>
+        <!-- Guardia override (hidden, visible on hover via CSS) -->
+        <select name="guardia_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}"
+                class="guardia-cell-select"
+                data-tipo="guardia_snapshot"
+                style="font-size:9px; padding:1px 2px; border-radius:2px; width:42px; margin-top:2px;">
+            <option value="" {% if not data.guardia_snapshot %}selected{% endif %}>—</option>
+            <option value="A" {% if data.guardia_snapshot == 'A' %}selected{% endif %}>A</option>
+            <option value="B" {% if data.guardia_snapshot == 'B' %}selected{% endif %}>B</option>
+            <option value="C" {% if data.guardia_snapshot == 'C' %}selected{% endif %}>C</option>
+        </select>
     </div>
     <!-- Campo oculto para observaciones -->
     <input type="hidden" 

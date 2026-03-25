@@ -88,39 +88,42 @@
         background: #1a6492;
     }
     
-    /* Tabla principal - Scroll horizontal para muchas columnas */
+    /* Tabla principal - Scroll horizontal + vertical con header fijo */
     .tareo-table-wrapper {
         background: white;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        overflow-x: auto;
+        overflow: auto;
         margin-bottom: 30px;
+        max-height: calc(100vh - 60px);
     }
-    
+
     .tareo-table {
-        width: 100%;
+        width: max-content;
         border-collapse: separate;
         border-spacing: 0;
-        min-width: 1200px; /* Ancho mínimo para scroll */
     }
-            padding: 4px;
-    /* Cabecera fija */
+
+    /* Cabecera fija (sticky vertical + horizontal) */
     .tareo-table thead {
         position: sticky;
         top: 0;
-        z-index: 10;
+        z-index: 20;
+    }
+    .tareo-table thead th {
         background: #34495e;
         color: white;
     }
-    
+
     .tareo-table th {
-        padding: 12px 8px;
+        padding: 6px 3px;
         text-align: center;
         font-weight: 600;
         border: 1px solid #2c3e50;
         white-space: nowrap;
+        font-size: 12px;
     }
-    
+
     /* Columnas de trabajador fijas en scroll horizontal */
     .tareo-table th.col-trabajador,
     .tareo-table td.col-trabajador {
@@ -129,33 +132,40 @@
         z-index: 5;
         background: #ecf0f1;
         font-weight: 600;
-        min-width: 260px;
-        max-width: 260px;
+        min-width: 200px;
+        max-width: 200px;
         text-align: left;
-        padding-left: 15px;
+        padding-left: 8px;
     }
-    
+    /* Header corners: sticky both directions */
+    .tareo-table thead th.col-trabajador {
+        z-index: 25;
+    }
+    .tareo-table thead th.col-guardia {
+        z-index: 25;
+    }
+
     .tareo-table th.col-guardia,
     .tareo-table td.col-guardia {
         position: sticky;
-        left: 260px;
+        left: 200px;
         z-index: 5;
         background: #ecf0f1;
-        min-width: 150px;
-        max-width: 150px;
+        min-width: 110px;
+        max-width: 110px;
         text-align: center;
         vertical-align: middle;
-        padding: 4px 6px;
+        padding: 3px 4px;
     }
 
     .select-guardia {
-        width: 52px;
-        padding: 2px 4px;
-        font-size: 12px;
+        width: 42px;
+        padding: 1px 2px;
+        font-size: 11px;
         font-weight: 700;
         text-align: center;
         border: 1px solid #bdc3c7;
-        border-radius: 4px;
+        border-radius: 3px;
         background: #fff;
         cursor: pointer;
         transition: border-color .15s;
@@ -166,32 +176,32 @@
 
     /* Panel de acciones por fila (dentro de col-guardia) */
     .row-fill-panel {
-        margin-top: 5px;
+        margin-top: 3px;
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         align-items: stretch;
     }
     .row-fill-selects {
         display: flex;
-        gap: 3px;
+        gap: 2px;
         align-items: center;
     }
     .row-fill-estado {
-        font-size: 10px;
-        padding: 2px 3px;
+        font-size: 9px;
+        padding: 1px 2px;
         border-radius: 3px;
         background: #e8f4f8;
         border: 1px solid #90cdf4;
         cursor: pointer;
-        width: 50px;
+        width: 42px;
         font-weight: 700;
         color: #1e3a5f;
         flex-shrink: 0;
     }
     .row-fill-maquina {
-        font-size: 10px;
-        padding: 2px 3px;
+        font-size: 9px;
+        padding: 1px 2px;
         border-radius: 3px;
         background: #f0fdf4;
         border: 1px solid #86efac;
@@ -203,11 +213,11 @@
     }
     .row-fill-btns {
         display: flex;
-        gap: 3px;
+        gap: 2px;
     }
         /* Worker info: normalize name length and show cargo/máquina */
         .worker-fullname {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             line-height: 1.1;
             color: #2c3e50;
@@ -216,28 +226,44 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .worker-cargo {
-            font-size: 11px;
+            font-size: 10px;
             color: #7f8c8d;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .worker-maquina {
-            font-size: 11px;
+            font-size: 10px;
             color: #3498db;
             font-weight: 600;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
         }
     
-    /* Celdas de día */
+    /* Celdas de día — compactas */
     .tareo-table td {
-        padding: 5px;
+        padding: 2px 1px;
         border: 1px solid #ddd;
         text-align: center;
         vertical-align: middle;
+        min-width: 52px;
+        max-width: 52px;
+    }
+    /* Máquina select y guardia override: ocultos por defecto, visibles en hover */
+    .tareo-table td .maquina-select,
+    .tareo-table td .guardia-cell-select {
+        display: none;
+    }
+    .tareo-table td:hover .maquina-select,
+    .tareo-table td:hover .guardia-cell-select {
+        display: block;
+    }
+    /* Indicador P/✓: más compacto */
+    .tareo-table td .proyeccion-indicator {
+        font-size: 8px;
+        padding: 1px 3px;
     }
     
     /* =================================================================
@@ -310,19 +336,19 @@
     }
     .celda-cesado-label {
         color: #455a64;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 600;
         display: block;
-        padding: 6px 2px;
+        padding: 3px 1px;
     }
 
     /* Select transparente dentro de celda coloreada */
     .estado-select {
         width: 100%;
-        padding: 6px 2px;
-        border: 2px solid rgba(255,255,255,0.5);
-        border-radius: 4px;
-        font-size: 13px;
+        padding: 3px 1px;
+        border: 1px solid rgba(255,255,255,0.4);
+        border-radius: 3px;
+        font-size: 11px;
         font-weight: 800;
         text-align: center;
         cursor: pointer;
@@ -446,11 +472,16 @@
             flex-direction: column;
             align-items: stretch;
         }
-        
         .tareo-table th.col-trabajador,
         .tareo-table td.col-trabajador {
-            min-width: 150px;
-            max-width: 150px;
+            min-width: 140px;
+            max-width: 140px;
+        }
+        .tareo-table th.col-guardia,
+        .tareo-table td.col-guardia {
+            left: 140px;
+            min-width: 90px;
+            max-width: 90px;
         }
     }
     
@@ -521,8 +552,8 @@
 
     /* ── Control de relleno rápido por fila (en col-guardia) ──────────────── */
     .quick-fill-btn {
-        font-size: 10px;
-        padding: 2px 6px;
+        font-size: 9px;
+        padding: 1px 4px;
         background: #2980b9;
         color: white;
         border: none;
@@ -580,10 +611,10 @@
     }
     /* Botón guardar fila individual */
     .btn-save-fila {
-        font-size: 10px; padding: 2px 5px;
+        font-size: 9px; padding: 1px 4px;
         background: #27ae60; color: white;
         border: none; border-radius: 3px; cursor: pointer; font-weight: 700;
-        margin-left: 2px; vertical-align: middle;
+        margin-left: 1px; vertical-align: middle;
     }
     .btn-save-fila:hover { background: #1e8449; }
     .btn-save-fila:disabled { background: #95a5a6; cursor: wait; }
@@ -748,12 +779,12 @@
                         <th class="col-guardia">Guardia</th>
                         {% for dia in dias_rango %}
                         <th class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}" data-fecha-th="{{ dia.fecha|date:'Y-m-d' }}">
-                            <div>{{ dia.nombre_dia }}</div>
-                            <div style="font-size: 16px; font-weight: 700;">{{ dia.dia }}</div>
-                            <button type="button" 
-                                    class="btn-guardar-dia" 
+                            <div style="font-size:10px;line-height:1.1;">{{ dia.nombre_dia }}</div>
+                            <div style="font-size: 14px; font-weight: 700; line-height:1.2;">{{ dia.dia }}</div>
+                            <button type="button"
+                                    class="btn-guardar-dia"
                                     data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
-                                    style="margin-top: 5px; font-size: 11px; padding: 3px 6px; background: #27ae60; color: white; border: none; border-radius: 3px; cursor: pointer;"
+                                    style="margin-top: 2px; font-size: 9px; padding: 2px 4px; background: #27ae60; color: white; border: none; border-radius: 3px; cursor: pointer;"
                                     title="Guardar solo este día">
                                 💾
                             </button>
