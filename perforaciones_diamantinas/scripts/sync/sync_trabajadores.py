@@ -51,23 +51,33 @@ def _parse_api_date(value):
     if not value:
         return None
     if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
-        return value
+        result = value
+    else:
+        raw = str(value).strip()
+        if not raw:
+            return None
 
-    raw = str(value).strip()
-    if not raw:
+        result = None
+        for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                result = datetime.strptime(raw[:19], fmt).date()
+                break
+            except ValueError:
+                continue
+
+        if result is None:
+            try:
+                result = datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+            except ValueError:
+                logger.warning("No se pudo parsear fecha de API: %s", raw)
+                return None
+
+    # Fechas antes de 2000 son sentinels de la API (ej. Unix epoch 1969-12-31,
+    # 1970-01-01) que indican "sin fecha". Retornar None en esos casos.
+    if result.year < 2000:
         return None
 
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return datetime.strptime(raw[:19], fmt).date()
-        except ValueError:
-            continue
-
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
-    except ValueError:
-        logger.warning("No se pudo parsear fecha de API: %s", raw)
-        return None
+    return result
 
 def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
     logger.info("Iniciando sincronización de trabajadores...")
