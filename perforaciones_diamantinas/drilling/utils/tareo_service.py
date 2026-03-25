@@ -1601,9 +1601,20 @@ class TareoEngine:
 
         Si no hay `dia_cambio_guardia` configurado, utiliza la fecha de creación
         del contrato (`created_at`) o 2024-01-01 como fallback.
+
+        IMPORTANTE: la referencia usa contrato.created_at (o 2024-01-01) como
+        época fija, NO HISTORICO_START. Esto garantiza que el ancla sea idéntica
+        en todos los meses, preservando la continuidad del ciclo entre proyecciones.
         """
         if referencia is None:
-            referencia = TareoService.HISTORICO_START
+            ref = getattr(contrato, 'created_at', None)
+            if ref:
+                try:
+                    referencia = ref.date()
+                except Exception:
+                    referencia = date(2024, 1, 1)
+            else:
+                referencia = date(2024, 1, 1)
 
         dia_cambio = getattr(contrato, 'dia_cambio_guardia', None)
         if dia_cambio is None:
