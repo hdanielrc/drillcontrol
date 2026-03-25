@@ -1422,6 +1422,8 @@ function actualizarSummaryRows() {
         allCells.forEach(c => {
             // Skip cells that belong to summary rows themselves
             if (c.classList.contains('summary-day-cell')) return;
+            // Skip blocked cells (cesado/fuera de contrato)
+            if (c.classList.contains('celda-cesado')) return;
             total++;
             const estadoVal = c.getAttribute('data-estado');
             if (['TD','TN','TRABAJO_DIA','TRABAJO_NOCHE','TRABAJO'].includes(estadoVal)) countT++;
