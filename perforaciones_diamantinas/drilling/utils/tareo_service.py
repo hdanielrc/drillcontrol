@@ -1519,8 +1519,8 @@ def get_proyeccion(trabajador, fecha_inicio, fecha_fin):
     Returns:
         list of dict: [{'fecha': date, 'estado': 'TD'|'TN'|'DL'}]
     """
-    # Offsets por guardia
-    OFFSET_MAP = {'A': 0, 'B': 7, 'C': 14}
+    # Offsets por guardia (calibrados igual que TareoEngine.OFFSET)
+    OFFSET_MAP = {'A': 14, 'B': 0, 'C': 7}
 
     # Determinar offset según guardia asignada
     guardia = getattr(trabajador, 'guardia_asignada', None) or 'A'
@@ -1582,16 +1582,18 @@ class TareoEngine:
 
     Regla principal: (FechaConsulta - FechaAncla + OffsetGuardia) % 21
     Secuencia maestra: 7 TD -> 7 TN -> 7 DL
-    Offsets: A=0, C=7, B=14 (según especificación)
+    Época (FechaAncla base): HISTORICO_START = 2026-02-26
+    Offsets calibrados para ese día: A=14 (DL), B=0 (TD), C=7 (TN)
     """
 
     TOTAL_CICLO = 21
     DIAS_TD = 7
     DIAS_TN = 7
     DIAS_DL = 7
-    OFFSET = {'A': 0, 'C': 7, 'B': 14}
-    # Normalize OFFSET to A=0, B=7, C=14 (consistent with UI and get_proyeccion)
-    OFFSET = {'A': 0, 'B': 7, 'C': 14}
+    # Offsets calibrados con HISTORICO_START = 2026-02-26 (jueves) como época.
+    # En esa fecha: A=DL(idx14), B=TD(idx0), C=TN(idx7).
+    # Verificación: (Feb26-ancla).days=0 → A:(0+14)%21=14→DL ✓ B:(0+0)%21=0→TD ✓ C:(0+7)%21=7→TN ✓
+    OFFSET = {'A': 14, 'B': 0, 'C': 7}
 
     @staticmethod
     def _fecha_ancla_contrato(contrato, referencia=None):
@@ -1602,17 +1604,13 @@ class TareoEngine:
         Si no hay `dia_cambio_guardia` configurado, utiliza la fecha de creación
         del contrato (`created_at`) o 2024-01-01 como fallback.
 
-        IMPORTANTE: la referencia es siempre date(2024, 1, 1) como época fija,
-        ignorando contrato.created_at e HISTORICO_START. Esto garantiza que el
-        ancla sea idéntica en todos los meses, preservando la continuidad del
-        ciclo entre proyecciones.
-
-        Matemática: date(2024,1,1) = lunes → snap jueves → Dec 28, 2023.
-          (Feb 26, 2026 − Dec 28, 2023) % 21 = 791 % 21 = 14  → A=DL, B=TD, C=TN
-          (Mar 26, 2026 − Dec 28, 2023) % 21 = 819 % 21 =  0  → A=TD, B=TN, C=DL
+        IMPORTANTE: la referencia es TareoService.HISTORICO_START (2026-02-26)
+        como época fija. Los offsets de TareoEngine están calibrados para que
+        en esa fecha A=DL, B=TD, C=TN (el estado inicial de diseño del sistema).
+        Usar cualquier otra referencia desalinearía la fase del ciclo.
         """
         if referencia is None:
-            referencia = date(2024, 1, 1)
+            referencia = TareoService.HISTORICO_START
 
         dia_cambio = getattr(contrato, 'dia_cambio_guardia', None)
         if dia_cambio is None:
