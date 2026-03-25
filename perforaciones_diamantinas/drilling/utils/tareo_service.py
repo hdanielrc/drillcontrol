@@ -542,7 +542,11 @@ class TareoService:
                 fecha__lte=ultimo_dia,
                 **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
             )
-            _proyeccion_filter(qs).delete()
+            if NEW_TAREO:
+                # Elimina PROY + cualquier tipo inesperado; preserva solo REAL (correcciones manuales)
+                qs.exclude(tipo='REAL').delete()
+            else:
+                qs.filter(es_proyeccion=True).delete()
             logger.info(f"Proyecciones previas del mes {mes}/{anio} eliminadas")
         
         # Obtener registros ya existentes que NO deben tocarse
