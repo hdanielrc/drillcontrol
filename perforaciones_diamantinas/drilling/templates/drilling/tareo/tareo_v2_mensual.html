@@ -299,6 +299,23 @@
     .celda-TC { background-color: #FF1744 !important; }
     .celda-LF { background-color: #4A148C !important; }
 
+    /* Trabajador cesado: celda bloqueada en gris */
+    .celda-cesado {
+        background-color: #b0bec5 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+        opacity: 0.7;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .celda-cesado-label {
+        color: #455a64;
+        font-size: 11px;
+        font-weight: 600;
+        display: block;
+        padding: 6px 2px;
+    }
+
     /* Select transparente dentro de celda coloreada */
     .estado-select {
         width: 100%;
@@ -880,31 +897,41 @@
                         <!-- Celdas de días -->
                         {% if dias_rango %}
                             {% for dia in dias_rango %}
-                                {% with asist=row.asistencias %}
-                                    {% with data=asist|get_item:dia.fecha %}
-                                        {% with data.estado|default:'TD' as estado_code %}
-                                            {% if estado_code == 'DESCANSO' %}
-                                                {% with 'DL' as estado_code2 %}
-                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                                {% endwith %}
-                                            {% elif estado_code == 'TRABAJO' or estado_code == 'TRABAJADO' %}
-                                                {% with 'T' as estado_code2 %}
-                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                                {% endwith %}
-                                            {% elif estado_code == 'TRABAJADO_DIA' %}
-                                                {% with 'TD' as estado_code2 %}
-                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                                {% endwith %}
-                                            {% elif estado_code == 'TRABAJADO_NOCHE' %}
-                                                {% with 'TN' as estado_code2 %}
-                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
-                                                {% endwith %}
-                                            {% else %}
-                                                {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code data=data row=row dia=dia %}
-                                            {% endif %}
+                                {% if row.trabajador.fecha_cese and dia.fecha > row.trabajador.fecha_cese %}
+                                    {# Trabajador cesado: celda bloqueada #}
+                                    <td class="celda-cesado {% if dia.es_cambio_guardia %}dia-cambio-guardia{% endif %}"
+                                        data-trabajador-id="{{ row.trabajador.id }}"
+                                        data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
+                                        title="Cesado el {{ row.trabajador.fecha_cese|date:'d/m/Y' }}">
+                                        <span class="celda-cesado-label">—</span>
+                                    </td>
+                                {% else %}
+                                    {% with asist=row.asistencias %}
+                                        {% with data=asist|get_item:dia.fecha %}
+                                            {% with data.estado|default:'TD' as estado_code %}
+                                                {% if estado_code == 'DESCANSO' %}
+                                                    {% with 'DL' as estado_code2 %}
+                                                        {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                    {% endwith %}
+                                                {% elif estado_code == 'TRABAJO' or estado_code == 'TRABAJADO' %}
+                                                    {% with 'T' as estado_code2 %}
+                                                        {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                    {% endwith %}
+                                                {% elif estado_code == 'TRABAJADO_DIA' %}
+                                                    {% with 'TD' as estado_code2 %}
+                                                        {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                    {% endwith %}
+                                                {% elif estado_code == 'TRABAJADO_NOCHE' %}
+                                                    {% with 'TN' as estado_code2 %}
+                                                        {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code2 data=data row=row dia=dia %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    {% include 'drilling/tareo/td_estado.html' with estado_code2=estado_code data=data row=row dia=dia %}
+                                                {% endif %}
+                                            {% endwith %}
                                         {% endwith %}
                                     {% endwith %}
-                                {% endwith %}
+                                {% endif %}
                             {% endfor %}
                         {% endif %}
                     </tr>

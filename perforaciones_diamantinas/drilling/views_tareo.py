@@ -3207,10 +3207,14 @@ def api_guardar_dia_tareo(request):
                     
                     if not trabajador_id or not estado:
                         continue
-                    
+
                     # Obtener trabajador
                     trabajador = Trabajador.objects.get(id=trabajador_id, contrato=contrato)
-                    
+
+                    # Bloquear edición para fechas posteriores al cese
+                    if trabajador.fecha_cese and fecha > trabajador.fecha_cese:
+                        continue
+
                     # Obtener máquina si se especificó
                     maquina = None
                     if maquina_id and maquina_id != '':
@@ -3293,12 +3297,21 @@ def api_guardar_seleccion(request):
         asistencias_data = []
         for r in registros:
             try:
+                trab_id = int(r['trabajador_id'])
+                fecha_r = datetime.strptime(r['fecha'], '%Y-%m-%d').date()
+                # Bloquear edición para fechas posteriores al cese
+                try:
+                    trab = Trabajador.objects.only('fecha_cese').get(id=trab_id)
+                    if trab.fecha_cese and fecha_r > trab.fecha_cese:
+                        continue
+                except Trabajador.DoesNotExist:
+                    continue
                 asistencias_data.append({
-                    'trabajador_id':  int(r['trabajador_id']),
-                    'fecha':        datetime.strptime(r['fecha'], '%Y-%m-%d').date(),
-                    'estado':       r['estado'],
-                    'observaciones': r.get('observaciones', ''),
-                    'maquina_id':   r.get('maquina_id') or None,
+                    'trabajador_id':  trab_id,
+                    'fecha':          fecha_r,
+                    'estado':         r['estado'],
+                    'observaciones':  r.get('observaciones', ''),
+                    'maquina_id':     r.get('maquina_id') or None,
                     'guardia_snapshot': r.get('guardia_snapshot') if 'guardia_snapshot' in r else None,
                 })
             except (KeyError, ValueError):
