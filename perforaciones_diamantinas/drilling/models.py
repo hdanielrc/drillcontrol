@@ -1852,9 +1852,12 @@ class Trabajador(models.Model):
         return cls.vigentes_en_rango_q(fecha, fecha)
 
     def vigente_en_fecha(self, fecha):
+        from datetime import date as _date
+        # 1969-12-31 es el sentinel Unix epoch almacenado en lugar de NULL; ignorarlo
+        _SENTINEL_CESE = _date(1969, 12, 31)
         if self.fecha_inicio_labores and fecha < self.fecha_inicio_labores:
             return False
-        if self.fecha_cese and fecha > self.fecha_cese:
+        if self.fecha_cese and self.fecha_cese != _SENTINEL_CESE and fecha > self.fecha_cese:
             return False
         return True
 
