@@ -606,6 +606,7 @@ def tareo_mensual_view(request):
     return render(request, 'drilling/tareo/mensual.html', context)
 
 
+@login_required
 @require_http_methods(["POST"])
 def guardar_asistencia(request):
     """API para guardar asistencia individual
@@ -674,6 +675,7 @@ def guardar_asistencia(request):
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
 
 
+@login_required
 @require_http_methods(["POST"])
 def guardar_asistencias_masivas(request):
     """API para guardar múltiples asistencias en una sola operación
@@ -3106,15 +3108,24 @@ def api_corregir_asistencia(request):
         observaciones = data.get('observaciones', '')
 
         trabajador = get_object_or_404(Trabajador, id=trabajador_id)
+
+        # Validar fecha primero para usar en el check de historial
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+
         if not request.user.has_access_to_all_contracts():
-            if not request.user.contrato_id or trabajador.contrato_id != request.user.contrato_id:
+            # Verificar acceso al contrato usando historial (más robusto que FK directa,
+            # porque el trabajador pudo haberse trasladado a otro CC desde entonces)
+            from .models import TrabajadorContratoHistorial as _TCH
+            historial_entry = _TCH.contrato_en_fecha(trabajador, fecha)
+            contrato_en_esa_fecha_id = (
+                historial_entry.contrato_id if historial_entry
+                else trabajador.contrato_id
+            )
+            if not request.user.contrato_id or contrato_en_esa_fecha_id != request.user.contrato_id:
                 return JsonResponse({
                     'success': False,
-                    'error': 'No tienes acceso al contrato del trabajador'
+                    'error': 'No tienes acceso al contrato del trabajador para esa fecha'
                 }, status=403)
-        
-        # Validar fecha
-        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
         
         # Ejecutar corrección
         asistencia = TareoService.corregir_asistencia(
@@ -3313,9 +3324,17 @@ def api_guardar_seleccion(request):
 
         payload   = json.loads(request.body)
         registros = payload.get('registros', [])
+        contrato_sel_id = payload.get('contrato_id')
+
+        # Validar que el usuario tiene acceso al contrato indicado
+        if not contrato_sel_id:
+            return JsonResponse({'success': False, 'error': 'contrato_id requerido'}, status=400)
+        contrato_sel = get_object_or_404(Contrato, id=contrato_sel_id, estado='ACTIVO')
+        if not request.user.has_access_to_all_contracts():
+            if not request.user.contrato_id or contrato_sel.id != request.user.contrato_id:
+                return JsonResponse({'success': False, 'error': 'No tienes acceso a este contrato'}, status=403)
 
         from .models import TrabajadorContratoHistorial as _TCH
-        contrato_sel_id = payload.get('contrato_id')
         asistencias_data = []
         for r in registros:
             try:
@@ -3493,13 +3512,20 @@ def api_obtener_maquinas(request):
     """
     try:
         contrato_id = request.GET.get('contrato_id')
-        
+
         # Filtrar máquinas
         maquinas_query = Maquina.objects.filter(estado='ACTIVO')
-        
+
         if contrato_id:
-            contrato = get_object_or_404(Contrato, id=contrato_id)
+            contrato = get_object_or_404(Contrato, id=contrato_id, estado='ACTIVO')
+            # Validar que el usuario tiene acceso al contrato
+            if not request.user.has_access_to_all_contracts():
+                if not request.user.contrato_id or contrato.id != request.user.contrato_id:
+                    return JsonResponse({'success': False, 'error': 'No tienes acceso a este contrato'}, status=403)
             maquinas_query = maquinas_query.filter(contrato=contrato)
+        elif not request.user.has_access_to_all_contracts():
+            # Sin contrato_id y sin permiso global: filtrar al propio contrato
+            maquinas_query = maquinas_query.filter(contrato_id=request.user.contrato_id)
         
         # Serializar máquinas
         maquinas_data = [

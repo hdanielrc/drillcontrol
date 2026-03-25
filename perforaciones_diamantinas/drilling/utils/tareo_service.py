@@ -72,7 +72,10 @@ def _trabajadores_vigentes_qs(fecha_inicio=None, fecha_fin=None, contrato=None):
     from django.db.models import Q
     from ..models import TrabajadorContratoHistorial
 
-    tiene_historial = TrabajadorContratoHistorial.objects.exists()
+    # Usar historial solo si ya existe para este contrato específico (migración gradual)
+    tiene_historial = bool(contrato) and TrabajadorContratoHistorial.objects.filter(
+        contrato=contrato
+    ).exists()
 
     if contrato and tiene_historial:
         # Filtrar vía historial: el trabajador pertenecía a este contrato
@@ -1404,7 +1407,8 @@ class TareoService:
             if registros_crear:
                 AsistenciaDiaria.objects.bulk_create(
                     registros_crear,
-                    batch_size=500
+                    batch_size=500,
+                    ignore_conflicts=True,
                 )
                 stats['creados'] = len(registros_crear)
                 
@@ -1530,7 +1534,7 @@ class TareoService:
                 stats['errores'].append(f"{reg.trabajador_id}/{reg.fecha}: {str(e)}")
 
         if crear:
-            AsistenciaDiaria.objects.bulk_create(crear, batch_size=500)
+            AsistenciaDiaria.objects.bulk_create(crear, batch_size=500, ignore_conflicts=True)
             stats['importados'] = len(crear)
 
         if actualizar:
