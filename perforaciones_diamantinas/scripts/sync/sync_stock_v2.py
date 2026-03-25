@@ -21,8 +21,8 @@ from datetime import datetime
 import logging
 import argparse
 
-# Configurar Django
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Configurar Django (2 niveles arriba: scripts/sync/ -> scripts/ -> perforaciones_diamantinas/)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings')
 django.setup()

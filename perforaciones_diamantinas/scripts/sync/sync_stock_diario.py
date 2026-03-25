@@ -11,8 +11,8 @@ import django
 from datetime import datetime
 import logging
 
-# Configurar Django
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Configurar Django (2 niveles arriba: scripts/sync/ -> scripts/ -> perforaciones_diamantinas/)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings')
 django.setup()
 

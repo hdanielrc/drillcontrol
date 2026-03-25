@@ -8,9 +8,9 @@ import sys
 import django
 from pathlib import Path
 
-# Configurar Django
-BASE_DIR = Path(__file__).resolve().parent
-sys.path.append(str(BASE_DIR))
+# Configurar Django (2 niveles arriba: scripts/sync/ -> scripts/ -> perforaciones_diamantinas/)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings')
 django.setup()
 
