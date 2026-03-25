@@ -4908,6 +4908,87 @@ class HeadCount(models.Model):
 
 
 # =============================================================================
+# SECCIÓN: HISTORIAL DE CONTRATOS POR TRABAJADOR
+# =============================================================================
+
+class TrabajadorContratoHistorial(models.Model):
+    """
+    Historial de asignaciones de contrato (centro de costo) por trabajador.
+
+    Cada vez que un trabajador se traslada de un CC a otro, se cierra el
+    registro anterior (fecha_fin = día anterior al cambio) y se abre uno
+    nuevo.  El registro activo siempre tiene fecha_fin=None.
+
+    Esto permite:
+    - Ver el tareo histórico de CC01 aun después de que el trabajador
+      se haya trasladado a CC02.
+    - Bloquear celdas en CC01 a partir de la fecha de traslado.
+    - Excluir al trabajador del mes siguiente en CC01.
+    """
+    trabajador = models.ForeignKey(
+        'Trabajador',
+        on_delete=models.CASCADE,
+        related_name='contrato_historial',
+        verbose_name='Trabajador',
+    )
+    contrato = models.ForeignKey(
+        'Contrato',
+        on_delete=models.PROTECT,
+        related_name='trabajador_historial',
+        verbose_name='Contrato',
+    )
+    fecha_inicio = models.DateField(verbose_name='Fecha inicio en contrato')
+    fecha_fin = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha fin en contrato',
+        help_text='Null = asignación vigente actualmente',
+    )
+    motivo_cambio = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Motivo del cambio',
+    )
+    creado_automaticamente = models.BooleanField(
+        default=True,
+        help_text='True si fue registrado por la sincronización automática',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'trabajador_contrato_historial'
+        verbose_name = 'Historial Contrato Trabajador'
+        verbose_name_plural = 'Historial Contratos Trabajadores'
+        ordering = ['trabajador', '-fecha_inicio']
+        indexes = [
+            models.Index(fields=['trabajador', 'fecha_inicio'], name='idx_tch_trab_inicio'),
+            models.Index(fields=['contrato', 'fecha_inicio'],   name='idx_tch_cont_inicio'),
+            models.Index(fields=['trabajador', 'fecha_fin'],    name='idx_tch_trab_fin'),
+        ]
+
+    def __str__(self):
+        fin = self.fecha_fin.strftime('%d/%m/%Y') if self.fecha_fin else 'hoy'
+        return (
+            f"{self.trabajador.apepat} {self.trabajador.nombres} → "
+            f"{self.contrato} ({self.fecha_inicio.strftime('%d/%m/%Y')} - {fin})"
+        )
+
+    @classmethod
+    def registro_activo(cls, trabajador):
+        """Devuelve el registro de contrato vigente (fecha_fin=None) o None."""
+        return cls.objects.filter(trabajador=trabajador, fecha_fin__isnull=True).first()
+
+    @classmethod
+    def contrato_en_fecha(cls, trabajador, fecha):
+        """Devuelve el contrato al que pertenecía el trabajador en una fecha dada."""
+        return cls.objects.filter(
+            trabajador=trabajador,
+            fecha_inicio__lte=fecha,
+        ).filter(
+            models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=fecha)
+        ).select_related('contrato').first()
+
+
+# =============================================================================
 # SECCIÓN: API INTEGRATION - Staging Tables (ELIMINADO)
 # =============================================================================
 

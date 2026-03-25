@@ -59,10 +59,39 @@ def _mark_as_manual_defaults():
 
 
 def _trabajadores_vigentes_qs(fecha_inicio=None, fecha_fin=None, contrato=None):
+    """
+    Devuelve el queryset de trabajadores vigentes en el rango de fechas dado.
+
+    Estrategia de filtrado por contrato (centro de costo):
+    - Si existe historial (TrabajadorContratoHistorial), filtra por los
+      registros de historial que se solapan con el rango del periodo.
+      Esto permite ver trabajadores que ya se trasladaron a otro CC.
+    - Si NO existe historial (legacy / tabla vacía), usa el fallback
+      original: filtrar por trabajador.contrato directamente.
+    """
     from django.db.models import Q
-    qs = Trabajador.objects.filter(contrato__isnull=False)
-    if contrato:
-        qs = qs.filter(contrato=contrato)
+    from ..models import TrabajadorContratoHistorial
+
+    tiene_historial = TrabajadorContratoHistorial.objects.exists()
+
+    if contrato and tiene_historial:
+        # Filtrar vía historial: el trabajador pertenecía a este contrato
+        # en algún momento que se solapa con [fecha_inicio, fecha_fin].
+        historial_q = Q(contrato_historial__contrato=contrato)
+        if fecha_fin:
+            historial_q &= Q(contrato_historial__fecha_inicio__lte=fecha_fin)
+        if fecha_inicio:
+            historial_q &= (
+                Q(contrato_historial__fecha_fin__isnull=True) |
+                Q(contrato_historial__fecha_fin__gte=fecha_inicio)
+            )
+        qs = Trabajador.objects.filter(historial_q).distinct()
+    else:
+        # Fallback legacy: filtrar por FK directa
+        qs = Trabajador.objects.filter(contrato__isnull=False)
+        if contrato:
+            qs = qs.filter(contrato=contrato)
+
     if fecha_inicio or fecha_fin:
         activos = Q(estado="ACTIVO")
         inactivos_en_rango = (
@@ -1090,6 +1119,18 @@ class TareoService:
                     ...
                 ]
         """
+        # Pre-cargar historial de contrato para el período para lookup eficiente
+        from ..models import TrabajadorContratoHistorial
+        from django.db.models import Q as _Q
+        historial_qs = TrabajadorContratoHistorial.objects.filter(
+            contrato=contrato,
+            fecha_inicio__lte=fecha_fin,
+        ).filter(
+            _Q(fecha_fin__isnull=True) | _Q(fecha_fin__gte=fecha_inicio)
+        ).values('trabajador_id', 'fecha_fin')
+        # {trabajador_id: fecha_fin} — None significa "sigue activo en este CC"
+        historial_map = {h['trabajador_id']: h['fecha_fin'] for h in historial_qs}
+
         # Obtener trabajadores activos del contrato
         # Anotamos orden por grupo para agrupar igual que V1
         GRUPO_ORDER = {
@@ -1182,6 +1223,19 @@ class TareoService:
                     'total_trabajadores': 0,
                 }
 
+            # fecha_fin_en_contrato: límite de asignación del trabajador a este CC.
+            # None = sigue activo; date = fue trasladado/cesado ese día.
+            fecha_fin_cc = historial_map.get(trabajador.id)  # None si historial vacío
+            # También tomar fecha_cese si es anterior
+            _SENTINEL = __import__('datetime').date(1969, 12, 31)
+            fecha_cese_real = trabajador.fecha_cese if (
+                trabajador.fecha_cese and trabajador.fecha_cese != _SENTINEL
+            ) else None
+            if fecha_fin_cc and fecha_cese_real:
+                fecha_limite = min(fecha_fin_cc, fecha_cese_real)
+            else:
+                fecha_limite = fecha_fin_cc or fecha_cese_real
+
             grupos_dict[grupo_key]['rows'].append({
                 'trabajador': trabajador,
                 'guardia': trabajador.guardia_asignada or 'N/A',
@@ -1189,6 +1243,8 @@ class TareoService:
                 # True si fecha_inicio_ciclo cae en el dia_cambio_guardia del contrato
                 # None si no hay suficientes datos para verificar
                 'ciclo_alineado': TareoService._verificar_alineacion_ciclo(trabajador, contrato),
+                # Último día en que el trabajador pertenece a este CC (None = sigue activo)
+                'fecha_limite_en_contrato': fecha_limite,
             })
             grupos_dict[grupo_key]['total_trabajadores'] += 1
 

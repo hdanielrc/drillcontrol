@@ -15,7 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.db import transaction
+from django.db import transaction, models
 from django.middleware.csrf import CsrfViewMiddleware
 from django.db.models import Count
 from django.forms import ModelForm, Textarea
@@ -3208,11 +3208,31 @@ def api_guardar_dia_tareo(request):
                     if not trabajador_id or not estado:
                         continue
 
-                    # Obtener trabajador
-                    trabajador = Trabajador.objects.get(id=trabajador_id, contrato=contrato)
+                    # Obtener trabajador (puede estar asignado a este contrato vía historial
+                    # aunque su contrato FK actual sea otro)
+                    try:
+                        trabajador = Trabajador.objects.get(id=trabajador_id)
+                    except Trabajador.DoesNotExist:
+                        continue
 
-                    # Bloquear edición para fechas posteriores al cese
-                    if trabajador.fecha_cese and fecha > trabajador.fecha_cese:
+                    # Bloquear edición si la fecha está fuera del período de asignación
+                    # a este contrato según el historial
+                    from .models import TrabajadorContratoHistorial
+                    hist = TrabajadorContratoHistorial.objects.filter(
+                        trabajador=trabajador, contrato=contrato,
+                        fecha_inicio__lte=fecha,
+                    ).filter(
+                        models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=fecha)
+                    ).exists()
+                    # Si existe historial y esta fecha no está cubierta, bloquear
+                    if TrabajadorContratoHistorial.objects.filter(trabajador=trabajador).exists() and not hist:
+                        continue
+
+                    # Fallback: bloquear por fecha_cese directa
+                    _SENTINEL_CESE = date(1969, 12, 31)
+                    if (trabajador.fecha_cese
+                            and trabajador.fecha_cese != _SENTINEL_CESE
+                            and fecha > trabajador.fecha_cese):
                         continue
 
                     # Obtener máquina si se especificó
@@ -3294,17 +3314,35 @@ def api_guardar_seleccion(request):
         payload   = json.loads(request.body)
         registros = payload.get('registros', [])
 
+        from .models import TrabajadorContratoHistorial as _TCH
+        contrato_sel_id = payload.get('contrato_id')
         asistencias_data = []
         for r in registros:
             try:
                 trab_id = int(r['trabajador_id'])
                 fecha_r = datetime.strptime(r['fecha'], '%Y-%m-%d').date()
-                # Bloquear edición para fechas posteriores al cese
                 try:
                     trab = Trabajador.objects.only('fecha_cese').get(id=trab_id)
-                    if trab.fecha_cese and fecha_r > trab.fecha_cese:
-                        continue
                 except Trabajador.DoesNotExist:
+                    continue
+
+                # Bloquear si la fecha está fuera del período de asignación a este CC
+                if contrato_sel_id and _TCH.objects.filter(trabajador_id=trab_id).exists():
+                    en_contrato = _TCH.objects.filter(
+                        trabajador_id=trab_id,
+                        contrato_id=contrato_sel_id,
+                        fecha_inicio__lte=fecha_r,
+                    ).filter(
+                        models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=fecha_r)
+                    ).exists()
+                    if not en_contrato:
+                        continue
+
+                # Fallback: bloquear por fecha_cese directa
+                _SENTINEL_CESE = date(1969, 12, 31)
+                if (trab.fecha_cese
+                        and trab.fecha_cese != _SENTINEL_CESE
+                        and fecha_r > trab.fecha_cese):
                     continue
                 asistencias_data.append({
                     'trabajador_id':  trab_id,

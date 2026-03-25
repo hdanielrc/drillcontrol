@@ -897,12 +897,12 @@
                         <!-- Celdas de días -->
                         {% if dias_rango %}
                             {% for dia in dias_rango %}
-                                {% if row.trabajador.fecha_cese and dia.fecha > row.trabajador.fecha_cese %}
-                                    {# Trabajador cesado: celda bloqueada #}
+                                {% if row.fecha_limite_en_contrato and dia.fecha > row.fecha_limite_en_contrato %}
+                                    {# Trabajador trasladado/cesado: celda bloqueada #}
                                     <td class="celda-cesado {% if dia.es_cambio_guardia %}dia-cambio-guardia{% endif %}"
                                         data-trabajador-id="{{ row.trabajador.id }}"
                                         data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
-                                        title="Cesado el {{ row.trabajador.fecha_cese|date:'d/m/Y' }}">
+                                        title="Sin asignación a este contrato desde {{ row.fecha_limite_en_contrato|date:'d/m/Y' }}">
                                         <span class="celda-cesado-label">—</span>
                                     </td>
                                 {% else %}

@@ -5,7 +5,7 @@ import requests
 import logging
 import re
 import csv
-from datetime import datetime
+from datetime import datetime, date
 
 # ==========================================
 # Configuración del Entorno Django
@@ -32,7 +32,8 @@ except Exception as e:
 
 # Importar modelos después de setup
 from django.db.models import Max
-from drilling.models import Trabajador, Contrato, ContratoServicio
+from django.db import transaction
+from drilling.models import Trabajador, Contrato, ContratoServicio, TrabajadorContratoHistorial
 
 # Configuración de Logging
 logging.basicConfig(
@@ -78,6 +79,76 @@ def _parse_api_date(value):
         return None
 
     return result
+
+def _registrar_cambio_contrato_historial(trabajador, contrato_nuevo, contrato_anterior_id, created):
+    """
+    Mantiene TrabajadorContratoHistorial actualizado cuando cambia el contrato.
+
+    Reglas:
+    - Trabajador nuevo con contrato: abre primer registro de historial.
+    - Trabajador existente sin cambio de contrato: asegura que exista un
+      registro activo (migración de datos legacy).
+    - Trabajador existente con cambio de contrato: cierra el registro anterior
+      (fecha_fin = ayer) y abre uno nuevo (fecha_inicio = hoy).
+    """
+    if not contrato_nuevo:
+        return
+
+    hoy = date.today()
+
+    if created:
+        # Nuevo trabajador — abrir primer registro
+        TrabajadorContratoHistorial.objects.create(
+            trabajador=trabajador,
+            contrato=contrato_nuevo,
+            fecha_inicio=trabajador.fecha_inicio_labores or hoy,
+            fecha_fin=None,
+            motivo_cambio='Registro inicial en sincronización',
+            creado_automaticamente=True,
+        )
+        return
+
+    contrato_nuevo_id = contrato_nuevo.id if contrato_nuevo else None
+    cambio_de_contrato = (
+        contrato_anterior_id is not None
+        and contrato_nuevo_id is not None
+        and contrato_anterior_id != contrato_nuevo_id
+    )
+
+    # Buscar registro activo en el historial
+    activo = TrabajadorContratoHistorial.objects.filter(
+        trabajador=trabajador, fecha_fin__isnull=True
+    ).first()
+
+    if cambio_de_contrato:
+        logger.info(
+            f"Cambio de contrato detectado para {trabajador}: "
+            f"contrato_id {contrato_anterior_id} → {contrato_nuevo_id}"
+        )
+        # Cerrar registro anterior
+        if activo:
+            activo.fecha_fin = hoy - __import__('datetime').timedelta(days=1)
+            activo.save(update_fields=['fecha_fin', 'updated_at'])
+        # Abrir nuevo registro
+        TrabajadorContratoHistorial.objects.create(
+            trabajador=trabajador,
+            contrato=contrato_nuevo,
+            fecha_inicio=hoy,
+            fecha_fin=None,
+            motivo_cambio='Traslado detectado en sincronización automática',
+            creado_automaticamente=True,
+        )
+    elif activo is None:
+        # Trabajador existente sin historial (migración legacy): crear registro inicial
+        TrabajadorContratoHistorial.objects.create(
+            trabajador=trabajador,
+            contrato=contrato_nuevo,
+            fecha_inicio=trabajador.fecha_inicio_labores or hoy,
+            fecha_fin=None,
+            motivo_cambio='Migración de datos legacy',
+            creado_automaticamente=True,
+        )
+
 
 def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
     logger.info("Iniciando sincronización de trabajadores...")
@@ -244,10 +315,24 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
                 else:
                     created_count += 1
             else:
-                obj, created = Trabajador.objects.update_or_create(
-                    dni=dni,
-                    defaults=defaults
-                )
+                with transaction.atomic():
+                    # Detectar cambio de contrato ANTES de actualizar
+                    contrato_anterior = None
+                    try:
+                        existente = Trabajador.objects.only('contrato_id').get(dni=dni)
+                        contrato_anterior = existente.contrato_id
+                    except Trabajador.DoesNotExist:
+                        pass
+
+                    obj, created = Trabajador.objects.update_or_create(
+                        dni=dni,
+                        defaults=defaults
+                    )
+
+                    # Registrar en historial si el contrato cambió
+                    _registrar_cambio_contrato_historial(
+                        obj, contrato_obj, contrato_anterior, created
+                    )
 
                 processed_count += 1
                 if created:
