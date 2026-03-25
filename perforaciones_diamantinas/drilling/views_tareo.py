@@ -1116,12 +1116,13 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         col_num += 1
     
     # DATOS DE TRABAJADORES
+    emp_field = _emp_field_name()
     trabajadores = _trabajadores_tareo_qs(
         contrato,
         fecha_inicio,
         fecha_fin,
     ).order_by('grupo', 'apepat', 'apemat', 'nombres')
-    
+
     # Obtener asistencias desde V2 (AsistenciaDiaria). Usar V1 solo como
     # fallback si no hay registros en V2 para el contrato/periodo.
     from .tareo_compat import AsistenciaDiaria

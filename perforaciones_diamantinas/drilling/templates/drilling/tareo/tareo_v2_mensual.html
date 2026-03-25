@@ -1510,13 +1510,7 @@ console.log('📋 Tareo V2 cargado - Registros en matriz: {{ matriz_tareo|length
 // Descargar Excel del mes operativo actual sin confirmaciones
 function descargarExcelMesActual(){
     const url = `/tareo/exportar-excel/?contrato={{ contrato.id }}&modo=mes&fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}`;
-    // Crear iframe oculto para disparar la descarga sin navegar
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    // Limpiar luego de un tiempo
-    setTimeout(()=>{ try { document.body.removeChild(iframe); } catch(e){} }, 15000);
+    window.open(url, '_blank');
 }
 
 // Descargar Excel semanal (matriz + distribución)
