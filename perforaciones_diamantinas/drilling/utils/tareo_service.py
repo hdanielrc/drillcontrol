@@ -543,8 +543,10 @@ class TareoService:
                 **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
             )
             if NEW_TAREO:
-                # Elimina PROY + cualquier tipo inesperado; preserva solo REAL (correcciones manuales)
-                qs.exclude(tipo='REAL').delete()
+                # Reset completo: borra todos los registros del período (PROY + REAL).
+                # El usuario al hacer "Generar Proyección Automática" con sobrescribir=True
+                # solicita explícitamente reconstruir desde cero.
+                qs.delete()
             else:
                 qs.filter(es_proyeccion=True).delete()
             logger.info(f"Proyecciones previas del mes {mes}/{anio} eliminadas")

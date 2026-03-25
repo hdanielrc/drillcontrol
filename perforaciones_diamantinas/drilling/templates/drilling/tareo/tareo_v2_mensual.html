@@ -1036,11 +1036,11 @@ function generarProyeccion() {
         'contrato_id': '{{ contrato.id }}',
         'anio': '{{ anio_operativo }}',
         'mes': '{{ mes_operativo }}',
-        'sobrescribir': 'false'
+        'sobrescribir': 'true'
     };
-    
+
     console.log('Generando proyección con parámetros:', params);
-    
+
     fetch('/tareo/v2/api/generar-proyeccion/', {
         method: 'POST',
         headers: {
@@ -1088,7 +1088,7 @@ function generarProyeccionTodos() {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': tokenEl ? tokenEl.value : ''
         },
-        body: new URLSearchParams({'sobrescribir': 'false'})
+        body: new URLSearchParams({'sobrescribir': 'true'})
     })
     .then(r => r.json())
     .then(data => {
