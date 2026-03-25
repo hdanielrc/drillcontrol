@@ -14,15 +14,15 @@
        ========================================================================= */
     
     .tareo-container {
-        padding: 20px;
+        padding: 10px;
         background: #f8f9fa;
     }
-    
+
     .tareo-header {
         background: white;
-        padding: 20px;
+        padding: 12px 15px;
         border-radius: 8px;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
@@ -94,12 +94,12 @@
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         overflow: auto;
-        margin-bottom: 30px;
-        max-height: calc(100vh - 60px);
+        margin-bottom: 20px;
+        max-height: calc(100vh - 50px);
     }
 
     .tareo-table {
-        width: max-content;
+        width: 100%;
         border-collapse: separate;
         border-spacing: 0;
     }
@@ -116,7 +116,7 @@
     }
 
     .tareo-table th {
-        padding: 6px 3px;
+        padding: 6px 2px;
         text-align: center;
         font-weight: 600;
         border: 1px solid #2c3e50;
@@ -242,14 +242,18 @@
             margin-bottom: 3px;
         }
     
-    /* Celdas de día — compactas */
+    /* Columnas de día: se expanden para llenar el espacio disponible */
+    .tareo-table th.col-dia {
+        min-width: 58px;
+    }
+
+    /* Celdas de día */
     .tareo-table td {
-        padding: 2px 1px;
+        padding: 3px 2px;
         border: 1px solid #ddd;
         text-align: center;
         vertical-align: middle;
-        min-width: 52px;
-        max-width: 52px;
+        overflow: hidden;
     }
     /* Máquina select y guardia override: ocultos por defecto, visibles en hover */
     .tareo-table td .maquina-select,
@@ -260,9 +264,9 @@
     .tareo-table td:hover .guardia-cell-select {
         display: block;
     }
-    /* Indicador P/✓: más compacto */
+    /* Indicador P/✓ */
     .tareo-table td .proyeccion-indicator {
-        font-size: 8px;
+        font-size: 9px;
         padding: 1px 3px;
     }
     
@@ -345,10 +349,10 @@
     /* Select transparente dentro de celda coloreada */
     .estado-select {
         width: 100%;
-        padding: 3px 1px;
+        padding: 4px 1px;
         border: 1px solid rgba(255,255,255,0.4);
         border-radius: 3px;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
         text-align: center;
         cursor: pointer;
@@ -778,13 +782,13 @@
                         <th class="col-trabajador">Trabajador</th>
                         <th class="col-guardia">Guardia</th>
                         {% for dia in dias_rango %}
-                        <th class="{% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}" data-fecha-th="{{ dia.fecha|date:'Y-m-d' }}">
-                            <div style="font-size:10px;line-height:1.1;">{{ dia.nombre_dia }}</div>
-                            <div style="font-size: 14px; font-weight: 700; line-height:1.2;">{{ dia.dia }}</div>
+                        <th class="col-dia {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}" data-fecha-th="{{ dia.fecha|date:'Y-m-d' }}">
+                            <div style="font-size:11px;line-height:1.1;">{{ dia.nombre_dia }}</div>
+                            <div style="font-size:15px;font-weight:700;">{{ dia.dia }}</div>
                             <button type="button"
                                     class="btn-guardar-dia"
                                     data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
-                                    style="margin-top: 2px; font-size: 9px; padding: 2px 4px; background: #27ae60; color: white; border: none; border-radius: 3px; cursor: pointer;"
+                                    style="margin-top:2px;font-size:10px;padding:2px 5px;background:#27ae60;color:white;border:none;border-radius:3px;cursor:pointer;"
                                     title="Guardar solo este día">
                                 💾
                             </button>
