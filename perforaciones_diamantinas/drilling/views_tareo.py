@@ -65,16 +65,40 @@ def _emp_field_name():
 
 
 def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
-    """Intentar consultar AsistenciaDiaria usando el FK `trabajador` o `empleado`.
-    Devuelve una tupla (QuerySet, usado_emp_field) donde `usado_emp_field`
-    es 'trabajador' o 'empleado' si alguno funcionó, o (empty_qs, None) si falla.
+    """Intentar consultar AsistenciaDiaria usando historial de contrato para
+    incluir trabajadores que fueron movidos a otro CC.
+    Devuelve una tupla (QuerySet, usado_emp_field).
     """
     from django.core.exceptions import FieldError
+    from django.db.models import Q as _Q
     from .tareo_compat import AsistenciaDiaria
+    from .models import TrabajadorContratoHistorial
+
+    tiene_historial = TrabajadorContratoHistorial.objects.filter(contrato=contrato).exists()
 
     for field in ('trabajador', 'empleado'):
         try:
-            qs = AsistenciaDiaria.objects.filter(**{f"{field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}).select_related(field, 'maquina_snapshot')
+            if tiene_historial:
+                historial_q = _Q(contrato_historial__contrato=contrato)
+                if fecha_fin:
+                    historial_q &= _Q(contrato_historial__fecha_inicio__lte=fecha_fin)
+                if fecha_inicio:
+                    historial_q &= (
+                        _Q(contrato_historial__fecha_fin__isnull=True) |
+                        _Q(contrato_historial__fecha_fin__gte=fecha_inicio)
+                    )
+                trabajador_ids = Trabajador.objects.filter(historial_q).distinct().values_list('id', flat=True)
+                qs = AsistenciaDiaria.objects.filter(
+                    **{f"{field}_id__in": trabajador_ids},
+                    fecha__gte=fecha_inicio,
+                    fecha__lte=fecha_fin,
+                ).select_related(field, 'maquina_snapshot')
+            else:
+                qs = AsistenciaDiaria.objects.filter(
+                    **{f"{field}__contrato": contrato},
+                    fecha__gte=fecha_inicio,
+                    fecha__lte=fecha_fin,
+                ).select_related(field, 'maquina_snapshot')
             return qs, field
         except FieldError:
             logger.debug("AsistenciaDiaria: field %s not valid for model, trying next", field)
@@ -86,7 +110,26 @@ def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
 
 def _trabajadores_tareo_qs(contrato, fecha_inicio=None, fecha_fin=None):
     from django.db.models import Q
-    qs = Trabajador.objects.filter(contrato=contrato)
+    from .models import TrabajadorContratoHistorial
+
+    # Usar historial si existe para incluir trabajadores que fueron movidos
+    # a otro CC pero estuvieron en este contrato durante el período.
+    tiene_historial = TrabajadorContratoHistorial.objects.filter(contrato=contrato).exists()
+
+    if tiene_historial:
+        historial_q = Q(contrato_historial__contrato=contrato)
+        if fecha_fin:
+            historial_q &= Q(contrato_historial__fecha_inicio__lte=fecha_fin)
+        if fecha_inicio:
+            historial_q &= (
+                Q(contrato_historial__fecha_fin__isnull=True) |
+                Q(contrato_historial__fecha_fin__gte=fecha_inicio)
+            )
+        qs = Trabajador.objects.filter(historial_q).distinct()
+    else:
+        # Fallback legacy: filtrar por FK directa
+        qs = Trabajador.objects.filter(contrato=contrato)
+
     if fecha_inicio or fecha_fin:
         # Trabajadores activos (estado ACTIVO) o inactivos que trabajaron en el rango
         activos = Q(estado="ACTIVO")
@@ -110,11 +153,34 @@ def _emp_field_name():
 
 
 def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
-    qs = AsistenciaDiaria.objects.filter(
-        trabajador__contrato=contrato,
-        fecha__gte=fecha_inicio,
-        fecha__lte=fecha_fin,
-    ).select_related('trabajador', 'maquina_snapshot')
+    from django.db.models import Q
+    from .models import TrabajadorContratoHistorial
+
+    # Usar historial para incluir asistencias de trabajadores que fueron
+    # movidos a otro CC pero estuvieron en este contrato durante el período.
+    tiene_historial = TrabajadorContratoHistorial.objects.filter(contrato=contrato).exists()
+
+    if tiene_historial:
+        historial_q = Q(contrato_historial__contrato=contrato)
+        if fecha_fin:
+            historial_q &= Q(contrato_historial__fecha_inicio__lte=fecha_fin)
+        if fecha_inicio:
+            historial_q &= (
+                Q(contrato_historial__fecha_fin__isnull=True) |
+                Q(contrato_historial__fecha_fin__gte=fecha_inicio)
+            )
+        trabajador_ids = Trabajador.objects.filter(historial_q).distinct().values_list('id', flat=True)
+        qs = AsistenciaDiaria.objects.filter(
+            trabajador_id__in=trabajador_ids,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin,
+        ).select_related('trabajador', 'maquina_snapshot')
+    else:
+        qs = AsistenciaDiaria.objects.filter(
+            trabajador__contrato=contrato,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin,
+        ).select_related('trabajador', 'maquina_snapshot')
     return qs, 'trabajador'
 
 
@@ -328,9 +394,11 @@ def tareo_mensual_view(request):
         )
     ).order_by('maquina_asignada__nombre', 'guardia_asignada', 'grupo_ord', 'cargo_ord', 'apepat', 'apemat', 'nombres')
     
-    # Obtener asistencias del rango (legacy V1)
+    # Obtener asistencias del rango (legacy V1) — usar IDs de trabajadores
+    # (incluye movidos vía historial) en vez de FK directa
+    trabajador_ids = list(trabajadores.values_list('id', flat=True))
     asistencias_v1 = AsistenciaTrabajador.objects.filter(
-        trabajador__contrato=contrato,
+        trabajador_id__in=trabajador_ids,
         fecha__gte=fecha_inicio,
         fecha__lte=fecha_fin
     ).select_related('trabajador')
@@ -391,6 +459,20 @@ def tareo_mensual_view(request):
             'es_proyeccion': es_proy,
         }
     
+    # Pre-cargar historial de asignación para bloquear celdas fuera de rango
+    from .models import TrabajadorContratoHistorial as _TCH_sem
+    _historial_sem = {}
+    _hist_qs = _TCH_sem.objects.filter(
+        contrato=contrato,
+        fecha_inicio__lte=fecha_fin,
+    ).filter(
+        models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=fecha_inicio)
+    ).values('trabajador_id', 'fecha_inicio', 'fecha_fin')
+    for h in _hist_qs:
+        _historial_sem[h['trabajador_id']] = {
+            'inicio': h['fecha_inicio'], 'fin': h['fecha_fin']
+        }
+
     # Combinar trabajadores con sus asistencias y agrupar por campo `grupo`
     GRUPO_META = {
         'LINEA_MANDO':         {'nombre': 'Línea de Mando',       'order': 1},
@@ -469,15 +551,23 @@ def tareo_mensual_view(request):
             }
 
         # Preparar asistencias del trabajador
+        _h_sem = _historial_sem.get(trabajador.id)
+        _inicio_cc_sem = _h_sem['inicio'] if _h_sem else None
+        _fin_cc_sem    = _h_sem['fin'] if _h_sem else None
+
         asistencias_trabajador = []
         for dia_info in dias_rango:
             fecha = dia_info['fecha']
             asist_dia = asistencias_dict.get(trabajador.id, {}).get(fecha)
 
-            # Celda bloqueada si la fecha es anterior al inicio de labores del trabajador
+            # Celda bloqueada si la fecha está fuera de:
+            # - Rango de labores del trabajador
+            # - Rango de asignación al contrato (historial)
             bloqueada = bool(
                 (trabajador.fecha_inicio_labores and fecha < trabajador.fecha_inicio_labores)
                 or (trabajador.fecha_cese and fecha > trabajador.fecha_cese)
+                or (_inicio_cc_sem and fecha < _inicio_cc_sem)
+                or (_fin_cc_sem and fecha > _fin_cc_sem)
             )
 
             # Normalizar estados legacy 'TRABAJADO'/'TRABAJO' a 'TD'/'TN' para operadores
@@ -1125,8 +1215,10 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
 
     # Obtener asistencias desde V2 (AsistenciaDiaria). Usar V1 solo como
     # fallback si no hay registros en V2 para el contrato/periodo.
+    # Filtrar por IDs de trabajadores (incluye movidos vía historial).
     from .tareo_compat import AsistenciaDiaria
-    filter_kwargs = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+    trabajador_ids_export = list(trabajadores.values_list('id', flat=True))
+    filter_kwargs = {f"{emp_field}_id__in": trabajador_ids_export, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
     asistencias_v2 = AsistenciaDiaria.objects.filter(
         **filter_kwargs
     ).select_related(emp_field, 'maquina_snapshot')
@@ -1142,7 +1234,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     else:
         # Fallback a tabla legacy AsistenciaTrabajador
         asistencias = AsistenciaTrabajador.objects.filter(
-            trabajador__contrato=contrato,
+            trabajador_id__in=trabajador_ids_export,
             fecha__gte=fecha_inicio,
             fecha__lte=fecha_fin
         ).select_related('trabajador')
@@ -1538,8 +1630,12 @@ def mostrar_tareo_semanal(request):
             asistencias_v2 = AsistenciaDiaria.objects.none()
 
         asist_dict = {}
+        # Usar IDs de trabajadores del historial para incluir movidos
+        _trab_ids_sem = list(
+            _trabajadores_tareo_qs(contrato, fecha_inicio, fecha_fin).values_list('id', flat=True)
+        )
         asistencias_v1 = AsistenciaTrabajador.objects.filter(
-            trabajador__contrato=contrato,
+            trabajador_id__in=_trab_ids_sem,
             fecha__gte=fecha_inicio,
             fecha__lte=fecha_fin,
         ).select_related('trabajador')
@@ -1596,6 +1692,19 @@ def mostrar_tareo_semanal(request):
         # Trabajadores activos
         trabajadores = _trabajadores_tareo_qs(contrato, fecha_inicio, fecha_fin).select_related('maquina_asignada')
 
+        # Pre-cargar historial de asignación para esta vista
+        from .models import TrabajadorContratoHistorial as _TCH_sv
+        _historial_sv = {}
+        for _hh in _TCH_sv.objects.filter(
+            contrato=contrato,
+            fecha_inicio__lte=fecha_fin,
+        ).filter(
+            models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=fecha_inicio)
+        ).values('trabajador_id', 'fecha_inicio', 'fecha_fin'):
+            _historial_sv[_hh['trabajador_id']] = {
+                'inicio': _hh['fecha_inicio'], 'fin': _hh['fecha_fin']
+            }
+
         # Construir estructura por categorias -> maquinas -> guardias -> trabajadores
         import re as _re
         CAT_NOMBRES = {
@@ -1628,18 +1737,26 @@ def mostrar_tareo_semanal(request):
             # guardia grouping will be determined from per-cell guardia_snapshot below
 
             # Construir asistencias por día para la semana
+            _h_sv = _historial_sv.get(trabajador.id)
+            _ini_sv = _h_sv['inicio'] if _h_sv else None
+            _fin_sv = _h_sv['fin'] if _h_sv else None
+
             dias = []
             d = fecha_inicio
             while d <= fecha_fin:
+                # Verificar si la fecha está fuera del rango de asignación
+                _bloq = bool(
+                    (_ini_sv and d < _ini_sv) or (_fin_sv and d > _fin_sv)
+                )
                 asist = asist_dict.get(trabajador.id, {}).get(d)
-                if asist:
+                if asist and not _bloq:
                     codigo = MAPEO_CODIGOS.get(asist.get('estado', '') or '', '')
                     guardia_snap = asist.get('guardia_snapshot', '') or ''
                     maq_snap = asist.get('maquina_snapshot', None)
                     maq_snap_name = maq_snap.nombre if maq_snap else ''
                     es_proy = asist.get('es_proyeccion', False)
                 else:
-                    # si no existe registro, dejar vacío (puede usarse proyección)
+                    # si no existe registro o está bloqueada, dejar vacío
                     codigo = ''
                     guardia_snap = ''
                     maq_snap_name = ''
@@ -1658,7 +1775,7 @@ def mostrar_tareo_semanal(request):
                         c = c[2:]
                     # ensure we send 6-char hex (fallback to empty if malformed)
                     color = c if len(c) == 6 else ''
-                dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color, 'maquina_snapshot': maq_snap_name, 'es_proyeccion': es_proy})
+                dias.append({'fecha': d, 'codigo': codigo, 'guardia_snapshot': guardia_snap, 'color': color, 'maquina_snapshot': maq_snap_name, 'es_proyeccion': es_proy, 'bloqueada': _bloq})
                 d += timedelta(days=1)
 
             # Determinar si hay una máquina asignada en las celdas (maquina_snapshot)
@@ -1797,8 +1914,12 @@ def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
     emp_field = _emp_field_name()
     distrib = {}
 
+    # Usar IDs de trabajadores del historial para incluir movidos
+    _trab_ids_dist = list(
+        _trabajadores_tareo_qs(contrato, fecha_inicio, fecha_fin).values_list('id', flat=True)
+    )
     asist_v1 = AsistenciaTrabajador.objects.filter(
-        trabajador__contrato=contrato,
+        trabajador_id__in=_trab_ids_dist,
         fecha__gte=fecha_inicio,
         fecha__lte=fecha_fin,
     ).select_related('trabajador', 'trabajador__maquina_asignada')
@@ -1809,7 +1930,7 @@ def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
         distrib.setdefault(maq_key, {}).setdefault(guardia, {}).setdefault(a.fecha, []).append(a.trabajador)
 
     asist_v2 = AsistenciaDiaria.objects.filter(
-        **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+        **{f"{emp_field}_id__in": _trab_ids_dist, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
     ).select_related(emp_field, 'maquina_snapshot')
     for a in asist_v2:
         maq = getattr(a, 'maquina_snapshot', None) or getattr(getattr(a, emp_field), 'maquina_asignada', None)
@@ -3204,20 +3325,24 @@ def api_guardar_dia_tareo(request):
         stats = {
             'actualizados': 0,
             'creados': 0,
+            'eliminados': 0,
+            'bloqueados': 0,
             'errores': []
         }
-        
+
         # Procesar cada asistencia
         with transaction.atomic():
+            from .models import TrabajadorContratoHistorial
+
             for asist_data in asistencias_data:
                 try:
                     trabajador_id = asist_data.get('trabajador_id') or asist_data.get('empleado_id')
-                    estado = asist_data.get('estado')
+                    estado = asist_data.get('estado', '')
                     maquina_id = asist_data.get('maquina_id')
                     guardia_snapshot = asist_data.get('guardia_snapshot') if 'guardia_snapshot' in asist_data else None
                     observaciones = asist_data.get('observaciones', '')
-                    
-                    if not trabajador_id or not estado:
+
+                    if not trabajador_id:
                         continue
 
                     # Obtener trabajador (puede estar asignado a este contrato vía historial
@@ -3225,11 +3350,11 @@ def api_guardar_dia_tareo(request):
                     try:
                         trabajador = Trabajador.objects.get(id=trabajador_id)
                     except Trabajador.DoesNotExist:
+                        stats['bloqueados'] += 1
                         continue
 
                     # Bloquear edición si la fecha está fuera del período de asignación
                     # a este contrato según el historial
-                    from .models import TrabajadorContratoHistorial
                     hist = TrabajadorContratoHistorial.objects.filter(
                         trabajador=trabajador, contrato=contrato,
                         fecha_inicio__lte=fecha,
@@ -3238,6 +3363,7 @@ def api_guardar_dia_tareo(request):
                     ).exists()
                     # Si existe historial y esta fecha no está cubierta, bloquear
                     if TrabajadorContratoHistorial.objects.filter(trabajador=trabajador).exists() and not hist:
+                        stats['bloqueados'] += 1
                         continue
 
                     # Fallback: bloquear por fecha_cese directa
@@ -3245,6 +3371,18 @@ def api_guardar_dia_tareo(request):
                     if (trabajador.fecha_cese
                             and trabajador.fecha_cese != _SENTINEL_CESE
                             and fecha > trabajador.fecha_cese):
+                        stats['bloqueados'] += 1
+                        continue
+
+                    emp_field = _emp_field_name()
+
+                    # Estado vacío = solicitud de eliminación del registro
+                    if not estado:
+                        deleted_count, _ = AsistenciaDiaria.objects.filter(
+                            **{emp_field: trabajador, 'fecha': fecha}
+                        ).delete()
+                        if deleted_count:
+                            stats['eliminados'] += 1
                         continue
 
                     # Obtener máquina si se especificó
@@ -3254,9 +3392,8 @@ def api_guardar_dia_tareo(request):
                             maquina = Maquina.objects.get(id=maquina_id)
                         except Maquina.DoesNotExist:
                             pass
-                    
-                    # Actualizar o crear asistencia (compat: empleado vs trabajador, es_proyeccion vs tipo)
-                    emp_field = _emp_field_name()
+
+                    # Actualizar o crear asistencia
                     lookup = {f"{emp_field}": trabajador, 'fecha': fecha}
                     defaults = {
                         'estado': estado,
@@ -3274,16 +3411,16 @@ def api_guardar_dia_tareo(request):
                         **lookup,
                         defaults=defaults
                     )
-                    
+
                     if created:
                         stats['creados'] += 1
                     else:
                         stats['actualizados'] += 1
-                    
+
                 except Exception as e:
                     stats['errores'].append(f"Error procesando trabajador {trabajador_id}: {str(e)}")
                     logger.error(f"Error guardando asistencia: {str(e)}")
-        
+
         return JsonResponse({
             'success': True,
             'data': stats
@@ -3337,6 +3474,7 @@ def api_guardar_seleccion(request):
 
         from .models import TrabajadorContratoHistorial as _TCH
         asistencias_data = []
+        bloqueados = 0
         for r in registros:
             try:
                 trab_id = int(r['trabajador_id'])
@@ -3344,6 +3482,7 @@ def api_guardar_seleccion(request):
                 try:
                     trab = Trabajador.objects.only('fecha_cese').get(id=trab_id)
                 except Trabajador.DoesNotExist:
+                    bloqueados += 1
                     continue
 
                 # Bloquear si la fecha está fuera del período de asignación a este CC
@@ -3356,6 +3495,7 @@ def api_guardar_seleccion(request):
                         models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=fecha_r)
                     ).exists()
                     if not en_contrato:
+                        bloqueados += 1
                         continue
 
                 # Fallback: bloquear por fecha_cese directa
@@ -3363,11 +3503,12 @@ def api_guardar_seleccion(request):
                 if (trab.fecha_cese
                         and trab.fecha_cese != _SENTINEL_CESE
                         and fecha_r > trab.fecha_cese):
+                    bloqueados += 1
                     continue
                 asistencias_data.append({
                     'trabajador_id':  trab_id,
                     'fecha':          fecha_r,
-                    'estado':         r['estado'],
+                    'estado':         r.get('estado', ''),
                     'observaciones':  r.get('observaciones', ''),
                     'maquina_id':     r.get('maquina_id') or None,
                     'guardia_snapshot': r.get('guardia_snapshot') if 'guardia_snapshot' in r else None,
@@ -3384,6 +3525,8 @@ def api_guardar_seleccion(request):
             'data': {
                 'actualizados': resultado['actualizados'],
                 'creados':      resultado['creados'],
+                'eliminados':   resultado.get('eliminados', 0),
+                'bloqueados':   bloqueados,
                 'errores':      len(resultado['errores']),
             }
         })

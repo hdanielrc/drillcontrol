@@ -2,15 +2,18 @@
     data-estado="{{ estado_code2 }}"
     data-trabajador-id="{{ row.trabajador.id }}"
     data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
-    <select 
-        name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}" 
+    <select
+        name="estado_{{ row.trabajador.id }}_{{ dia.fecha|date:'Y_m-d' }}"
         class="estado-select estado-{{ estado_code2 }}"
         data-tipo="estado"
-        onchange="(function(sel){ sel.className='estado-select estado-' + sel.value; var td=sel.closest('td'); var tr=td.closest('tr'); td.className=td.className.replace(/\bcelda-\S+/g,'').trim()+' celda-'+sel.value; td.setAttribute('data-estado',sel.value); tr.classList.add('dirty-row'); if (typeof actualizarSummaryRows === 'function') actualizarSummaryRows(); })(this)"
+        data-original="{{ estado_code2 }}"
+        data-es-manual="{% if data and not data.es_proyeccion %}1{% endif %}"
+        onchange="handleEstadoChange(this)"
         title="{{ estado_code2 }}"
     >
+        <option value="" {% if not estado_code2 %}selected{% endif %} class="opt-limpiar">&#x2715; Limpiar</option>
         <option value="T"    {% if estado_code2 == 'T'    %}selected{% endif %}>T</option>
-        <option value="TD"   {% if estado_code2 == 'TD'   or not estado_code2 %}selected{% endif %}>TD</option>
+        <option value="TD"   {% if estado_code2 == 'TD'   %}selected{% endif %}>TD</option>
         <option value="TN"   {% if estado_code2 == 'TN'   %}selected{% endif %}>TN</option>
         <option value="TI"   {% if estado_code2 == 'TI'   %}selected{% endif %}>TI</option>
         <option value="DL"   {% if estado_code2 == 'DL'   %}selected{% endif %}>DL</option>

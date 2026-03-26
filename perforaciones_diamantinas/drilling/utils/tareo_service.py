@@ -564,47 +564,72 @@ class TareoService:
             fecha_fin=ultimo_dia,
             contrato=contrato,
         )
-        
+
         trabajadores_query = trabajadores_query.select_related('contrato')
-        
+
+        # IDs de trabajadores vigentes (incluye movidos vía historial)
+        _trab_ids_proy = list(trabajadores_query.values_list('id', flat=True))
+        emp_field = _empleado_field_name()
+
+        def _filtro_contrato():
+            """Filtro por worker IDs en vez de FK directa para soportar historial."""
+            if contrato and _trab_ids_proy:
+                return {f"{emp_field}_id__in": _trab_ids_proy}
+            elif contrato:
+                return {f"{emp_field}__contrato": contrato}
+            return {}
+
+        # Pre-cargar historial de asignación para limitar proyecciones
+        # al rango de fechas en que cada trabajador perteneció a este CC.
+        from ..models import TrabajadorContratoHistorial
+        from django.db.models import Q as _Q
+        _historial_proy = {}
+        if contrato:
+            for h in TrabajadorContratoHistorial.objects.filter(
+                contrato=contrato,
+                fecha_inicio__lte=ultimo_dia,
+            ).filter(
+                _Q(fecha_fin__isnull=True) | _Q(fecha_fin__gte=primer_dia)
+            ).values('trabajador_id', 'fecha_inicio', 'fecha_fin'):
+                _historial_proy[h['trabajador_id']] = {
+                    'inicio': h['fecha_inicio'],
+                    'fin': h['fecha_fin'],
+                }
+
         # Si sobrescribir=True, eliminar proyecciones previas
         if sobrescribir:
             qs = AsistenciaDiaria.objects.filter(
                 fecha__gte=primer_dia,
                 fecha__lte=ultimo_dia,
-                **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
+                **_filtro_contrato()
             )
             if NEW_TAREO:
-                # Reset completo: borra todos los registros del período (PROY + REAL).
-                # El usuario al hacer "Generar Proyección Automática" con sobrescribir=True
-                # solicita explícitamente reconstruir desde cero.
                 qs.delete()
             else:
                 qs.filter(es_proyeccion=True).delete()
             logger.info(f"Proyecciones previas del mes {mes}/{anio} eliminadas")
-        
+
         # Obtener registros ya existentes que NO deben tocarse
         # (correcciones manuales: es_proyeccion=False)
         registros_manuales = set(
-            (lambda: _manual_filter(AsistenciaDiaria.objects.filter(
+            _manual_filter(AsistenciaDiaria.objects.filter(
                 fecha__gte=primer_dia,
                 fecha__lte=ultimo_dia,
-                **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
-            )).values_list(f"{_empleado_field_name()}_id", 'fecha'))()
+                **_filtro_contrato()
+            )).values_list(f"{emp_field}_id", 'fecha')
         )
 
         # Proyecciones ya existentes (es_proyeccion=True) que tal vez hay que
         # actualizar (estado corregido, máquina, guardia)
         proyecciones_existentes = {}
-        # Obtener proyecciones existentes (según esquema nuevo o legacy)
         existente_qs = AsistenciaDiaria.objects.filter(
             fecha__gte=primer_dia,
             fecha__lte=ultimo_dia,
-            **(({f"{_empleado_field_name()}__contrato": contrato}) if contrato else {})
+            **_filtro_contrato()
         )
         existente_qs = _proyeccion_filter(existente_qs)
         for p in existente_qs:
-            key_id = getattr(p, f"{_empleado_field_name()}_id")
+            key_id = getattr(p, f"{emp_field}_id")
             proyecciones_existentes[(key_id, p.fecha)] = p
 
         # Listas para operaciones bulk
@@ -709,7 +734,20 @@ class TareoService:
                             usar_estado_previo = False
                 except Exception:
                     usar_estado_previo = False
+                # Rango de asignación del trabajador a este contrato (historial)
+                _h = _historial_proy.get(trabajador.id)
+                _fecha_inicio_cc = _h['inicio'] if _h else None
+                _fecha_fin_cc    = _h['fin'] if _h else None
+
                 while fecha_actual <= ultimo_dia:
+                    # Saltar fechas fuera del rango de asignación a este CC
+                    if _fecha_inicio_cc and fecha_actual < _fecha_inicio_cc:
+                        fecha_actual += timedelta(days=1)
+                        continue
+                    if _fecha_fin_cc and fecha_actual > _fecha_fin_cc:
+                        fecha_actual += timedelta(days=1)
+                        continue
+
                     # Nunca tocar correcciones manuales
                     if (trabajador.id, fecha_actual) in registros_manuales:
                         stats['registros_existentes_respetados'] += 1
@@ -1130,9 +1168,12 @@ class TareoService:
             fecha_inicio__lte=fecha_fin,
         ).filter(
             _Q(fecha_fin__isnull=True) | _Q(fecha_fin__gte=fecha_inicio)
-        ).values('trabajador_id', 'fecha_fin')
-        # {trabajador_id: fecha_fin} — None significa "sigue activo en este CC"
-        historial_map = {h['trabajador_id']: h['fecha_fin'] for h in historial_qs}
+        ).values('trabajador_id', 'fecha_inicio', 'fecha_fin')
+        # {trabajador_id: {inicio, fin}} — fin=None significa "sigue activo en este CC"
+        historial_map = {
+            h['trabajador_id']: {'inicio': h['fecha_inicio'], 'fin': h['fecha_fin']}
+            for h in historial_qs
+        }
 
         # Obtener trabajadores activos del contrato
         # Anotamos orden por grupo para agrupar igual que V1
@@ -1161,9 +1202,12 @@ class TareoService:
             )
         ).order_by('grupo_ord', 'guardia_asignada', 'apepat', 'apemat', 'nombres')
         
-        # Obtener asistencias del rango (adaptar nombre de FK empleado/trabajador)
+        # Obtener asistencias del rango usando IDs de trabajadores (incluye
+        # trabajadores que fueron movidos a otro CC pero estuvieron en este
+        # contrato durante el período, gracias al historial).
         emp_field = _empleado_field_name()
-        filter_kwargs = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+        trabajador_ids = list(trabajadores.values_list('id', flat=True))
+        filter_kwargs = {f"{emp_field}_id__in": trabajador_ids, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
         asistencias = AsistenciaDiaria.objects.filter(
             **filter_kwargs
         ).select_related(emp_field, 'maquina_snapshot')
@@ -1226,10 +1270,12 @@ class TareoService:
                     'total_trabajadores': 0,
                 }
 
-            # fecha_fin_en_contrato: límite de asignación del trabajador a este CC.
-            # None = sigue activo; date = fue trasladado/cesado ese día.
-            fecha_fin_cc = historial_map.get(trabajador.id)  # None si historial vacío
-            # También tomar fecha_cese si es anterior
+            # Fechas de asignación del trabajador a este CC (desde historial).
+            hist_data = historial_map.get(trabajador.id)  # None si no hay historial
+            fecha_inicio_cc = hist_data['inicio'] if hist_data else None
+            fecha_fin_cc = hist_data['fin'] if hist_data else None
+
+            # También tomar fecha_cese si es anterior al fin de contrato
             _SENTINEL = __import__('datetime').date(1969, 12, 31)
             fecha_cese_real = trabajador.fecha_cese if (
                 trabajador.fecha_cese and trabajador.fecha_cese != _SENTINEL
@@ -1246,6 +1292,8 @@ class TareoService:
                 # True si fecha_inicio_ciclo cae en el dia_cambio_guardia del contrato
                 # None si no hay suficientes datos para verificar
                 'ciclo_alineado': TareoService._verificar_alineacion_ciclo(trabajador, contrato),
+                # Primer día de asignación a este CC (None = desde siempre/sin historial)
+                'fecha_inicio_en_contrato': fecha_inicio_cc,
                 # Último día en que el trabajador pertenece a este CC (None = sigue activo)
                 'fecha_limite_en_contrato': fecha_limite,
             })
@@ -1315,22 +1363,34 @@ class TareoService:
         stats = {
             'actualizados': 0,
             'creados': 0,
+            'eliminados': 0,
             'errores': []
         }
-        
+
         registros_actualizar = []
         registros_crear = []
-        
+        ids_eliminar = []
+
         for dato in formset_data:
             try:
                 trabajador_id = dato.get('trabajador_id') or dato.get('empleado_id')
                 fecha = dato.get('fecha')
-                estado = dato.get('estado')
+                estado = dato.get('estado', '')
                 observaciones = dato.get('observaciones', '')
                 maquina_id = dato.get('maquina_id')
                 guardia_snapshot = dato.get('guardia_snapshot') if 'guardia_snapshot' in dato else None
-                
-                if not all([trabajador_id, fecha, estado]):
+
+                if not trabajador_id or not fecha:
+                    continue
+
+                # Estado vacío = solicitud de eliminación del registro
+                if not estado:
+                    try:
+                        lookup_del = {f"{_empleado_field_name()}_id": trabajador_id, 'fecha': fecha}
+                        asist_del = AsistenciaDiaria.objects.get(**lookup_del)
+                        ids_eliminar.append(asist_del.id)
+                    except AsistenciaDiaria.DoesNotExist:
+                        pass  # No existe, nada que eliminar
                     continue
                 
                 # Obtener máquina si existe
@@ -1391,6 +1451,10 @@ class TareoService:
         
         # Bulk operations
         try:
+            if ids_eliminar:
+                AsistenciaDiaria.objects.filter(id__in=ids_eliminar).delete()
+                stats['eliminados'] = len(ids_eliminar)
+
             if registros_actualizar:
                 update_fields = ['estado', 'observaciones', 'maquina_snapshot', 'guardia_snapshot', 'registrado_por']
                 if NEW_TAREO:
@@ -1403,7 +1467,7 @@ class TareoService:
                     batch_size=500
                 )
                 stats['actualizados'] = len(registros_actualizar)
-            
+
             if registros_crear:
                 AsistenciaDiaria.objects.bulk_create(
                     registros_crear,
@@ -1411,7 +1475,7 @@ class TareoService:
                     ignore_conflicts=True,
                 )
                 stats['creados'] = len(registros_crear)
-                
+
         except Exception as e:
             stats['errores'].append(f"Error en operación masiva: {str(e)}")
         
@@ -1457,9 +1521,14 @@ class TareoService:
             'errores': [],
         }
 
-        # Todos los registros V1 del contrato en el rango
+        # Todos los registros V1 del contrato en el rango (usando IDs
+        # de trabajadores vigentes, incluye movidos vía historial).
+        trabajador_ids_v1 = list(
+            _trabajadores_vigentes_qs(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, contrato=contrato)
+            .values_list('id', flat=True)
+        )
         registros_v1 = AsistenciaTrabajador.objects.filter(
-            trabajador__contrato=contrato,
+            trabajador_id__in=trabajador_ids_v1,
             fecha__gte=fecha_inicio,
             fecha__lte=fecha_fin,
         ).select_related('trabajador')

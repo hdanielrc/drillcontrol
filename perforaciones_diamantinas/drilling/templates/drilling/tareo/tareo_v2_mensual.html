@@ -338,6 +338,25 @@
         padding: 3px 1px;
     }
 
+    /* Celda marcada para limpiar/eliminar */
+    .celda-VACIO {
+        background: repeating-linear-gradient(
+            45deg,
+            #fff3cd,
+            #fff3cd 4px,
+            #fff 4px,
+            #fff 8px
+        ) !important;
+    }
+    .estado-VACIO {
+        color: #856404 !important;
+        font-weight: 700 !important;
+    }
+    .opt-limpiar {
+        color: #c0392b;
+        font-weight: 600;
+    }
+
     /* Select transparente dentro de celda coloreada */
     .estado-select {
         width: 100%;
@@ -924,7 +943,15 @@
                         <!-- Celdas de días -->
                         {% if dias_rango %}
                             {% for dia in dias_rango %}
-                                {% if row.fecha_limite_en_contrato and dia.fecha > row.fecha_limite_en_contrato %}
+                                {% if row.fecha_inicio_en_contrato and dia.fecha < row.fecha_inicio_en_contrato %}
+                                    {# Trabajador aún no asignado a este CC en esta fecha: celda bloqueada #}
+                                    <td class="celda-cesado {% if dia.es_cambio_guardia %}dia-cambio-guardia{% endif %}"
+                                        data-trabajador-id="{{ row.trabajador.id }}"
+                                        data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
+                                        title="Asignado a este contrato desde {{ row.fecha_inicio_en_contrato|date:'d/m/Y' }}">
+                                        <span class="celda-cesado-label">—</span>
+                                    </td>
+                                {% elif row.fecha_limite_en_contrato and dia.fecha > row.fecha_limite_en_contrato %}
                                     {# Trabajador trasladado/cesado: celda bloqueada #}
                                     <td class="celda-cesado {% if dia.es_cambio_guardia %}dia-cambio-guardia{% endif %}"
                                         data-trabajador-id="{{ row.trabajador.id }}"
@@ -1049,6 +1076,31 @@ function hideLoading() {
     document.getElementById('loadingOverlay').classList.remove('active');
 }
 
+// Handler de cambio de estado (select de cada celda)
+function handleEstadoChange(sel) {
+    var td = sel.closest('td');
+    var tr = td.closest('tr');
+    var newVal = sel.value;
+
+    // Si el usuario selecciona "Limpiar" y el registro era manual (confirmado),
+    // pedir confirmación antes de proceder
+    if (!newVal && sel.getAttribute('data-es-manual') === '1') {
+        if (!confirm('Este registro fue confirmado manualmente. ¿Deseas eliminarlo?')) {
+            // Revertir al valor original
+            sel.value = sel.getAttribute('data-original') || 'TD';
+            return;
+        }
+    }
+
+    // Actualizar clases CSS de la celda
+    var estadoClass = newVal || 'VACIO';
+    sel.className = 'estado-select estado-' + estadoClass;
+    td.className = td.className.replace(/\bcelda-\S+/g, '').trim() + ' celda-' + estadoClass;
+    td.setAttribute('data-estado', newVal);
+    tr.classList.add('dirty-row');
+    if (typeof actualizarSummaryRows === 'function') actualizarSummaryRows();
+}
+
 // Actualizar guardia asignada (A/B/C) de un trabajador
 async function actualizarGuardia(sel) {
     const trabajadorId = sel.dataset.trabajadorId;
@@ -1159,40 +1211,52 @@ function generarProyeccionTodos() {
     .catch(err => { hideLoading(); alert('❌ Error de conexión: ' + err); });
 }
 
+// Construir mensaje de resultado del guardado
+function _buildSaveMessage(d) {
+    let lines = [];
+    if (d.actualizados) lines.push(`Actualizados: ${d.actualizados}`);
+    if (d.creados)      lines.push(`Creados: ${d.creados}`);
+    if (d.eliminados)   lines.push(`Eliminados: ${d.eliminados}`);
+    if (d.bloqueados)   lines.push(`Bloqueados (fuera de rango): ${d.bloqueados}`);
+    if (d.errores)      lines.push(`Errores: ${d.errores}`);
+    return lines.join('\n');
+}
+
 // Guardar asistencia de un día específico
 function guardarDia(fecha) {
     if (!confirm(`¿Guardar la asistencia del día ${fecha}?`)) {
         return;
     }
-    
+
     showLoading();
-    
-    // Obtener token CSRF
+
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
-    // Recolectar datos de todas las celdas de ese día
+
+    // Recolectar datos — saltar celdas bloqueadas (cesado / sin asignación)
     const celdas = document.querySelectorAll(`td[data-fecha="${fecha}"]`);
     const asistencias = [];
-    
+
     celdas.forEach(celda => {
+        // Saltar celdas bloqueadas por fecha fuera de asignación
+        if (celda.classList.contains('celda-cesado')) return;
+
         const trabajadorId = celda.getAttribute('data-trabajador-id');
         const estadoSelect = celda.querySelector('select[data-tipo="estado"]');
         const maquinaSelect = celda.querySelector('select[data-tipo="maquina"]');
         const guardiaSelect = celda.querySelector('select[data-tipo="guardia_snapshot"]');
         const observacionesInput = celda.querySelector('input[data-tipo="observaciones"]');
-        
+
         if (estadoSelect) {
             asistencias.push({
                 trabajador_id: parseInt(trabajadorId),
-                estado: estadoSelect.value,
+                estado: estadoSelect.value,  // "" = limpiar registro
                 maquina_id: maquinaSelect ? (maquinaSelect.value || null) : null,
                 guardia_snapshot: guardiaSelect ? (guardiaSelect.value || null) : null,
                 observaciones: observacionesInput ? observacionesInput.value : ''
             });
         }
     });
-    
-    // Enviar al servidor
+
     fetch('/tareo/v2/api/guardar-dia/', {
         method: 'POST',
         headers: {
@@ -1209,10 +1273,10 @@ function guardarDia(fecha) {
     .then(data => {
         hideLoading();
         if (data.success) {
-            alert(`✅ Día guardado exitosamente!\n\nActualizados: ${data.data.actualizados}\nCreados: ${data.data.creados}`);
+            alert('Dia guardado exitosamente!\n\n' + _buildSaveMessage(data.data));
             location.reload();
         } else {
-            alert('❌ Error: ' + data.error);
+            alert('Error: ' + data.error);
         }
     })
     .catch(error => {
@@ -1339,9 +1403,11 @@ function aplicarGrupo(grupoKey) {
             tr.classList.contains('guardia-subheader-row') ||
             tr.classList.contains('summary-row')) return;
         tr.querySelectorAll('select[data-tipo="estado"]').forEach(sel => {
-            sel.value = estado;
-            sel.className = 'estado-select';
+            // Saltar celdas bloqueadas (fuera de asignación)
             const td = sel.closest('td');
+            if (td.classList.contains('celda-cesado')) return;
+            sel.value = estado;
+            sel.className = 'estado-select estado-' + estado;
             td.className = td.className.replace(/\bcelda-\S+/g, '').trim() + ' celda-' + estado;
             td.setAttribute('data-estado', estado);
             tr.classList.add('dirty-row');
@@ -1354,6 +1420,9 @@ function aplicarGrupo(grupoKey) {
 function _recolectarFila(tr) {
     const registros = [];
     tr.querySelectorAll('td[data-trabajador-id]').forEach(td => {
+        // Saltar celdas bloqueadas (cesado / fuera de asignación)
+        if (td.classList.contains('celda-cesado')) return;
+
         const estadoSel  = td.querySelector('select[data-tipo="estado"]');
         const maquinaSel = td.querySelector('select[data-tipo="maquina"]');
         const guardiaSel = td.querySelector('select[data-tipo="guardia_snapshot"]');
@@ -1362,7 +1431,7 @@ function _recolectarFila(tr) {
             registros.push({
                 trabajador_id: parseInt(td.getAttribute('data-trabajador-id')),
                 fecha:         td.getAttribute('data-fecha'),
-                estado:        estadoSel.value,
+                estado:        estadoSel.value,  // "" = limpiar registro
                 maquina_id:    maquinaSel ? (maquinaSel.value || null) : null,
                 guardia_snapshot: guardiaSel ? (guardiaSel.value || null) : null,
                 observaciones: obsSel ? obsSel.value : ''
@@ -1386,14 +1455,19 @@ async function _enviarSeleccion(contratoId, registros, btn, btnOriginalText) {
         const data = await resp.json();
         if (data.success) {
             if (btn) { btn.textContent = '✓'; btn.style.background = '#27ae60'; }
+            // Mostrar detalle si hubo eliminaciones o bloqueos
+            var d = data.data || {};
+            if (d.eliminados || d.bloqueados) {
+                alert('Guardado completado\n\n' + _buildSaveMessage(d));
+            }
             return data;
         } else {
-            alert('❌ Error: ' + data.error);
+            alert('Error: ' + data.error);
             if (btn) { btn.disabled = false; btn.textContent = btnOriginalText; btn.style.background = ''; }
             return null;
         }
     } catch(e) {
-        alert('❌ Error de conexión: ' + e);
+        alert('Error de conexion: ' + e);
         if (btn) { btn.disabled = false; btn.textContent = btnOriginalText; btn.style.background = ''; }
         return null;
     }
@@ -1406,10 +1480,16 @@ function guardarFila(trabajadorId, contratoId, btn) {
     const registros = _recolectarFila(tr);
     _enviarSeleccion(contratoId, registros, btn, '💾').then(data => {
         if (data) {
-            tr.classList.remove('dirty-row');
-            setTimeout(() => {
-                if (btn) { btn.textContent = '💾'; btn.disabled = false; btn.style.background = ''; }
-            }, 2000);
+            var d = data.data || {};
+            if (d.eliminados) {
+                // Si hubo eliminaciones, recargar para reflejar celdas vacías
+                location.reload();
+            } else {
+                tr.classList.remove('dirty-row');
+                setTimeout(() => {
+                    if (btn) { btn.textContent = '💾'; btn.disabled = false; btn.style.background = ''; }
+                }, 2000);
+            }
         }
     });
 }
@@ -1428,11 +1508,18 @@ function guardarGrupo(grupoKey, contratoId, btn) {
     if (!registros.length) { alert('No hay datos visibles en este grupo.'); return; }
     _enviarSeleccion(contratoId, registros, btn, '💾 Guardar Grupo').then(data => {
         if (data) {
-            document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => tr.classList.remove('dirty-row'));
-            alert(`✅ Grupo guardado (filas visibles)!\n\nActualizados: ${data.data.actualizados}  Creados: ${data.data.creados}`);
-            setTimeout(() => {
-                if (btn) { btn.textContent = '💾 Guardar Grupo'; btn.disabled = false; btn.style.background = ''; }
-            }, 1500);
+            var d = data.data || {};
+            if (d.eliminados) {
+                // Si hubo eliminaciones, recargar para reflejar celdas vacías
+                alert('Grupo guardado!\n\n' + _buildSaveMessage(d));
+                location.reload();
+            } else {
+                document.querySelectorAll('.grupo-rows-' + grupoKey).forEach(tr => tr.classList.remove('dirty-row'));
+                alert('Grupo guardado (filas visibles)!\n\n' + _buildSaveMessage(d));
+                setTimeout(() => {
+                    if (btn) { btn.textContent = '💾 Guardar Grupo'; btn.disabled = false; btn.style.background = ''; }
+                }, 1500);
+            }
         }
     });
 }
