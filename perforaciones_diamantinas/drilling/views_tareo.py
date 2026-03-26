@@ -310,8 +310,14 @@ def tareo_mensual_view(request):
     # Calcular el mes a mostrar
     hoy = datetime.now().date()
     if mes_offset == 0:
-        # Mes actual
-        fecha_base = hoy
+        # Si hoy es día 26 o posterior, ya estamos en el siguiente período operativo
+        if hoy.day >= 26:
+            if hoy.month == 12:
+                fecha_base = hoy.replace(year=hoy.year + 1, month=1, day=1)
+            else:
+                fecha_base = hoy.replace(month=hoy.month + 1, day=1)
+        else:
+            fecha_base = hoy
     else:
         # Agregar/restar meses
         fecha_base = hoy
