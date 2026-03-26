@@ -85,24 +85,32 @@ def _registrar_cambio_contrato_historial(trabajador, contrato_nuevo, contrato_an
     Mantiene TrabajadorContratoHistorial actualizado cuando cambia el contrato.
 
     Reglas:
-    - Trabajador nuevo con contrato: abre primer registro de historial.
-    - Trabajador existente sin cambio de contrato: asegura que exista un
-      registro activo (migración de datos legacy).
+    - Trabajador nuevo con contrato: abre primer registro con fecha_contratacion.
+    - Trabajador existente sin cambio de contrato: asegura registro activo y
+      actualiza fecha_fin si el trabajador fue cesado.
     - Trabajador existente con cambio de contrato: cierra el registro anterior
       (fecha_fin = ayer) y abre uno nuevo (fecha_inicio = hoy).
+
+    fecha_fin se establece con fecha_cese real del trabajador.
+    La fecha 1969-12-31 (sentinel de API para "activo") ya fue convertida a None
+    por _parse_api_date antes de llegar aquí.
     """
     if not contrato_nuevo:
         return
 
     hoy = date.today()
+    # Fecha de inicio real: preferir fecha_contratacion de API, luego fecha_inicio_labores
+    fecha_inicio_real = trabajador.fecha_contratacion or trabajador.fecha_inicio_labores or hoy
+    # Fecha de cese real (None si activo — sentinel 1969-12-31 ya filtrado)
+    fecha_cese_real = trabajador.fecha_cese  # None para activos
 
     if created:
-        # Nuevo trabajador — abrir primer registro
+        # Nuevo trabajador — abrir primer registro con fechas reales de API
         TrabajadorContratoHistorial.objects.create(
             trabajador=trabajador,
             contrato=contrato_nuevo,
-            fecha_inicio=trabajador.fecha_inicio_labores or hoy,
-            fecha_fin=None,
+            fecha_inicio=fecha_inicio_real,
+            fecha_fin=fecha_cese_real,
             motivo_cambio='Registro inicial en sincronización',
             creado_automaticamente=True,
         )
@@ -129,12 +137,12 @@ def _registrar_cambio_contrato_historial(trabajador, contrato_nuevo, contrato_an
         if activo:
             activo.fecha_fin = hoy - __import__('datetime').timedelta(days=1)
             activo.save(update_fields=['fecha_fin', 'updated_at'])
-        # Abrir nuevo registro
+        # Abrir nuevo registro desde hoy (fecha real de traslado)
         TrabajadorContratoHistorial.objects.create(
             trabajador=trabajador,
             contrato=contrato_nuevo,
             fecha_inicio=hoy,
-            fecha_fin=None,
+            fecha_fin=fecha_cese_real,
             motivo_cambio='Traslado detectado en sincronización automática',
             creado_automaticamente=True,
         )
@@ -143,11 +151,37 @@ def _registrar_cambio_contrato_historial(trabajador, contrato_nuevo, contrato_an
         TrabajadorContratoHistorial.objects.create(
             trabajador=trabajador,
             contrato=contrato_nuevo,
-            fecha_inicio=trabajador.fecha_inicio_labores or hoy,
-            fecha_fin=None,
+            fecha_inicio=fecha_inicio_real,
+            fecha_fin=fecha_cese_real,
             motivo_cambio='Migración de datos legacy',
             creado_automaticamente=True,
         )
+    else:
+        # Mismo contrato, historial activo — sincronizar fecha_fin y corregir fecha_inicio
+        updates = {}
+
+        # 1. Actualizar fecha_fin si el trabajador fue cesado (o reactivado)
+        if activo.fecha_fin != fecha_cese_real:
+            updates['fecha_fin'] = fecha_cese_real
+
+        # 2. Corregir fecha_inicio en registros automáticos si fecha_contratacion
+        #    indica que el trabajador ingresó después de lo que el historial muestra
+        #    (ej: bulk-sync usó 2026-02-26 pero el trabajador entró el 2026-03-19)
+        if (
+            activo.creado_automaticamente
+            and 'Traslado' not in (activo.motivo_cambio or '')
+            and fecha_inicio_real
+            and activo.fecha_inicio != fecha_inicio_real
+        ):
+            updates['fecha_inicio'] = fecha_inicio_real
+
+        if updates:
+            for k, v in updates.items():
+                setattr(activo, k, v)
+            activo.save(update_fields=list(updates.keys()) + ['updated_at'])
+            logger.info(
+                f"Historial actualizado para {trabajador}: {updates}"
+            )
 
 
 def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
