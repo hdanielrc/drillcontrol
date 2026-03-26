@@ -5,7 +5,7 @@ import requests
 import logging
 import re
 import csv
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 # ==========================================
 # Configuración del Entorno Django
@@ -135,8 +135,28 @@ def _registrar_cambio_contrato_historial(trabajador, contrato_nuevo, contrato_an
         )
         # Cerrar registro anterior
         if activo:
-            activo.fecha_fin = hoy - __import__('datetime').timedelta(days=1)
+            activo.fecha_fin = hoy - timedelta(days=1)
             activo.save(update_fields=['fecha_fin', 'updated_at'])
+        else:
+            # Sin historial previo: crear registro retroactivo para el contrato anterior
+            # para que su tareo histórico sea visible en ese CC.
+            try:
+                contrato_anterior_obj = Contrato.objects.get(id=contrato_anterior_id)
+                fecha_inicio_retro = trabajador.fecha_contratacion or trabajador.fecha_inicio_labores or hoy
+                TrabajadorContratoHistorial.objects.create(
+                    trabajador=trabajador,
+                    contrato=contrato_anterior_obj,
+                    fecha_inicio=fecha_inicio_retro,
+                    fecha_fin=hoy - timedelta(days=1),
+                    motivo_cambio='Registro retroactivo al detectar traslado desde contrato anterior',
+                    creado_automaticamente=True,
+                )
+                logger.info(
+                    f"Historial retroactivo creado: {trabajador} en {contrato_anterior_obj} "
+                    f"({fecha_inicio_retro} → {hoy - timedelta(days=1)})"
+                )
+            except Exception as e:
+                logger.warning(f"No se pudo crear historial retroactivo para {trabajador}: {e}")
         # Abrir nuevo registro desde hoy (fecha real de traslado)
         TrabajadorContratoHistorial.objects.create(
             trabajador=trabajador,
