@@ -3695,7 +3695,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (err) {
             console.warn('Validación de actividades falló:', err);
         }
-        // Validación: sondaje con complementos/aditivos debe tener metraje > 0
+        // Validación: sondaje con complementos/aditivos debe tener metraje numérico (puede ser 0)
         try {
             const sondajeRows = Array.from(document.querySelectorAll('.sondaje-row'));
             for (const row of sondajeRows) {
@@ -3710,10 +3710,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const hasAdit = aditSub && aditSub.querySelector('.aditivo-row');
                 if (hasComp || hasAdit) {
                     const metVal = metInput ? metInput.value : '';
-                    if (metVal === '' || isNaN(parseFloat(metVal)) || parseFloat(metVal) <= 0) {
+                    if (metVal === '' || isNaN(parseFloat(metVal))) {
                         e.preventDefault();
                         rehabilitarSubmit();
-                        mostrarToast('El sondaje <strong>' + (sondajeText || sondajeId) + '</strong> tiene productos diamantados/aditivos sin metraje válido. Indique un metraje mayor a 0.', 'danger', 8000);
+                        mostrarToast('El sondaje <strong>' + (sondajeText || sondajeId) + '</strong> tiene productos diamantados/aditivos sin metraje válido.', 'danger', 8000);
                         scrollToSectionError('seccion-basicos');
                         if (metInput) metInput.focus();
                         return;

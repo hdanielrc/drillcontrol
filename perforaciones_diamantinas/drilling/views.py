@@ -2202,11 +2202,10 @@ def crear_turno_completo(request, pk=None):
                 final_total_metros = max(total_brocas, total_sondaje, (metros_perforados_val or 0))
                 
                 try:
-                    if final_total_metros and float(final_total_metros) > 0:
-                        TurnoAvance.objects.create(
-                            turno=turno,
-                            metros_perforados=final_total_metros
-                        )
+                    TurnoAvance.objects.create(
+                        turno=turno,
+                        metros_perforados=final_total_metros
+                    )
                 except Exception:
                     # No bloquear el flujo si falla la creaciÃ³n del avance
                     pass
