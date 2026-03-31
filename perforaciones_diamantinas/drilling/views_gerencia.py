@@ -732,7 +732,7 @@ def gerencia_programacion(request):
         'cantidad_dias': cantidad_dias,
         'mes_offset': mes_offset,
         'grupos': grupos,
-        'tipos_turno': tipos_turno,
+        'tipos_turno': [t['nombre'] for t in tipos_turno_all],
         'dias_calendario': dias_calendario,
         'fechas_periodo_json': json.dumps(fechas_periodo),
     }
