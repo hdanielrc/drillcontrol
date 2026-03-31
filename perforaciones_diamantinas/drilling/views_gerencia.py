@@ -645,8 +645,16 @@ def gerencia_programacion(request):
             'estado': t['estado'],
         })
 
-    # Tipos de turno (para encabezado del calendario)
-    tipos_turno = list(TipoTurno.objects.values_list('nombre', flat=True).order_by('nombre'))
+    # Categorizar TipoTurno en TD (día) y TN (noche) por nombre
+    tipos_turno_all = list(TipoTurno.objects.values('id', 'nombre').order_by('nombre'))
+    td_nombres = {t['nombre'] for t in tipos_turno_all
+                  if any(kw in t['nombre'].lower() for kw in ['día', 'dia', 'diurno', ' td', 'td '])}
+    tn_nombres = {t['nombre'] for t in tipos_turno_all
+                  if any(kw in t['nombre'].lower() for kw in ['noche', 'nocturno', ' tn', 'tn '])}
+    # Fallback: primer tipo → TD, resto → TN
+    if not td_nombres and not tn_nombres and tipos_turno_all:
+        td_nombres = {tipos_turno_all[0]['nombre']}
+        tn_nombres = {t['nombre'] for t in tipos_turno_all[1:]}
 
     # Construir estructura de datos para el template
     grupos = []
@@ -671,11 +679,15 @@ def gerencia_programacion(request):
             else:
                 meta_dia = dias_trab = programa = meta_turno = programa_final = None
 
-            # Datos del calendario para esta máquina
-            cal_maquina = {}
+            # Calendario como lista ordenada: [{td:[...], tn:[...]}, ...]
+            cal_maquina = []
             for offset in range(cantidad_dias):
                 fecha_dia = fecha_inicio + timedelta(days=offset)
-                cal_maquina[fecha_dia.strftime('%Y-%m-%d')] = cal_dict[m.id].get(fecha_dia, [])
+                turnos_dia = cal_dict[m.id].get(fecha_dia, [])
+                td = [t for t in turnos_dia if t['tipo'] in td_nombres]
+                tn = [t for t in turnos_dia if t['tipo'] in tn_nombres]
+                otros = [t for t in turnos_dia if t['tipo'] not in td_nombres and t['tipo'] not in tn_nombres]
+                cal_maquina.append({'td': td + otros, 'tn': tn})
 
             filas.append({
                 'maquina_id': m.id,

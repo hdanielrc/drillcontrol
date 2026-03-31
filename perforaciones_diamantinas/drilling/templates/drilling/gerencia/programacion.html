@@ -338,29 +338,21 @@
                         <span class="save-status"></span>
                     </td>
 
-                    <!-- CALENDARIO: primer par TD/TN = etiqueta de máquina (vacío) -->
+                    <!-- CALENDARIO: un par TD/TN por cada día del período -->
                     <td class="cal-cell cal-sep"></td>
                     <td class="cal-cell"></td>
 
-                    {% for d in dias_calendario %}
-                    {% with fecha_str=d.fecha|date:'Y-m-d' %}
-                    {% with turnos=fila.calendario|default:{} %}
+                    {% for dia_cal in fila.calendario %}
                     <td class="cal-cell td">
-                        {% for t in turnos %}
-                            {% if 'día' in t.tipo|lower or 'dia' in t.tipo|lower or 'td' in t.tipo|lower %}
-                            <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
-                            {% endif %}
+                        {% for t in dia_cal.td %}
+                        <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
                         {% endfor %}
                     </td>
                     <td class="cal-cell tn">
-                        {% for t in turnos %}
-                            {% if 'noche' in t.tipo|lower or 'tn' in t.tipo|lower %}
-                            <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
-                            {% endif %}
+                        {% for t in dia_cal.tn %}
+                        <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
                         {% endfor %}
                     </td>
-                    {% endwith %}
-                    {% endwith %}
                     {% endfor %}
                 </tr>
                 {% endfor %}
