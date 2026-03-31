@@ -328,6 +328,9 @@ urlpatterns = [
     # GERENCIA - Programación Mensual
     path('gerencia/programacion/', views_gerencia.gerencia_programacion, name='gerencia-programacion'),
     path('gerencia/programacion/guardar/', views_gerencia.programacion_save, name='gerencia-programacion-save'),
+    # GERENCIA - Meta por Turno (override de celda individual)
+    path('gerencia/meta-turno/guardar/', views_gerencia.meta_turno_save, name='gerencia-meta-turno-save'),
+    path('gerencia/meta-turno/<int:pk>/eliminar/', views_gerencia.meta_turno_delete, name='gerencia-meta-turno-delete'),
     
     # HISTORIAL DE BROCAS - Trazabilidad y Seguimiento
     path('historial-brocas/', views.historial_brocas_lista, name='historial-brocas-lista'),

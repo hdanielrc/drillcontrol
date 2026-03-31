@@ -10,7 +10,7 @@ from decimal import Decimal
 from collections import defaultdict
 from .models import (
     Turno, TurnoAvance, Maquina, Trabajador, Contrato,
-    TurnoActividad, Sondaje, MetaDiariaMaquina, ProgramacionMes, TipoTurno
+    TurnoActividad, Sondaje, MetaDiariaMaquina, ProgramacionMes, TipoTurno, MetaTurno
 )
 
 
@@ -648,14 +648,33 @@ def gerencia_programacion(request):
 
     # Categorizar TipoTurno en TD (día) y TN (noche) por nombre
     tipos_turno_all = list(TipoTurno.objects.values('id', 'nombre').order_by('nombre'))
-    td_nombres = {t['nombre'] for t in tipos_turno_all
-                  if any(kw in t['nombre'].lower() for kw in ['día', 'dia', 'diurno', ' td', 'td '])}
-    tn_nombres = {t['nombre'] for t in tipos_turno_all
-                  if any(kw in t['nombre'].lower() for kw in ['noche', 'nocturno', ' tn', 'tn '])}
+    td_ids   = {t['id'] for t in tipos_turno_all
+                if any(kw in t['nombre'].lower() for kw in ['día', 'dia', 'diurno', ' td', 'td '])}
+    tn_ids   = {t['id'] for t in tipos_turno_all
+                if any(kw in t['nombre'].lower() for kw in ['noche', 'nocturno', ' tn', 'tn '])}
+    td_nombres = {t['nombre'] for t in tipos_turno_all if t['id'] in td_ids}
+    tn_nombres = {t['nombre'] for t in tipos_turno_all if t['id'] in tn_ids}
     # Fallback: primer tipo → TD, resto → TN
-    if not td_nombres and not tn_nombres and tipos_turno_all:
+    if not td_ids and not tn_ids and tipos_turno_all:
+        td_ids   = {tipos_turno_all[0]['id']}
+        tn_ids   = {t['id'] for t in tipos_turno_all[1:]}
         td_nombres = {tipos_turno_all[0]['nombre']}
         tn_nombres = {t['nombre'] for t in tipos_turno_all[1:]}
+
+    tipo_td_id = next(iter(td_ids), None)
+    tipo_tn_id = next(iter(tn_ids), None)
+
+    # Overrides de MetaTurno para el período: {maquina_id: {fecha: {tipo_turno_id: {valor, id}}}}
+    meta_turno_qs = MetaTurno.objects.filter(
+        fecha__range=[fecha_inicio, fecha_fin]
+    ).values('id', 'maquina_id', 'fecha', 'tipo_turno_id', 'meta_metros')
+
+    mt_dict = defaultdict(lambda: defaultdict(dict))
+    for mt in meta_turno_qs:
+        mt_dict[mt['maquina_id']][mt['fecha']][mt['tipo_turno_id']] = {
+            'id': mt['id'],
+            'valor': float(mt['meta_metros']),
+        }
 
     # Construir estructura de datos para el template
     grupos = []
@@ -671,37 +690,66 @@ def gerencia_programacion(request):
             dia_ini = prog.dia_inicio if prog else None
 
             if prog and meta:
-                meta_dia = meta / 30
-                dias_trab = max(0, (fecha_fin - dia_ini).days + 1) if dia_ini else cantidad_dias
-                dias_trab = min(dias_trab, cantidad_dias)
-                programa = meta_dia * cantidad_dias
+                meta_dia   = meta / 30
                 meta_turno = meta_dia / 2
-                programa_final = meta_dia * dias_trab
+                dias_trab  = max(0, (fecha_fin - dia_ini).days + 1) if dia_ini else cantidad_dias
+                dias_trab  = min(dias_trab, cantidad_dias)
+                programa   = meta_dia * cantidad_dias
             else:
-                meta_dia = dias_trab = programa = meta_turno = programa_final = None
+                meta_dia = meta_turno = dias_trab = programa = None
 
-            # Calendario como lista ordenada: [{td:[...], tn:[...]}, ...]
+            # Calendario como lista ordenada: un dict por día con celdas TD y TN
             cal_maquina = []
+            prog_final_calculado = 0.0
+
             for offset in range(cantidad_dias):
                 fecha_dia = fecha_inicio + timedelta(days=offset)
-                turnos_dia = cal_dict[m.id].get(fecha_dia, [])
-                td = [t for t in turnos_dia if t['tipo'] in td_nombres]
-                tn = [t for t in turnos_dia if t['tipo'] in tn_nombres]
-                otros = [t for t in turnos_dia if t['tipo'] not in td_nombres and t['tipo'] not in tn_nombres]
-                cal_maquina.append({'td': td + otros, 'tn': tn})
+                activo    = (dia_ini is None) or (fecha_dia >= dia_ini)
+
+                turnos_dia   = cal_dict[m.id].get(fecha_dia, [])
+                overrides_dia = mt_dict[m.id].get(fecha_dia, {})
+
+                def _celda(tipo_id, nombres_set):
+                    ov       = overrides_dia.get(tipo_id)
+                    default  = round(meta_turno or 0, 2)
+                    valor    = ov['valor'] if ov else default
+                    estado_t = next(
+                        (t['estado'] for t in turnos_dia if t['tipo'] in nombres_set),
+                        None
+                    )
+                    return {
+                        'valor':      valor,
+                        'es_override': bool(ov),
+                        'override_id': ov['id'] if ov else None,
+                        'estado':      estado_t,
+                        'tipo_id':     tipo_id,
+                    }
+
+                cel_td = _celda(tipo_td_id, td_nombres)
+                cel_tn = _celda(tipo_tn_id, tn_nombres)
+
+                if activo:
+                    prog_final_calculado += cel_td['valor'] + cel_tn['valor']
+
+                cal_maquina.append({
+                    'fecha':  fecha_dia.strftime('%Y-%m-%d'),
+                    'activo': activo,
+                    'td':     cel_td,
+                    'tn':     cel_tn,
+                })
 
             filas.append({
-                'maquina_id': m.id,
+                'maquina_id':     m.id,
                 'maquina_nombre': m.nombre,
-                'prog_id': prog.id if prog else None,
-                'meta': meta,
-                'dia_inicio': dia_ini.strftime('%Y-%m-%d') if dia_ini else '',
+                'prog_id':        prog.id if prog else None,
+                'meta':           meta,
+                'dia_inicio':     dia_ini.strftime('%Y-%m-%d') if dia_ini else '',
                 'dias_trabajados': dias_trab,
-                'programa': round(programa, 2) if programa else None,
-                'meta_dia': round(meta_dia, 2) if meta_dia else None,
-                'meta_turno': round(meta_turno, 2) if meta_turno else None,
-                'programa_final': round(programa_final, 2) if programa_final else None,
-                'calendario': cal_maquina,
+                'programa':       round(programa, 2) if programa else None,
+                'meta_dia':       round(meta_dia, 2) if meta_dia else None,
+                'meta_turno':     round(meta_turno, 2) if meta_turno else None,
+                'programa_final': round(prog_final_calculado, 2) if meta else None,
+                'calendario':     cal_maquina,
             })
 
         grupos.append({
@@ -749,6 +797,8 @@ def gerencia_programacion(request):
         'grupos': grupos,
         'todas_maquinas_json': json.dumps(todas_maquinas),
         'tipos_turno': [t['nombre'] for t in tipos_turno_all],
+        'tipo_td_id': tipo_td_id,
+        'tipo_tn_id': tipo_tn_id,
         'dias_calendario': dias_calendario,
         'fechas_periodo_json': json.dumps(fechas_periodo),
     }
@@ -798,3 +848,43 @@ def programacion_save(request):
         'programa_final': round(meta_dia * dias_trab, 2),
         'dias_trabajados': dias_trab,
     })
+
+
+# =============================================================================
+# META TURNO: override individual de celda del calendario
+# =============================================================================
+
+@login_required
+@gerente_required
+@require_http_methods(["POST"])
+def meta_turno_save(request):
+    """Guarda o actualiza el override de meta para un turno específico."""
+    try:
+        body           = json.loads(request.body)
+        maquina_id     = int(body['maquina_id'])
+        fecha          = date_class.fromisoformat(body['fecha'])
+        tipo_turno_id  = int(body['tipo_turno_id'])
+        meta_metros    = Decimal(str(body['meta_metros']))
+    except (KeyError, ValueError, TypeError) as e:
+        return JsonResponse({'error': f'Datos inválidos: {e}'}, status=400)
+
+    maquina    = get_object_or_404(Maquina, pk=maquina_id)
+    tipo_turno = get_object_or_404(TipoTurno, pk=tipo_turno_id)
+
+    obj, created = MetaTurno.objects.update_or_create(
+        maquina=maquina,
+        fecha=fecha,
+        tipo_turno=tipo_turno,
+        defaults={'meta_metros': meta_metros, 'created_by': request.user}
+    )
+    return JsonResponse({'id': obj.id, 'created': created, 'valor': float(obj.meta_metros)})
+
+
+@login_required
+@gerente_required
+@require_http_methods(["DELETE"])
+def meta_turno_delete(request, pk):
+    """Elimina un override de MetaTurno (restaura al valor por defecto)."""
+    mt = get_object_or_404(MetaTurno, pk=pk)
+    mt.delete()
+    return JsonResponse({'deleted': True})

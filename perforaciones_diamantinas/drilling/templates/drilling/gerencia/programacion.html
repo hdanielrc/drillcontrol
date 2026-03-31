@@ -146,24 +146,55 @@
     .th-turno-label.td { background: var(--prog-cal-td); }
     .th-turno-label.tn { background: var(--prog-cal-tn); }
 
+    /* ── CELDAS CALENDARIO (editables) ──────────────────────── */
     .cal-cell {
         text-align: center;
         font-size: .68rem;
-        padding: 2px 1px;
-        min-width: 26px;
-        max-width: 32px;
+        padding: 1px;
+        min-width: 46px;
+        max-width: 52px;
+        vertical-align: middle;
     }
     .cal-cell.td { background: #f0f5fb; }
     .cal-cell.tn { background: #fff6f2; }
-    .cal-cell .dot {
-        display: inline-block;
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        margin: 0 auto;
+
+    /* Estado del turno real: tono de fondo */
+    .cal-cell.turno-completado { background: #d4edda !important; }
+    .cal-cell.turno-aprobado   { background: #cce5ff !important; }
+    .cal-cell.turno-borrador   { background: #fff3cd !important; }
+
+    /* Celda con override manual */
+    .cal-cell.es-override .cal-input { font-weight: 700; color: #7b3100; }
+
+    /* Celda inactiva (antes del día inicio) */
+    .cal-cell.cal-inactive { opacity: .28; pointer-events: none; background: #f5f5f5 !important; }
+
+    /* Input dentro de la celda */
+    .cal-input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        font-size: .7rem;
+        text-align: center;
+        padding: 2px 1px;
+        outline: none;
+        cursor: pointer;
+        border-radius: 3px;
     }
-    .dot-completado { background: #28a745; }
-    .dot-aprobado   { background: #084163; }
-    .dot-borrador   { background: #ffc107; }
+    .cal-input:focus  { background: white; box-shadow: 0 0 0 2px #084163; cursor: text; }
+    .cal-input.saving { color: #999; }
+    .cal-input.saved  { background: #e8f5e9; transition: background 1s; }
+
+    /* Botón reset (doble clic → reset a default) */
+    .cal-cell[data-override-id]:hover::after {
+        content: '↺';
+        font-size: .6rem;
+        color: #7b3100;
+        position: absolute;
+        top: 1px; right: 2px;
+        cursor: pointer;
+    }
+    .cal-cell { position: relative; }
 
     /* ── BOTONES GUARDAR ─────────────────────────────────────── */
     .btn-save-row {
@@ -342,20 +373,44 @@
                         <span class="save-status"></span>
                     </td>
 
-                    <!-- CALENDARIO: un par TD/TN por cada día del período -->
-                    <td class="cal-cell cal-sep"></td>
-                    <td class="cal-cell"></td>
+                    <!-- CALENDARIO: celdas editables TD/TN por cada día -->
+                    <td class="cal-cell cal-sep" style="background:#e8f0f7;font-size:.65rem;color:#084163;font-weight:600;text-align:center;padding:2px;">
+                        TD<br>TN
+                    </td>
+                    <td class="cal-cell" style="background:#e8f0f7;"></td>
 
                     {% for dia_cal in fila.calendario %}
-                    <td class="cal-cell td">
-                        {% for t in dia_cal.td %}
-                        <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
-                        {% endfor %}
+                    {# ── Celda TD ── #}
+                    <td class="cal-input-wrap cal-cell td
+                               {% if not dia_cal.activo %}cal-inactive{% endif %}
+                               {% if dia_cal.td.es_override %}es-override{% endif %}
+                               {% if dia_cal.td.estado == 'COMPLETADO' %}turno-completado{% elif dia_cal.td.estado == 'APROBADO' %}turno-aprobado{% elif dia_cal.td.estado == 'BORRADOR' %}turno-borrador{% endif %}"
+                        data-fecha="{{ dia_cal.fecha }}"
+                        data-tipo-id="{{ tipo_td_id }}"
+                        data-maquina-id="{{ fila.maquina_id }}"
+                        {% if dia_cal.td.override_id %}data-override-id="{{ dia_cal.td.override_id }}"{% endif %}
+                        title="{% if dia_cal.td.estado %}Turno {{ dia_cal.td.estado }}{% else %}Sin turno{% endif %}{% if dia_cal.td.es_override %} — Valor personalizado{% endif %}">
+                        <input type="number" class="cal-input"
+                               value="{{ dia_cal.td.valor|floatformat:2 }}"
+                               min="0" step="0.01"
+                               data-default="{{ fila.meta_turno|default_if_none:0 }}"
+                               {% if not dia_cal.activo %}disabled{% endif %}>
                     </td>
-                    <td class="cal-cell tn">
-                        {% for t in dia_cal.tn %}
-                        <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
-                        {% endfor %}
+                    {# ── Celda TN ── #}
+                    <td class="cal-input-wrap cal-cell tn
+                               {% if not dia_cal.activo %}cal-inactive{% endif %}
+                               {% if dia_cal.tn.es_override %}es-override{% endif %}
+                               {% if dia_cal.tn.estado == 'COMPLETADO' %}turno-completado{% elif dia_cal.tn.estado == 'APROBADO' %}turno-aprobado{% elif dia_cal.tn.estado == 'BORRADOR' %}turno-borrador{% endif %}"
+                        data-fecha="{{ dia_cal.fecha }}"
+                        data-tipo-id="{{ tipo_tn_id }}"
+                        data-maquina-id="{{ fila.maquina_id }}"
+                        {% if dia_cal.tn.override_id %}data-override-id="{{ dia_cal.tn.override_id }}"{% endif %}
+                        title="{% if dia_cal.tn.estado %}Turno {{ dia_cal.tn.estado }}{% else %}Sin turno{% endif %}{% if dia_cal.tn.es_override %} — Valor personalizado{% endif %}">
+                        <input type="number" class="cal-input"
+                               value="{{ dia_cal.tn.valor|floatformat:2 }}"
+                               min="0" step="0.01"
+                               data-default="{{ fila.meta_turno|default_if_none:0 }}"
+                               {% if not dia_cal.activo %}disabled{% endif %}>
                     </td>
                     {% endfor %}
                 </tr>
@@ -416,10 +471,12 @@
 
 {% block extra_js %}
 <script>
-    const URL_SAVE  = "{% url 'gerencia-programacion-save' %}";
-    const CSRF      = '{{ csrf_token }}';
-    const AÑO_OP    = {{ año_op }};
-    const MES_OP    = {{ mes_op }};
+    const URL_SAVE       = "{% url 'gerencia-programacion-save' %}";
+    const URL_CELL_SAVE  = "{% url 'gerencia-meta-turno-save' %}";
+    const URL_CELL_DEL   = "{% url 'gerencia-meta-turno-delete' pk=0 %}".replace('/0/eliminar/', '/');
+    const CSRF           = '{{ csrf_token }}';
+    const AÑO_OP         = {{ año_op }};
+    const MES_OP         = {{ mes_op }};
 
     /* ──────────────────────────────────────────────────────────
        RECALCULAR: actualiza celdas calculadas en tiempo real
@@ -455,6 +512,9 @@
         tr.querySelector('.meta-dia').textContent   = metaDia.toFixed(2);
         tr.querySelector('.meta-turno').textContent = metaTurno.toFixed(2);
         tr.querySelector('.prog-final').textContent = progFinal.toFixed(2);
+
+        // Propagar META_TURNO a las celdas sin override
+        rellenarCeldasDefault(tr);
     }
 
     /* ──────────────────────────────────────────────────────────
@@ -549,7 +609,112 @@
     /* Recalcular al cargar (por si hay valores pre-llenados) */
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('tr.fila-maquina').forEach(tr => recalcularFila(tr));
+        inicializarCeldas();
     });
+
+    /* ──────────────────────────────────────────────────────────
+       CELDAS EDITABLES DEL CALENDARIO
+    ────────────────────────────────────────────────────────── */
+    const saveTimers = {};
+
+    function inicializarCeldas() {
+        document.querySelectorAll('.cal-input').forEach(inp => {
+            inp.addEventListener('input', () => onCeldaChange(inp));
+            inp.addEventListener('dblclick', () => resetCelda(inp));
+        });
+    }
+
+    function onCeldaChange(inp) {
+        const td   = inp.closest('td');
+        const tr   = inp.closest('tr');
+        const key  = `${tr.dataset.maquinaId}_${td.dataset.fecha}_${td.dataset.tipoId}`;
+
+        // Recalcular PROG_FINAL en tiempo real
+        recalcularProgFinalDesdeCeldas(tr);
+
+        // Auto-guardar con debounce de 900ms
+        clearTimeout(saveTimers[key]);
+        inp.classList.add('saving');
+        saveTimers[key] = setTimeout(() => guardarCelda(inp, td, tr), 900);
+    }
+
+    async function guardarCelda(inp, td, tr) {
+        const valor = parseFloat(inp.value);
+        if (isNaN(valor) || valor < 0) return;
+
+        try {
+            const resp = await fetch(URL_CELL_SAVE, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+                body: JSON.stringify({
+                    maquina_id:    tr.dataset.maquinaId,
+                    fecha:         td.dataset.fecha,
+                    tipo_turno_id: td.dataset.tipoId,
+                    meta_metros:   valor,
+                })
+            });
+            const data = await resp.json();
+            if (data.error) throw new Error(data.error);
+
+            // Actualizar override_id en la celda para futuras operaciones
+            td.dataset.overrideId = data.id;
+            td.classList.add('es-override');
+            inp.classList.remove('saving');
+            inp.classList.add('saved');
+            setTimeout(() => inp.classList.remove('saved'), 1500);
+        } catch (e) {
+            inp.classList.remove('saving');
+            inp.style.background = '#ffe0e0';
+            console.error('Error guardando celda:', e);
+        }
+    }
+
+    /* Doble clic → resetear al valor por defecto y borrar override */
+    async function resetCelda(inp) {
+        const td      = inp.closest('td');
+        const tr      = inp.closest('tr');
+        const defVal  = parseFloat(inp.dataset.default) || 0;
+        const ovId    = td.dataset.overrideId;
+
+        if (!ovId) return; // ya es el valor por defecto
+
+        if (!confirm(`¿Restablecer esta celda al valor por defecto (${defVal.toFixed(2)} m)?`)) return;
+
+        try {
+            await fetch(URL_CELL_DEL + ovId + '/eliminar/', {
+                method: 'DELETE',
+                headers: {'X-CSRFToken': CSRF}
+            });
+            inp.value = defVal.toFixed(2);
+            delete td.dataset.overrideId;
+            td.classList.remove('es-override');
+            recalcularProgFinalDesdeCeldas(tr);
+        } catch (e) {
+            console.error('Error reseteando celda:', e);
+        }
+    }
+
+    /* Recalcular PROG_FINAL sumando todas las celdas activas de la fila */
+    function recalcularProgFinalDesdeCeldas(tr) {
+        let total = 0;
+        tr.querySelectorAll('.cal-input-wrap:not(.cal-inactive) .cal-input').forEach(inp => {
+            total += parseFloat(inp.value) || 0;
+        });
+        const celda = tr.querySelector('.prog-final');
+        if (celda) celda.textContent = total.toFixed(2);
+    }
+
+    /* Cuando cambia META o DÍA INICIO, rellenar todas las celdas no-override con el nuevo META_TURNO */
+    function rellenarCeldasDefault(tr) {
+        const metaTurno = parseFloat(tr.querySelector('.meta-turno').textContent) || 0;
+        tr.querySelectorAll('.cal-input-wrap').forEach(td => {
+            if (!td.dataset.overrideId && !td.classList.contains('cal-inactive')) {
+                td.querySelector('.cal-input').value = metaTurno.toFixed(2);
+                td.querySelector('.cal-input').dataset.default = metaTurno.toFixed(2);
+            }
+        });
+        recalcularProgFinalDesdeCeldas(tr);
+    }
 
     /* ──────────────────────────────────────────────────────────
        MODAL: Agregar máquina

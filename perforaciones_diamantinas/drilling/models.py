@@ -5123,6 +5123,66 @@ class ProgramacionMes(models.Model):
 
 
 # =============================================================================
+# SECCIÓN: META POR TURNO (override individual de celda en programación)
+# =============================================================================
+
+class MetaTurno(models.Model):
+    """
+    Override de meta para un turno específico (máquina + fecha + tipo de turno).
+
+    Por defecto, cada celda del calendario usa META_TURNO = meta_metros / 30 / 2.
+    Este modelo permite sobreescribir una celda puntual sin afectar las demás.
+    El PROGRAMA_FINAL se calcula sumando todos los valores de las celdas activas.
+    """
+
+    maquina = models.ForeignKey(
+        Maquina,
+        on_delete=models.CASCADE,
+        related_name='metas_turno',
+        verbose_name='Máquina'
+    )
+
+    fecha = models.DateField(verbose_name='Fecha')
+
+    tipo_turno = models.ForeignKey(
+        TipoTurno,
+        on_delete=models.PROTECT,
+        related_name='metas_turno',
+        verbose_name='Tipo de turno'
+    )
+
+    meta_metros = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Meta metros'
+    )
+
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name='metas_turno_creadas',
+        verbose_name='Creado por'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'meta_turno'
+        verbose_name = 'Meta por Turno'
+        verbose_name_plural = 'Metas por Turno'
+        unique_together = [('maquina', 'fecha', 'tipo_turno')]
+        ordering = ['maquina', 'fecha', 'tipo_turno']
+        indexes = [
+            models.Index(fields=['maquina', 'fecha']),
+        ]
+
+    def __str__(self):
+        return f"{self.maquina.nombre} | {self.fecha} | {self.tipo_turno.nombre} → {self.meta_metros} m"
+
+
+# =============================================================================
 # SECCIÓN: API INTEGRATION - Staging Tables (ELIMINADO)
 # =============================================================================
 
