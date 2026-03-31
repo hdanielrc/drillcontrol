@@ -1,0 +1,205 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+:root { --m-primary:#084163; }
+.section-card { background:white; border-radius:10px; padding:1.2rem; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:1rem; }
+.section-hdr  { font-size:.85rem; font-weight:700; color:var(--m-primary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:.8rem; padding-bottom:.4rem; border-bottom:2px solid #e9ecef; }
+.form-label   { font-size:.8rem; font-weight:600; color:#555; }
+.form-control, .form-select { font-size:.85rem; }
+.prioridad-badge { display:inline-block; padding:4px 12px; border-radius:20px; cursor:pointer; font-size:.8rem; transition:.15s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3" style="max-width:1100px;">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h5 class="mb-0">
+        <i class="fas fa-{% if registro %}edit{% else %}plus{% endif %} me-2" style="color:var(--m-primary)"></i>
+        {% if registro %}Editar Registro de Mantenimiento{% else %}Nuevo Registro de Mantenimiento{% endif %}
+      </h5>
+      <small class="text-muted">Máquina: <strong>{{ maquina.nombre }}</strong> &mdash; {{ maquina.contrato.nombre_contrato }}</small>
+    </div>
+    <a href="{% url 'mantenimiento-maquina-detalle' maquina.pk %}" class="btn btn-outline-secondary btn-sm">
+      <i class="fas fa-arrow-left me-1"></i>Cancelar
+    </a>
+  </div>
+
+  {% if messages %}
+  {% for msg in messages %}
+  <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2" style="font-size:.83rem;" role="alert">
+    {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <form method="post" id="bitacoraForm">
+    {% csrf_token %}
+
+    <!-- Bloque 1: Identificación -->
+    <div class="section-card">
+      <div class="section-hdr"><i class="fas fa-info-circle me-1"></i>Identificación de la Orden de Trabajo</div>
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Fecha inicio *</label>
+          <input type="date" name="fecha_inicio" class="form-control form-control-sm"
+                 value="{{ registro.fecha_inicio|date:'Y-m-d'|default:hoy }}" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Fecha fin</label>
+          <input type="date" name="fecha_fin" class="form-control form-control-sm"
+                 value="{{ registro.fecha_fin|date:'Y-m-d'|default:'' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Horómetro (hrs) *</label>
+          <input type="number" name="horometro_registro" step="0.01" min="0" class="form-control form-control-sm"
+                 value="{{ registro.horometro_registro|default:maquina.horometro }}" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Tipo de mantenimiento *</label>
+          <select name="tipo" class="form-select form-select-sm" required>
+            {% for val, lbl in TIPO_CHOICES %}
+            <option value="{{ val }}" {% if registro.tipo == val %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Prioridad *</label>
+          <select name="prioridad" class="form-select form-select-sm" required>
+            {% for val, lbl in PRIORIDAD_CHOICES %}
+            <option value="{{ val }}" {% if registro.prioridad == val %}selected{% elif not registro and val == 'MEDIA' %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Estado OT *</label>
+          <select name="estado_ot" class="form-select form-select-sm" required>
+            {% for val, lbl in ESTADO_OT_CHOICES %}
+            <option value="{{ val }}" {% if registro.estado_ot == val %}selected{% elif not registro and val == 'PENDIENTE' %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Estado posterior al mtto.</label>
+          <select name="estado_posterior" class="form-select form-select-sm">
+            {% for val, lbl in ESTADO_CHOICES %}
+            <option value="{{ val }}" {% if registro.estado_posterior == val %}selected{% elif not registro and val == 'OPERATIVO' %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloque 2: Descripción técnica -->
+    <div class="section-card">
+      <div class="section-hdr"><i class="fas fa-file-alt me-1"></i>Descripción Técnica</div>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Descripción del problema / motivo *</label>
+          <textarea name="descripcion" class="form-control form-control-sm" rows="3" required
+                    placeholder="Describe el problema detectado o el motivo de la intervención...">{{ registro.descripcion|default:'' }}</textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Trabajo realizado</label>
+          <textarea name="trabajo_realizado" class="form-control form-control-sm" rows="3"
+                    placeholder="Describe las actividades y tareas ejecutadas...">{{ registro.trabajo_realizado|default:'' }}</textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Repuestos / materiales utilizados</label>
+          <textarea name="repuestos_utilizados" class="form-control form-control-sm" rows="2"
+                    placeholder="Lista de repuestos, parte números, cantidades...">{{ registro.repuestos_utilizados|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloque 3: Costos y tiempos -->
+    <div class="section-card">
+      <div class="section-hdr"><i class="fas fa-dollar-sign me-1"></i>Costos y Tiempos</div>
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Tiempo de parada (hrs)</label>
+          <input type="number" name="tiempo_parada_horas" step="0.5" min="0" class="form-control form-control-sm"
+                 value="{{ registro.tiempo_parada_horas|default:'' }}" placeholder="0.00">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Costo mano de obra (S/)</label>
+          <input type="number" name="costo_mano_obra" step="0.01" min="0" class="form-control form-control-sm"
+                 value="{{ registro.costo_mano_obra|default:'' }}" placeholder="0.00" id="costoMO">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Costo repuestos (S/)</label>
+          <input type="number" name="costo_repuestos" step="0.01" min="0" class="form-control form-control-sm"
+                 value="{{ registro.costo_repuestos|default:'' }}" placeholder="0.00" id="costoRep">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Costo total (S/)</label>
+          <input type="number" name="costo_total" step="0.01" min="0" class="form-control form-control-sm"
+                 value="{{ registro.costo_total|default:'' }}" placeholder="0.00" id="costoTotal">
+          <div class="form-text" style="font-size:.7rem;">Se calcula automáticamente si se ingresan los anteriores.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloque 4: Responsables y próxima intervención -->
+    <div class="section-card">
+      <div class="section-hdr"><i class="fas fa-user-cog me-1"></i>Responsables y Seguimiento</div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Responsable técnico</label>
+          <input type="text" name="responsable_tecnico" class="form-control form-control-sm"
+                 value="{{ registro.responsable_tecnico|default:'' }}" placeholder="Nombre del técnico o empresa">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Proveedor / Taller</label>
+          <input type="text" name="proveedor_taller" class="form-control form-control-sm"
+                 value="{{ registro.proveedor_taller|default:'' }}" placeholder="Empresa externa o taller">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Próxima intervención (hrs horómetro)</label>
+          <input type="number" name="proxima_intervencion_horometro" step="0.01" min="0" class="form-control form-control-sm"
+                 value="{{ registro.proxima_intervencion_horometro|default:'' }}" placeholder="Ej: 2500">
+          <div class="form-text" style="font-size:.7rem;">Actualiza el próximo mantenimiento programado de la máquina.</div>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Observaciones adicionales</label>
+          <textarea name="observaciones" class="form-control form-control-sm" rows="2"
+                    placeholder="Notas, recomendaciones, próximas acciones...">{{ registro.observaciones|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="d-flex gap-2 justify-content-end">
+      <a href="{% url 'mantenimiento-maquina-detalle' maquina.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save me-1"></i>{% if registro %}Actualizar Registro{% else %}Guardar Registro{% endif %}
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-calcular costo total cuando cambian los costos parciales
+const mo  = document.getElementById('costoMO');
+const rep = document.getElementById('costoRep');
+const tot = document.getElementById('costoTotal');
+
+function recalcularTotal() {
+    const v1 = parseFloat(mo.value)  || 0;
+    const v2 = parseFloat(rep.value) || 0;
+    if (v1 > 0 || v2 > 0) {
+        tot.value = (v1 + v2).toFixed(2);
+    }
+}
+mo.addEventListener('change', recalcularTotal);
+rep.addEventListener('change', recalcularTotal);
+</script>
+{% endblock %}

@@ -8,6 +8,7 @@ from . import views_consumo
 from . import views_tareo          # módulo unificado V1 + V2
 from . import views_headcount
 from . import views_gerencia
+from . import views_mantenimiento
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
     guardar_asignaciones_masivas, marcar_stand_by,
@@ -332,6 +333,21 @@ urlpatterns = [
     path('gerencia/meta-turno/guardar/', views_gerencia.meta_turno_save, name='gerencia-meta-turno-save'),
     path('gerencia/meta-turno/<int:pk>/eliminar/', views_gerencia.meta_turno_delete, name='gerencia-meta-turno-delete'),
     
+    # =========================================================================
+    # MANTENIMIENTO DE MÁQUINAS
+    # =========================================================================
+    path('mantenimiento/', views_mantenimiento.mantenimiento_dashboard, name='mantenimiento-dashboard'),
+    path('mantenimiento/maquinas/', views_mantenimiento.mantenimiento_maquinas, name='mantenimiento-maquinas'),
+    path('mantenimiento/maquinas/nueva/', views_mantenimiento.mantenimiento_maquina_form, name='mantenimiento-maquina-nueva'),
+    path('mantenimiento/maquinas/<int:pk>/editar/', views_mantenimiento.mantenimiento_maquina_form, name='mantenimiento-maquina-edit'),
+    path('mantenimiento/maquinas/<int:pk>/', views_mantenimiento.mantenimiento_maquina_detalle, name='mantenimiento-maquina-detalle'),
+    path('mantenimiento/maquinas/<int:maquina_pk>/bitacora/nueva/', views_mantenimiento.bitacora_form, name='bitacora-nueva'),
+    path('mantenimiento/maquinas/<int:maquina_pk>/bitacora/<int:pk>/editar/', views_mantenimiento.bitacora_form, name='bitacora-edit'),
+    path('mantenimiento/bitacora/<int:pk>/eliminar/', views_mantenimiento.bitacora_delete, name='bitacora-delete'),
+    path('mantenimiento/traslado/', views_mantenimiento.mantenimiento_traslado, name='mantenimiento-traslado'),
+    path('mantenimiento/traslado/<int:pk>/', views_mantenimiento.mantenimiento_traslado, name='mantenimiento-traslado-maquina'),
+    path('mantenimiento/maquinas/<int:pk>/estado/', views_mantenimiento.api_cambiar_estado_maquina, name='api-cambiar-estado-maquina'),
+
     # HISTORIAL DE BROCAS - Trazabilidad y Seguimiento
     path('historial-brocas/', views.historial_brocas_lista, name='historial-brocas-lista'),
     path('historial-brocas/<str:serie>/', views.historial_broca_detalle, name='historial-broca-detalle'),

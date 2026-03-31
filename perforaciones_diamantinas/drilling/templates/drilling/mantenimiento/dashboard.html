@@ -1,0 +1,213 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+:root { --m-primary:#084163; --m-ok:#28a745; --m-warn:#ffc107; --m-danger:#dc3545; }
+.kpi { background:white; border-radius:10px; padding:1.4rem 1.2rem; box-shadow:0 2px 8px rgba(0,0,0,.08); height:100%; }
+.kpi .val { font-size:2.2rem; font-weight:700; }
+.kpi .lbl { font-size:.78rem; text-transform:uppercase; color:#888; letter-spacing:.4px; }
+.section-title { font-size:1rem; font-weight:700; color:var(--m-primary); margin-bottom:.8rem; }
+.badge-preventivo  { background:#0d6efd22; color:#0d6efd; }
+.badge-correctivo  { background:#dc354522; color:#dc3545; }
+.badge-inspeccion  { background:#19875422; color:#198754; }
+.badge-overhaul    { background:#6f42c122; color:#6f42c1; }
+.badge-emergencia  { background:#fd7e1422; color:#fd7e14; }
+.badge-baja        { background:#e2e3e5; color:#495057; }
+.badge-media       { background:#fff3cd; color:#856404; }
+.badge-alta        { background:#ffd5d5; color:#842029; }
+.badge-critica     { background:#dc3545; color:white; }
+.ot-row            { font-size:.83rem; }
+.prog-bar-wrap     { height:8px; background:#e9ecef; border-radius:4px; overflow:hidden; }
+.prog-bar-fill     { height:100%; border-radius:4px; transition:width .4s; }
+.alerta-item       { border-left:4px solid; padding:.6rem 1rem; border-radius:4px; margin-bottom:.5rem; font-size:.83rem; background:#f8f9fa; }
+.alerta-danger  { border-left-color:var(--m-danger); }
+.alerta-warning { border-left-color:var(--m-warn); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0"><i class="fas fa-wrench me-2" style="color:var(--m-primary)"></i>Dashboard de Mantenimiento</h4>
+      <small class="text-muted">Estado actual de flota y órdenes de trabajo</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'mantenimiento-maquinas' %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-list me-1"></i>Máquinas</a>
+      <a href="{% url 'mantenimiento-traslado' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-exchange-alt me-1"></i>Traslados</a>
+      {% if perms or request.user.can_supervise_operations %}
+      <a href="{% url 'mantenimiento-maquina-nueva' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Nueva Máquina</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="kpi text-center">
+        <div class="val text-primary">{{ total }}</div>
+        <div class="lbl">Total máquinas</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi text-center">
+        <div class="val text-success">{{ operativas }}</div>
+        <div class="lbl">Operativas</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi text-center">
+        <div class="val text-warning">{{ en_mtto }}</div>
+        <div class="lbl">En mantenimiento</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi text-center">
+        <div class="val text-danger">{{ fuera_srv }}</div>
+        <div class="lbl">Fuera de servicio</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- OTs abiertas -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="section-title"><i class="fas fa-clipboard-list me-1"></i>Órdenes de Trabajo Abiertas
+            <span class="badge bg-danger ms-2">{{ ot_abiertas|length }}</span>
+          </div>
+          {% if ot_abiertas %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light"><tr>
+                <th>Máquina</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th></th>
+              </tr></thead>
+              <tbody>
+              {% for ot in ot_abiertas %}
+              <tr class="ot-row">
+                <td><a href="{% url 'mantenimiento-maquina-detalle' ot.maquina.pk %}">{{ ot.maquina.nombre }}</a></td>
+                <td><span class="badge badge-{{ ot.tipo|lower }}">{{ ot.get_tipo_display }}</span></td>
+                <td><span class="badge badge-{{ ot.prioridad|lower }}">{{ ot.get_prioridad_display }}</span></td>
+                <td>{{ ot.get_estado_ot_display }}</td>
+                <td><a href="{% url 'bitacora-edit' ot.maquina.pk ot.pk %}" class="btn btn-xs btn-outline-primary" style="font-size:.7rem;padding:1px 6px;"><i class="fas fa-edit"></i></a></td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Sin órdenes abiertas</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Alertas -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="section-title"><i class="fas fa-bell me-1"></i>Alertas</div>
+          {% if alertas %}
+            {% for a in alertas %}
+            <div class="alerta-item alerta-{{ a.nivel }}">
+              <i class="fas fa-{% if a.nivel == 'danger' %}exclamation-triangle{% else %}exclamation-circle{% endif %} me-1"></i>
+              <a href="{% url 'mantenimiento-maquina-detalle' a.maquina.pk %}">{{ a.msg }}</a>
+            </div>
+            {% endfor %}
+          {% else %}
+          <p class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Sin alertas activas</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Costo del mes + Distribución -->
+    <div class="col-lg-3">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body text-center">
+          <div class="lbl mb-1"><i class="fas fa-dollar-sign"></i> Costo mes actual</div>
+          <div style="font-size:1.6rem;font-weight:700;color:var(--m-primary)">S/ {{ costo_mes|floatformat:2 }}</div>
+        </div>
+      </div>
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="section-title" style="font-size:.85rem;">Distribución por tipo (90 días)</div>
+          {% for d in dist_tipo %}
+          <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.78rem;">
+            <span class="badge badge-{{ d.tipo|lower }}">{{ d.tipo }}</span>
+            <strong>{{ d.cantidad }}</strong>
+          </div>
+          {% empty %}<p class="text-muted small">Sin registros</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado de flota operativa (barra de vida de mantenimiento) -->
+  {% if maquinas_list %}
+  <div class="card border-0 shadow-sm mt-3">
+    <div class="card-body">
+      <div class="section-title"><i class="fas fa-tachometer-alt me-1"></i>Estado de Flota Operativa — Ciclo de Mantenimiento</div>
+      <div class="row g-2">
+        {% for m in maquinas_list %}
+        <div class="col-md-4 col-lg-3">
+          <div class="p-2 border rounded" style="font-size:.78rem;">
+            <div class="d-flex justify-content-between">
+              <a href="{% url 'mantenimiento-maquina-detalle' m.pk %}" class="fw-bold text-truncate" style="max-width:120px;" title="{{ m.nombre }}">{{ m.nombre }}</a>
+              {% with pct=m.porcentaje_vida_mantenimiento %}
+              <span class="{% if pct >= 100 %}text-danger{% elif pct >= 80 %}text-warning{% else %}text-success{% endif %}">{{ pct }}%</span>
+              {% endwith %}
+            </div>
+            <div class="text-muted">{{ m.horometro }} hrs</div>
+            {% with pct=m.porcentaje_vida_mantenimiento %}
+            <div class="prog-bar-wrap mt-1">
+              <div class="prog-bar-fill {% if pct >= 100 %}bg-danger{% elif pct >= 80 %}bg-warning{% else %}bg-success{% endif %}"
+                   style="width:{{ pct }}%"></div>
+            </div>
+            {% endwith %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Últimas intervenciones -->
+  <div class="card border-0 shadow-sm mt-3">
+    <div class="card-body">
+      <div class="section-title"><i class="fas fa-history me-1"></i>Últimas Intervenciones (30 días)</div>
+      {% if ot_recientes %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+          <thead class="table-light"><tr>
+            <th>Fecha</th><th>Máquina</th><th>Contrato</th><th>Tipo</th><th>Descripción</th><th>Costo</th><th>Estado OT</th>
+          </tr></thead>
+          <tbody>
+          {% for ot in ot_recientes %}
+          <tr>
+            <td>{{ ot.fecha_inicio|date:"d/m/Y" }}</td>
+            <td><a href="{% url 'mantenimiento-maquina-detalle' ot.maquina.pk %}">{{ ot.maquina.nombre }}</a></td>
+            <td><small>{{ ot.maquina.contrato.nombre_contrato }}</small></td>
+            <td><span class="badge badge-{{ ot.tipo|lower }}">{{ ot.get_tipo_display }}</span></td>
+            <td>{{ ot.descripcion|truncatechars:60 }}</td>
+            <td>{% if ot.costo_total %}S/ {{ ot.costo_total|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td>{{ ot.get_estado_ot_display }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted text-center py-3">Sin intervenciones en los últimos 30 días.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

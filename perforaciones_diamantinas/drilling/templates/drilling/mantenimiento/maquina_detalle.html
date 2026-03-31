@@ -1,0 +1,249 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+:root { --m-primary:#084163; }
+.stat-card { background:white; border-radius:10px; padding:1.2rem; box-shadow:0 2px 8px rgba(0,0,0,.08); text-align:center; }
+.stat-val  { font-size:1.8rem; font-weight:700; }
+.stat-lbl  { font-size:.75rem; text-transform:uppercase; color:#888; }
+.estado-badge { font-size:.72rem; padding:3px 9px; border-radius:20px; font-weight:600; }
+.estado-OPERATIVO    { background:#d4edda; color:#155724; }
+.estado-MANTENIMIENTO { background:#fff3cd; color:#856404; }
+.estado-FUERA_SERVICIO { background:#f8d7da; color:#721c24; }
+.badge-preventivo  { background:#0d6efd22; color:#0d6efd; }
+.badge-correctivo  { background:#dc354522; color:#dc3545; }
+.badge-inspeccion  { background:#19875422; color:#198754; }
+.badge-overhaul    { background:#6f42c122; color:#6f42c1; }
+.badge-emergencia  { background:#fd7e1422; color:#fd7e14; }
+.badge-baja   { background:#e2e3e5; color:#495057; }
+.badge-media  { background:#fff3cd; color:#856404; }
+.badge-alta   { background:#ffd5d5; color:#842029; }
+.badge-critica{ background:#dc3545; color:white; }
+.prog-bar-wrap { height:8px; background:#e9ecef; border-radius:4px; overflow:hidden; margin-top:6px; }
+.prog-bar-fill { height:100%; border-radius:4px; }
+.timeline-dot { width:10px; height:10px; border-radius:50%; background:var(--m-primary); flex-shrink:0; margin-top:4px; }
+.section-title { font-size:1rem; font-weight:700; color:var(--m-primary); margin-bottom:.8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0">
+        <i class="fas fa-cog me-2" style="color:var(--m-primary)"></i>{{ maquina.nombre }}
+        <span class="estado-badge estado-{{ maquina.estado }} ms-2">{{ maquina.get_estado_display }}</span>
+      </h4>
+      <small class="text-muted">{{ maquina.contrato.nombre_contrato }}</small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'mantenimiento-maquinas' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Lista</a>
+      <a href="{% url 'mantenimiento-dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-tachometer-alt me-1"></i>Dashboard</a>
+      {% if puede_gestionar %}
+      <a href="{% url 'mantenimiento-traslado-maquina' maquina.pk %}" class="btn btn-outline-warning btn-sm"><i class="fas fa-exchange-alt me-1"></i>Trasladar</a>
+      <a href="{% url 'mantenimiento-maquina-edit' maquina.pk %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-edit me-1"></i>Editar</a>
+      <a href="{% url 'bitacora-nueva' maquina.pk %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Nuevo Mtto.</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPIs rápidas -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-val text-primary">{{ maquina.horometro }}</div>
+        <div class="stat-lbl">Horómetro (hrs)</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-val text-warning">{{ total_mttos }}</div>
+        <div class="stat-lbl">Total Intervenciones</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-val text-danger">{{ horas_paradas }}</div>
+        <div class="stat-lbl">Horas Paradas</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--m-primary)">S/ {{ costo_acumulado|floatformat:0 }}</div>
+        <div class="stat-lbl">Costo Acumulado</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- Ficha técnica -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="section-title"><i class="fas fa-id-card me-1"></i>Ficha Técnica</div>
+          <table class="table table-sm table-borderless mb-0" style="font-size:.83rem;">
+            <tbody>
+              {% if maquina.marca %}
+              <tr><td class="text-muted" style="width:45%">Marca</td><td><strong>{{ maquina.marca }}</strong></td></tr>
+              {% endif %}
+              {% if maquina.modelo_equipo %}
+              <tr><td class="text-muted">Modelo</td><td><strong>{{ maquina.modelo_equipo }}</strong></td></tr>
+              {% endif %}
+              {% if maquina.numero_serie %}
+              <tr><td class="text-muted">N° Serie</td><td><strong>{{ maquina.numero_serie }}</strong></td></tr>
+              {% endif %}
+              {% if maquina.año_fabricacion %}
+              <tr><td class="text-muted">Año</td><td><strong>{{ maquina.año_fabricacion }}</strong></td></tr>
+              {% endif %}
+              {% if maquina.potencia_hp %}
+              <tr><td class="text-muted">Potencia</td><td><strong>{{ maquina.potencia_hp }} HP</strong></td></tr>
+              {% endif %}
+              <tr><td class="text-muted">Tipo</td><td><strong>{{ maquina.tipo }}</strong></td></tr>
+              <tr><td class="text-muted">Trabajo</td><td><strong>{{ maquina.get_tipo_trabajo_display }}</strong></td></tr>
+            </tbody>
+          </table>
+
+          <hr class="my-2">
+          <div class="section-title" style="font-size:.85rem;"><i class="fas fa-tools me-1"></i>Ciclo de Mantenimiento</div>
+          <table class="table table-sm table-borderless mb-0" style="font-size:.82rem;">
+            <tbody>
+              <tr><td class="text-muted" style="width:55%">Intervalo programado</td><td><strong>{{ maquina.intervalo_mantenimiento_horas }} hrs</strong></td></tr>
+              {% if maquina.ultimo_mantenimiento_fecha %}
+              <tr><td class="text-muted">Último mtto.</td><td><strong>{{ maquina.ultimo_mantenimiento_fecha|date:"d/m/Y" }}</strong></td></tr>
+              {% endif %}
+              {% if maquina.ultimo_mantenimiento_horometro %}
+              <tr><td class="text-muted">Horómetro último</td><td><strong>{{ maquina.ultimo_mantenimiento_horometro }} hrs</strong></td></tr>
+              {% endif %}
+              {% if maquina.proximo_mantenimiento_horometro %}
+              <tr>
+                <td class="text-muted">Próximo mtto.</td>
+                <td><strong {% if maquina.requiere_mantenimiento %}class="text-danger"{% endif %}>{{ maquina.proximo_mantenimiento_horometro }} hrs</strong></td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+
+          {% with pct=maquina.porcentaje_vida_mantenimiento %}
+          {% if pct > 0 %}
+          <div class="mt-2">
+            <div class="d-flex justify-content-between" style="font-size:.75rem;">
+              <span>Ciclo de vida</span>
+              <span class="{% if pct >= 100 %}text-danger{% elif pct >= 80 %}text-warning{% else %}text-success{% endif %}">{{ pct }}%</span>
+            </div>
+            <div class="prog-bar-wrap">
+              <div class="prog-bar-fill {% if pct >= 100 %}bg-danger{% elif pct >= 80 %}bg-warning{% else %}bg-success{% endif %}"
+                   style="width:{% if pct > 100 %}100{% else %}{{ pct }}{% endif %}%"></div>
+            </div>
+          </div>
+          {% endif %}
+          {% endwith %}
+
+          {% if maquina.observaciones %}
+          <hr class="my-2">
+          <div style="font-size:.78rem;" class="text-muted">{{ maquina.observaciones }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Historial de traslados -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <div class="section-title"><i class="fas fa-exchange-alt me-1"></i>Historial de Traslados</div>
+          {% if traslados %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+              <thead class="table-light"><tr>
+                <th>Fecha</th><th>Origen</th><th>Destino</th><th>Responsable</th><th>Observaciones</th>
+              </tr></thead>
+              <tbody>
+              {% for t in traslados %}
+              <tr>
+                <td>{{ t.fecha_transferencia|date:"d/m/Y" }}</td>
+                <td><span class="badge bg-secondary">{{ t.contrato_origen.nombre_contrato }}</span></td>
+                <td><span class="badge bg-primary">{{ t.contrato_destino.nombre_contrato }}</span></td>
+                <td>{{ t.usuario.get_full_name|default:t.usuario.username }}</td>
+                <td class="text-muted">{{ t.observaciones|default:"—"|truncatechars:50 }}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted text-center py-2 small"><i class="fas fa-info-circle me-1"></i>Sin traslados registrados.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bitácora de mantenimiento -->
+  <div class="card border-0 shadow-sm mt-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="section-title mb-0"><i class="fas fa-clipboard-list me-1"></i>Bitácora de Mantenimiento
+          <span class="badge bg-secondary ms-2">{{ total_mttos }}</span>
+        </div>
+        {% if puede_gestionar %}
+        <a href="{% url 'bitacora-nueva' maquina.pk %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Nuevo</a>
+        {% endif %}
+      </div>
+
+      {% if bitacoras %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+          <thead class="table-light"><tr>
+            <th>Fecha inicio</th>
+            <th>Fecha fin</th>
+            <th>Horómetro</th>
+            <th>Tipo</th>
+            <th>Prioridad</th>
+            <th>Estado</th>
+            <th>Descripción</th>
+            <th>Costo</th>
+            <th>Parada (hrs)</th>
+            <th>Responsable</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+          {% for b in bitacoras %}
+          <tr>
+            <td>{{ b.fecha_inicio|date:"d/m/Y" }}</td>
+            <td>{% if b.fecha_fin %}{{ b.fecha_fin|date:"d/m/Y" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{{ b.horometro_registro }}</td>
+            <td><span class="badge badge-{{ b.tipo|lower }}">{{ b.get_tipo_display }}</span></td>
+            <td><span class="badge badge-{{ b.prioridad|lower }}">{{ b.get_prioridad_display }}</span></td>
+            <td>
+              {% if b.estado_ot == 'COMPLETADO' %}<span class="badge bg-success">{{ b.get_estado_ot_display }}</span>
+              {% elif b.estado_ot == 'EN_PROCESO' %}<span class="badge bg-warning text-dark">{{ b.get_estado_ot_display }}</span>
+              {% elif b.estado_ot == 'CANCELADO' %}<span class="badge bg-secondary">{{ b.get_estado_ot_display }}</span>
+              {% else %}<span class="badge bg-danger">{{ b.get_estado_ot_display }}</span>{% endif %}
+            </td>
+            <td title="{{ b.descripcion }}">{{ b.descripcion|truncatechars:55 }}</td>
+            <td>{% if b.costo_total %}S/ {{ b.costo_total|floatformat:2 }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{{ b.tiempo_parada_horas|default:"—" }}</td>
+            <td>{{ b.responsable_tecnico|default:b.registrado_por.get_full_name|default:"—"|truncatechars:20 }}</td>
+            <td class="text-nowrap">
+              {% if puede_gestionar %}
+              <a href="{% url 'bitacora-edit' maquina.pk b.pk %}" class="btn btn-xs btn-outline-primary" style="font-size:.7rem;padding:1px 6px;" title="Editar"><i class="fas fa-edit"></i></a>
+              <a href="{% url 'bitacora-delete' b.pk %}" class="btn btn-xs btn-outline-danger ms-1" style="font-size:.7rem;padding:1px 6px;" title="Eliminar"><i class="fas fa-trash"></i></a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted text-center py-4"><i class="fas fa-clipboard fa-2x mb-2 d-block" style="opacity:.2"></i>Sin registros de mantenimiento.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

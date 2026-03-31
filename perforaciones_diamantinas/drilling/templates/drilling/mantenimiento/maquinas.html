@@ -1,0 +1,167 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+:root { --m-primary:#084163; }
+.maq-card { background:white; border-radius:10px; padding:1rem; box-shadow:0 2px 8px rgba(0,0,0,.08); height:100%; transition:transform .15s; }
+.maq-card:hover { transform:translateY(-3px); box-shadow:0 4px 16px rgba(0,0,0,.12); }
+.estado-badge { font-size:.72rem; padding:3px 9px; border-radius:20px; font-weight:600; }
+.estado-OPERATIVO    { background:#d4edda; color:#155724; }
+.estado-MANTENIMIENTO { background:#fff3cd; color:#856404; }
+.estado-FUERA_SERVICIO { background:#f8d7da; color:#721c24; }
+.prog-bar-wrap { height:6px; background:#e9ecef; border-radius:3px; overflow:hidden; margin-top:4px; }
+.prog-bar-fill { height:100%; border-radius:3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h4 class="mb-0"><i class="fas fa-industry me-2" style="color:var(--m-primary)"></i>Máquinas — Gestión de Mantenimiento</h4>
+    <div class="d-flex gap-2">
+      <a href="{% url 'mantenimiento-dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-tachometer-alt me-1"></i>Dashboard</a>
+      <a href="{% url 'mantenimiento-traslado' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-exchange-alt me-1"></i>Traslados</a>
+      <a href="{% url 'mantenimiento-maquina-nueva' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Nueva Máquina</a>
+    </div>
+  </div>
+
+  <!-- Alertas rápidas -->
+  {% for a in alertas %}
+  <div class="alert alert-{{ a.nivel }} alert-dismissible fade show py-2" role="alert" style="font-size:.83rem;">
+    <i class="fas fa-exclamation-triangle me-1"></i> {{ a.msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+
+  <!-- Filtros -->
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-4">
+      <input type="text" name="q" value="{{ q_f }}" class="form-control form-control-sm" placeholder="Buscar por nombre, serie, marca…">
+    </div>
+    <div class="col-md-3">
+      <select name="contrato" class="form-select form-select-sm">
+        <option value="">Todos los contratos</option>
+        {% for c in contratos %}
+        <option value="{{ c.id }}" {% if contrato_f == c.id|stringformat:'s' %}selected{% endif %}>{{ c.nombre_contrato }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="estado" class="form-select form-select-sm">
+        <option value="">Todos los estados</option>
+        <option value="OPERATIVO"     {% if estado_f == 'OPERATIVO' %}selected{% endif %}>Operativo</option>
+        <option value="MANTENIMIENTO" {% if estado_f == 'MANTENIMIENTO' %}selected{% endif %}>En Mantenimiento</option>
+        <option value="FUERA_SERVICIO" {% if estado_f == 'FUERA_SERVICIO' %}selected{% endif %}>Fuera de Servicio</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-primary btn-sm" type="submit"><i class="fas fa-search me-1"></i>Filtrar</button>
+      <a href="{% url 'mantenimiento-maquinas' %}" class="btn btn-outline-secondary btn-sm ms-1">Limpiar</a>
+    </div>
+  </form>
+
+  <!-- Grid de máquinas -->
+  <div class="row g-3">
+    {% for m in maquinas %}
+    <div class="col-md-4 col-lg-3">
+      <div class="maq-card">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <strong style="font-size:.9rem;">{{ m.nombre }}</strong>
+          <span class="estado-badge estado-{{ m.estado }}">{{ m.get_estado_display }}</span>
+        </div>
+        <div class="text-muted" style="font-size:.75rem;">{{ m.contrato.nombre_contrato }}</div>
+        {% if m.marca %}<div style="font-size:.75rem;">{{ m.marca }}{% if m.modelo_equipo %} {{ m.modelo_equipo }}{% endif %}</div>{% endif %}
+
+        <hr class="my-2">
+
+        <div class="row g-1" style="font-size:.75rem;">
+          <div class="col-6">
+            <span class="text-muted">Horómetro</span><br>
+            <strong>{{ m.horometro }} hrs</strong>
+          </div>
+          <div class="col-6">
+            <span class="text-muted">Próximo mtto.</span><br>
+            {% if m.proximo_mantenimiento_horometro %}
+            <strong {% if m.requiere_mantenimiento %}class="text-danger"{% endif %}>{{ m.proximo_mantenimiento_horometro }} hrs</strong>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </div>
+        </div>
+
+        <!-- Barra de vida -->
+        {% with pct=m.porcentaje_vida_mantenimiento %}
+        {% if pct > 0 %}
+        <div class="prog-bar-wrap mt-2">
+          <div class="prog-bar-fill {% if pct >= 100 %}bg-danger{% elif pct >= 80 %}bg-warning{% else %}bg-success{% endif %}"
+               style="width:{{ pct }}%" title="{{ pct }}% del ciclo de mantenimiento"></div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <div class="d-flex gap-1 mt-2">
+          <a href="{% url 'mantenimiento-maquina-detalle' m.pk %}" class="btn btn-outline-primary btn-sm flex-fill" style="font-size:.72rem;">
+            <i class="fas fa-eye me-1"></i>Detalle
+          </a>
+          <a href="{% url 'bitacora-nueva' m.pk %}" class="btn btn-primary btn-sm flex-fill" style="font-size:.72rem;">
+            <i class="fas fa-plus me-1"></i>Nuevo mtto.
+          </a>
+          <button class="btn btn-outline-secondary btn-sm" style="font-size:.72rem;"
+                  onclick="cambiarEstado({{ m.pk }}, '{{ m.estado }}')" title="Cambiar estado">
+            <i class="fas fa-toggle-on"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center text-muted py-5">
+      <i class="fas fa-industry fa-3x mb-3" style="opacity:.2"></i><br>No se encontraron máquinas.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Modal cambio de estado -->
+<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--m-primary,#084163);color:white;">
+        <h6 class="modal-title">Cambiar Estado</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">Selecciona el nuevo estado para <strong id="estadoMaqNombre"></strong></p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-success btn-sm" onclick="enviarEstado('OPERATIVO')"><i class="fas fa-check-circle me-1"></i>Operativo</button>
+          <button class="btn btn-warning btn-sm" onclick="enviarEstado('MANTENIMIENTO')"><i class="fas fa-wrench me-1"></i>En Mantenimiento</button>
+          <button class="btn btn-danger btn-sm" onclick="enviarEstado('FUERA_SERVICIO')"><i class="fas fa-times-circle me-1"></i>Fuera de Servicio</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let _maqId = null;
+const CSRF = '{{ csrf_token }}';
+
+function cambiarEstado(id, estadoActual) {
+    _maqId = id;
+    document.getElementById('estadoMaqNombre').textContent = 'máquina #' + id;
+    new bootstrap.Modal(document.getElementById('modalEstado')).show();
+}
+
+function enviarEstado(estado) {
+    fetch(`/mantenimiento/maquinas/${_maqId}/estado/`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({estado})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) { location.reload(); }
+        else { alert(d.error || 'Error'); }
+    });
+}
+</script>
+{% endblock %}

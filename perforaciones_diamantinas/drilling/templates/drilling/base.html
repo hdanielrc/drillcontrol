@@ -92,6 +92,11 @@
                             <li><a class="dropdown-item" href="{% url 'maquina-list' %}">
                                 <i class="fas fa-industry"></i> Máquinas
                             </a></li>
+                            {% if request.user.can_manage_maintenance or request.user.can_supervise_operations %}
+                            <li><a class="dropdown-item" href="{% url 'mantenimiento-dashboard' %}">
+                                <i class="fas fa-wrench"></i> Mantenimiento
+                            </a></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{% url 'sondaje-list' %}">
                                 <i class="fas fa-map-marked-alt"></i> Sondajes
                             </a></li>

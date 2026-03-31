@@ -243,6 +243,8 @@ class CustomUser(AbstractUser):
         ('GERENCIA', 'Gerencia'),
         ('GERENTE_GENERAL', 'Gerente General'),
         ('HEADCOUNT', 'Gestión de Personal y Headcount'),
+        ('JEFE_MANTENIMIENTO', 'Jefe de Mantenimiento'),
+        ('MANTENIMIENTO', 'Mantenimiento de Contrato'),
         # Roles legacy conservados por compatibilidad con usuarios existentes.
         ('MANAGER_CONTRATO', 'Manager de Contrato'),
         ('SUPERVISOR', 'Supervisor'),
@@ -318,8 +320,8 @@ class CustomUser(AbstractUser):
         - Es Admin del Sistema (is_system_admin=True)
         - Tiene rol GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL o HEADCOUNT (independiente del contrato asignado)
         """
-        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'HEADCOUNT']
-    
+        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'HEADCOUNT', 'JEFE_MANTENIMIENTO']
+
     def can_manage_all_contracts(self):
         """GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL y HEADCOUNT pueden gestionar todos los contratos"""
         return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'HEADCOUNT']
@@ -359,7 +361,18 @@ class CustomUser(AbstractUser):
     def can_manage_system_config(self):
         """Gestionar configuración del sistema (tipos, unidades, etc.)"""
         return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'LOGISTICO']
-    
+
+    def can_manage_maintenance(self):
+        """Gestionar mantenimiento de máquinas (bitácoras, traslados, estados)."""
+        return self.role in [
+            'JEFE_MANTENIMIENTO', 'MANTENIMIENTO',
+            'GERENCIA', 'GERENTE_GENERAL', 'CONTROL_PROYECTOS',
+        ]
+
+    def can_manage_all_maintenance(self):
+        """Gestión de mantenimiento a nivel gerencia (todos los contratos)."""
+        return self.role in ['JEFE_MANTENIMIENTO', 'GERENCIA', 'GERENTE_GENERAL', 'CONTROL_PROYECTOS']
+
     def get_accessible_contracts(self):
         """
         Obtener contratos accesibles para este usuario.
@@ -389,6 +402,8 @@ class CustomUser(AbstractUser):
             'RESIDENTE': 'bg-info',
             'LOGISTICO': 'bg-success',
             'OPERADOR': 'bg-secondary',
+            'JEFE_MANTENIMIENTO': 'bg-dark',
+            'MANTENIMIENTO': 'bg-dark',
             # Legacy roles
             'ADMIN_SISTEMA': 'bg-danger',
             'MANAGER_CONTRATO': 'bg-warning text-dark',
@@ -421,7 +436,11 @@ class CustomUser(AbstractUser):
             permissions.append("Ver reportes")
         if self.can_manage_system_config():
             permissions.append("Configuración del sistema")
-            
+        if self.can_manage_maintenance():
+            permissions.append("Gestionar mantenimiento de máquinas")
+        if self.can_manage_all_maintenance():
+            permissions.append("Mantenimiento de todos los contratos")
+
         return permissions
     
     def is_active_recently(self, days=30):
@@ -457,7 +476,7 @@ class CustomUser(AbstractUser):
         from django.core.exceptions import ValidationError
         
         # Roles de contrato deben tener un contrato asignado
-        if self.role in ['ADMINISTRADOR', 'LOGISTICO', 'RESIDENTE'] and not self.contrato:
+        if self.role in ['ADMINISTRADOR', 'LOGISTICO', 'RESIDENTE', 'MANTENIMIENTO'] and not self.contrato:
             raise ValidationError({
                 'contrato': f'Los usuarios con rol {self.role} deben tener un contrato asignado'
             })
@@ -867,14 +886,30 @@ class Maquina(models.Model):
         ('SUBTERRANEA', 'Interior Mina'),
         ('SUPERFICIAL', 'Superficial'),
     ]
-    
+
     contrato = models.ForeignKey(Contrato, on_delete=models.PROTECT, related_name='maquinas')
     nombre = models.CharField(max_length=100)
     tipo = models.CharField(max_length=100)
     tipo_trabajo = models.CharField(max_length=20, choices=TIPO_TRABAJO_CHOICES, default='SUBTERRANEA', verbose_name='Tipo de Trabajo')
-    # Horómetro acumulado en horas (decimal con 2 decimales)
-    horometro = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    horometro = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Horómetro (hrs)')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='OPERATIVO')
+
+    # Ficha técnica
+    numero_serie      = models.CharField(max_length=100, blank=True, verbose_name='Número de serie')
+    marca             = models.CharField(max_length=100, blank=True, verbose_name='Marca')
+    modelo_equipo     = models.CharField(max_length=100, blank=True, verbose_name='Modelo')
+    año_fabricacion   = models.PositiveIntegerField(null=True, blank=True, verbose_name='Año de fabricación')
+    potencia_hp       = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name='Potencia (HP)')
+    observaciones     = models.TextField(blank=True, verbose_name='Observaciones')
+
+    # Campos de mantenimiento (actualizados automáticamente por MantenimientoMaquina)
+    ultimo_mantenimiento_fecha      = models.DateField(null=True, blank=True, verbose_name='Último mantenimiento')
+    ultimo_mantenimiento_horometro  = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='Horómetro último mtto.')
+    proximo_mantenimiento_horometro = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='Próximo mtto. (hrs)')
+    intervalo_mantenimiento_horas   = models.DecimalField(max_digits=8, decimal_places=2, default=250, verbose_name='Intervalo mtto. (hrs)', help_text='Cada cuántas horas se realiza mantenimiento preventivo')
+
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         db_table = 'maquinas'
@@ -886,6 +921,28 @@ class Maquina(models.Model):
 
     def __str__(self):
         return f"{self.nombre} - {self.contrato.nombre_contrato}"
+
+    def horas_desde_ultimo_mantenimiento(self):
+        if self.ultimo_mantenimiento_horometro is not None:
+            return self.horometro - self.ultimo_mantenimiento_horometro
+        return self.horometro
+
+    def horas_hasta_proximo_mantenimiento(self):
+        if self.proximo_mantenimiento_horometro:
+            return self.proximo_mantenimiento_horometro - self.horometro
+        return None
+
+    def requiere_mantenimiento(self):
+        if self.proximo_mantenimiento_horometro:
+            return self.horometro >= self.proximo_mantenimiento_horometro
+        return False
+
+    def porcentaje_vida_mantenimiento(self):
+        """0-100: qué % del intervalo se ha consumido desde el último mtto."""
+        if not self.ultimo_mantenimiento_horometro or not self.intervalo_mantenimiento_horas:
+            return 0
+        consumido = float(self.horometro - self.ultimo_mantenimiento_horometro)
+        return min(100, round(consumido / float(self.intervalo_mantenimiento_horas) * 100, 1))
 
 
 class MaquinaTransferenciaHistorial(models.Model):
@@ -907,6 +964,111 @@ class MaquinaTransferenciaHistorial(models.Model):
 
     def __str__(self):
         return f"{self.maquina.nombre}: {self.contrato_origen.nombre_contrato} → {self.contrato_destino.nombre_contrato} ({self.fecha_transferencia.strftime('%d/%m/%Y %H:%M')})"
+
+
+class MantenimientoMaquina(models.Model):
+    """
+    Bitácora de mantenimiento de máquinas de perforación.
+    Registra cada intervención técnica con trazabilidad completa.
+    Al guardar actualiza automáticamente el horómetro y campos de
+    mantenimiento de la máquina relacionada.
+    """
+
+    TIPO_CHOICES = [
+        ('PREVENTIVO',  'Preventivo'),
+        ('CORRECTIVO',  'Correctivo'),
+        ('INSPECCION',  'Inspección'),
+        ('OVERHAUL',    'Overhaul / Revisión mayor'),
+        ('EMERGENCIA',  'Emergencia'),
+    ]
+
+    PRIORIDAD_CHOICES = [
+        ('BAJA',    'Baja'),
+        ('MEDIA',   'Media'),
+        ('ALTA',    'Alta'),
+        ('CRITICA', 'Crítica'),
+    ]
+
+    ESTADO_OT_CHOICES = [
+        ('PENDIENTE',   'Pendiente'),
+        ('EN_PROCESO',  'En proceso'),
+        ('COMPLETADO',  'Completado'),
+        ('CANCELADO',   'Cancelado'),
+    ]
+
+    maquina              = models.ForeignKey(Maquina, on_delete=models.CASCADE, related_name='mantenimientos', verbose_name='Máquina')
+    fecha_inicio         = models.DateField(verbose_name='Fecha inicio')
+    fecha_fin            = models.DateField(null=True, blank=True, verbose_name='Fecha fin')
+    horometro_registro   = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Horómetro al momento del mtto. (hrs)')
+    tipo                 = models.CharField(max_length=20, choices=TIPO_CHOICES, default='PREVENTIVO', verbose_name='Tipo de mantenimiento')
+    prioridad            = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='MEDIA', verbose_name='Prioridad')
+    estado_ot            = models.CharField(max_length=15, choices=ESTADO_OT_CHOICES, default='PENDIENTE', verbose_name='Estado OT')
+
+    # Descripción técnica
+    descripcion          = models.TextField(verbose_name='Descripción del problema / motivo')
+    trabajo_realizado    = models.TextField(blank=True, verbose_name='Trabajo realizado')
+    repuestos_utilizados = models.TextField(blank=True, verbose_name='Repuestos / materiales utilizados')
+
+    # Parada y costos
+    tiempo_parada_horas  = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name='Tiempo de parada (hrs)', help_text='Horas que la máquina estuvo fuera de servicio')
+    costo_mano_obra      = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Costo mano de obra (S/)')
+    costo_repuestos      = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Costo repuestos (S/)')
+    costo_total          = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Costo total (S/)')
+    proveedor_taller     = models.CharField(max_length=200, blank=True, verbose_name='Proveedor / Taller')
+
+    # Siguiente intervención
+    proxima_intervencion_horometro = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='Próxima intervención (hrs)')
+
+    # Estado post-mantenimiento
+    estado_posterior     = models.CharField(max_length=20, choices=Maquina.ESTADO_CHOICES, default='OPERATIVO', verbose_name='Estado posterior al mtto.')
+
+    # Personas
+    responsable_tecnico  = models.CharField(max_length=200, blank=True, verbose_name='Responsable técnico')
+    observaciones        = models.TextField(blank=True, verbose_name='Observaciones adicionales')
+
+    registrado_por       = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='mantenimientos_maquina_registrados', verbose_name='Registrado por')
+    aprobado_por         = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='mantenimientos_maquina_aprobados', verbose_name='Aprobado por')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'mantenimiento_maquina'
+        verbose_name = 'Mantenimiento de Máquina'
+        verbose_name_plural = 'Mantenimientos de Máquinas'
+        ordering = ['-fecha_inicio', '-created_at']
+        indexes = [
+            models.Index(fields=['maquina', 'fecha_inicio']),
+            models.Index(fields=['tipo']),
+            models.Index(fields=['estado_ot']),
+            models.Index(fields=['fecha_inicio']),
+        ]
+
+    def __str__(self):
+        return f"{self.maquina.nombre} — {self.get_tipo_display()} ({self.fecha_inicio.strftime('%d/%m/%Y')})"
+
+    @property
+    def costo_calculado(self):
+        mo = self.costo_mano_obra or Decimal('0')
+        rep = self.costo_repuestos or Decimal('0')
+        return mo + rep
+
+    def save(self, *args, **kwargs):
+        # Auto-calcular costo_total si no se ingresó manualmente
+        if not self.costo_total:
+            self.costo_total = self.costo_calculado
+        super().save(*args, **kwargs)
+        # Actualizar campos de mantenimiento en la máquina
+        self.maquina.ultimo_mantenimiento_fecha     = self.fecha_inicio
+        self.maquina.ultimo_mantenimiento_horometro = self.horometro_registro
+        if self.proxima_intervencion_horometro:
+            self.maquina.proximo_mantenimiento_horometro = self.proxima_intervencion_horometro
+        # Actualizar estado de la máquina al estado posterior
+        self.maquina.estado = self.estado_posterior
+        self.maquina.save(update_fields=[
+            'ultimo_mantenimiento_fecha', 'ultimo_mantenimiento_horometro',
+            'proximo_mantenimiento_horometro', 'estado'
+        ])
 
 
 class Vehiculo(models.Model):

@@ -1,0 +1,35 @@
+{% extends 'drilling/base.html' %}
+
+{% block content %}
+<div class="container py-5" style="max-width:550px;">
+  <div class="card border-0 shadow">
+    <div class="card-header bg-danger text-white">
+      <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar eliminación</h5>
+    </div>
+    <div class="card-body">
+      <p class="mb-1">¿Está seguro de que desea eliminar este registro de mantenimiento?</p>
+      <div class="bg-light rounded p-3 my-3" style="font-size:.85rem;">
+        <div><strong>Máquina:</strong> {{ registro.maquina.nombre }}</div>
+        <div><strong>Fecha:</strong> {{ registro.fecha_inicio|date:"d/m/Y" }}</div>
+        <div><strong>Tipo:</strong> {{ registro.get_tipo_display }}</div>
+        <div><strong>Descripción:</strong> {{ registro.descripcion|truncatechars:100 }}</div>
+        {% if registro.costo_total %}
+        <div><strong>Costo:</strong> S/ {{ registro.costo_total|floatformat:2 }}</div>
+        {% endif %}
+      </div>
+      <p class="text-danger small mb-0"><i class="fas fa-exclamation-circle me-1"></i>Esta acción no se puede deshacer.</p>
+    </div>
+    <div class="card-footer d-flex gap-2 justify-content-end">
+      <a href="{% url 'mantenimiento-maquina-detalle' registro.maquina.pk %}" class="btn btn-outline-secondary">
+        <i class="fas fa-times me-1"></i>Cancelar
+      </a>
+      <form method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">
+          <i class="fas fa-trash me-1"></i>Eliminar definitivamente
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
