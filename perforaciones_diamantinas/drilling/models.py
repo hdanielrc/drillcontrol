@@ -5055,6 +5055,74 @@ class MetaDiariaMaquina(models.Model):
 
 
 # =============================================================================
+# SECCIÓN: PROGRAMACIÓN MENSUAL POR MÁQUINA
+# =============================================================================
+
+class ProgramacionMes(models.Model):
+    """
+    Programación mensual de perforación por máquina.
+
+    Almacena la META total del mes y la fecha de inicio de operación
+    de cada máquina en el período operativo (26-25).
+    El resto de campos (PROGRAMA, META DIA, META TURNO, PROGRAMA FINAL)
+    se calculan a partir de estos dos valores.
+
+    Convención de mes: mes=4, año=2026 → período 26-Mar-2026 al 25-Abr-2026.
+    """
+
+    maquina = models.ForeignKey(
+        Maquina,
+        on_delete=models.CASCADE,
+        related_name='programaciones_mes',
+        verbose_name='Máquina'
+    )
+
+    año = models.IntegerField(verbose_name='Año')
+    mes = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        verbose_name='Mes',
+        help_text='Mes del día 25 (fin del período). Ej: abril 2026 → mes=4, año=2026'
+    )
+
+    meta_metros = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Meta metros (mensual)',
+        help_text='Metraje objetivo total del período'
+    )
+
+    dia_inicio = models.DateField(
+        verbose_name='Día de inicio',
+        help_text='Fecha en que la máquina inicia operaciones en este período'
+    )
+
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name='programaciones_creadas',
+        verbose_name='Creado por'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'programacion_mes'
+        verbose_name = 'Programación Mensual'
+        verbose_name_plural = 'Programaciones Mensuales'
+        unique_together = [('maquina', 'año', 'mes')]
+        ordering = ['-año', '-mes', 'maquina__contrato', 'maquina__nombre']
+        indexes = [
+            models.Index(fields=['año', 'mes']),
+            models.Index(fields=['maquina', 'año', 'mes']),
+        ]
+
+    def __str__(self):
+        return f"{self.maquina.nombre} — {self.mes}/{self.año} — {self.meta_metros} m"
+
+
+# =============================================================================
 # SECCIÓN: API INTEGRATION - Staging Tables (ELIMINADO)
 # =============================================================================
 

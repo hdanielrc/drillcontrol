@@ -1,0 +1,518 @@
+{% extends 'drilling/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --prog-primary:   #084163;
+        --prog-header-bg: #084163;
+        --prog-ingresado: #fff2cc;  /* amarillo Excel */
+        --prog-calculado: #e2efda;  /* verde claro Excel */
+        --prog-cal-td:    #dce6f1;
+        --prog-cal-tn:    #fce4d6;
+        --prog-cal-ok:    #c6efce;
+        --prog-border:    #b0c4de;
+    }
+
+    body { background: #f4f6f9; }
+
+    /* ── HEADER ─────────────────────────────────────────────── */
+    .prog-header {
+        background: var(--prog-primary);
+        color: white;
+        padding: 1.2rem 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1.2rem;
+    }
+
+    /* ── INFO PERÍODO ────────────────────────────────────────── */
+    .periodo-info {
+        background: white;
+        border-radius: 8px;
+        padding: 0.8rem 1.2rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,.08);
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .periodo-info .item { text-align: center; }
+    .periodo-info .label { font-size: .7rem; text-transform: uppercase; color: #888; letter-spacing: .4px; }
+    .periodo-info .value { font-size: 1.05rem; font-weight: 700; color: var(--prog-primary); }
+
+    /* ── TABLA PRINCIPAL ─────────────────────────────────────── */
+    .prog-wrapper {
+        overflow-x: auto;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.08);
+        background: white;
+    }
+
+    #tablaPrograma {
+        border-collapse: collapse;
+        white-space: nowrap;
+        font-size: .82rem;
+        width: 100%;
+    }
+
+    #tablaPrograma th, #tablaPrograma td {
+        border: 1px solid var(--prog-border);
+        padding: 4px 8px;
+        vertical-align: middle;
+    }
+
+    /* Encabezados de sección */
+    .th-section {
+        background: var(--prog-primary);
+        color: white;
+        text-align: center;
+        font-size: .75rem;
+        letter-spacing: .5px;
+        padding: 5px 10px;
+    }
+    .th-ingresado { background: #bf8f00; color: white; }
+    .th-calculado  { background: #375623; color: white; }
+
+    /* Columnas fijas (info máquina) */
+    .col-fixed {
+        background: #f8f9fa;
+        font-weight: 600;
+        position: sticky;
+        left: 0;
+        z-index: 2;
+    }
+    .col-ctr { min-width: 70px; max-width: 100px; word-break: break-all; text-align: center; }
+    .col-maquina { min-width: 130px; }
+
+    /* Celdas ingresadas */
+    .celda-ingresada {
+        background: var(--prog-ingresado);
+        min-width: 80px;
+    }
+    .celda-ingresada input {
+        border: none;
+        background: transparent;
+        width: 100%;
+        font-size: .82rem;
+        font-weight: 700;
+        text-align: right;
+        outline: none;
+        padding: 0;
+    }
+    .celda-ingresada input[type=date] { text-align: left; font-size: .78rem; }
+
+    /* Celdas calculadas */
+    .celda-calc { background: var(--prog-calculado); text-align: right; min-width: 85px; }
+
+    /* Columna CTR: agrupa filas del mismo contrato */
+    .td-ctr {
+        background: #e8f0f7;
+        font-weight: 700;
+        font-size: .78rem;
+        text-align: center;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        letter-spacing: 1px;
+        color: var(--prog-primary);
+        border-right: 3px solid var(--prog-primary);
+    }
+
+    /* Separador entre contratos */
+    tr.contrato-sep td { border-top: 3px solid var(--prog-primary) !important; }
+
+    /* ── CALENDARIO ──────────────────────────────────────────── */
+    .cal-sep { border-left: 3px solid var(--prog-primary); }
+
+    .th-fecha {
+        text-align: center;
+        font-size: .72rem;
+        min-width: 28px;
+        padding: 3px 2px;
+        background: #d9e1ea;
+        color: var(--prog-primary);
+        font-weight: 700;
+    }
+    .th-turno-label {
+        font-size: .68rem;
+        padding: 2px 4px;
+        text-align: center;
+        font-weight: 600;
+    }
+    .th-turno-label.td { background: var(--prog-cal-td); }
+    .th-turno-label.tn { background: var(--prog-cal-tn); }
+
+    .cal-cell {
+        text-align: center;
+        font-size: .68rem;
+        padding: 2px 1px;
+        min-width: 26px;
+        max-width: 32px;
+    }
+    .cal-cell.td { background: #f0f5fb; }
+    .cal-cell.tn { background: #fff6f2; }
+    .cal-cell .dot {
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        margin: 0 auto;
+    }
+    .dot-completado { background: #28a745; }
+    .dot-aprobado   { background: #084163; }
+    .dot-borrador   { background: #ffc107; }
+
+    /* ── BOTONES GUARDAR ─────────────────────────────────────── */
+    .btn-save-row {
+        padding: 2px 8px;
+        font-size: .75rem;
+        border-radius: 4px;
+    }
+    .save-status {
+        font-size: .7rem;
+        margin-left: 4px;
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────── */
+    @media (max-width: 768px) {
+        .td-ctr { writing-mode: horizontal-tb; transform: none; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- HEADER -->
+    <div class="prog-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h4 class="mb-0"><i class="fas fa-table me-2"></i>Programación Mensual de Perforación</h4>
+            <small class="opacity-75">Todos los contratos — Mes operativo {{ nombre_mes }} {{ año_op }}</small>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <!-- Navegación de meses -->
+            <div class="btn-group" role="group">
+                <a href="?mes_offset={{ mes_offset|add:'-1' }}" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <a href="?mes_offset=0" class="btn btn-outline-light btn-sm {% if mes_offset == 0 %}disabled{% endif %}">
+                    <i class="fas fa-calendar-day"></i> Actual
+                </a>
+                <a href="?mes_offset={{ mes_offset|add:'1' }}" class="btn btn-outline-light btn-sm {% if mes_offset == 0 %}disabled{% endif %}">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+            <a href="{% url 'gerencia-dashboard' %}" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-chart-line me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- INFO PERÍODO -->
+    <div class="periodo-info">
+        <div class="item">
+            <div class="label">Mes operativo</div>
+            <div class="value">{{ nombre_mes }} {{ año_op }}</div>
+        </div>
+        <div class="item">
+            <div class="label">Desde</div>
+            <div class="value">{{ fecha_inicio|date:"d-M-Y" }}</div>
+        </div>
+        <div class="item">
+            <div class="label">Hasta</div>
+            <div class="value">{{ fecha_fin|date:"d-M-Y" }}</div>
+        </div>
+        <div class="item">
+            <div class="label">Cantidad días mes</div>
+            <div class="value">{{ cantidad_dias }}</div>
+        </div>
+        <div class="ms-auto">
+            <button class="btn btn-success btn-sm" onclick="guardarTodo()">
+                <i class="fas fa-save me-1"></i>Guardar todo
+            </button>
+            <span id="globalStatus" class="save-status text-muted"></span>
+        </div>
+    </div>
+
+    <!-- LEYENDA -->
+    <div class="d-flex gap-3 mb-2 flex-wrap" style="font-size:.75rem;">
+        <span><span class="badge" style="background:var(--prog-ingresado);color:#555;border:1px solid #ccc;">▪</span> Ingresado</span>
+        <span><span class="badge" style="background:var(--prog-calculado);color:#555;border:1px solid #ccc;">▪</span> Calculado</span>
+        <span><span class="dot dot-completado" style="display:inline-block;width:10px;height:10px;border-radius:50%;"></span> Turno Completado</span>
+        <span><span class="dot dot-aprobado"   style="display:inline-block;width:10px;height:10px;border-radius:50%;"></span> Turno Aprobado</span>
+        <span><span class="dot dot-borrador"   style="display:inline-block;width:10px;height:10px;border-radius:50%;"></span> Turno Borrador</span>
+    </div>
+
+    <!-- TABLA PRINCIPAL -->
+    <div class="prog-wrapper">
+    <table id="tablaPrograma">
+        <thead>
+            <!-- Fila 1: secciones -->
+            <tr>
+                <th class="th-section" colspan="2">MÁQUINA</th>
+                <th class="th-ingresado" colspan="2">INGRESADO</th>
+                <th class="th-calculado" colspan="5">CALCULADO</th>
+                <th class="th-section col-accion">&#160;</th>
+                <!-- Calendario: encabezado por día -->
+                <th class="th-fecha cal-sep" colspan="2" style="background:var(--prog-primary);color:white;">CALENDARIO</th>
+                {% for d in dias_calendario %}
+                <th class="th-fecha {% if forloop.first %}{% endif %}" colspan="2">{{ d.label }}</th>
+                {% endfor %}
+            </tr>
+            <!-- Fila 2: nombres de columnas -->
+            <tr>
+                <th class="col-fixed col-ctr">CTR</th>
+                <th class="col-fixed col-maquina">MÁQUINA</th>
+                <th class="th-ingresado" style="min-width:90px;">META</th>
+                <th class="th-ingresado" style="min-width:105px;">DÍA INICIO</th>
+                <th class="th-calculado">DÍAS TRAB.</th>
+                <th class="th-calculado">PROGRAMA</th>
+                <th class="th-calculado">META DÍA</th>
+                <th class="th-calculado">META TURNO</th>
+                <th class="th-calculado">PROG. FINAL</th>
+                <th class="th-section" style="min-width:60px;">ACCIÓN</th>
+                <!-- Calendario: TD / TN por cada día -->
+                <th class="th-turno-label td cal-sep">TD</th>
+                <th class="th-turno-label tn">TN</th>
+                {% for d in dias_calendario %}
+                <th class="th-turno-label td">TD</th>
+                <th class="th-turno-label tn">TN</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for grupo in grupos %}
+                {% for fila in grupo.filas %}
+                <tr class="fila-maquina {% if forloop.first %}contrato-sep{% endif %}"
+                    data-maquina-id="{{ fila.maquina_id }}"
+                    data-año="{{ año_op }}"
+                    data-mes="{{ mes_op }}"
+                    data-fecha-inicio="{{ fecha_inicio|date:'Y-m-d' }}"
+                    data-fecha-fin="{{ fecha_fin|date:'Y-m-d' }}"
+                    data-cantidad-dias="{{ cantidad_dias }}">
+
+                    {% if forloop.first %}
+                    <td class="td-ctr col-fixed" rowspan="{{ grupo.filas|length }}">
+                        {{ grupo.codigo }}
+                    </td>
+                    {% endif %}
+
+                    <td class="col-fixed col-maquina">{{ fila.maquina_nombre }}</td>
+
+                    <!-- INGRESADO -->
+                    <td class="celda-ingresada">
+                        <input type="number" class="inp-meta" min="0" step="0.01"
+                               value="{{ fila.meta|default_if_none:'' }}"
+                               placeholder="0.00"
+                               onchange="recalcularFila(this.closest('tr'))"
+                               title="Meta total del mes en metros">
+                    </td>
+                    <td class="celda-ingresada">
+                        <input type="date" class="inp-dia-inicio"
+                               value="{{ fila.dia_inicio }}"
+                               min="{{ fecha_inicio|date:'Y-m-d' }}"
+                               max="{{ fecha_fin|date:'Y-m-d' }}"
+                               onchange="recalcularFila(this.closest('tr'))"
+                               title="Fecha de inicio de operación en este período">
+                    </td>
+
+                    <!-- CALCULADO -->
+                    <td class="celda-calc dias-trab">{{ fila.dias_trabajados|default_if_none:'—' }}</td>
+                    <td class="celda-calc programa">
+                        {% if fila.programa %}{{ fila.programa|floatformat:2 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="celda-calc meta-dia">
+                        {% if fila.meta_dia %}{{ fila.meta_dia|floatformat:2 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="celda-calc meta-turno">
+                        {% if fila.meta_turno %}{{ fila.meta_turno|floatformat:2 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="celda-calc prog-final">
+                        {% if fila.programa_final %}{{ fila.programa_final|floatformat:2 }}{% else %}—{% endif %}
+                    </td>
+
+                    <!-- ACCIÓN -->
+                    <td class="text-center">
+                        <button class="btn btn-primary btn-save-row" onclick="guardarFila(this.closest('tr'))">
+                            <i class="fas fa-save"></i>
+                        </button>
+                        <span class="save-status"></span>
+                    </td>
+
+                    <!-- CALENDARIO: primer par TD/TN = etiqueta de máquina (vacío) -->
+                    <td class="cal-cell cal-sep"></td>
+                    <td class="cal-cell"></td>
+
+                    {% for d in dias_calendario %}
+                    {% with fecha_str=d.fecha|date:'Y-m-d' %}
+                    {% with turnos=fila.calendario|default:{} %}
+                    <td class="cal-cell td">
+                        {% for t in turnos %}
+                            {% if 'día' in t.tipo|lower or 'dia' in t.tipo|lower or 'td' in t.tipo|lower %}
+                            <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="cal-cell tn">
+                        {% for t in turnos %}
+                            {% if 'noche' in t.tipo|lower or 'tn' in t.tipo|lower %}
+                            <span class="dot dot-{{ t.estado|lower }}" title="{{ t.tipo }} — {{ t.estado }}"></span>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    {% endwith %}
+                    {% endwith %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            {% empty %}
+            <tr>
+                <td colspan="40" class="text-center text-muted py-4">
+                    No hay contratos activos con máquinas operativas.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div><!-- /prog-wrapper -->
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const URL_SAVE  = "{% url 'gerencia-programacion-save' %}";
+    const CSRF      = '{{ csrf_token }}';
+    const AÑO_OP    = {{ año_op }};
+    const MES_OP    = {{ mes_op }};
+
+    /* ──────────────────────────────────────────────────────────
+       RECALCULAR: actualiza celdas calculadas en tiempo real
+    ────────────────────────────────────────────────────────── */
+    function recalcularFila(tr) {
+        const meta       = parseFloat(tr.querySelector('.inp-meta').value) || 0;
+        const diaIniVal  = tr.querySelector('.inp-dia-inicio').value;
+        const fechaFin   = tr.dataset.fechaFin;
+        const cantDias   = parseInt(tr.dataset.cantidadDias);
+
+        if (!meta || !diaIniVal) {
+            tr.querySelector('.dias-trab').textContent   = '—';
+            tr.querySelector('.programa').textContent    = '—';
+            tr.querySelector('.meta-dia').textContent    = '—';
+            tr.querySelector('.meta-turno').textContent  = '—';
+            tr.querySelector('.prog-final').textContent  = '—';
+            return;
+        }
+
+        const diaIni  = new Date(diaIniVal);
+        const diaFin  = new Date(fechaFin);
+        const difMs   = diaFin - diaIni;
+        let   diasTrab = Math.round(difMs / 86400000) + 1;
+        diasTrab = Math.max(0, Math.min(diasTrab, cantDias));
+
+        const metaDia     = meta / 30;
+        const metaTurno   = metaDia / 2;
+        const programa    = metaDia * cantDias;
+        const progFinal   = metaDia * diasTrab;
+
+        tr.querySelector('.dias-trab').textContent  = diasTrab;
+        tr.querySelector('.programa').textContent   = programa.toFixed(2);
+        tr.querySelector('.meta-dia').textContent   = metaDia.toFixed(2);
+        tr.querySelector('.meta-turno').textContent = metaTurno.toFixed(2);
+        tr.querySelector('.prog-final').textContent = progFinal.toFixed(2);
+    }
+
+    /* ──────────────────────────────────────────────────────────
+       GUARDAR FILA individual vía AJAX
+    ────────────────────────────────────────────────────────── */
+    async function guardarFila(tr) {
+        const meta      = tr.querySelector('.inp-meta').value;
+        const diaInicio = tr.querySelector('.inp-dia-inicio').value;
+        const status    = tr.querySelector('.save-status');
+
+        if (!meta || !diaInicio) {
+            status.textContent = '⚠ Ingresa META y DÍA INICIO';
+            status.style.color = 'orange';
+            return;
+        }
+
+        status.textContent = '…';
+        status.style.color = '#888';
+
+        try {
+            const resp = await fetch(URL_SAVE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify({
+                    maquina_id: tr.dataset.maquinaId,
+                    año: AÑO_OP,
+                    mes: MES_OP,
+                    meta_metros: meta,
+                    dia_inicio: diaInicio,
+                })
+            });
+            const data = await resp.json();
+            if (data.error) throw new Error(data.error);
+
+            status.textContent = '✔';
+            status.style.color = 'green';
+            setTimeout(() => { status.textContent = ''; }, 3000);
+        } catch (e) {
+            status.textContent = '✗ Error';
+            status.style.color = 'red';
+            console.error(e);
+        }
+    }
+
+    /* ──────────────────────────────────────────────────────────
+       GUARDAR TODO
+    ────────────────────────────────────────────────────────── */
+    async function guardarTodo() {
+        const filas = document.querySelectorAll('tr.fila-maquina');
+        const gStatus = document.getElementById('globalStatus');
+        gStatus.textContent = `Guardando ${filas.length} filas…`;
+        gStatus.style.color = '#888';
+        let ok = 0, fail = 0;
+
+        for (const tr of filas) {
+            const meta     = tr.querySelector('.inp-meta').value;
+            const diaInicio = tr.querySelector('.inp-dia-inicio').value;
+            if (!meta || !diaInicio) continue;   // ignorar filas vacías
+
+            try {
+                const resp = await fetch(URL_SAVE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                    body: JSON.stringify({
+                        maquina_id: tr.dataset.maquinaId,
+                        año: AÑO_OP,
+                        mes: MES_OP,
+                        meta_metros: meta,
+                        dia_inicio: diaInicio,
+                    })
+                });
+                const d = await resp.json();
+                if (d.error) throw new Error(d.error);
+                ok++;
+                tr.querySelector('.save-status').textContent = '✔';
+                tr.querySelector('.save-status').style.color = 'green';
+            } catch {
+                fail++;
+                tr.querySelector('.save-status').textContent = '✗';
+                tr.querySelector('.save-status').style.color = 'red';
+            }
+        }
+
+        gStatus.textContent = `Guardado: ${ok} ✔${fail ? '  Errores: ' + fail + ' ✗' : ''}`;
+        gStatus.style.color = fail ? 'red' : 'green';
+        setTimeout(() => {
+            gStatus.textContent = '';
+            document.querySelectorAll('.save-status').forEach(s => { s.textContent = ''; });
+        }, 5000);
+    }
+
+    /* Recalcular al cargar (por si hay valores pre-llenados) */
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('tr.fila-maquina').forEach(tr => recalcularFila(tr));
+    });
+</script>
+{% endblock %}

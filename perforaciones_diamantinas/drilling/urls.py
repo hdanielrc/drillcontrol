@@ -325,6 +325,9 @@ urlpatterns = [
     path('gerencia/metas-diarias/', views_gerencia.metas_diarias_list, name='gerencia-metas-diarias-list'),
     path('gerencia/metas-diarias/crear/', views_gerencia.metas_diarias_create, name='gerencia-metas-diarias-create'),
     path('gerencia/metas-diarias/<int:pk>/eliminar/', views_gerencia.metas_diarias_delete, name='gerencia-metas-diarias-delete'),
+    # GERENCIA - Programación Mensual
+    path('gerencia/programacion/', views_gerencia.gerencia_programacion, name='gerencia-programacion'),
+    path('gerencia/programacion/guardar/', views_gerencia.programacion_save, name='gerencia-programacion-save'),
     
     # HISTORIAL DE BROCAS - Trazabilidad y Seguimiento
     path('historial-brocas/', views.historial_brocas_lista, name='historial-brocas-lista'),

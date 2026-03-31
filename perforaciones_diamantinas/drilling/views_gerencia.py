@@ -10,7 +10,7 @@ from decimal import Decimal
 from collections import defaultdict
 from .models import (
     Turno, TurnoAvance, Maquina, Trabajador, Contrato,
-    TurnoActividad, Sondaje, MetaDiariaMaquina
+    TurnoActividad, Sondaje, MetaDiariaMaquina, ProgramacionMes, TipoTurno
 )
 
 
@@ -562,3 +562,211 @@ def metas_diarias_delete(request, pk):
     meta = get_object_or_404(MetaDiariaMaquina, pk=pk)
     meta.delete()
     return JsonResponse({'deleted': True})
+
+
+# =============================================================================
+# PROGRAMACIÓN MENSUAL
+# =============================================================================
+
+def _calcular_periodo_operativo(fecha):
+    """Calcula fecha_inicio y fecha_fin del período operativo (26-25) para una fecha dada."""
+    if fecha.day >= 26:
+        fi = fecha.replace(day=26)
+        if fecha.month == 12:
+            ff = fecha.replace(year=fecha.year + 1, month=1, day=25)
+        else:
+            ff = fecha.replace(month=fecha.month + 1, day=25)
+    else:
+        if fecha.month == 1:
+            fi = fecha.replace(year=fecha.year - 1, month=12, day=26)
+        else:
+            fi = fecha.replace(month=fecha.month - 1, day=26)
+        ff = fecha.replace(day=25)
+    return fi, ff
+
+
+def _mes_operativo_de_fecha(fecha):
+    """Devuelve (año, mes) del período operativo donde cae la fecha (mes = mes del día 25)."""
+    _, ff = _calcular_periodo_operativo(fecha)
+    return ff.year, ff.month
+
+
+@login_required
+@gerente_required
+def gerencia_programacion(request):
+    """Vista de programación mensual de máquinas — tabla estilo Excel."""
+
+    # Navegación de meses
+    mes_offset = int(request.GET.get('mes_offset', 0))
+    fecha_ref = date_class.today()
+    if mes_offset != 0:
+        import calendar
+        mes_ref = fecha_ref.month + mes_offset
+        anio_ref = fecha_ref.year
+        while mes_ref < 1:
+            mes_ref += 12
+            anio_ref -= 1
+        while mes_ref > 12:
+            mes_ref -= 12
+            anio_ref += 1
+        ultimo_dia = calendar.monthrange(anio_ref, mes_ref)[1]
+        dia = min(fecha_ref.day, ultimo_dia)
+        fecha_ref = fecha_ref.replace(year=anio_ref, month=mes_ref, day=dia)
+
+    fecha_inicio, fecha_fin = _calcular_periodo_operativo(fecha_ref)
+    año_op, mes_op = _mes_operativo_de_fecha(fecha_ref)
+    cantidad_dias = (fecha_fin - fecha_inicio).days + 1
+
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    nombre_mes = MESES[mes_op]
+
+    # Obtener todos los contratos activos con sus máquinas operativas
+    contratos = Contrato.objects.filter(estado='ACTIVO').prefetch_related(
+        'maquinas'
+    ).order_by('nombre_contrato')
+
+    # Programaciones existentes para el período: {maquina_id: ProgramacionMes}
+    progs = ProgramacionMes.objects.filter(
+        año=año_op, mes=mes_op
+    ).select_related('maquina')
+    prog_dict = {p.maquina_id: p for p in progs}
+
+    # Turnos del período para el calendario: {maquina_id: {fecha: [tipo_turno_nombre, ...]}}
+    turnos_qs = Turno.objects.filter(
+        fecha__range=[fecha_inicio, fecha_fin]
+    ).select_related('maquina', 'tipo_turno').values(
+        'maquina_id', 'fecha', 'tipo_turno__nombre', 'estado'
+    )
+    cal_dict = defaultdict(lambda: defaultdict(list))
+    for t in turnos_qs:
+        cal_dict[t['maquina_id']][t['fecha']].append({
+            'tipo': t['tipo_turno__nombre'],
+            'estado': t['estado'],
+        })
+
+    # Tipos de turno (para encabezado del calendario)
+    tipos_turno = list(TipoTurno.objects.values_list('nombre', flat=True).order_by('nombre'))
+
+    # Construir estructura de datos para el template
+    grupos = []
+    for contrato in contratos:
+        maquinas = contrato.maquinas.filter(estado='OPERATIVO').order_by('nombre')
+        if not maquinas.exists():
+            continue
+
+        filas = []
+        for m in maquinas:
+            prog = prog_dict.get(m.id)
+            meta = float(prog.meta_metros) if prog else None
+            dia_ini = prog.dia_inicio if prog else None
+
+            if prog and meta:
+                meta_dia = meta / 30
+                dias_trab = max(0, (fecha_fin - dia_ini).days + 1) if dia_ini else cantidad_dias
+                dias_trab = min(dias_trab, cantidad_dias)
+                programa = meta_dia * cantidad_dias
+                meta_turno = meta_dia / 2
+                programa_final = meta_dia * dias_trab
+            else:
+                meta_dia = dias_trab = programa = meta_turno = programa_final = None
+
+            # Datos del calendario para esta máquina
+            cal_maquina = {}
+            for offset in range(cantidad_dias):
+                fecha_dia = fecha_inicio + timedelta(days=offset)
+                cal_maquina[fecha_dia.strftime('%Y-%m-%d')] = cal_dict[m.id].get(fecha_dia, [])
+
+            filas.append({
+                'maquina_id': m.id,
+                'maquina_nombre': m.nombre,
+                'prog_id': prog.id if prog else None,
+                'meta': meta,
+                'dia_inicio': dia_ini.strftime('%Y-%m-%d') if dia_ini else '',
+                'dias_trabajados': dias_trab,
+                'programa': round(programa, 2) if programa else None,
+                'meta_dia': round(meta_dia, 2) if meta_dia else None,
+                'meta_turno': round(meta_turno, 2) if meta_turno else None,
+                'programa_final': round(programa_final, 2) if programa_final else None,
+                'calendario': cal_maquina,
+            })
+
+        grupos.append({
+            'contrato_id': contrato.id,
+            'contrato_nombre': contrato.nombre_contrato,
+            'codigo': contrato.codigo_centro_costo or contrato.nombre_contrato[:8],
+            'filas': filas,
+        })
+
+    # Lista de fechas del período para encabezado del calendario
+    fechas_periodo = [
+        (fecha_inicio + timedelta(days=i)).strftime('%Y-%m-%d')
+        for i in range(cantidad_dias)
+    ]
+    dias_calendario = [
+        {
+            'fecha': fecha_inicio + timedelta(days=i),
+            'label': str((fecha_inicio + timedelta(days=i)).day),
+        }
+        for i in range(cantidad_dias)
+    ]
+
+    context = {
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+        'año_op': año_op,
+        'mes_op': mes_op,
+        'nombre_mes': nombre_mes,
+        'cantidad_dias': cantidad_dias,
+        'mes_offset': mes_offset,
+        'grupos': grupos,
+        'tipos_turno': tipos_turno,
+        'dias_calendario': dias_calendario,
+        'fechas_periodo_json': json.dumps(fechas_periodo),
+    }
+    return render(request, 'drilling/gerencia/programacion.html', context)
+
+
+@login_required
+@gerente_required
+@require_http_methods(["POST"])
+def programacion_save(request):
+    """Guarda o actualiza la programación de una máquina para el período operativo."""
+    try:
+        body = json.loads(request.body)
+        maquina_id = int(body['maquina_id'])
+        año = int(body['año'])
+        mes = int(body['mes'])
+        meta_metros = Decimal(str(body['meta_metros']))
+        dia_inicio = date_class.fromisoformat(body['dia_inicio'])
+    except (KeyError, ValueError, TypeError) as e:
+        return JsonResponse({'error': f'Datos inválidos: {e}'}, status=400)
+
+    maquina = get_object_or_404(Maquina, pk=maquina_id)
+
+    obj, created = ProgramacionMes.objects.update_or_create(
+        maquina=maquina,
+        año=año,
+        mes=mes,
+        defaults={
+            'meta_metros': meta_metros,
+            'dia_inicio': dia_inicio,
+            'created_by': request.user,
+        }
+    )
+
+    # Devolver valores calculados
+    meta = float(obj.meta_metros)
+    meta_dia = meta / 30
+    fi, ff = _calcular_periodo_operativo(obj.dia_inicio)
+    cantidad_dias = (ff - fi).days + 1
+    dias_trab = max(0, min((ff - obj.dia_inicio).days + 1, cantidad_dias))
+    return JsonResponse({
+        'id': obj.id,
+        'created': created,
+        'meta_dia': round(meta_dia, 2),
+        'meta_turno': round(meta_dia / 2, 2),
+        'programa': round(meta_dia * cantidad_dias, 2),
+        'programa_final': round(meta_dia * dias_trab, 2),
+        'dias_trabajados': dias_trab,
+    })
