@@ -1,12 +1,16 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Q, Avg, F
 from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
-from datetime import datetime, timedelta
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+import json
+from datetime import datetime, timedelta, date as date_class
 from decimal import Decimal
+from collections import defaultdict
 from .models import (
     Turno, TurnoAvance, Maquina, Trabajador, Contrato,
-    TurnoActividad, Sondaje
+    TurnoActividad, Sondaje, MetaDiariaMaquina
 )
 
 
@@ -273,6 +277,50 @@ def gerencia_dashboard(request):
     # ============================================
     sondajes_activos = Sondaje.objects.filter(estado='ACTIVO').count()
     sondajes_completados = Sondaje.objects.filter(estado='FINALIZADO').count()
+
+    # ============================================
+    # METAS DIARIAS: suma de metas por máquina por día
+    # ============================================
+    # Obtener máquinas del filtro actual
+    if contrato_id:
+        maquinas_filtro = Maquina.objects.filter(contrato_id=contrato_id)
+    else:
+        maquinas_filtro = Maquina.objects.all()
+
+    # Traer todos los registros de MetaDiariaMaquina relevantes
+    # (vigentes hasta fecha_fin del período, para todas las máquinas del filtro)
+    metas_diarias_qs = MetaDiariaMaquina.objects.filter(
+        maquina__in=maquinas_filtro,
+        fecha_vigencia__lte=fecha_fin
+    ).order_by('maquina_id', 'fecha_vigencia').values(
+        'maquina_id', 'fecha_vigencia', 'meta_metros_dia'
+    )
+
+    # Agrupar por máquina: [(fecha_vigencia, meta_metros_dia), ...]
+    metas_por_maquina = defaultdict(list)
+    for r in metas_diarias_qs:
+        metas_por_maquina[r['maquina_id']].append(
+            (r['fecha_vigencia'], float(r['meta_metros_dia']))
+        )
+
+    # Para cada día del período calcular la suma de metas
+    metraje_diario_meta_dict = {}
+    dias_periodo_total = (fecha_fin - fecha_inicio).days + 1
+    for dia_num in range(1, dias_periodo_total + 1):
+        fecha_dia = fecha_inicio + timedelta(days=dia_num - 1)
+        total_meta_dia = 0.0
+        for rates in metas_por_maquina.values():
+            # Encontrar la última vigencia <= fecha_dia
+            meta_vigente = None
+            for fecha_vig, metros_dia in rates:
+                if fecha_vig <= fecha_dia:
+                    meta_vigente = metros_dia
+                else:
+                    break
+            if meta_vigente is not None:
+                total_meta_dia += meta_vigente
+        if total_meta_dia > 0:
+            metraje_diario_meta_dict[dia_num] = round(total_meta_dia, 2)
     
     # ============================================
     # ALERTAS Y PROBLEMAS
@@ -403,6 +451,7 @@ def gerencia_dashboard(request):
         # Datos para gráficas comparativas
         'metraje_diario_actual': metraje_diario_actual_dict,
         'metraje_diario_anterior': metraje_diario_anterior_dict,
+        'metraje_diario_meta': metraje_diario_meta_dict,
         'metraje_por_contrato': metraje_por_contrato,
         'distribucion_actividades': distribucion_actividades,
         'total_horas_periodo': float(total_horas),
@@ -422,3 +471,94 @@ def gerencia_dashboard(request):
     }
     
     return render(request, 'drilling/gerencia/dashboard.html', context)
+
+
+# =============================================================================
+# AJAX: Metas Diarias por Máquina
+# =============================================================================
+
+@login_required
+@gerente_required
+@require_http_methods(["GET"])
+def metas_diarias_list(request):
+    """Devuelve los registros de MetaDiariaMaquina para las máquinas del contrato.
+    Con all_machines=1 también incluye la lista completa de máquinas disponibles.
+    """
+    contrato_id = request.GET.get('contrato_id')
+    all_machines = request.GET.get('all_machines') == '1'
+
+    qs = MetaDiariaMaquina.objects.select_related('maquina', 'maquina__contrato')
+    if contrato_id:
+        qs = qs.filter(maquina__contrato_id=contrato_id)
+
+    data = [
+        {
+            'id': r.id,
+            'maquina_id': r.maquina_id,
+            'maquina_nombre': r.maquina.nombre,
+            'contrato_nombre': r.maquina.contrato.nombre_contrato,
+            'fecha_vigencia': r.fecha_vigencia.strftime('%Y-%m-%d'),
+            'meta_metros_dia': float(r.meta_metros_dia),
+            'observaciones': r.observaciones,
+        }
+        for r in qs.order_by('maquina__nombre', 'fecha_vigencia')
+    ]
+
+    response = {'metas': data}
+
+    if all_machines:
+        mqs = Maquina.objects.select_related('contrato').filter(estado='OPERATIVO')
+        if contrato_id:
+            mqs = mqs.filter(contrato_id=contrato_id)
+        response['maquinas'] = [
+            {'id': m.id, 'nombre': m.nombre, 'contrato': m.contrato.nombre_contrato}
+            for m in mqs.order_by('nombre')
+        ]
+
+    return JsonResponse(response)
+
+
+@login_required
+@gerente_required
+@require_http_methods(["POST"])
+def metas_diarias_create(request):
+    """Crea o actualiza un registro de MetaDiariaMaquina."""
+    try:
+        body = json.loads(request.body)
+        maquina_id = int(body['maquina_id'])
+        fecha_vigencia = date_class.fromisoformat(body['fecha_vigencia'])
+        meta_metros_dia = Decimal(str(body['meta_metros_dia']))
+        observaciones = body.get('observaciones', '')
+    except (KeyError, ValueError, TypeError) as e:
+        return JsonResponse({'error': f'Datos inválidos: {e}'}, status=400)
+
+    maquina = get_object_or_404(Maquina, pk=maquina_id)
+
+    obj, created = MetaDiariaMaquina.objects.update_or_create(
+        maquina=maquina,
+        fecha_vigencia=fecha_vigencia,
+        defaults={
+            'meta_metros_dia': meta_metros_dia,
+            'observaciones': observaciones,
+            'created_by': request.user,
+        }
+    )
+
+    return JsonResponse({
+        'id': obj.id,
+        'maquina_id': obj.maquina_id,
+        'maquina_nombre': obj.maquina.nombre,
+        'fecha_vigencia': obj.fecha_vigencia.strftime('%Y-%m-%d'),
+        'meta_metros_dia': float(obj.meta_metros_dia),
+        'created': created,
+    }, status=201 if created else 200)
+
+
+@login_required
+@gerente_required
+@require_http_methods(["DELETE"])
+def metas_diarias_delete(request, pk):
+    """Elimina un registro de MetaDiariaMaquina."""
+    meta = get_object_or_404(MetaDiariaMaquina, pk=pk)
+    meta.delete()
+    return JsonResponse({'deleted': True})
