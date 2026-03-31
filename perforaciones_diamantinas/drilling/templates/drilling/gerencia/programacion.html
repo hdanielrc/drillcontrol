@@ -109,17 +109,21 @@
     .td-ctr {
         background: #e8f0f7;
         font-weight: 700;
-        font-size: .78rem;
+        font-size: .72rem;
         text-align: center;
         writing-mode: vertical-rl;
         transform: rotate(180deg);
-        letter-spacing: 1px;
+        letter-spacing: .5px;
         color: var(--prog-primary);
         border-right: 3px solid var(--prog-primary);
+        max-width: 90px;
+        word-break: break-word;
+        white-space: normal;
     }
 
     /* Separador entre contratos */
     tr.contrato-sep td { border-top: 3px solid var(--prog-primary) !important; }
+    tr.contrato-sep-bottom td { border-bottom: 2px dashed #b0c4de !important; }
 
     /* ── CALENDARIO ──────────────────────────────────────────── */
     .cal-sep { border-left: 3px solid var(--prog-primary); }
@@ -292,7 +296,7 @@
 
                     {% if forloop.first %}
                     <td class="td-ctr col-fixed" rowspan="{{ grupo.filas|length }}">
-                        {{ grupo.codigo }}
+                        {{ grupo.contrato_nombre }}
                     </td>
                     {% endif %}
 
@@ -356,6 +360,19 @@
                     {% endfor %}
                 </tr>
                 {% endfor %}
+                <!-- Fila "Agregar máquina" al final del grupo -->
+                <tr class="tr-agregar-grupo contrato-sep-bottom"
+                    data-contrato-id="{{ grupo.contrato_id }}"
+                    data-contrato-nombre="{{ grupo.contrato_nombre }}">
+                    <td colspan="10" class="py-1 px-2" style="background:#f0f5fb;">
+                        <button class="btn btn-outline-primary btn-sm"
+                                onclick="abrirModalAgregar('{{ grupo.contrato_id }}', '{{ grupo.contrato_nombre|escapejs }}')">
+                            <i class="fas fa-plus me-1"></i>Agregar máquina a {{ grupo.contrato_nombre }}
+                        </button>
+                    </td>
+                    <!-- celdas calendario vacías -->
+                    <td colspan="{{ cantidad_dias|add:cantidad_dias|add:2 }}" style="background:#f0f5fb;"></td>
+                </tr>
             {% empty %}
             <tr>
                 <td colspan="40" class="text-center text-muted py-4">
@@ -368,6 +385,33 @@
     </div><!-- /prog-wrapper -->
 
 </div>
+
+<!-- Modal: Agregar máquina -->
+<div class="modal fade" id="modalAgregarMaquina" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--prog-primary);color:white;">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle me-2"></i>Agregar máquina a <span id="modalAgregarCtrNombre"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="filtroBuscarMaquina"
+                           placeholder="Buscar por nombre o contrato..." oninput="filtrarMaquinas()">
+                </div>
+                <div id="listaMaquinas" style="max-height:380px;overflow-y:auto;">
+                    <!-- populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -506,5 +550,112 @@
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('tr.fila-maquina').forEach(tr => recalcularFila(tr));
     });
+
+    /* ──────────────────────────────────────────────────────────
+       MODAL: Agregar máquina
+    ────────────────────────────────────────────────────────── */
+    const TODAS_MAQUINAS = {{ todas_maquinas_json|safe }};
+    const FECHA_INICIO   = '{{ fecha_inicio|date:"Y-m-d" }}';
+    const FECHA_FIN      = '{{ fecha_fin|date:"Y-m-d" }}';
+    const CANTIDAD_DIAS  = {{ cantidad_dias }};
+    let   _contratoIdActual = null;
+
+    function abrirModalAgregar(contratoId, contratoNombre) {
+        _contratoIdActual = contratoId;
+        document.getElementById('modalAgregarCtrNombre').textContent = contratoNombre;
+        document.getElementById('filtroBuscarMaquina').value = '';
+        filtrarMaquinas();
+        new bootstrap.Modal(document.getElementById('modalAgregarMaquina')).show();
+    }
+
+    function filtrarMaquinas() {
+        const q = document.getElementById('filtroBuscarMaquina').value.toLowerCase();
+        const lista = document.getElementById('listaMaquinas');
+
+        const filtradas = TODAS_MAQUINAS.filter(m =>
+            m.nombre.toLowerCase().includes(q) ||
+            (m['contrato__nombre_contrato'] || '').toLowerCase().includes(q)
+        );
+
+        if (filtradas.length === 0) {
+            lista.innerHTML = '<div class="text-muted text-center py-3">No se encontraron máquinas.</div>';
+            return;
+        }
+
+        let html = '<div class="list-group">';
+        filtradas.forEach(m => {
+            const estado = m.estado !== 'OPERATIVO'
+                ? `<span class="badge bg-warning text-dark ms-1">${m.estado}</span>` : '';
+            const ctr = m['contrato__nombre_contrato'] || '—';
+            html += `
+            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                    onclick="agregarMaquinaFila(${m.id}, '${m.nombre.replace(/'/g,"\\'")}', '${ctr.replace(/'/g,"\\'")}')">
+                <span><strong>${m.nombre}</strong>${estado}</span>
+                <small class="text-muted">CTR: ${ctr}</small>
+            </button>`;
+        });
+        html += '</div>';
+        lista.innerHTML = html;
+    }
+
+    function agregarMaquinaFila(maquinaId, maquinaNombre, ctrNombre) {
+        // Cerrar modal
+        bootstrap.Modal.getInstance(document.getElementById('modalAgregarMaquina')).hide();
+
+        // Buscar la fila "tr-agregar-grupo" del contrato para insertar antes de ella
+        const trAgregar = document.querySelector(`tr.tr-agregar-grupo[data-contrato-id="${_contratoIdActual}"]`);
+        if (!trAgregar) return;
+
+        // Construir celdas del calendario vacías (TD+TN por cada día + 2 extra)
+        let calCeldas = '<td class="cal-cell cal-sep"></td><td class="cal-cell"></td>';
+        for (let i = 0; i < CANTIDAD_DIAS; i++) {
+            calCeldas += '<td class="cal-cell td"></td><td class="cal-cell tn"></td>';
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = 'fila-maquina fila-agregada';
+        tr.dataset.maquinaId   = maquinaId;
+        tr.dataset.año         = AÑO_OP;
+        tr.dataset.mes         = MES_OP;
+        tr.dataset.fechaInicio = FECHA_INICIO;
+        tr.dataset.fechaFin    = FECHA_FIN;
+        tr.dataset.cantidadDias = CANTIDAD_DIAS;
+
+        tr.innerHTML = `
+            <td class="col-fixed col-maquina fw-bold text-primary">
+                ${maquinaNombre}
+                <br><small class="text-muted fw-normal">${ctrNombre}</small>
+            </td>
+            <td class="celda-ingresada">
+                <input type="number" class="inp-meta" min="0" step="0.01" placeholder="0.00"
+                       onchange="recalcularFila(this.closest('tr'))">
+            </td>
+            <td class="celda-ingresada">
+                <input type="date" class="inp-dia-inicio"
+                       min="${FECHA_INICIO}" max="${FECHA_FIN}"
+                       onchange="recalcularFila(this.closest('tr'))">
+            </td>
+            <td class="celda-calc dias-trab">—</td>
+            <td class="celda-calc programa">—</td>
+            <td class="celda-calc meta-dia">—</td>
+            <td class="celda-calc meta-turno">—</td>
+            <td class="celda-calc prog-final">—</td>
+            <td class="text-center">
+                <button class="btn btn-primary btn-save-row" onclick="guardarFila(this.closest('tr'))">
+                    <i class="fas fa-save"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-save-row ms-1" onclick="this.closest('tr').remove()" title="Quitar fila">
+                    <i class="fas fa-times"></i>
+                </button>
+                <span class="save-status"></span>
+            </td>
+            ${calCeldas}
+        `;
+
+        // Insertar la fila antes del botón "Agregar"
+        // Pero esta fila no tiene columna CTR (ya fue ocupada por rowspan)
+        // Añadir sin la columna CTR para no romper el layout
+        trAgregar.parentNode.insertBefore(tr, trAgregar);
+    }
 </script>
 {% endblock %}

@@ -622,9 +622,10 @@ def gerencia_programacion(request):
     nombre_mes = MESES[mes_op]
 
     # Obtener todos los contratos activos con sus máquinas operativas
-    contratos = Contrato.objects.filter(estado='ACTIVO').prefetch_related(
-        'maquinas'
-    ).order_by('nombre_contrato')
+    # Excluir "SISTEMA PRINCIPAL" (contrato ficticio del sistema)
+    contratos = Contrato.objects.filter(estado='ACTIVO').exclude(
+        nombre_contrato__icontains='sistema principal'
+    ).prefetch_related('maquinas').order_by('nombre_contrato')
 
     # Programaciones existentes para el período: {maquina_id: ProgramacionMes}
     progs = ProgramacionMes.objects.filter(
@@ -706,9 +707,23 @@ def gerencia_programacion(request):
         grupos.append({
             'contrato_id': contrato.id,
             'contrato_nombre': contrato.nombre_contrato,
-            'codigo': contrato.codigo_centro_costo or contrato.nombre_contrato[:8],
             'filas': filas,
         })
+
+    # Máquinas disponibles para agregar (para el modal "Agregar máquina")
+    # Todas las máquinas excepto las que ya están en grupos y las del contrato SISTEMA PRINCIPAL
+    maquinas_en_grupos = {
+        fila['maquina_id']
+        for grupo in grupos
+        for fila in grupo['filas']
+    }
+    todas_maquinas = list(
+        Maquina.objects.exclude(id__in=maquinas_en_grupos)
+        .exclude(contrato__nombre_contrato__icontains='sistema principal')
+        .select_related('contrato')
+        .order_by('contrato__nombre_contrato', 'nombre')
+        .values('id', 'nombre', 'estado', 'contrato__nombre_contrato', 'contrato_id')
+    )
 
     # Lista de fechas del período para encabezado del calendario
     fechas_periodo = [
@@ -732,6 +747,7 @@ def gerencia_programacion(request):
         'cantidad_dias': cantidad_dias,
         'mes_offset': mes_offset,
         'grupos': grupos,
+        'todas_maquinas_json': json.dumps(todas_maquinas),
         'tipos_turno': [t['nombre'] for t in tipos_turno_all],
         'dias_calendario': dias_calendario,
         'fechas_periodo_json': json.dumps(fechas_periodo),
