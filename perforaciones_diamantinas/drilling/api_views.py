@@ -576,25 +576,37 @@ def api_set_fecha_inicio_labores(request, pk):
 @require_http_methods(["GET"])
 def api_ultima_broca_sondaje(request, sondaje_id):
     """
-    Endpoint para obtener la última broca y rimador usados en un sondaje.
-    Retorna JSON con la última serie, tipo y metros para pre-rellenar el formulario.
+    Endpoint para obtener los productos diamantados del último turno de un sondaje.
+    Retorna JSON con todos los complementos usados para pre-rellenar el formulario.
+    Mantiene compatibilidad con campos 'broca' y 'reamer' para código legacy.
     """
     from .models import TurnoComplemento
 
-    def get_last(categoria_list):
-        qs = TurnoComplemento.objects.filter(
-            sondaje_id=sondaje_id,
-            tipo_complemento__categoria__in=categoria_list
-        ).select_related('tipo_complemento', 'turno').order_by('-turno__fecha', '-id')
-        return qs.first()
-
     try:
-        last_broca = get_last(['BROCA'])
-        last_reamer = get_last(['REAMER', 'RIMADOR'])
+        # Encontrar el último turno que tenga complementos para este sondaje
+        ultimo_complemento = (
+            TurnoComplemento.objects.filter(sondaje_id=sondaje_id)
+            .select_related('turno')
+            .order_by('-turno__fecha', '-turno__id')
+            .first()
+        )
+
+        if not ultimo_complemento:
+            return JsonResponse({'success': True, 'broca': None, 'reamer': None, 'items': []})
+
+        ultimo_turno = ultimo_complemento.turno
+
+        # Obtener TODOS los complementos de ese último turno para este sondaje
+        complementos_qs = (
+            TurnoComplemento.objects.filter(
+                turno=ultimo_turno,
+                sondaje_id=sondaje_id,
+            )
+            .select_related('tipo_complemento')
+            .order_by('id')
+        )
 
         def serialize(comp):
-            if not comp:
-                return None
             return {
                 'serie': comp.codigo_serie or '',
                 'tipo_complemento_id': comp.tipo_complemento_id,
@@ -604,10 +616,17 @@ def api_ultima_broca_sondaje(request, sondaje_id):
                 'metros_fin': float(comp.metros_fin) if comp.metros_fin is not None else None,
             }
 
+        items = [serialize(c) for c in complementos_qs]
+
+        # Compatibilidad: extraer primer broca y primer reaming_shell para campos legacy
+        first_broca = next((i for i in items if i['categoria'] == 'BROCA'), None)
+        first_reamer = next((i for i in items if i['categoria'] == 'REAMING_SHELL'), None)
+
         return JsonResponse({
             'success': True,
-            'broca': serialize(last_broca),
-            'reamer': serialize(last_reamer),
+            'broca': first_broca,
+            'reamer': first_reamer,
+            'items': items,
         })
     except Exception as e:
         logger.error(f"Error obteniendo última broca del sondaje {sondaje_id}: {str(e)}")

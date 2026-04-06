@@ -1614,7 +1614,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (select && select.value === sondajeId) {
                 const metrajeInput = sondajeRow.querySelector('input[name="sondajes_metraje"]');
                 if (metrajeInput) {
-                    metrajeInput.value = totalMetraje > 0 ? totalMetraje.toFixed(2) : '';
+                    metrajeInput.value = totalMetraje.toFixed(2);
                     // Efecto visual para indicar actualización
                     metrajeInput.classList.add('bg-success-subtle');
                     setTimeout(() => metrajeInput.classList.remove('bg-success-subtle'), 500);
@@ -1884,9 +1884,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(r => r.json())
             .then(data => {
                 if (!data.success) return;
-                const itemsToAdd = [];
-                if (data.broca) itemsToAdd.push(data.broca);
-                if (data.reamer) itemsToAdd.push(data.reamer);
+                // Usar 'items' (todos los productos del último turno); fallback a broca+reamer legacy
+                const itemsToAdd = Array.isArray(data.items) && data.items.length > 0
+                    ? data.items
+                    : [data.broca, data.reamer].filter(Boolean);
                 if (itemsToAdd.length === 0) return;
 
                 const container = subsectionDiv.querySelector('.complementos-list');
@@ -2016,12 +2017,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Actualizar unidad de medida dinámicamente al seleccionar tipo de aditivo
+    const DEFAULT_UNIDAD_KG_ID = '{{ unidad_kg_id|default:"" }}';
     document.getElementById('aditivos-seccion').addEventListener('change', function(event) {
         if (event.target.classList.contains('aditivo-tipo-select')) {
             const row = event.target.closest('.aditivo-row');
             if (!row) return;
             const selectedOption = event.target.options[event.target.selectedIndex];
-            const unidadId = selectedOption.dataset.unidadId || '';
+            // Si el aditivo no tiene unidad configurada, mantener KG por defecto
+            const unidadId = selectedOption.dataset.unidadId || DEFAULT_UNIDAD_KG_ID;
             const unidadSimbolo = selectedOption.dataset.unidadSimbolo || 'KG';
             const hiddenInput = row.querySelector('.aditivo-unidad-id');
             if (hiddenInput) hiddenInput.value = unidadId;
@@ -3541,6 +3544,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Recolectar complementos (productos diamantados)
+        // Permitir metros vacíos (turnos sin metraje) — se guardan como 0
         const complementos = [];
         document.querySelectorAll('.complemento-row').forEach(row => {
             const tipoComplementoId = row.querySelector('.complemento-id').value;
@@ -3548,13 +3552,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const metrosInicio = row.querySelector('input[name*="metros_inicio"]').value;
             const metrosFin = row.querySelector('input[name*="metros_fin"]').value;
             const sondajeId = row.closest('.complemento-subsection')?.dataset?.sondajeId || null;
-            
-            if (tipoComplementoId && metrosInicio && metrosFin) {
+
+            if (tipoComplementoId || serie) {
                 complementos.push({
                     tipo_complemento_id: tipoComplementoId,
                     codigo_serie: serie,
-                    metros_inicio: metrosInicio,
-                    metros_fin: metrosFin,
+                    metros_inicio: metrosInicio !== '' ? metrosInicio : '0',
+                    metros_fin: metrosFin !== '' ? metrosFin : '0',
                     sondaje_id: sondajeId
                 });
             }
