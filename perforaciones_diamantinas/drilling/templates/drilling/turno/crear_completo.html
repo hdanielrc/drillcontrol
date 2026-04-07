@@ -3504,21 +3504,28 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
         }
+        // Marcar que estamos enviando para desactivar beforeunload
+        window._submitEnCurso = true;
         // Re-habilitar si la validación falla
         function rehabilitarSubmit() {
+            window._submitEnCurso = false;
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-save"></i> {% if edit_mode %}Guardar Cambios{% else %}Crear Turno{% endif %}';
             }
         }
 
+        // Recolectar datos con manejo de errores para evitar que el formulario se quede colgado
+        try {
+
         // Recolectar trabajadores
         const trabajadores = [];
         document.querySelectorAll('.trabajador-row').forEach(row => {
+            try {
             // Intentar buscar tanto por nombre como por clase
             const selectTrabajador = row.querySelector('.select-trabajador') || row.querySelector('select[name*="trabajador_"]');
             const trabajadorId = selectTrabajador ? selectTrabajador.value : null;
-            
+
             // Manejar tanto select (manual) como input (auto) para función
             let funcion = '';
             const funcSelect = row.querySelector('select[name*="funcion_"]');
@@ -3529,10 +3536,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Observaciones
             const obsInput = row.querySelector('.input-observaciones') || row.querySelector('input[name*="obs_"]');
             const observaciones = obsInput ? obsInput.value : '';
-            
+
             const estadoSelect = row.querySelector('.status-selector');
             const estado = estadoSelect ? estadoSelect.value : 'TRABAJADO';
-            
+
             if (trabajadorId && funcion) {
                 trabajadores.push({
                     trabajador_id: trabajadorId,
@@ -3541,16 +3548,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     estado_asistencia: estado
                 });
             }
+            } catch (err) { console.warn('Error recolectando trabajador:', err); }
         });
-        
+
         // Recolectar complementos (productos diamantados)
         // Permitir metros vacíos (turnos sin metraje) — se guardan como 0
         const complementos = [];
         document.querySelectorAll('.complemento-row').forEach(row => {
-            const tipoComplementoId = row.querySelector('.complemento-id').value;
-            const serie = row.querySelector('.input-serie').value;
-            const metrosInicio = row.querySelector('input[name*="metros_inicio"]').value;
-            const metrosFin = row.querySelector('input[name*="metros_fin"]').value;
+            try {
+            const compId = row.querySelector('.complemento-id');
+            const serieEl = row.querySelector('.input-serie');
+            const tipoComplementoId = compId ? compId.value : '';
+            const serie = serieEl ? serieEl.value : '';
+            const miEl = row.querySelector('input[name*="metros_inicio"]');
+            const mfEl = row.querySelector('input[name*="metros_fin"]');
+            const metrosInicio = miEl ? miEl.value : '';
+            const metrosFin = mfEl ? mfEl.value : '';
             const sondajeId = row.closest('.complemento-subsection')?.dataset?.sondajeId || null;
 
             if (tipoComplementoId || serie) {
@@ -3562,18 +3575,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     sondaje_id: sondajeId
                 });
             }
+            } catch (err) { console.warn('Error recolectando complemento:', err); }
         });
-        
+
         // Recolectar aditivos
         const aditivos = [];
         document.querySelectorAll('.aditivo-row').forEach(row => {
-            const tipoAditivoId = row.querySelector('select[name*="tipo_aditivo_"]').value;
-            const cantidadUsada = row.querySelector('input[name*="cantidad_"]').value;
+            try {
+            const tipoEl = row.querySelector('select[name*="tipo_aditivo_"]');
+            const cantEl = row.querySelector('input[name*="cantidad_"]');
+            const tipoAditivoId = tipoEl ? tipoEl.value : '';
+            const cantidadUsada = cantEl ? cantEl.value : '';
             // Unidad siempre KG: leer hidden input (ya no hay select)
             const unidadEl = row.querySelector('input[name*="unidad_medida_"]') || row.querySelector('select[name*="unidad_medida_"]');
             const unidadMedidaId = unidadEl ? unidadEl.value : '{{ unidad_kg_id|default:"" }}';
             const sondajeId = row.closest('.aditivo-subsection')?.dataset?.sondajeId || null;
-            
+
             if (tipoAditivoId && cantidadUsada) {
                 aditivos.push({
                     tipo_aditivo_id: tipoAditivoId,
@@ -3582,16 +3599,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     sondaje_id: sondajeId
                 });
             }
+            } catch (err) { console.warn('Error recolectando aditivo:', err); }
         });
-        
+
         // Recolectar actividades
         const actividades = [];
         document.querySelectorAll('.actividad-row').forEach(row => {
+            try {
             const actividadId = (row.querySelector('select[name*="actividad_"]') || row.querySelector('.actividad-select-hidden') || {}).value || '';
-            const horaInicio = row.querySelector('input[name*="hora_inicio_act_"]').value;
-            const horaFin = row.querySelector('input[name*="hora_fin_act_"]').value;
-            const observaciones = row.querySelector('input[name*="obs_act_"]').value;
-            
+            const hiEl = row.querySelector('input[name*="hora_inicio_act_"]');
+            const hfEl = row.querySelector('input[name*="hora_fin_act_"]');
+            const obsEl = row.querySelector('input[name*="obs_act_"]');
+            const horaInicio = hiEl ? hiEl.value : '';
+            const horaFin = hfEl ? hfEl.value : '';
+            const observaciones = obsEl ? obsEl.value : '';
+
             if (actividadId && horaInicio && horaFin) {
                 actividades.push({
                     actividad_id: actividadId,
@@ -3600,19 +3622,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     observaciones: observaciones
                 });
             }
+            } catch (err) { console.warn('Error recolectando actividad:', err); }
         });
-        
+
         // Recolectar corridas
         const corridas = [];
         document.querySelectorAll('.corrida-row').forEach(row => {
-            const numero = row.querySelector('input[name*="corrida_numero_"]').value;
-            const desde = row.querySelector('.metro-desde').value;
-            const hasta = row.querySelector('.metro-hasta').value;
-            const longitudTestigo = row.querySelector('.longitud-testigo').value;
-            const pctRecuperacion = row.querySelector('.pct-recuperacion').value;
-            const pctRetornoAgua = row.querySelector('.pct-retorno-agua').value;
-            const litologia = row.querySelector('textarea[name*="litologia_"]').value;
-            
+            try {
+            const numEl = row.querySelector('input[name*="corrida_numero_"]');
+            const desdeEl = row.querySelector('.metro-desde');
+            const hastaEl = row.querySelector('.metro-hasta');
+            const ltEl = row.querySelector('.longitud-testigo');
+            const prEl = row.querySelector('.pct-recuperacion');
+            const paEl = row.querySelector('.pct-retorno-agua');
+            const litEl = row.querySelector('textarea[name*="litologia_"]');
+            const numero = numEl ? numEl.value : '';
+            const desde = desdeEl ? desdeEl.value : '';
+            const hasta = hastaEl ? hastaEl.value : '';
+            const longitudTestigo = ltEl ? ltEl.value : '';
+            const pctRecuperacion = prEl ? prEl.value : '';
+            const pctRetornoAgua = paEl ? paEl.value : '';
+            const litologia = litEl ? litEl.value : '';
+
             if (numero && desde && hasta && parseFloat(hasta) > parseFloat(desde)) {
                 corridas.push({
                     corrida_numero: numero,
@@ -3624,22 +3655,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     litologia: litologia || ''
                 });
             }
+            } catch (err) { console.warn('Error recolectando corrida:', err); }
         });
-        
+
         // Recolectar cambios de estado de sondajes
         const cambiosEstado = [];
         document.querySelectorAll('.cambio-estado-row').forEach(row => {
+            try {
             const sondajeId = row.dataset.sondajeId;
-            const nuevoEstado = row.querySelector('.estado-sondaje-select').value;
-            
+            const estadoEl = row.querySelector('.estado-sondaje-select');
+            const nuevoEstado = estadoEl ? estadoEl.value : '';
+
             if (sondajeId && nuevoEstado) {
                 cambiosEstado.push({
                     sondaje_id: sondajeId,
                     nuevo_estado: nuevoEstado
                 });
             }
+            } catch (err) { console.warn('Error recolectando cambio estado:', err); }
         });
-        
+
         // Asignar a campos hidden
         document.getElementById('hid-trabajadores').value = JSON.stringify(trabajadores);
         document.getElementById('hid-complementos').value = JSON.stringify(complementos);
@@ -3647,6 +3682,15 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('hid-actividades').value = JSON.stringify(actividades);
         document.getElementById('hid-corridas').value = JSON.stringify(corridas);
         document.getElementById('hid-cambios-estado').value = JSON.stringify(cambiosEstado);
+
+        } catch (err) {
+            // Si falla la recolección de datos, rehabilitar el botón para que el usuario pueda reintentar
+            console.error('Error en recolección de datos del formulario:', err);
+            e.preventDefault();
+            rehabilitarSubmit();
+            mostrarToast('Error al preparar los datos del formulario. Intente de nuevo.', 'danger', 5000);
+            return;
+        }
         
         // VALIDACIONES
         // =============================================
@@ -3961,6 +4005,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('form-turno').addEventListener('submit', () => { _formModificado = false; });
     document.querySelector('a[href="{% url "listar-turnos" %}"]')?.addEventListener('click', () => { _formModificado = false; });
     window.addEventListener('beforeunload', function(e) {
+        // No bloquear si el formulario se está enviando
+        if (window._submitEnCurso) return;
         const hasDynamic = document.querySelectorAll('.trabajador-row, .complemento-row, .aditivo-row, .actividad-row, .corrida-row').length > 0;
         if (_formModificado || hasDynamic) {
             e.preventDefault();
