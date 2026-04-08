@@ -1827,23 +1827,63 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (!existingEstado[s.id]){
                 const div3 = document.createElement('div');
-                div3.className = 'cambio-estado-row row mb-3 align-items-center';
+                div3.className = 'cambio-estado-row mb-3 p-2 border rounded';
                 div3.dataset.sondajeId = s.id;
                 div3.innerHTML = `
-                    <div class="col-md-6">
-                        <label class="form-label"><i class="fas fa-map-marker-alt"></i> <strong>${s.text}</strong></label>
-                    </div>
-                    <div class="col-md-4">
-                        <select name="estado_sondaje_${s.id}" class="form-select estado-sondaje-select">
-                            <option value="">Sin cambios</option>
-                            <option value="ACTIVO">🟢 Activo</option>
-                            <option value="PAUSADO">🟡 Pausado</option>
-                            <option value="FINALIZADO">⚪ Finalizado</option>
-                            <option value="CANCELADO">🔴 Cancelado</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <span class="badge bg-secondary estado-actual-badge" data-sondaje-id="${s.id}">-</span>
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <label class="form-label mb-0"><i class="fas fa-map-marker-alt"></i> <strong>${s.text}</strong></label>
+                            <span class="badge bg-secondary estado-actual-badge ms-2" data-sondaje-id="${s.id}">-</span>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="estado_sondaje_${s.id}" class="form-select form-select-sm estado-sondaje-select">
+                                <option value="">Sin cambios</option>
+                                <option value="ACTIVO">Activo</option>
+                                <option value="PAUSADO">Pausado</option>
+                                <option value="FINALIZADO">Finalizado</option>
+                                <option value="CANCELADO">Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5 campos-cierre-inline" style="display:none;">
+                            <div class="row g-1">
+                                <div class="col-5">
+                                    <select name="motivo_cierre_${s.id}" class="form-select form-select-sm motivo-cierre-select">
+                                        <option value="">Motivo...</option>
+                                        <option value="META_ALCANZADA">Meta alcanzada</option>
+                                        <option value="DESVIADO">Desviado</option>
+                                        <option value="ACCIDENTE_POZO">Accidente de pozo</option>
+                                        <option value="DECISION_CLIENTE">Decisi&oacute;n cliente</option>
+                                        <option value="CONDICIONES_GEOLOGICAS">Geolog&iacute;a adversa</option>
+                                        <option value="FALLA_MECANICA">Falla mec&aacute;nica</option>
+                                        <option value="OTRO">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <select name="responsable_cierre_${s.id}" class="form-select form-select-sm responsable-cierre-select">
+                                        <option value="">Responsable...</option>
+                                        <option value="CONTRATISTA">Contratista</option>
+                                        <option value="CLIENTE">Cliente</option>
+                                        <option value="FUERZA_MAYOR">Fuerza mayor</option>
+                                        <option value="COMPARTIDA">Compartida</option>
+                                    </select>
+                                </div>
+                                <div class="col-3">
+                                    <div class="form-check form-switch mt-1">
+                                        <input type="checkbox" class="form-check-input cobrable-check" name="es_cobrable_${s.id}" checked>
+                                        <label class="form-check-label" style="font-size:0.75rem;">Cobrable</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-1 mt-1 campo-prof-desvio-row" style="display:none;">
+                                <div class="col-12">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text text-danger"><i class="fas fa-exclamation-triangle"></i></span>
+                                        <input type="number" step="0.01" min="0" name="profundidad_desvio_${s.id}" class="form-control form-control-sm profundidad-desvio-input" placeholder="Punto desvío (m)">
+                                        <span class="input-group-text text-muted" style="font-size:0.7rem;">m cobrables</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `;
                 cambiosEstadoCont.appendChild(div3);
@@ -3658,7 +3698,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (err) { console.warn('Error recolectando corrida:', err); }
         });
 
-        // Recolectar cambios de estado de sondajes
+        // Recolectar cambios de estado de sondajes (con datos de cierre/desvío)
         const cambiosEstado = [];
         document.querySelectorAll('.cambio-estado-row').forEach(row => {
             try {
@@ -3667,10 +3707,22 @@ document.addEventListener('DOMContentLoaded', function() {
             const nuevoEstado = estadoEl ? estadoEl.value : '';
 
             if (sondajeId && nuevoEstado) {
-                cambiosEstado.push({
+                const entry = {
                     sondaje_id: sondajeId,
                     nuevo_estado: nuevoEstado
-                });
+                };
+                // Si es FINALIZADO o CANCELADO, incluir campos de cierre
+                if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CANCELADO') {
+                    const motivo = row.querySelector('.motivo-cierre-select');
+                    const resp = row.querySelector('.responsable-cierre-select');
+                    const cobrable = row.querySelector('.cobrable-check');
+                    const profDesvio = row.querySelector('.profundidad-desvio-input');
+                    if (motivo) entry.motivo_cierre = motivo.value;
+                    if (resp) entry.responsable_cierre = resp.value;
+                    entry.es_cobrable = cobrable ? cobrable.checked : true;
+                    if (profDesvio && profDesvio.value) entry.profundidad_desvio = profDesvio.value;
+                }
+                cambiosEstado.push(entry);
             }
             } catch (err) { console.warn('Error recolectando cambio estado:', err); }
         });
@@ -4140,24 +4192,57 @@ document.addEventListener('DOMContentLoaded', function() {
     );
 
     // ============================================================
-    // ESTADO SONDAJE: WARNING AL SELECCIONAR FINALIZADO/CANCELADO
+    // ESTADO SONDAJE: WARNING + CAMPOS DE CIERRE/DESVÍO
     // ============================================================
     document.getElementById('cambios-estado-seccion').addEventListener('change', function(e) {
-        if (!e.target.classList.contains('estado-sondaje-select')) return;
-        const alerta = document.getElementById('alerta-estado-critico');
-        const alertaNombre = document.getElementById('alerta-estado-nombre');
-        if (!alerta || !alertaNombre) return;
-        const allSelects = document.querySelectorAll('.estado-sondaje-select');
-        const hasCritico = Array.from(allSelects).some(s => s.value === 'FINALIZADO' || s.value === 'CANCELADO');
-        if (hasCritico) {
-            const criticos = Array.from(allSelects)
-                .filter(s => s.value === 'FINALIZADO' || s.value === 'CANCELADO')
-                .map(s => s.value)
-                .join(' / ');
-            alertaNombre.textContent = criticos;
-            alerta.classList.remove('d-none');
-        } else {
-            alerta.classList.add('d-none');
+        // Mostrar/ocultar campos de cierre al seleccionar FINALIZADO/CANCELADO
+        if (e.target.classList.contains('estado-sondaje-select')) {
+            const row = e.target.closest('.cambio-estado-row');
+            const camposCierre = row ? row.querySelector('.campos-cierre-inline') : null;
+            if (camposCierre) {
+                const val = e.target.value;
+                camposCierre.style.display = (val === 'FINALIZADO' || val === 'CANCELADO') ? 'block' : 'none';
+            }
+
+            // Alerta global
+            const alerta = document.getElementById('alerta-estado-critico');
+            const alertaNombre = document.getElementById('alerta-estado-nombre');
+            if (alerta && alertaNombre) {
+                const allSelects = document.querySelectorAll('.estado-sondaje-select');
+                const hasCritico = Array.from(allSelects).some(s => s.value === 'FINALIZADO' || s.value === 'CANCELADO');
+                if (hasCritico) {
+                    const criticos = Array.from(allSelects)
+                        .filter(s => s.value === 'FINALIZADO' || s.value === 'CANCELADO')
+                        .map(s => s.value)
+                        .join(' / ');
+                    alertaNombre.textContent = criticos;
+                    alerta.classList.remove('d-none');
+                } else {
+                    alerta.classList.add('d-none');
+                }
+            }
+        }
+
+        // Auto-desmarcar cobrable si motivo es DESVIADO + CONTRATISTA; mostrar campo desvío
+        if (e.target.classList.contains('motivo-cierre-select') || e.target.classList.contains('responsable-cierre-select')) {
+            const row = e.target.closest('.cambio-estado-row');
+            if (!row) return;
+            const motivo = row.querySelector('.motivo-cierre-select');
+            const resp = row.querySelector('.responsable-cierre-select');
+            const cobrable = row.querySelector('.cobrable-check');
+            const profDesvioRow = row.querySelector('.campo-prof-desvio-row');
+            if (motivo && cobrable) {
+                if (motivo.value === 'DESVIADO' && resp && resp.value === 'CONTRATISTA') {
+                    cobrable.checked = false;
+                } else if (motivo.value === 'META_ALCANZADA') {
+                    cobrable.checked = true;
+                } else if (motivo.value === 'DECISION_CLIENTE') {
+                    cobrable.checked = true;
+                }
+            }
+            if (profDesvioRow) {
+                profDesvioRow.style.display = (motivo && motivo.value === 'DESVIADO') ? 'block' : 'none';
+            }
         }
     });
 

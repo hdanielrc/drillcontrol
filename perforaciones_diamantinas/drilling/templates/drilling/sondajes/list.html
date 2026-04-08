@@ -23,7 +23,7 @@
 <div class="card filters-card mb-4 animate-fade-in">
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label"><i class="fas fa-flag text-muted"></i> Estado</label>
                 <select name="estado" class="form-select">
                     <option value="">Todos los estados</option>
@@ -34,8 +34,16 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
-                <div class="d-flex gap-2">
+            <div class="col-md-3">
+                <label class="form-label"><i class="fas fa-exclamation-triangle text-muted"></i> Cobrabilidad</label>
+                <select name="cobrable" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="1" {% if filtros.cobrable == '1' %}selected{% endif %}>Solo cobrables</option>
+                    <option value="0" {% if filtros.cobrable == '0' %}selected{% endif %}>Solo no cobrables (desvíos)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <div class="d-flex gap-2 mt-4">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-filter"></i> Filtrar
                     </button>
@@ -62,22 +70,37 @@
                         <th>Profundidad</th>
                         <th>Inclinación</th>
                         <th>Fecha Inicio</th>
-                        <th>Estado</th>
+                        <th>Estado / Cierre</th>
+                        <th class="text-center">Cobrable</th>
                         <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for sondaje in sondajes %}
-                    <tr>
+                    <tr class="{% if not sondaje.es_cobrable %}table-danger bg-opacity-25{% endif %}">
                         <td>
                             <strong>{{ sondaje.nombre_sondaje }}</strong>
+                            {% if sondaje.sondaje_padre %}
+                                <span class="badge bg-secondary ms-1" title="Reperforación de {{ sondaje.sondaje_padre.nombre_sondaje }}">
+                                    <i class="fas fa-redo"></i> Reper.
+                                </span>
+                            {% endif %}
+                            {% if sondaje.tiene_reperforaciones %}
+                                <span class="badge bg-info ms-1" title="Tiene reperforaciones">
+                                    <i class="fas fa-code-branch"></i>
+                                </span>
+                            {% endif %}
                             {% if sondaje.fecha_fin %}
-                                <br><small class="text-muted">Finalizado: {{ sondaje.fecha_fin|date:"d/m/Y" }}</small>
+                                <br><small class="text-muted">Cerrado: {{ sondaje.fecha_fin|date:"d/m/Y" }}</small>
                             {% endif %}
                         </td>
                         <td>
-                            <span class="badge bg-info">{{ sondaje.profundidad }} m</span>
-                            <br><small class="text-muted">Cota: {{ sondaje.cota_collar }} m</small>
+                            <span class="badge bg-info">{{ sondaje.profundidad }} m plan.</span>
+                            {% if sondaje.profundidad_alcanzada %}
+                                <br><small class="{% if not sondaje.es_cobrable %}text-danger{% else %}text-success{% endif %} fw-bold">
+                                    {{ sondaje.profundidad_alcanzada }} m alc.
+                                </small>
+                            {% endif %}
                         </td>
                         <td>{{ sondaje.inclinacion }}°</td>
                         <td>{{ sondaje.fecha_inicio|date:"d/m/Y" }}</td>
@@ -90,6 +113,20 @@
                                 <span class="badge-status badge-status-completed">{{ sondaje.get_estado_display }}</span>
                             {% else %}
                                 <span class="badge-status badge-status-cancelled">{{ sondaje.get_estado_display }}</span>
+                            {% endif %}
+                            {% if sondaje.motivo_cierre %}
+                                <br><small class="text-muted">{{ sondaje.get_motivo_cierre_display }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if sondaje.es_cobrable %}
+                                <span class="badge bg-success" title="Metros incluidos en valorización">
+                                    <i class="fas fa-check"></i> Sí
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger" title="{{ sondaje.get_responsable_cierre_display|default:'No cobrable' }}">
+                                    <i class="fas fa-times"></i> No
+                                </span>
                             {% endif %}
                         </td>
                         <td>
@@ -105,7 +142,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6">
+                        <td colspan="7">
                             <div class="empty-state">
                                 <i class="fas fa-map-marked-alt"></i>
                                 <h5>No hay sondajes registrados</h5>

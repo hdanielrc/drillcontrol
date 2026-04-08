@@ -76,7 +76,7 @@
         <div class="col-md-3">
             <div class="card text-white bg-success">
                 <div class="card-body">
-                    <h6 class="card-title">Real Total (Metros)</h6>
+                    <h6 class="card-title">Metros Cobrables</h6>
                     <h3 class="mb-0">{{ resumen.total_real_metros|floatformat:2 }} m</h3>
                     <small>{{ resumen.porcentaje_cumplimiento|floatformat:1 }}% cumplimiento</small>
                 </div>
@@ -107,109 +107,236 @@
         </div>
     </div>
 
+    <!-- Fila de metraje operativo y desvíos -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body py-2">
+                    <h6 class="card-title text-primary mb-1"><i class="fas fa-ruler"></i> Metros Brutos</h6>
+                    <h4 class="mb-0">{{ resumen.metros_brutos|floatformat:2 }} m</h4>
+                    <small class="text-muted">Total perforado (todas las brocas)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body py-2">
+                    <h6 class="card-title text-warning mb-1"><i class="fas fa-sync-alt"></i> Metros Rimados</h6>
+                    <h4 class="mb-0">{{ resumen.metros_rimado|floatformat:2 }} m</h4>
+                    <small class="text-muted">Reaming shells (no suma a valorización)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body py-2">
+                    <h6 class="card-title text-danger mb-1"><i class="fas fa-exclamation-triangle"></i> Metros No Cobrables</h6>
+                    <h4 class="mb-0">{{ resumen.metros_no_cobrables|floatformat:2 }} m</h4>
+                    <small class="text-muted">Desvíos / abandonados</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card {% if resumen.costo_desvios_total > 0 %}border-danger{% else %}border-success{% endif %}">
+                <div class="card-body py-2">
+                    <h6 class="card-title {% if resumen.costo_desvios_total > 0 %}text-danger{% else %}text-success{% endif %} mb-1">
+                        <i class="fas fa-dollar-sign"></i> Costo Desvíos
+                    </h6>
+                    <h4 class="mb-0">{{ resumen.moneda }} {{ resumen.costo_desvios_total|floatformat:2 }}</h4>
+                    <small class="text-muted">
+                        Eficiencia: {{ resumen.pct_eficiencia|floatformat:1 }}%
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Desglose por línea (calibre) -->
+    {% if resumen.desglose_linea %}
+    <div class="card mb-4">
+        <div class="card-header py-2">
+            <h6 class="mb-0"><i class="fas fa-layer-group"></i> Desglose por Línea (Calibre)</h6>
+        </div>
+        <div class="card-body py-2">
+            <div class="row">
+                {% for clave, metros in resumen.desglose_linea.items %}
+                <div class="col-auto mb-2">
+                    <span class="badge {% if 'RIMADO' in clave %}bg-warning text-dark{% else %}bg-primary{% endif %} fs-6 px-3 py-2">
+                        {{ clave|cut:"BROCA_"|cut:"RIMADO_" }}
+                        {% if 'RIMADO' in clave %}(Rimado){% endif %}:
+                        <strong>{{ metros|floatformat:2 }} m</strong>
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Tabla de Valorización por Máquina -->
     {% if valorizacion_data %}
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0"><i class="fas fa-table"></i> Detalle de Valorización por Máquina</h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-bordered table-hover" id="tablaValorizacion">
+                <table class="table table-bordered table-hover mb-0" id="tablaValorizacion">
                     <thead class="table-dark">
                         <tr>
-                            <th>Máquina</th>
-                            <th>Servicio</th>
+                            <th rowspan="2">Máquina</th>
+                            <th rowspan="2">Servicio</th>
+                            <th colspan="3" class="text-center border-bottom-0 bg-primary bg-opacity-75">Metraje</th>
+                            <th colspan="3" class="text-center border-bottom-0 bg-success bg-opacity-75">Valorización</th>
+                            <th colspan="2" class="text-center border-bottom-0 bg-danger bg-opacity-75">Desvíos</th>
+                        </tr>
+                        <tr>
                             <th class="text-center">Meta (m)</th>
-                            <th class="text-center">Real (m)</th>
-                            <th class="text-center">% Cumplimiento</th>
-                            <th class="text-center">Precio Unitario</th>
-                            <th class="text-center">Moneda</th>
-                            <th class="text-end">Monto Meta</th>
-                            <th class="text-end">Monto Real</th>
-                            <th class="text-end">Diferencia</th>
-                            <th class="text-center">Estado</th>
+                            <th class="text-center">Cobrable (m)</th>
+                            <th class="text-center">% Cumpl.</th>
+                            <th class="text-center">PU</th>
+                            <th class="text-end">Meta</th>
+                            <th class="text-end">Real</th>
+                            <th class="text-center">m No Cob.</th>
+                            <th class="text-end">Costo Desvío</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in valorizacion_data %}
                         <tr>
                             <td>
-                                <strong>{{ item.maquina.nombre }}</strong><br>
-                                <small class="text-muted">{{ item.maquina.codigo }}</small>
+                                <strong>{{ item.maquina.nombre }}</strong>
+                                {% if item.valorizacion.metros_no_cobrables > 0 %}
+                                <span class="badge bg-danger ms-1" title="Tiene metros no cobrables">!</span>
+                                {% endif %}
                             </td>
-                            <td>{{ item.servicio.nombre }}</td>
+                            <td><small>{{ item.servicio.nombre }}</small></td>
                             <td class="text-center">{{ item.valorizacion.meta_metros|floatformat:2 }}</td>
-                            <td class="text-center">{{ item.valorizacion.real_metros|floatformat:2 }}</td>
+                            <td class="text-center fw-bold">
+                                {{ item.valorizacion.real_metros|floatformat:2 }}
+                                {% if item.valorizacion.metros_brutos != item.valorizacion.real_metros %}
+                                <br><small class="text-muted">(bruto: {{ item.valorizacion.metros_brutos|floatformat:2 }})</small>
+                                {% endif %}
+                            </td>
                             <td class="text-center">
-                                <span class="badge 
+                                <span class="badge
                                     {% if item.valorizacion.porcentaje_cumplimiento >= 100 %}bg-success
-                                    {% elif item.valorizacion.porcentaje_cumplimiento >= 80 %}bg-warning
+                                    {% elif item.valorizacion.porcentaje_cumplimiento >= 80 %}bg-warning text-dark
                                     {% else %}bg-danger{% endif %}">
                                     {{ item.valorizacion.porcentaje_cumplimiento|floatformat:1 }}%
                                 </span>
                             </td>
-                            <td class="text-center">{{ item.valorizacion.precio_unitario|floatformat:2 }}</td>
-                            <td class="text-center">{{ item.valorizacion.moneda }}</td>
-                            <td class="text-end">{{ item.valorizacion.meta_monto|floatformat:2 }}</td>
-                            <td class="text-end">
-                                <strong>{{ item.valorizacion.real_monto|floatformat:2 }}</strong>
-                            </td>
-                            <td class="text-end 
-                                {% if item.valorizacion.diferencia >= 0 %}text-success
-                                {% else %}text-danger{% endif %}">
-                                {% if item.valorizacion.diferencia >= 0 %}
-                                +{{ item.valorizacion.diferencia|floatformat:2 }}
-                                {% else %}
-                                {{ item.valorizacion.diferencia|floatformat:2 }}
-                                {% endif %}
-                            </td>
                             <td class="text-center">
-                                {% if item.valorizacion.porcentaje_cumplimiento >= 100 %}
-                                <span class="badge bg-success">Cumplido</span>
-                                {% elif item.valorizacion.porcentaje_cumplimiento >= 80 %}
-                                <span class="badge bg-warning">En Progreso</span>
-                                {% else %}
-                                <span class="badge bg-danger">Por Debajo</span>
+                                {{ item.valorizacion.moneda }} {{ item.valorizacion.precio_unitario|floatformat:2 }}
+                            </td>
+                            <td class="text-end">{{ item.valorizacion.meta_monto|floatformat:2 }}</td>
+                            <td class="text-end fw-bold
+                                {% if item.valorizacion.diferencia_monto >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ item.valorizacion.real_monto|floatformat:2 }}
+                            </td>
+                            <td class="text-center {% if item.valorizacion.metros_no_cobrables > 0 %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                                {{ item.valorizacion.metros_no_cobrables|floatformat:2 }}
+                                {% if item.valorizacion.metros_rimado > 0 %}
+                                <br><small class="text-warning">+{{ item.valorizacion.metros_rimado|floatformat:2 }} rim.</small>
                                 {% endif %}
+                            </td>
+                            <td class="text-end {% if item.valorizacion.costo_desvio > 0 %}text-danger{% else %}text-muted{% endif %}">
+                                {% if item.valorizacion.costo_desvio > 0 %}
+                                <strong>({{ item.valorizacion.moneda }} {{ item.valorizacion.costo_desvio|floatformat:2 }})</strong>
+                                {% else %}—{% endif %}
                             </td>
                         </tr>
+                        <!-- Desglose por línea (expandible) -->
+                        {% if item.valorizacion.por_linea %}
+                        <tr class="table-light">
+                            <td colspan="10" class="py-1 ps-4">
+                                <small class="text-muted me-2"><i class="fas fa-layer-group"></i> Por línea:</small>
+                                {% for clave, metros in item.valorizacion.por_linea.items %}
+                                <span class="badge {% if 'RIMADO' in clave %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1">
+                                    {{ clave|cut:"BROCA_"|cut:"RIMADO_" }}{% if 'RIMADO' in clave %} (rim){% endif %}: {{ metros|floatformat:2 }}m
+                                </span>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
-                    <tfoot class="table-secondary">
+                    <tfoot class="table-dark">
                         <tr>
                             <th colspan="2" class="text-end">TOTALES:</th>
                             <th class="text-center">{{ resumen.total_meta_metros|floatformat:2 }}</th>
                             <th class="text-center">{{ resumen.total_real_metros|floatformat:2 }}</th>
                             <th class="text-center">
-                                <span class="badge 
+                                <span class="badge
                                     {% if resumen.porcentaje_cumplimiento >= 100 %}bg-success
-                                    {% elif resumen.porcentaje_cumplimiento >= 80 %}bg-warning
+                                    {% elif resumen.porcentaje_cumplimiento >= 80 %}bg-warning text-dark
                                     {% else %}bg-danger{% endif %}">
                                     {{ resumen.porcentaje_cumplimiento|floatformat:1 }}%
                                 </span>
                             </th>
-                            <th colspan="2"></th>
-                            <th class="text-end"><strong>{{ resumen.moneda }} {{ resumen.total_meta_monto|floatformat:2 }}</strong></th>
-                            <th class="text-end"><strong>{{ resumen.moneda }} {{ resumen.total_real_monto|floatformat:2 }}</strong></th>
-                            <th class="text-end 
-                                {% if resumen.diferencia_monto >= 0 %}text-success
-                                {% else %}text-danger{% endif %}">
-                                <strong>
-                                {% if resumen.diferencia_monto >= 0 %}
-                                +{{ resumen.moneda }} {{ resumen.diferencia_monto|floatformat:2 }}
-                                {% else %}
-                                {{ resumen.moneda }} {{ resumen.diferencia_monto|floatformat:2 }}
-                                {% endif %}
-                                </strong>
-                            </th>
                             <th></th>
+                            <th class="text-end">{{ resumen.moneda }} {{ resumen.total_meta_monto|floatformat:2 }}</th>
+                            <th class="text-end {% if resumen.diferencia_monto >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ resumen.moneda }} {{ resumen.total_real_monto|floatformat:2 }}
+                            </th>
+                            <th class="text-center text-danger">{{ resumen.metros_no_cobrables|floatformat:2 }}</th>
+                            <th class="text-end text-danger">
+                                {% if resumen.costo_desvios_total > 0 %}
+                                ({{ resumen.moneda }} {{ resumen.costo_desvios_total|floatformat:2 }})
+                                {% else %}—{% endif %}
+                            </th>
                         </tr>
                     </tfoot>
                 </table>
             </div>
         </div>
     </div>
+
+    <!-- Sondajes no cobrables del período -->
+    {% if resumen.sondajes_no_cobrables %}
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white py-2">
+            <h6 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Sondajes Desviados / No Cobrables</h6>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-secondary">
+                    <tr>
+                        <th>Sondaje</th>
+                        <th>Motivo</th>
+                        <th>Responsable</th>
+                        <th class="text-center">Prof. Plan. (m)</th>
+                        <th class="text-center">Prof. Alcanzada (m)</th>
+                        <th>Sondaje padre</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in resumen.sondajes_no_cobrables %}
+                    <tr>
+                        <td><strong>{{ s.nombre_sondaje }}</strong></td>
+                        <td>
+                            <span class="badge bg-danger">{{ s.get_motivo_cierre_display }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ s.get_responsable_cierre_display|default:"—" }}</span>
+                        </td>
+                        <td class="text-center">{{ s.profundidad|floatformat:2 }}</td>
+                        <td class="text-center">{{ s.profundidad_alcanzada|floatformat:2|default:"—" }}</td>
+                        <td>
+                            {% if s.sondaje_padre %}
+                            <span class="text-muted">← {{ s.sondaje_padre.nombre_sondaje }}</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td><small class="text-muted">{{ s.observaciones_cierre|truncatechars:60|default:"—" }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     {% else %}
     <div class="alert alert-info">
         <i class="fas fa-info-circle"></i> No hay metas registradas para el período seleccionado.

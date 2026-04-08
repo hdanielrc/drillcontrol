@@ -853,15 +853,82 @@ class Sondaje(models.Model):
         ('FINALIZADO', 'Finalizado'),
         ('CANCELADO', 'Cancelado'),
     ]
-    
+
+    MOTIVO_CIERRE_CHOICES = [
+        ('', '---'),
+        ('META_ALCANZADA', 'Meta alcanzada (profundidad planificada)'),
+        ('DESVIADO', 'Sondaje desviado'),
+        ('ACCIDENTE_POZO', 'Accidente de pozo (herramientas atrapadas, colapso)'),
+        ('DECISION_CLIENTE', 'Decisión del cliente'),
+        ('CONDICIONES_GEOLOGICAS', 'Condiciones geológicas adversas'),
+        ('FALLA_MECANICA', 'Falla mecánica mayor'),
+        ('OTRO', 'Otro motivo'),
+    ]
+
+    RESPONSABLE_CIERRE_CHOICES = [
+        ('', '---'),
+        ('CONTRATISTA', 'Contratista (nosotros)'),
+        ('CLIENTE', 'Cliente'),
+        ('FUERZA_MAYOR', 'Fuerza mayor / geología'),
+        ('COMPARTIDA', 'Responsabilidad compartida'),
+    ]
+
     contrato = models.ForeignKey(Contrato, on_delete=models.PROTECT, related_name='sondajes')
     nombre_sondaje = models.CharField(max_length=100)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(null=True, blank=True)
-    profundidad = models.DecimalField(max_digits=8, decimal_places=2, validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(Decimal('3000.00'))])
+    profundidad = models.DecimalField(max_digits=8, decimal_places=2, validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(Decimal('3000.00'))],
+                                      help_text='Profundidad planificada en metros')
     inclinacion = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(Decimal('-90.00')), MaxValueValidator(Decimal('90.00'))])
     cota_collar = models.DecimalField(max_digits=8, decimal_places=2)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ACTIVO')
+
+    # --- Campos de cierre y desvío ---
+    motivo_cierre = models.CharField(
+        max_length=30, choices=MOTIVO_CIERRE_CHOICES, blank=True, default='',
+        verbose_name='Motivo de cierre',
+        help_text='Razón por la que el sondaje dejó de perforarse'
+    )
+    responsable_cierre = models.CharField(
+        max_length=20, choices=RESPONSABLE_CIERRE_CHOICES, blank=True, default='',
+        verbose_name='Responsabilidad del cierre',
+        help_text='Quién asume la responsabilidad/costo del cierre'
+    )
+    es_cobrable = models.BooleanField(
+        default=True,
+        verbose_name='Metros cobrables',
+        help_text=(
+            'True = sondaje tiene metros cobrables. '
+            'False = pérdida total (0 metros al cliente). '
+            'Para desvíos parciales, usar profundidad_desvio en lugar de desmarcar este campo.'
+        )
+    )
+    profundidad_desvio = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name='Profundidad del desvío (m)',
+        help_text=(
+            'Metros desde superficie hasta donde el sondaje era recto y cobrable. '
+            'Ej: 100m → los primeros 100m son cobrables, el resto se descarta. '
+            'Dejar vacío si el sondaje completo es cobrable (o es_cobrable=False para pérdida total).'
+        )
+    )
+    sondaje_padre = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reperforaciones',
+        verbose_name='Sondaje padre (si es reperforación)',
+        help_text='Si este sondaje reemplaza a uno desviado/abandonado, seleccionar el original'
+    )
+    profundidad_alcanzada = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        verbose_name='Profundidad alcanzada (m)',
+        help_text='Metros totales perforados al momento de cierre (incluyendo zona desviada)'
+    )
+    observaciones_cierre = models.TextField(
+        blank=True, default='',
+        verbose_name='Observaciones de cierre',
+        help_text='Detalle del motivo de cierre, autorización, acuerdos con el cliente'
+    )
 
     class Meta:
         db_table = 'sondajes'
@@ -873,14 +940,139 @@ class Sondaje(models.Model):
             models.Index(fields=['fecha_inicio']),
             models.Index(fields=['-fecha_inicio']),
             models.Index(fields=['fecha_fin']),
+            models.Index(fields=['es_cobrable']),
+            models.Index(fields=['sondaje_padre']),
+            models.Index(fields=['motivo_cierre']),
         ]
 
     def clean(self):
         if self.fecha_fin and self.fecha_fin < self.fecha_inicio:
             raise ValidationError('La fecha de fin debe ser posterior a la fecha de inicio')
 
+    @property
+    def es_desviado(self):
+        return self.motivo_cierre == 'DESVIADO'
+
+    @property
+    def tiene_reperforaciones(self):
+        return self.reperforaciones.exists()
+
+    @property
+    def cadena_reperforacion(self):
+        """Retorna la cadena completa: sondaje original → R1 → R2 → ..."""
+        cadena = [self]
+        # Ir hacia arriba hasta el sondaje raíz
+        current = self
+        while current.sondaje_padre:
+            cadena.insert(0, current.sondaje_padre)
+            current = current.sondaje_padre
+        # Ir hacia abajo para incluir reperforaciones posteriores
+        root = cadena[0]
+        def _collect(sondaje, chain):
+            for rep in sondaje.reperforaciones.order_by('fecha_inicio'):
+                if rep not in chain:
+                    chain.append(rep)
+                    _collect(rep, chain)
+        _collect(root, cadena)
+        return cadena
+
+    def get_metraje_por_linea(self, fecha_inicio=None, fecha_fin=None):
+        """
+        Retorna un diccionario con el metraje desglosado por categoría y línea (calibre).
+
+        Ejemplo de retorno:
+        {
+            'BROCA': {'HQ': 150.50, 'NQ': 80.00, 'total': 230.50},
+            'REAMING_SHELL': {'HQ': 150.50, 'total': 150.50},
+            'total_perforado': 230.50,   # solo BROCA
+            'total_rimado': 150.50,      # solo REAMING_SHELL
+            'total_todos': 381.00,       # todas las categorías
+        }
+        """
+        from django.db.models import Sum, F
+        qs = TurnoComplemento.objects.filter(sondaje=self)
+        if fecha_inicio:
+            qs = qs.filter(turno__fecha__gte=fecha_inicio)
+        if fecha_fin:
+            qs = qs.filter(turno__fecha__lte=fecha_fin)
+
+        # Agrupar por categoría y calibre
+        rows = (
+            qs.values(
+                categoria=F('tipo_complemento__categoria'),
+                calibre=F('tipo_complemento__calibre'),
+            )
+            .annotate(metros=Sum('metros_turno_calc'))
+            .order_by('categoria', 'calibre')
+        )
+
+        result = {}
+        total_perforado = Decimal('0')
+        total_rimado = Decimal('0')
+        total_todos = Decimal('0')
+
+        for row in rows:
+            cat = row['categoria'] or 'OTRO'
+            cal = row['calibre'] or 'SIN_LINEA'
+            m = row['metros'] or Decimal('0')
+
+            if cat not in result:
+                result[cat] = {'total': Decimal('0')}
+            result[cat][cal] = result[cat].get(cal, Decimal('0')) + m
+            result[cat]['total'] += m
+            total_todos += m
+
+            if cat == 'BROCA':
+                total_perforado += m
+            elif cat == 'REAMING_SHELL':
+                total_rimado += m
+
+        result['total_perforado'] = total_perforado
+        result['total_rimado'] = total_rimado
+        result['total_todos'] = total_todos
+        return result
+
+    def get_metros_cobrables(self, fecha_inicio=None, fecha_fin=None):
+        """
+        Metros de BROCA cobrables al cliente, aplicando el corte por desvío.
+
+        Reglas:
+          - es_cobrable=False                        → 0 (pérdida total)
+          - es_cobrable=True + profundidad_desvio=X  → min(real, X) cobrable
+          - es_cobrable=True + sin profundidad_desvio → todo el metraje cobrable
+        """
+        if not self.es_cobrable:
+            return Decimal('0')
+        desglose = self.get_metraje_por_linea(fecha_inicio, fecha_fin)
+        total_broca = desglose.get('total_perforado', Decimal('0'))
+        if self.profundidad_desvio is not None:
+            return min(total_broca, self.profundidad_desvio)
+        return total_broca
+
+    def get_metros_no_cobrables(self, fecha_inicio=None, fecha_fin=None):
+        """
+        Metros de BROCA perforados que NO se cobran (zona desviada o pérdida total).
+
+        Reglas:
+          - es_cobrable=False                        → todo el metraje real
+          - es_cobrable=True + profundidad_desvio=X  → max(0, real − X)
+          - es_cobrable=True + sin profundidad_desvio → 0
+        """
+        desglose = self.get_metraje_por_linea(fecha_inicio, fecha_fin)
+        total_broca = desglose.get('total_perforado', Decimal('0'))
+        if not self.es_cobrable:
+            return total_broca
+        if self.profundidad_desvio is not None:
+            return max(Decimal('0'), total_broca - self.profundidad_desvio)
+        return Decimal('0')
+
     def __str__(self):
-        return f"{self.nombre_sondaje} - {self.contrato.nombre_contrato}"
+        tag = ''
+        if self.motivo_cierre == 'DESVIADO':
+            tag = ' [DESVIADO]'
+        elif not self.es_cobrable:
+            tag = ' [NO COBRABLE]'
+        return f"{self.nombre_sondaje}{tag} - {self.contrato.nombre_contrato}"
 
 
 # =============================================================================

@@ -174,7 +174,12 @@ class MaquinaForm(forms.ModelForm):
 class SondajeForm(forms.ModelForm):
     class Meta:
         model = Sondaje
-        fields = ['nombre_sondaje', 'fecha_inicio', 'fecha_fin', 'profundidad', 'inclinacion', 'cota_collar', 'estado']
+        fields = [
+            'nombre_sondaje', 'fecha_inicio', 'fecha_fin', 'profundidad', 'inclinacion', 'cota_collar', 'estado',
+            # Campos de cierre/desvío
+            'motivo_cierre', 'responsable_cierre', 'es_cobrable', 'sondaje_padre',
+            'profundidad_alcanzada', 'profundidad_desvio', 'observaciones_cierre',
+        ]
         widgets = {
             'nombre_sondaje': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del sondaje'}),
             'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -183,15 +188,45 @@ class SondajeForm(forms.ModelForm):
             'inclinacion': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '-90', 'max': '90'}),
             'cota_collar': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
+            'motivo_cierre': forms.Select(attrs={'class': 'form-select'}),
+            'responsable_cierre': forms.Select(attrs={'class': 'form-select'}),
+            'es_cobrable': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'sondaje_padre': forms.Select(attrs={'class': 'form-select'}),
+            'profundidad_alcanzada': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'profundidad_desvio': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0',
+                                                           'placeholder': 'Ej: 100.00'}),
+            'observaciones_cierre': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalle del motivo, acuerdos con el cliente, etc.'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        contrato = kwargs.pop('contrato', None)
+        super().__init__(*args, **kwargs)
+        # Filtrar sondaje_padre al mismo contrato
+        if contrato:
+            self.fields['sondaje_padre'].queryset = Sondaje.objects.filter(
+                contrato=contrato
+            ).exclude(pk=self.instance.pk if self.instance.pk else None).order_by('-fecha_inicio')
+        elif self.instance and self.instance.pk and self.instance.contrato_id:
+            self.fields['sondaje_padre'].queryset = Sondaje.objects.filter(
+                contrato=self.instance.contrato
+            ).exclude(pk=self.instance.pk).order_by('-fecha_inicio')
+        else:
+            self.fields['sondaje_padre'].queryset = Sondaje.objects.none()
+        self.fields['sondaje_padre'].empty_label = '--- Ninguno (sondaje nuevo) ---'
 
     def clean(self):
         cleaned_data = super().clean()
         fecha_inicio = cleaned_data.get('fecha_inicio')
         fecha_fin = cleaned_data.get('fecha_fin')
+        estado = cleaned_data.get('estado')
+        motivo_cierre = cleaned_data.get('motivo_cierre')
 
         if fecha_inicio and fecha_fin and fecha_fin < fecha_inicio:
             raise ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
+
+        # Si el estado es CANCELADO o FINALIZADO, exigir motivo de cierre
+        if estado in ('CANCELADO', 'FINALIZADO') and not motivo_cierre:
+            self.add_error('motivo_cierre', 'Debe indicar el motivo de cierre al finalizar o cancelar un sondaje.')
 
         return cleaned_data
 
