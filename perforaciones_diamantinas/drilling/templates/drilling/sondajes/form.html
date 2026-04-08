@@ -125,13 +125,104 @@
                         </div>
                     </div>
                     
+                    <!-- Sección de cierre/desvío (visible cuando estado es FINALIZADO o CANCELADO) -->
+                    <div id="seccion-cierre" class="border rounded p-3 mb-3" style="background:#fff8f0;border-color:#f0ad4e!important;">
+                        <h6 class="mb-3">
+                            <i class="fas fa-flag-checkered text-warning"></i> Información de cierre / desvío
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.motivo_cierre.id_for_label }}" class="form-label">
+                                        <i class="fas fa-clipboard-list"></i> Motivo de cierre *
+                                    </label>
+                                    {{ form.motivo_cierre }}
+                                    {% if form.motivo_cierre.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.motivo_cierre.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.responsable_cierre.id_for_label }}" class="form-label">
+                                        <i class="fas fa-user-tie"></i> Responsabilidad
+                                    </label>
+                                    {{ form.responsable_cierre }}
+                                    {% if form.responsable_cierre.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.responsable_cierre.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.profundidad_alcanzada.id_for_label }}" class="form-label">
+                                        <i class="fas fa-ruler-vertical"></i> Profundidad alcanzada (m)
+                                    </label>
+                                    {{ form.profundidad_alcanzada }}
+                                    <div class="form-text">Total perforado al momento de cierre</div>
+                                    {% if form.profundidad_alcanzada.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.profundidad_alcanzada.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <!-- Campo de desvío: solo visible cuando motivo = DESVIADO -->
+                            <div class="col-md-4" id="campo-profundidad-desvio" style="display:none;">
+                                <div class="mb-3">
+                                    <label for="{{ form.profundidad_desvio.id_for_label }}" class="form-label text-danger fw-bold">
+                                        <i class="fas fa-exclamation-triangle"></i> Punto de desv&iacute;o (m)
+                                    </label>
+                                    {{ form.profundidad_desvio }}
+                                    <div class="form-text text-danger">
+                                        Metros rectos cobrables antes del desvío.<br>
+                                        <strong>Ej: 100m</strong> → se facturan los primeros 100m.
+                                    </div>
+                                    {% if form.profundidad_desvio.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.profundidad_desvio.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.sondaje_padre.id_for_label }}" class="form-label">
+                                        <i class="fas fa-project-diagram"></i> Sondaje padre (si es reperforaci&oacute;n)
+                                    </label>
+                                    {{ form.sondaje_padre }}
+                                    <div class="form-text">Vincular si este sondaje reemplaza a uno desviado</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3 d-flex align-items-center" style="margin-top: 32px;">
+                                    <div class="form-check form-switch">
+                                        {{ form.es_cobrable }}
+                                        <label class="form-check-label" for="{{ form.es_cobrable.id_for_label }}">
+                                            <strong>Metros cobrables al cliente</strong>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-text text-danger" id="aviso-no-cobrable" style="display:none;">
+                                    <i class="fas fa-exclamation-triangle"></i> Los metros de este sondaje NO se incluir&aacute;n en la valorizaci&oacute;n.
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.observaciones_cierre.id_for_label }}" class="form-label">
+                                        <i class="fas fa-comment-alt"></i> Observaciones de cierre
+                                    </label>
+                                    {{ form.observaciones_cierre }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-triangle"></i>
                             {{ form.non_field_errors }}
                         </div>
                     {% endif %}
-                    
+
                     <div class="d-flex justify-content-between mt-4">
                         <a href="{% url 'sondaje-list' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Volver
@@ -146,4 +237,72 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const estadoSelect = document.getElementById('{{ form.estado.id_for_label }}');
+    const seccionCierre = document.getElementById('seccion-cierre');
+    const motivoSelect = document.getElementById('{{ form.motivo_cierre.id_for_label }}');
+    const cobrableCheck = document.getElementById('{{ form.es_cobrable.id_for_label }}');
+    const avisoNoCobrable = document.getElementById('aviso-no-cobrable');
+
+    function toggleSeccionCierre() {
+        const estado = estadoSelect ? estadoSelect.value : '';
+        if (estado === 'FINALIZADO' || estado === 'CANCELADO') {
+            seccionCierre.style.display = 'block';
+        } else {
+            seccionCierre.style.display = 'none';
+        }
+    }
+
+    function toggleAvisoNoCobrable() {
+        if (cobrableCheck && avisoNoCobrable) {
+            avisoNoCobrable.style.display = cobrableCheck.checked ? 'none' : 'block';
+        }
+    }
+
+    const campoProfDesvio = document.getElementById('campo-profundidad-desvio');
+
+    function toggleCampoProfDesvio() {
+        if (!motivoSelect || !campoProfDesvio) return;
+        if (motivoSelect.value === 'DESVIADO') {
+            campoProfDesvio.style.display = 'block';
+        } else {
+            campoProfDesvio.style.display = 'none';
+        }
+    }
+
+    // Auto-desmarcar cobrable si motivo es DESVIADO y responsable es CONTRATISTA
+    function autoCobrabilidad() {
+        if (!motivoSelect || !cobrableCheck) return;
+        const motivo = motivoSelect.value;
+        const respSelect = document.getElementById('{{ form.responsable_cierre.id_for_label }}');
+        const responsable = respSelect ? respSelect.value : '';
+
+        if (motivo === 'DESVIADO' && responsable === 'CONTRATISTA') {
+            cobrableCheck.checked = false;
+        } else if (motivo === 'DECISION_CLIENTE') {
+            cobrableCheck.checked = true;
+        } else if (motivo === 'META_ALCANZADA') {
+            cobrableCheck.checked = true;
+        }
+        toggleCampoProfDesvio();
+        toggleAvisoNoCobrable();
+    }
+
+    if (estadoSelect) estadoSelect.addEventListener('change', toggleSeccionCierre);
+    if (motivoSelect) motivoSelect.addEventListener('change', autoCobrabilidad);
+    if (cobrableCheck) cobrableCheck.addEventListener('change', toggleAvisoNoCobrable);
+
+    var respSelect = document.getElementById('{{ form.responsable_cierre.id_for_label }}');
+    if (respSelect) respSelect.addEventListener('change', autoCobrabilidad);
+
+    // Estado inicial
+    toggleSeccionCierre();
+    toggleCampoProfDesvio();
+    toggleAvisoNoCobrable();
+});
+</script>
 {% endblock %}

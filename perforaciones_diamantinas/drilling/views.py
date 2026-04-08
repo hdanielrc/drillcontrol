@@ -1117,14 +1117,22 @@ class SondajeListView(AdminOrContractFilterMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('contrato').order_by('-fecha_inicio')
-        
+        queryset = super().get_queryset().select_related(
+            'contrato', 'sondaje_padre'
+        ).order_by('-fecha_inicio')
+
         estado = self.request.GET.get('estado')
         if estado:
             queryset = queryset.filter(estado=estado)
-            
+
+        cobrable = self.request.GET.get('cobrable')
+        if cobrable == '1':
+            queryset = queryset.filter(es_cobrable=True)
+        elif cobrable == '0':
+            queryset = queryset.filter(es_cobrable=False)
+
         return queryset
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['estados'] = Sondaje.ESTADO_CHOICES
@@ -1137,6 +1145,12 @@ class SondajeCreateView(AdminOrContractFilterMixin, CreateView):
     template_name = 'drilling/sondajes/form.html'
     success_url = reverse_lazy('sondaje-list')
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        if not self.request.user.can_manage_all_contracts():
+            kwargs['contrato'] = self.request.user.contrato
+        return kwargs
+
     def form_valid(self, form):
         if not self.request.user.can_manage_all_contracts():
             form.instance.contrato = self.request.user.contrato
@@ -1148,6 +1162,11 @@ class SondajeUpdateView(AdminOrContractFilterMixin, UpdateView):
     form_class = SondajeForm
     template_name = 'drilling/sondajes/form.html'
     success_url = reverse_lazy('sondaje-list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['contrato'] = self.get_object().contrato
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, 'Sondaje actualizado exitosamente')
@@ -2219,19 +2238,61 @@ def crear_turno_completo(request, pk=None):
                             try:
                                 sondaje_id = int(cambio['sondaje_id'])
                                 nuevo_estado = cambio['nuevo_estado']
-                                
-                                # Validar que el estado es vÃ¡lido
+
+                                # Validar que el estado es válido
                                 estados_validos = ['ACTIVO', 'PAUSADO', 'FINALIZADO', 'CANCELADO']
                                 if nuevo_estado not in estados_validos:
                                     continue
-                                
+
                                 # Obtener el sondaje y actualizar su estado
                                 sondaje_obj = Sondaje.objects.get(id=sondaje_id)
                                 estado_anterior = sondaje_obj.estado
+                                update_fields = ['estado']
                                 sondaje_obj.estado = nuevo_estado
-                                sondaje_obj.save(update_fields=['estado'])
-                                
-                                messages.info(request, f'Estado del sondaje "{sondaje_obj.nombre_sondaje}" cambiado de {estado_anterior} a {nuevo_estado}')
+
+                                # Procesar campos de cierre/desvío si el estado es terminal
+                                if nuevo_estado in ('FINALIZADO', 'CANCELADO'):
+                                    motivo = cambio.get('motivo_cierre', '')
+                                    if motivo:
+                                        sondaje_obj.motivo_cierre = motivo
+                                        update_fields.append('motivo_cierre')
+                                    responsable = cambio.get('responsable_cierre', '')
+                                    if responsable:
+                                        sondaje_obj.responsable_cierre = responsable
+                                        update_fields.append('responsable_cierre')
+                                    # es_cobrable: viene como bool desde JSON
+                                    es_cobrable = cambio.get('es_cobrable', True)
+                                    sondaje_obj.es_cobrable = es_cobrable
+                                    update_fields.append('es_cobrable')
+                                    # profundidad_desvio: punto de corte para desvíos parciales
+                                    prof_desvio = cambio.get('profundidad_desvio')
+                                    if prof_desvio is not None:
+                                        try:
+                                            from decimal import Decimal
+                                            sondaje_obj.profundidad_desvio = Decimal(str(prof_desvio))
+                                            update_fields.append('profundidad_desvio')
+                                        except Exception:
+                                            pass
+                                    # Calcular profundidad alcanzada automáticamente
+                                    from django.db.models import Max
+                                    max_metros = TurnoComplemento.objects.filter(
+                                        sondaje=sondaje_obj,
+                                        tipo_complemento__categoria='BROCA'
+                                    ).aggregate(max_fin=Max('metros_fin'))['max_fin']
+                                    if max_metros:
+                                        sondaje_obj.profundidad_alcanzada = max_metros
+                                        update_fields.append('profundidad_alcanzada')
+                                    # Fecha de fin automática
+                                    if not sondaje_obj.fecha_fin:
+                                        sondaje_obj.fecha_fin = fecha
+                                        update_fields.append('fecha_fin')
+
+                                sondaje_obj.save(update_fields=update_fields)
+
+                                tag = ''
+                                if not es_cobrable if nuevo_estado in ('FINALIZADO', 'CANCELADO') else False:
+                                    tag = ' [NO COBRABLE]'
+                                messages.info(request, f'Estado del sondaje "{sondaje_obj.nombre_sondaje}" cambiado de {estado_anterior} a {nuevo_estado}{tag}')
                             except (KeyError, ValueError, Sondaje.DoesNotExist) as e:
                                 messages.warning(request, f'No se pudo actualizar el estado de un sondaje: {str(e)}')
                     except json.JSONDecodeError:
@@ -4587,38 +4648,148 @@ def metas_valorizacion_reporte(request):
             activo=True
         ).select_related('maquina', 'servicio')
         
+        # Precalcular metraje por sondaje desglosado (cobrables vs no cobrables, por línea)
+        # Obtener todos los TurnoComplemento del período para este contrato
+        complementos_periodo = TurnoComplemento.objects.filter(
+            turno__contrato=contrato,
+            turno__fecha__gte=fecha_inicio,
+            turno__fecha__lte=fecha_fin,
+            turno__estado__in=['COMPLETADO', 'APROBADO']
+        ).select_related('tipo_complemento', 'sondaje', 'turno')
+
+        # Desglose por línea (calibre) y categoría para todo el contrato
+        from django.db.models import F, Q
+        from collections import defaultdict
+
+        desglose_linea = defaultdict(lambda: Decimal('0'))
+        metros_brutos_total = Decimal('0')
+        metros_cobrables_total = Decimal('0')
+        metros_no_cobrables_total = Decimal('0')
+        metros_rimado_total = Decimal('0')
+
+        # Agrupar por máquina → para asignar a cada MetaMaquina
+        metros_por_maquina = defaultdict(lambda: {
+            'brutos': Decimal('0'), 'cobrables': Decimal('0'),
+            'no_cobrables': Decimal('0'), 'rimado': Decimal('0'),
+            'por_linea': defaultdict(lambda: Decimal('0')),
+        })
+
+        # Pre-calcular metros brutos de BROCA por sondaje (suma acumulada en el período).
+        # Necesitamos la cifra por sondaje para aplicar el corte de profundidad_desvio.
+        from django.db.models import Sum as DSum
+        metros_broca_por_sondaje = defaultdict(Decimal)
+        for comp in complementos_periodo:
+            if (comp.tipo_complemento.categoria or '') == 'BROCA' and comp.sondaje_id:
+                metros_broca_por_sondaje[comp.sondaje_id] += (comp.metros_turno_calc or Decimal('0'))
+
+        # Cache de sondajes para no hacer N queries
+        sondaje_ids_periodo = {comp.sondaje_id for comp in complementos_periodo if comp.sondaje_id}
+        sondajes_cache = {
+            s.id: s for s in Sondaje.objects.filter(id__in=sondaje_ids_periodo)
+        }
+
+        for comp in complementos_periodo:
+            maq_id = comp.turno.maquina_id
+            metros = comp.metros_turno_calc or Decimal('0')
+            cat = comp.tipo_complemento.categoria or 'OTRO'
+            calibre = comp.tipo_complemento.calibre or 'SIN_LINEA'
+            sondaje_obj = sondajes_cache.get(comp.sondaje_id) if comp.sondaje_id else None
+
+            if cat == 'BROCA':
+                metros_brutos_total += metros
+                metros_por_maquina[maq_id]['brutos'] += metros
+
+                # Aplicar lógica de corte por desvío:
+                #   es_cobrable=False              → 0 cobrable (pérdida total)
+                #   profundidad_desvio=X definida  → cobrable = min(acumulado_sondaje, X)
+                #                                    el resto es no cobrable
+                #   sin profundidad_desvio          → todo cobrable
+                if sondaje_obj and not sondaje_obj.es_cobrable:
+                    # Pérdida total: ningún metro de este sondaje es cobrable
+                    metros_no_cobrables_total += metros
+                    metros_por_maquina[maq_id]['no_cobrables'] += metros
+                elif sondaje_obj and sondaje_obj.profundidad_desvio is not None:
+                    # Desvío parcial: aplicar corte proporcional dentro de este complemento.
+                    # El total del sondaje en el período ya está calculado en metros_broca_por_sondaje.
+                    # Distribuimos proporcionalmente el corte entre los complementos del sondaje.
+                    total_sondaje = metros_broca_por_sondaje[comp.sondaje_id]
+                    limite = sondaje_obj.profundidad_desvio
+                    if total_sondaje > 0:
+                        fraccion_cobrable = min(limite / total_sondaje, Decimal('1'))
+                    else:
+                        fraccion_cobrable = Decimal('1')
+                    m_cob = (metros * fraccion_cobrable).quantize(Decimal('0.01'))
+                    m_no_cob = metros - m_cob
+                    metros_cobrables_total += m_cob
+                    metros_no_cobrables_total += m_no_cob
+                    metros_por_maquina[maq_id]['cobrables'] += m_cob
+                    metros_por_maquina[maq_id]['no_cobrables'] += m_no_cob
+                else:
+                    # Sondaje completamente cobrable
+                    metros_cobrables_total += metros
+                    metros_por_maquina[maq_id]['cobrables'] += metros
+
+                # Desglose por línea (sobre metros brutos)
+                desglose_linea[f'BROCA_{calibre}'] += metros
+                metros_por_maquina[maq_id]['por_linea'][f'BROCA_{calibre}'] += metros
+
+            elif cat == 'REAMING_SHELL':
+                metros_rimado_total += metros
+                metros_por_maquina[maq_id]['rimado'] += metros
+                desglose_linea[f'RIMADO_{calibre}'] += metros
+                metros_por_maquina[maq_id]['por_linea'][f'RIMADO_{calibre}'] += metros
+
+        # Resumen adicional
+        resumen['metros_brutos'] = metros_brutos_total
+        resumen['metros_cobrables'] = metros_cobrables_total
+        resumen['metros_no_cobrables'] = metros_no_cobrables_total
+        resumen['metros_rimado'] = metros_rimado_total
+        resumen['desglose_linea'] = dict(desglose_linea)
+        if metros_brutos_total > 0:
+            resumen['pct_eficiencia'] = (metros_cobrables_total / metros_brutos_total) * Decimal('100')
+        else:
+            resumen['pct_eficiencia'] = Decimal('100')
+
+        # Sondajes con desvío (parcial o total) del contrato
+        sondajes_con_desvio = Sondaje.objects.filter(
+            contrato=contrato,
+        ).filter(
+            models.Q(es_cobrable=False) | models.Q(profundidad_desvio__isnull=False)
+        ).select_related('sondaje_padre').order_by('-fecha_inicio')
+        resumen['sondajes_no_cobrables'] = sondajes_con_desvio
+
         for meta in metas:
-            # Calcular metros reales
-            turnos_con_avance = TurnoAvance.objects.filter(
-                turno__maquina=meta.maquina,
-                turno__contrato=contrato,
-                turno__fecha__gte=fecha_inicio,
-                turno__fecha__lte=fecha_fin,
-                turno__estado__in=['COMPLETADO', 'APROBADO']
-            )
-            
-            metros_reales = turnos_con_avance.aggregate(
-                total=Sum('metros_perforados')
-            )['total'] or Decimal('0')
-            
-            # Calcular valorizaciÃ³n
-            valorizacion = meta.calcular_valorizacion_completa(metros_reales, fecha_fin)
-            
+            # Metros COBRABLES para esta máquina (solo BROCA de sondajes cobrables)
+            maq_data = metros_por_maquina.get(meta.maquina_id, {})
+            metros_cobrables = maq_data.get('cobrables', Decimal('0'))
+            metros_brutos_maq = maq_data.get('brutos', Decimal('0'))
+            metros_no_cob_maq = maq_data.get('no_cobrables', Decimal('0'))
+            metros_rimado_maq = maq_data.get('rimado', Decimal('0'))
+
+            # La valorización se calcula sobre metros COBRABLES
+            valorizacion = meta.calcular_valorizacion_completa(metros_cobrables, fecha_fin)
+
             if valorizacion['tiene_precio']:
+                valorizacion['metros_brutos'] = metros_brutos_maq
+                valorizacion['metros_no_cobrables'] = metros_no_cob_maq
+                valorizacion['metros_rimado'] = metros_rimado_maq
+                valorizacion['costo_desvio'] = metros_no_cob_maq * valorizacion['precio_unitario']
+                valorizacion['por_linea'] = dict(maq_data.get('por_linea', {}))
+
                 valorizacion_data.append({
                     'maquina': meta.maquina,
                     'servicio': meta.servicio,
                     'meta': meta,
                     'valorizacion': valorizacion,
                 })
-                
-                # Acumular totales
+
+                # Acumular totales (sobre metros cobrables)
                 resumen['total_meta_metros'] += valorizacion['meta_metros']
                 resumen['total_real_metros'] += valorizacion['real_metros']
                 resumen['total_meta_monto'] += valorizacion['meta_monto']
                 resumen['total_real_monto'] += valorizacion['real_monto']
                 resumen['moneda'] = valorizacion['moneda']
-        
+
         # Calcular porcentajes del resumen
         if resumen['total_meta_metros'] > 0:
             resumen['porcentaje_cumplimiento'] = (
@@ -4626,15 +4797,22 @@ def metas_valorizacion_reporte(request):
             ) * Decimal('100')
         else:
             resumen['porcentaje_cumplimiento'] = Decimal('0')
-        
+
         if resumen['total_meta_monto'] > 0:
             resumen['porcentaje_valor'] = (
                 resumen['total_real_monto'] / resumen['total_meta_monto']
             ) * Decimal('100')
         else:
             resumen['porcentaje_valor'] = Decimal('0')
-        
+
         resumen['diferencia_monto'] = resumen['total_real_monto'] - resumen['total_meta_monto']
+        # Costo total de desvíos
+        if resumen.get('moneda') and metros_no_cobrables_total > 0:
+            # Usar primer PU disponible para estimar costo
+            pu = valorizacion_data[0]['valorizacion']['precio_unitario'] if valorizacion_data else Decimal('0')
+            resumen['costo_desvios_total'] = metros_no_cobrables_total * pu
+        else:
+            resumen['costo_desvios_total'] = Decimal('0')
     
     # años y meses
     año_actual = date.today().year
