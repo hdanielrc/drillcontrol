@@ -2283,7 +2283,6 @@ def crear_turno_completo(request, pk=None):
                                     prof_desvio = cambio.get('profundidad_desvio')
                                     if prof_desvio is not None:
                                         try:
-                                            from decimal import Decimal
                                             sondaje_obj.profundidad_desvio = Decimal(str(prof_desvio))
                                             update_fields.append('profundidad_desvio')
                                         except Exception:
