@@ -7,6 +7,22 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+class SafeCreateModel(migrations.CreateModel):
+    """CreateModel que no falla si la tabla ya existe en la base de datos."""
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        from django.db import connection
+        existing = connection.introspection.table_names()
+        to_model = to_state.apps.get_model(app_label, self.name)
+        if to_model._meta.db_table not in existing:
+            super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        from django.db import connection
+        from_model = from_state.apps.get_model(app_label, self.name)
+        if from_model._meta.db_table in connection.introspection.table_names():
+            super().database_backwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -14,40 +30,21 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # SafeCreateModel: usa IF NOT EXISTS para tolerar tabla preexistente
-        # (puede ocurrir si un run anterior de esta migración abortó a mitad)
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunSQL(
-                    sql="""
-                        CREATE TABLE IF NOT EXISTS "fecha_cerrada" (
-                            "id" bigserial NOT NULL PRIMARY KEY,
-                            "fecha" date NOT NULL,
-                            "fecha_cierre" timestamp with time zone NOT NULL,
-                            "motivo" text NOT NULL
-                        );
-                    """,
-                    reverse_sql='DROP TABLE IF EXISTS "fecha_cerrada";',
-                )
+        SafeCreateModel(
+            name='FechaCerrada',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('fecha', models.DateField()),
+                ('fecha_cierre', models.DateTimeField(auto_now_add=True)),
+                ('motivo', models.TextField(blank=True)),
             ],
-            state_operations=[
-                migrations.CreateModel(
-                    name='FechaCerrada',
-                    fields=[
-                        ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                        ('fecha', models.DateField()),
-                        ('fecha_cierre', models.DateTimeField(auto_now_add=True)),
-                        ('motivo', models.TextField(blank=True)),
-                    ],
-                    options={
-                        'verbose_name': 'Fecha Cerrada',
-                        'verbose_name_plural': 'Fechas Cerradas',
-                        'db_table': 'fecha_cerrada',
-                    },
-                )
-            ],
+            options={
+                'verbose_name': 'Fecha Cerrada',
+                'verbose_name_plural': 'Fechas Cerradas',
+                'db_table': 'fecha_cerrada',
+            },
         ),
-        migrations.CreateModel(
+        SafeCreateModel(
             name='TareoClosure',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -64,7 +61,7 @@ class Migration(migrations.Migration):
                 'db_table': 'tareo_closure',
             },
         ),
-        migrations.CreateModel(
+        SafeCreateModel(
             name='TareoEntry',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -82,7 +79,7 @@ class Migration(migrations.Migration):
                 'db_table': 'tareo_entry',
             },
         ),
-        migrations.CreateModel(
+        SafeCreateModel(
             name='TareoEntryAudit',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -99,7 +96,7 @@ class Migration(migrations.Migration):
                 'ordering': ['-fecha_cambio'],
             },
         ),
-        migrations.CreateModel(
+        SafeCreateModel(
             name='TareoPeriod',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
