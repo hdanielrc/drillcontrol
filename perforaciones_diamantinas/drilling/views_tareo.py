@@ -16,7 +16,6 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction, models
-from django.middleware.csrf import CsrfViewMiddleware
 from django.db.models import Count
 from django.forms import ModelForm, Textarea
 from datetime import datetime, timedelta, date
@@ -38,6 +37,7 @@ from .models import (
 from .tareo_compat import AsistenciaDiaria, CierreMensualTareo, HistorialCambioAsistencia, NEW_TAREO
 from .utils.tareo_service import TareoService, CierreMensualService
 from .utils.tareo_service import TareoEngine
+from .utils.attendance_projector import AttendanceProjector, proyectar_contrato
 
 logger = logging.getLogger(__name__)
 
@@ -144,62 +144,13 @@ def _trabajadores_tareo_qs(contrato, fecha_inicio=None, fecha_fin=None):
     return qs
 
 
-def _trabajador_field_name():
-    return 'trabajador'
-
-
-def _emp_field_name():
-    return _trabajador_field_name()
-
-
-def _asistencias_v2_qs(contrato, fecha_inicio, fecha_fin):
-    from django.db.models import Q
-    from .models import TrabajadorContratoHistorial
-
-    # Usar historial para incluir asistencias de trabajadores que fueron
-    # movidos a otro CC pero estuvieron en este contrato durante el período.
-    tiene_historial = TrabajadorContratoHistorial.objects.filter(contrato=contrato).exists()
-
-    if tiene_historial:
-        historial_q = Q(contrato_historial__contrato=contrato)
-        if fecha_fin:
-            historial_q &= Q(contrato_historial__fecha_inicio__lte=fecha_fin)
-        if fecha_inicio:
-            historial_q &= (
-                Q(contrato_historial__fecha_fin__isnull=True) |
-                Q(contrato_historial__fecha_fin__gte=fecha_inicio)
-            )
-        trabajador_ids = Trabajador.objects.filter(historial_q).distinct().values_list('id', flat=True)
-        qs = AsistenciaDiaria.objects.filter(
-            trabajador_id__in=trabajador_ids,
-            fecha__gte=fecha_inicio,
-            fecha__lte=fecha_fin,
-        ).select_related('trabajador', 'maquina_snapshot')
-    else:
-        qs = AsistenciaDiaria.objects.filter(
-            trabajador__contrato=contrato,
-            fecha__gte=fecha_inicio,
-            fecha__lte=fecha_fin,
-        ).select_related('trabajador', 'maquina_snapshot')
-    return qs, 'trabajador'
-
-
 # Configurar locale para español
 try:
     locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
-except:
+except Exception:
     try:
         locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
-    except:
-        pass  # Usar locale por defecto si no se puede configurar español
-
-# Configurar locale para español
-try:
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
-except:
-    try:
-        locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
-    except:
+    except Exception:
         pass  # Usar locale por defecto si no se puede configurar español
 
 
@@ -1985,67 +1936,83 @@ def _crear_hoja_distribucion(ws, contrato, fecha_inicio, fecha_fin):
 
 @login_required
 @require_http_methods(["POST"])
-@login_required
-@require_http_methods(["POST"])
 def limpiar_asistencias_mes(request):
     """
     Limpia todas las asistencias del contrato para el rango de fechas especificado.
-    Elimina registros de AsistenciaTrabajador excepto los estados protegidos si se solicita.
+    Elimina registros de AsistenciaTrabajador (V1) y AsistenciaDiaria (V2) excepto
+    los estados protegidos si se solicita.
     """
     user = request.user
     if not user.can_manage_contract_users():
         return JsonResponse({'success': False, 'message': 'Sin permisos'}, status=403)
-        
+
     try:
         data = json.loads(request.body)
         contrato_id = data.get('contrato_id')
         fecha_inicio_str = data.get('fecha_inicio')
         fecha_fin_str = data.get('fecha_fin')
         mantener_protegidos = data.get('mantener_protegidos', True)
-        
-        print(f"DEBUG Limpiar mes - Contrato: {contrato_id}, Fechas: {fecha_inicio_str} a {fecha_fin_str}")
-        
+
+        logger.debug(
+            "Limpiar mes - Contrato: %s, Fechas: %s a %s",
+            contrato_id, fecha_inicio_str, fecha_fin_str,
+        )
+
         if not all([contrato_id, fecha_inicio_str, fecha_fin_str]):
             return JsonResponse({'success': False, 'message': 'Faltan datos requeridos'}, status=400)
-            
+
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
-        
+
         # Validar periodo (máximo 40 días para evitar limpiezas masivas accidentales)
         dias = (fecha_fin - fecha_inicio).days + 1
-        print(f"DEBUG - Días en el rango: {dias}")
-        
+        logger.debug("Días en el rango: %d", dias)
+
         if dias > 40:
-             return JsonResponse({'success': False, 'message': f'Rango de fechas demasiado amplio ({dias} días, máx 40)'}, status=400)
-             
-        query = AsistenciaTrabajador.objects.filter(
+            return JsonResponse(
+                {'success': False, 'message': f'Rango de fechas demasiado amplio ({dias} días, máx 40)'},
+                status=400,
+            )
+
+        ESTADOS_PROTEGIDOS = ['V', 'DM', 'LSG', 'LCG', 'LFC', 'LOG', 'SUB']
+
+        q_v1 = AsistenciaTrabajador.objects.filter(
             trabajador__contrato_id=contrato_id,
             fecha__gte=fecha_inicio,
-            fecha__lte=fecha_fin
+            fecha__lte=fecha_fin,
         )
-        
-        total_antes = query.count()
-        print(f"DEBUG - Total registros antes de filtrar: {total_antes}")
-        
+        q_v2 = AsistenciaDiaria.objects.filter(
+            trabajador__contrato_id=contrato_id,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin,
+        )
+
+        total_antes = q_v1.count() + q_v2.count()
+        logger.debug("Total registros antes de filtrar (V1+V2): %d", total_antes)
+
         if mantener_protegidos:
-            ESTADOS_PROTEGIDOS = ['VACACIONES', 'DESCANSO_MEDICO', 'LICENCIA', 'PERMISO', 'SUBSIDIO']
-            query = query.exclude(estado__in=ESTADOS_PROTEGIDOS)
-            
-        total_a_eliminar = query.count()
-        print(f"DEBUG - Total a eliminar (sin protegidos): {total_a_eliminar}")
-        
-        count, _ = query.delete()
-        
-        print(f"DEBUG - Registros eliminados: {count}")
-        
+            q_v1 = q_v1.exclude(estado__in=ESTADOS_PROTEGIDOS)
+            q_v2 = q_v2.exclude(estado__in=ESTADOS_PROTEGIDOS)
+
+        logger.debug(
+            "Total a eliminar (sin protegidos): V1=%d V2=%d",
+            q_v1.count(), q_v2.count(),
+        )
+
+        with transaction.atomic():
+            count_v1, _ = q_v1.delete()
+            count_v2, _ = q_v2.delete()
+
+        total_eliminado = count_v1 + count_v2
+        logger.debug("Registros eliminados: V1=%d V2=%d", count_v1, count_v2)
+
         return JsonResponse({
-            'success': True, 
-            'message': f'Se eliminaron {count} de {total_antes} registros de asistencia.'
+            'success': True,
+            'message': f'Se eliminaron {total_eliminado} de {total_antes} registros de asistencia.',
         })
-        
+
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error en limpiar_asistencias_mes: %s", e)
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
@@ -3090,8 +3057,9 @@ def tareo_v2_mensual_view(request):
         'dia_previo_cambio': dia_previo_cambio,
         'nombre_dia_cambio': ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][dia_cambio_guardia],
         'es_mes_minimo': es_mes_minimo,
+        'turno_inicio_choices': contrato.TURNO_INICIO_CHOICES,
     }
-    
+
     return render(request, 'drilling/tareo/tareo_v2_mensual.html', context)
 
 
@@ -3103,51 +3071,60 @@ def tareo_v2_mensual_view(request):
 def api_generar_proyeccion(request):
     """
     Endpoint AJAX para generar proyección mensual automática.
-    
+    Usa AttendanceProjector para cada trabajador del contrato, respetando:
+      - turno_inicio del contrato (TD o TN).
+      - Último registro real como ancla del ciclo.
+      - Correcciones manuales (no se sobreescriben salvo sobrescribir=True).
+      - Continuidad de contrato (fecha_cese).
+      - Fechas y meses cerrados.
+
     POST params:
         - contrato_id: ID del contrato
         - anio: Año de la proyección
         - mes: Mes de la proyección
         - sobrescribir: Boolean, si True elimina proyecciones previas
-    
+
     Returns:
         JSON con estadísticas de la operación
     """
     try:
-        # Validar permisos
         if not request.user.can_manage_contract_users():
             return JsonResponse({
                 'success': False,
                 'error': 'No tienes permisos para esta operación'
             }, status=403)
-        
-        # Obtener parámetros
+
         contrato_id = request.POST.get('contrato_id')
         anio = int(request.POST.get('anio'))
         mes = int(request.POST.get('mes'))
         sobrescribir = request.POST.get('sobrescribir', 'false').lower() == 'true'
-        
-        # Validar contrato
+
         contrato = get_object_or_404(Contrato, id=contrato_id, estado='ACTIVO')
-        
-        # Ejecutar proyección
-        resultado = TareoService.generar_proyeccion_mensual(
-            anio=anio,
-            mes=mes,
+
+        # Período operativo: del 26 del mes anterior al 25 del mes actual
+        if mes == 1:
+            anio_ant, mes_ant = anio - 1, 12
+        else:
+            anio_ant, mes_ant = anio, mes - 1
+
+        from datetime import date as _date
+        from .utils.tareo_service import TareoService as _TS
+        fecha_inicio = max(_date(anio_ant, mes_ant, 26), _TS.HISTORICO_START)
+        fecha_fin = _date(anio, mes, 25)
+
+        resultado = proyectar_contrato(
             contrato=contrato,
-            sobrescribir=sobrescribir
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            usuario=request.user,
+            sobrescribir=sobrescribir,
         )
-        
-        return JsonResponse({
-            'success': True,
-            'data': resultado
-        })
-        
+
+        return JsonResponse({'success': True, 'data': resultado})
+
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+        logger.exception("Error en api_generar_proyeccion: %s", e)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
@@ -3964,6 +3941,39 @@ def api_importar_desde_v1(request):
     except Exception as e:
         logger.error(f"Error importando desde V1: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_actualizar_turno_inicio(request, contrato_id):
+    """
+    Actualiza el campo turno_inicio del contrato (exclusivo para staff/admin).
+    POST params:
+        - turno_inicio: 'TD' | 'TN'
+    """
+    if not (request.user.is_staff or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+
+    turno_inicio = request.POST.get('turno_inicio', '').upper()
+    valores_validos = [v for v, _ in Contrato.TURNO_INICIO_CHOICES]
+    if turno_inicio not in valores_validos:
+        return JsonResponse(
+            {'success': False, 'error': f'Valor inválido. Use: {valores_validos}'},
+            status=400,
+        )
+
+    contrato = get_object_or_404(Contrato, id=contrato_id)
+    contrato.turno_inicio = turno_inicio
+    contrato.save(update_fields=['turno_inicio', 'updated_at'])
+    logger.info(
+        "turno_inicio del contrato %s actualizado a '%s' por %s",
+        contrato_id, turno_inicio, request.user,
+    )
+    return JsonResponse({
+        'success': True,
+        'turno_inicio': turno_inicio,
+        'label': contrato.get_turno_inicio_display(),
+    })
 
 
 @login_required

@@ -92,6 +92,18 @@ class Contrato(models.Model):
         verbose_name='Día de Cambio de Guardia',
         help_text='Día de la semana en que se realiza el cambio de guardia en este contrato (entrada y salida de mina).'
     )
+
+    TURNO_INICIO_CHOICES = [
+        ('TD', 'Inicia con Turno Día (primeros 7 días son TD)'),
+        ('TN', 'Inicia con Turno Noche (primeros 7 días son TN)'),
+    ]
+    turno_inicio = models.CharField(
+        max_length=2,
+        choices=TURNO_INICIO_CHOICES,
+        default='TD',
+        verbose_name='Turno de Inicio de Guardia',
+        help_text='Define si las guardias empiezan con Turno Día o Turno Noche al inicio del ciclo laboral.',
+    )
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ACTIVO')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1456,7 +1468,7 @@ class AsistenciaDiaria(models.Model):
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_CHOICES,
-        default='TRABAJO',
+        default='T',
         verbose_name='Estado',
         db_index=True  # Índice para filtros por estado
     )

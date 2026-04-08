@@ -38,10 +38,6 @@ def _trabajador_field_name():
     return 'trabajador'
 
 
-def _empleado_field_name():
-    return _trabajador_field_name()
-
-
 def _proyeccion_filter(qs):
     return qs.filter(tipo='PROY') if NEW_TAREO else qs.filter(es_proyeccion=True)
 
@@ -274,14 +270,19 @@ class TareoService:
         # del régimen (ej. 14x7 => 7 TD, 7 TN, 7 DL).
 
         if posicion_ciclo < dias_trabajo:
-            # Dentro de los días de trabajo: determinar si corresponde a TD o TN
-            # Repartimos el bloque de trabajo en dos mitades: TD primero, TN después.
-            mitad = (dias_trabajo + 1) // 2  # TD obtiene el extra si es impar
-            posicion_en_trabajo = posicion_ciclo  # 0..dias_trabajo-1
-            if posicion_en_trabajo < mitad:
-                return 'TD'
+            # Dentro de los días de trabajo: determinar si corresponde a TD o TN.
+            # Respeta contrato.turno_inicio: 'TD' (defecto) => primera mitad TD,
+            # segunda TN; 'TN' => primera mitad TN, segunda TD.
+            mitad = (dias_trabajo + 1) // 2  # primer bloque obtiene el extra si impar
+            turno_inicio = getattr(
+                getattr(trabajador, 'contrato', None), 'turno_inicio', 'TD'
+            ) or 'TD'
+            primer_bloque = turno_inicio
+            segundo_bloque = 'TN' if primer_bloque == 'TD' else 'TD'
+            if posicion_ciclo < mitad:
+                return primer_bloque
             else:
-                return 'TN'
+                return segundo_bloque
         else:
             return 'DESCANSO'
         
@@ -1759,10 +1760,12 @@ class TareoEngine:
     def estado_para_fecha(cls, trabajador, fecha_consulta):
         """
         Calcula el estado (TD, TN, DL) de manera puramente determinista.
+        Respeta `contrato.turno_inicio`:
+          - 'TD' (defecto): idx 0-6=TD, 7-13=TN, 14-20=DL
+          - 'TN':           idx 0-6=TN, 7-13=TD, 14-20=DL
         """
         contrato = getattr(trabajador, 'contrato', None)
         if contrato is None:
-            # Si no hay contrato, fallback determinista anclado a 2024-01-01
             fecha_ancla = date(2024, 1, 1)
         else:
             fecha_ancla = cls._fecha_ancla_contrato(contrato)
@@ -1773,11 +1776,18 @@ class TareoEngine:
         dias_trans = (fecha_consulta - fecha_ancla).days
         idx = (dias_trans + offset) % cls.TOTAL_CICLO
 
+        # Bloque de descanso: siempre igual independientemente de turno_inicio
+        if idx >= cls.DIAS_TD + cls.DIAS_TN:
+            return 'DL'
+
+        # Determinar qué turno va primero según la configuración del contrato
+        turno_inicio = getattr(contrato, 'turno_inicio', 'TD') if contrato else 'TD'
+        primer_turno = turno_inicio          # 'TD' o 'TN'
+        segundo_turno = 'TN' if primer_turno == 'TD' else 'TD'
+
         if idx < cls.DIAS_TD:
-            return 'TD'
-        if idx < cls.DIAS_TD + cls.DIAS_TN:
-            return 'TN'
-        return 'DL'
+            return primer_turno
+        return segundo_turno
 
     @classmethod
     def proyectar_rango(cls, trabajador, fecha_inicio, fecha_fin):

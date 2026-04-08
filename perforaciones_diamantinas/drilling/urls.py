@@ -42,6 +42,7 @@ from .views_tareo import (
     api_reabrir_mes,
     api_exportar_nomina_excel,
     api_importar_desde_v1,
+    api_actualizar_turno_inicio,
 )
 
 urlpatterns = [
@@ -122,6 +123,7 @@ urlpatterns = [
     path('tareo/v2/api/reabrir-mes/', api_reabrir_mes, name='api_reabrir_mes'),
     path('tareo/v2/api/importar-v1/', api_importar_desde_v1, name='api_importar_desde_v1'),
     path('tareo/v2/exportar-nomina/<int:cierre_id>/', api_exportar_nomina_excel, name='api_exportar_nomina_excel'),
+    path('contratos/<int:contrato_id>/turno-inicio/', api_actualizar_turno_inicio, name='api-contrato-turno-inicio'),
     
     # Trabajadores - Hub y CRUD
     path('trabajadores/hub/', views.trabajadores_hub, name='trabajadores-hub'),

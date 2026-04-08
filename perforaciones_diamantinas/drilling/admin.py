@@ -181,7 +181,7 @@ class ContratoAdmin(admin.ModelAdmin):
             'description': 'Códigos usados para sincronización con APIs externas.'
         }),
         ('Configuración Operativa', {
-            'fields': ('duracion_turno', 'dia_cambio_guardia'),
+            'fields': ('duracion_turno', 'dia_cambio_guardia', 'turno_inicio'),
             'description': '⛏️ CRÍTICO: El día de cambio de guardia determina cuándo se produce el relevo de personal en mina. '
                            'Este valor es utilizado para la lógica de tareo y control de guardias.'
         }),

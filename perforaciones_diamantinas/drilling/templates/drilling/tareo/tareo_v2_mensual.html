@@ -742,6 +742,27 @@
                 {% endif %}
             </div>
 
+            <!-- Selector Turno Inicio de Guardia -->
+            <div style="display:inline-flex; align-items:center; margin-right:12px; gap:6px;">
+                <label style="font-weight:600; font-size:13px; white-space:nowrap;" title="Define si las guardias del ciclo empiezan con Turno Día o Turno Noche">
+                    🌙 Guardias inician en:
+                </label>
+                {% if user.is_staff or user.is_superuser %}
+                <select id="turnoInicioSelect" onchange="cambiarTurnoInicio(this.value)"
+                        style="padding:4px 8px; border-radius:4px; border:1px solid #ccc; font-weight:bold;">
+                    {% for valor, etiqueta in turno_inicio_choices %}
+                    <option value="{{ valor }}" {% if valor == contrato.turno_inicio %}selected{% endif %}>
+                        {{ etiqueta }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <span style="padding:4px 10px; background:#e8f4f8; border-radius:4px; font-weight:bold; font-size:13px;">
+                    {{ contrato.get_turno_inicio_display }}
+                </span>
+                {% endif %}
+            </div>
+
             <!-- Botón de proyección -->
             <button type="button" class="btn-proyeccion" onclick="generarProyeccion()">
                 🔄 Generar Proyección Automática
@@ -1125,6 +1146,30 @@ async function actualizarGuardia(sel) {
         sel.classList.add('error');
         alert('❌ Error de conexión: ' + e);
     }
+}
+
+// Cambiar turno_inicio del contrato (solo staff/admin)
+function cambiarTurnoInicio(nuevoValor) {
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    fetch('{% url "api-contrato-turno-inicio" contrato.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken,
+        },
+        body: new URLSearchParams({ turno_inicio: nuevoValor }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Feedback visual: borde verde temporal
+            const sel = document.getElementById('turnoInicioSelect');
+            if (sel) { sel.style.borderColor = '#27ae60'; setTimeout(() => { sel.style.borderColor = '#ccc'; }, 1500); }
+        } else {
+            alert('❌ Error al guardar turno inicio: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(err => alert('❌ Error de conexión: ' + err));
 }
 
 // Generar proyección automática
