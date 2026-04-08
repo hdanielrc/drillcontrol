@@ -14,19 +14,38 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='FechaCerrada',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('fecha', models.DateField()),
-                ('fecha_cierre', models.DateTimeField(auto_now_add=True)),
-                ('motivo', models.TextField(blank=True)),
+        # SafeCreateModel: usa IF NOT EXISTS para tolerar tabla preexistente
+        # (puede ocurrir si un run anterior de esta migración abortó a mitad)
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        CREATE TABLE IF NOT EXISTS "fecha_cerrada" (
+                            "id" bigserial NOT NULL PRIMARY KEY,
+                            "fecha" date NOT NULL,
+                            "fecha_cierre" timestamp with time zone NOT NULL,
+                            "motivo" text NOT NULL
+                        );
+                    """,
+                    reverse_sql='DROP TABLE IF EXISTS "fecha_cerrada";',
+                )
             ],
-            options={
-                'verbose_name': 'Fecha Cerrada',
-                'verbose_name_plural': 'Fechas Cerradas',
-                'db_table': 'fecha_cerrada',
-            },
+            state_operations=[
+                migrations.CreateModel(
+                    name='FechaCerrada',
+                    fields=[
+                        ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                        ('fecha', models.DateField()),
+                        ('fecha_cierre', models.DateTimeField(auto_now_add=True)),
+                        ('motivo', models.TextField(blank=True)),
+                    ],
+                    options={
+                        'verbose_name': 'Fecha Cerrada',
+                        'verbose_name_plural': 'Fechas Cerradas',
+                        'db_table': 'fecha_cerrada',
+                    },
+                )
+            ],
         ),
         migrations.CreateModel(
             name='TareoClosure',
