@@ -5,7 +5,11 @@
       "Bash(python -c ':*)",
       "Bash(printf 'N\\\\nN\\\\nN\\\\nN\\\\nN\\\\n1\\\\n1\\\\n1\\\\n')",
       "Bash(python manage.py makemigrations drilling --name=\"sondaje_desvio_cobrabilidad\")",
-      "Bash(python manage.py makemigrations drilling --name sondaje_profundidad_desvio)"
+      "Bash(python manage.py makemigrations drilling --name sondaje_profundidad_desvio)",
+      "Bash(python manage.py showmigrations drilling)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }
