@@ -1722,19 +1722,34 @@ def crear_turno_completo(request, pk=None):
                     complementos_raw = json.loads(complementos_data)
                     for c in complementos_raw:
                         try:
+                            tc_id = c.get('tipo_complemento_id', '')
+                            serie = c.get('codigo_serie', '')
+                            # Si no tiene tipo_complemento_id pero sí serie, auto-crear TipoComplemento como BROCA
+                            if (not tc_id or tc_id == '') and serie:
+                                tc_obj, tc_created = TipoComplemento.objects.get_or_create(
+                                    serie=serie,
+                                    defaults={
+                                        'nombre': f'Broca {serie}',
+                                        'categoria': 'BROCA',
+                                        'contrato': contrato_sondajes,
+                                    }
+                                )
+                                tc_id = tc_obj.id
+                                if tc_created:
+                                    messages.info(request, f'Producto diamantado "{serie}" creado automáticamente como Broca.')
                             complementos_parsed.append({
-                                'tipo_complemento_id': int(c['tipo_complemento_id']),
-                                'codigo_serie': c.get('codigo_serie', ''),
+                                'tipo_complemento_id': int(tc_id),
+                                'codigo_serie': serie,
                                 'metros_inicio': Decimal(str(c['metros_inicio'])),
                                 'metros_fin': Decimal(str(c['metros_fin'])),
                                 'sondaje_id': int(c.get('sondaje_id')) if c.get('sondaje_id') else None,
                             })
                         except (KeyError, ValueError, TypeError) as e:
-                            messages.warning(request, f'Complemento con datos invÃ¡lidos serÃ¡ omitido: {e}')
+                            messages.warning(request, f'Complemento con datos inválidos será omitido: {e}')
                         except Exception as e:
                             messages.warning(request, f'Error inesperado en complemento: {e}')
                 except json.JSONDecodeError as e:
-                    messages.error(request, f'JSON invÃ¡lido en complementos: {e}')
+                    messages.error(request, f'JSON inválido en complementos: {e}')
                     return redirect('crear-turno-completo')
 
             # Aditivos
