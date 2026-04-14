@@ -72,7 +72,7 @@ def planilla_hub(request):
 
     # Contratos disponibles
     if user.has_access_to_all_contracts():
-        contratos = Contrato.objects.filter(activo=True).order_by('nombre_contrato')
+        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
     elif contrato:
         contratos = Contrato.objects.filter(pk=contrato.pk)
     else:
