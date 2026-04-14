@@ -31,8 +31,7 @@ from typing import Dict, List, Optional, Set
 
 from django.db import transaction
 
-from ..models import Trabajador, FechaCerrada
-from ..tareo_compat import AsistenciaDiaria, CierreMensualTareo
+from ..models import AsistenciaDiaria, CierreMensualTareo, FechaCerrada, Trabajador
 from .tareo_service import TareoEngine, TareoService
 
 logger = logging.getLogger(__name__)
@@ -433,7 +432,7 @@ def proyectar_contrato(
             .select_related('contrato', 'maquina_asignada')
         )
 
-    totales = {'trabajadores': 0, 'creados': 0, 'actualizados': 0, 'respetados': 0, 'errores': []}
+    totales = {'trabajadores_procesados': 0, 'registros_creados': 0, 'registros_actualizados': 0, 'registros_existentes_respetados': 0, 'errores': []}
 
     for trabajador in trabajadores_qs:
         if not trabajador.vigente_en_fecha(fecha_inicio) and not trabajador.vigente_en_fecha(fecha_fin):
@@ -451,10 +450,10 @@ def proyectar_contrato(
 
             proj.project()
             stats = proj.save()
-            totales['trabajadores'] += 1
-            totales['creados'] += stats['creados']
-            totales['actualizados'] += stats['actualizados']
-            totales['respetados'] += stats['respetados']
+            totales['trabajadores_procesados'] += 1
+            totales['registros_creados'] += stats['creados']
+            totales['registros_actualizados'] += stats['actualizados']
+            totales['registros_existentes_respetados'] += stats['respetados']
         except Exception as exc:
             logger.exception(
                 "AttendanceProjector error para trabajador %s: %s", trabajador.pk, exc

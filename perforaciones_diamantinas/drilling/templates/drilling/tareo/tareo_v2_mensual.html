@@ -1209,7 +1209,10 @@ function generarProyeccion() {
         console.log('Response data:', data);
         if (data.success) {
             const d = data.data;
-            const msg = `✅ Proyección generada exitosamente!\n\nRegistros nuevos: ${d.registros_creados || 0}\nRegistros actualizados (estado+máquina): ${d.registros_actualizados || 0}\nTrabajadores procesados: ${d.trabajadores_procesados}\nRegistros manuales respetados: ${d.registros_existentes_respetados}`;
+            let msg = `✅ Proyección generada exitosamente!\n\nRegistros nuevos: ${d.registros_creados || 0}\nRegistros actualizados (estado+máquina): ${d.registros_actualizados || 0}\nTrabajadores procesados: ${d.trabajadores_procesados || 0}\nRegistros manuales respetados: ${d.registros_existentes_respetados || 0}`;
+            if (d.errores && d.errores.length > 0) {
+                msg += `\n\n⚠️ Errores en ${d.errores.length} trabajador(es):\n${d.errores.map(e => e.error).join('\n')}`;
+            }
             alert(msg);
             location.reload();
         } else {
@@ -1246,7 +1249,10 @@ function generarProyeccionTodos() {
         hideLoading();
         if (data.success) {
             const d = data.data;
-            const msg = `✅ Proyección generada para todos los contratos!\n\nRegistros nuevos: ${d.registros_creados || 0}\nRegistros actualizados: ${d.registros_actualizados || 0}\nTrabajadores procesados: ${d.trabajadores_procesados}\nRegistros manuales respetados: ${d.registros_existentes_respetados}`;
+            let msg = `✅ Proyección generada para todos los contratos!\n\nRegistros nuevos: ${d.registros_creados || 0}\nRegistros actualizados: ${d.registros_actualizados || 0}\nTrabajadores procesados: ${d.trabajadores_procesados || 0}\nRegistros manuales respetados: ${d.registros_existentes_respetados || 0}`;
+            if (d.errores && d.errores.length > 0) {
+                msg += `\n\n⚠️ Errores en ${d.errores.length} trabajador(es):\n${d.errores.map(e => e.error).join('\n')}`;
+            }
             alert(msg);
             location.reload();
         } else {
