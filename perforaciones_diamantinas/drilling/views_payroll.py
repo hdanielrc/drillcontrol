@@ -22,6 +22,9 @@ from .models_payroll import (
     PeriodoBono,
     BonoTrabajador,
     BonoTrabajadorDetalle,
+    CriterioBono,
+    CalificacionCriterio,
+    ESTADOS_DIA_TRABAJADO,
 )
 from .forms_payroll import (
     TipoBonoForm,
@@ -38,6 +41,12 @@ from .utils.payroll_engine import (
     aprobar_periodo,
     cerrar_periodo,
     resumen_periodo,
+    contar_dias_trabajados,
+    calcular_dias_base_regimen,
+    filtrar_trabajadores_por_cargo,
+    generar_calificaciones_criterios,
+    generar_detalles_vacios,
+    calcular_bono_multi_concepto,
 )
 from .mixins import AdminOrContractFilterMixin
 
@@ -48,26 +57,33 @@ from .mixins import AdminOrContractFilterMixin
 
 @login_required
 def planilla_hub(request):
-    """Dashboard principal del módulo de planilla."""
+    """Dashboard principal del módulo de planilla — centrado en cuadros."""
     user = request.user
     contrato = user.contrato
+    today = date.today()
 
+    # Tipos de bono activos (cada uno es un "cuadro")
+    tipos_bono = TipoBono.objects.filter(activo=True).prefetch_related('conceptos').order_by('codigo')
+
+    # Últimos períodos
     periodos = PeriodoBono.objects.all().order_by('-anio', '-mes')[:10]
     if not user.has_access_to_all_contracts() and contrato:
         periodos = periodos.filter(contrato=contrato)
 
-    tipos_bono = TipoBono.objects.filter(activo=True).order_by('codigo')
-
-    configs = ConfiguracionBonoContrato.objects.filter(activo=True).select_related(
-        'contrato', 'tipo_bono'
-    )
-    if not user.has_access_to_all_contracts() and contrato:
-        configs = configs.filter(contrato=contrato)
+    # Contratos disponibles
+    if user.has_access_to_all_contracts():
+        contratos = Contrato.objects.filter(activo=True).order_by('nombre_contrato')
+    elif contrato:
+        contratos = Contrato.objects.filter(pk=contrato.pk)
+    else:
+        contratos = Contrato.objects.none()
 
     context = {
-        'periodos': periodos,
         'tipos_bono': tipos_bono,
-        'configuraciones': configs[:20],
+        'periodos': periodos,
+        'contratos': contratos,
+        'anio_actual': today.year,
+        'mes_actual': today.month,
     }
     return render(request, 'drilling/planilla/hub.html', context)
 
@@ -471,3 +487,278 @@ def api_exportar_bonos_excel(request, periodo_pk):
     response['Content-Disposition'] = f'attachment; filename=bonos_{periodo.contrato.nombre_contrato}_{periodo.mes:02d}_{periodo.anio}.xlsx'
     wb.save(response)
     return response
+
+
+# ===========================================
+# CUADRO DE EVALUACIÓN (formato Excel)
+# ===========================================
+
+@login_required
+def cuadro_evaluacion(request, tipo_bono_pk):
+    """
+    Vista principal del cuadro de evaluación estilo Excel.
+    Muestra todos los trabajadores agrupados por contrato, con secciones
+    y criterios como columnas de checkboxes.
+    Query params: ?anio=2026&mes=4
+    """
+    import calendar
+    from collections import OrderedDict
+
+    tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk, activo=True)
+    anio = int(request.GET.get('anio', date.today().year))
+    mes = int(request.GET.get('mes', date.today().month))
+    _, ultimo_dia = calendar.monthrange(anio, mes)
+    fecha_inicio = date(anio, mes, 1)
+    fecha_fin = date(anio, mes, ultimo_dia)
+
+    user = request.user
+
+    # Secciones y criterios del tipo de bono
+    secciones = ConceptoBono.objects.filter(
+        tipo_bono=tipo_bono
+    ).prefetch_related('criterios').order_by('orden')
+
+    # Obtener contratos con configuración activa para este tipo de bono
+    configs = ConfiguracionBonoContrato.objects.filter(
+        tipo_bono=tipo_bono, activo=True,
+    ).select_related('contrato')
+    if not user.has_access_to_all_contracts() and user.contrato:
+        configs = configs.filter(contrato=user.contrato)
+
+    datos_por_contrato = OrderedDict()
+
+    for config in configs:
+        contrato = config.contrato
+        # Obtener o crear período
+        periodo, _ = PeriodoBono.objects.get_or_create(
+            contrato=contrato, anio=anio, mes=mes,
+            defaults={'fecha_inicio': fecha_inicio, 'fecha_fin': fecha_fin, 'estado': 'ABIERTO'}
+        )
+
+        # Obtener trabajadores del contrato que aplican al cuadro
+        trabajadores = Trabajador.objects.filter(
+            contrato=contrato, estado='ACTIVO'
+        ).order_by('apepat', 'apemat', 'nombres')
+        trabajadores = filtrar_trabajadores_por_cargo(trabajadores, tipo_bono)
+
+        filas = []
+        for trab in trabajadores:
+            # Obtener o crear BonoTrabajador
+            bono_trab, bt_created = BonoTrabajador.objects.get_or_create(
+                periodo=periodo, trabajador=trab, tipo_bono=tipo_bono,
+                defaults={
+                    'configuracion': config,
+                    'bono_base': config.monto_base_mensual,
+                    'dias_trabajados': 0, 'dias_base': 0,
+                    'factor_cumplimiento': Decimal('1'),
+                    'monto_calculado': Decimal('0'),
+                    'monto_ajuste': Decimal('0'),
+                    'monto_final': Decimal('0'),
+                }
+            )
+
+            if bt_created or bono_trab.dias_trabajados == 0:
+                # Calcular días automáticamente
+                dias_trab = contar_dias_trabajados(trab, fecha_inicio, fecha_fin)
+                dias_base = calcular_dias_base_regimen(trab, fecha_inicio, fecha_fin)
+                bono_trab.dias_trabajados = dias_trab
+                bono_trab.dias_base = dias_base or 30
+                bono_trab.save(update_fields=['dias_trabajados', 'dias_base'])
+
+            # Generar detalles y calificaciones si faltan
+            if bt_created:
+                generar_detalles_vacios(bono_trab, config)
+                generar_calificaciones_criterios(bono_trab)
+
+            # Construir datos de secciones con criterios
+            secciones_data = []
+            total_monto_trab = Decimal('0')
+            for seccion in secciones:
+                criterios_seccion = seccion.criterios.filter(activo=True).order_by('orden')
+                criterios_data = []
+                cumplidos = 0
+                total_crit = criterios_seccion.count()
+
+                for criterio in criterios_seccion:
+                    calif, _ = CalificacionCriterio.objects.get_or_create(
+                        bono_trabajador=bono_trab, criterio=criterio,
+                        defaults={'cumple': True}
+                    )
+                    criterios_data.append({
+                        'criterio_pk': criterio.pk,
+                        'nombre': criterio.nombre,
+                        'cumple': calif.cumple,
+                    })
+                    if calif.cumple:
+                        cumplidos += 1
+
+                puntaje = round(cumplidos * 100 / total_crit) if total_crit > 0 else 100
+                peso = float(seccion.peso_default)
+                bono_base = float(bono_trab.bono_base)
+                dias_trab = bono_trab.dias_trabajados
+                dias_base = bono_trab.dias_base or 30
+                dias_factor = dias_trab / dias_base if dias_base > 0 else 0
+                monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100) * dias_factor, 2)
+                total_monto_trab += Decimal(str(monto_seccion))
+
+                secciones_data.append({
+                    'concepto_pk': seccion.pk,
+                    'nombre': seccion.nombre,
+                    'peso': peso,
+                    'criterios': criterios_data,
+                    'puntaje': puntaje,
+                    'monto': monto_seccion,
+                })
+
+            filas.append({
+                'bono_pk': bono_trab.pk,
+                'trabajador_pk': trab.pk,
+                'nombre_completo': f"{trab.apepat} {trab.apemat} {trab.nombres}".strip(),
+                'cargo': trab.cargo or trab.cargo_headcount or '',
+                'dias_trabajados': bono_trab.dias_trabajados,
+                'dias_operativos': bono_trab.dias_base,
+                'bono_base': float(bono_trab.bono_base),
+                'secciones': secciones_data,
+                'total': float(total_monto_trab),
+            })
+
+        if filas:
+            datos_por_contrato[contrato.nombre_contrato] = {
+                'contrato_pk': contrato.pk,
+                'periodo_pk': periodo.pk,
+                'filas': filas,
+            }
+
+    # Preparar estructura de secciones para el header
+    secciones_header = []
+    for seccion in secciones:
+        criterios = seccion.criterios.filter(activo=True).order_by('orden')
+        secciones_header.append({
+            'nombre': seccion.nombre,
+            'peso': float(seccion.peso_default),
+            'criterios': list(criterios.values_list('nombre', flat=True)),
+            'colspan': criterios.count() + 2,  # criterios + % + monto
+        })
+
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    context = {
+        'tipo_bono': tipo_bono,
+        'anio': anio,
+        'mes': mes,
+        'mes_nombre': MESES[mes],
+        'secciones_header': secciones_header,
+        'datos_por_contrato': datos_por_contrato,
+        'rango_anios': range(2025, date.today().year + 2),
+    }
+    return render(request, 'drilling/planilla/cuadro_evaluacion.html', context)
+
+
+@login_required
+def cuadro_guardar(request, tipo_bono_pk):
+    """
+    Endpoint AJAX para guardar calificaciones de criterios y bono_base.
+    POST body JSON: {
+        "bonos": [
+            {"bono_pk": 1, "bono_base": 1300, "criterios": {"55": true, "56": false, ...}},
+            ...
+        ]
+    }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    bonos_data = data.get('bonos', [])
+    actualizados = 0
+
+    for bd in bonos_data:
+        bono_pk = bd.get('bono_pk')
+        if not bono_pk:
+            continue
+
+        try:
+            bono_trab = BonoTrabajador.objects.get(pk=bono_pk)
+        except BonoTrabajador.DoesNotExist:
+            continue
+
+        # Actualizar bono_base si cambió
+        nuevo_base = bd.get('bono_base')
+        if nuevo_base is not None:
+            bono_trab.bono_base = Decimal(str(nuevo_base))
+            bono_trab.save(update_fields=['bono_base'])
+
+        # Actualizar días si los envían
+        dias_trab = bd.get('dias_trabajados')
+        dias_op = bd.get('dias_operativos')
+        if dias_trab is not None:
+            bono_trab.dias_trabajados = int(dias_trab)
+        if dias_op is not None:
+            bono_trab.dias_base = int(dias_op)
+        if dias_trab is not None or dias_op is not None:
+            bono_trab.save(update_fields=['dias_trabajados', 'dias_base'])
+
+        # Actualizar criterios
+        criterios_dict = bd.get('criterios', {})
+        for crit_pk_str, cumple in criterios_dict.items():
+            CalificacionCriterio.objects.filter(
+                bono_trabajador=bono_trab,
+                criterio_id=int(crit_pk_str),
+            ).update(cumple=bool(cumple))
+
+        actualizados += 1
+
+    return JsonResponse({'ok': True, 'actualizados': actualizados})
+
+
+@login_required
+def cuadro_calcular(request, tipo_bono_pk):
+    """
+    Recalcula todos los bonos de un tipo para un mes/año dado.
+    POST params: anio, mes
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    import calendar
+    from decimal import ROUND_HALF_UP
+
+    tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk)
+    anio = int(request.POST.get('anio', date.today().year))
+    mes = int(request.POST.get('mes', date.today().month))
+
+    periodos = PeriodoBono.objects.filter(anio=anio, mes=mes)
+    user = request.user
+    if not user.has_access_to_all_contracts() and user.contrato:
+        periodos = periodos.filter(contrato=user.contrato)
+
+    total_calculados = 0
+    for periodo in periodos:
+        bonos = BonoTrabajador.objects.filter(
+            periodo=periodo, tipo_bono=tipo_bono,
+        ).select_related('trabajador', 'configuracion')
+
+        for bono in bonos:
+            config = bono.configuracion
+            if not config:
+                continue
+
+            dias_trab = bono.dias_trabajados
+            dias_base = bono.dias_base or 30
+
+            if tipo_bono.tipo_calculo == 'MULTI_CONCEPTO':
+                from .utils.payroll_engine import _round2, ZERO
+                monto, factor = calcular_bono_multi_concepto(bono, config, dias_trab, dias_base)
+                bono.factor_cumplimiento = factor
+                bono.monto_calculado = monto
+                bono.monto_final = _round2(monto + bono.monto_ajuste)
+                bono.save()
+                total_calculados += 1
+
+    messages.success(request, f'Se recalcularon {total_calculados} bonos para {tipo_bono.nombre}.')
+    return redirect(f"{reverse('planilla-cuadro', args=[tipo_bono_pk])}?anio={anio}&mes={mes}")

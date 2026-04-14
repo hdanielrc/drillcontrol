@@ -43,6 +43,11 @@ class TipoBono(models.Model):
     descripcion = models.TextField(blank=True, verbose_name='Descripción')
     es_sistema = models.BooleanField(default=False, help_text='Los bonos del sistema (B1-B4) no se pueden eliminar')
     activo = models.BooleanField(default=True)
+    cargos_aplicables = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Cargos Aplicables',
+        help_text='Lista de patrones de cargo. Ej: ["ADMINISTRADOR", "ASISTENTE ADMINISTRATIVO"]. Vacío = todos.'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -246,8 +251,13 @@ class BonoTrabajador(models.Model):
     configuracion = models.ForeignKey(
         ConfiguracionBonoContrato, on_delete=models.SET_NULL, null=True, related_name='resultados'
     )
+    bono_base = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Bono Base (S/)',
+        help_text='Monto base del bono para este trabajador. Editable por usuario.'
+    )
     dias_trabajados = models.PositiveSmallIntegerField(default=0, verbose_name='Días Trabajados')
-    dias_base = models.PositiveSmallIntegerField(default=0, verbose_name='Días Base')
+    dias_base = models.PositiveSmallIntegerField(default=0, verbose_name='Días Operativos')
     factor_cumplimiento = models.DecimalField(
         max_digits=5, decimal_places=4, default=1,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
@@ -313,3 +323,43 @@ class BonoTrabajadorDetalle(models.Model):
 
     def __str__(self):
         return f"{self.concepto.nombre}: {self.puntaje}% → S/{self.monto_calculado}"
+
+
+class CriterioBono(models.Model):
+    """
+    Criterio individual de evaluación (checkbox) dentro de un concepto/sección.
+    Cada sección (ConceptoBono) tiene múltiples criterios que se evalúan como cumple/no cumple.
+    El puntaje de la sección = (criterios cumplidos / total criterios) × 100.
+    """
+    concepto = models.ForeignKey(ConceptoBono, on_delete=models.CASCADE, related_name='criterios')
+    nombre = models.CharField(max_length=300, verbose_name='Nombre del Criterio')
+    orden = models.PositiveSmallIntegerField(default=0, verbose_name='Orden')
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'payroll_criterio_bono'
+        ordering = ['concepto', 'orden']
+        verbose_name = 'Criterio de Bono'
+        verbose_name_plural = 'Criterios de Bono'
+
+    def __str__(self):
+        return f"{self.concepto.nombre} → {self.nombre}"
+
+
+class CalificacionCriterio(models.Model):
+    """
+    Calificación individual de un criterio para un trabajador.
+    cumple=True = checkbox marcado, cumple=False = no marcado.
+    """
+    bono_trabajador = models.ForeignKey(BonoTrabajador, on_delete=models.CASCADE, related_name='calificaciones')
+    criterio = models.ForeignKey(CriterioBono, on_delete=models.CASCADE, related_name='calificaciones')
+    cumple = models.BooleanField(default=True, verbose_name='Cumple')
+
+    class Meta:
+        db_table = 'payroll_calificacion_criterio'
+        unique_together = [('bono_trabajador', 'criterio')]
+        verbose_name = 'Calificación de Criterio'
+        verbose_name_plural = 'Calificaciones de Criterios'
+
+    def __str__(self):
+        return f"{self.criterio.nombre}: {'✓' if self.cumple else '✗'}"

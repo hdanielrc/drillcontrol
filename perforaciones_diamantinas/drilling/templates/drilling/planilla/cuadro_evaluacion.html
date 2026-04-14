@@ -1,0 +1,373 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}{{ tipo_bono.nombre }} — {{ mes_nombre }} {{ anio }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cuadro-container {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    .cuadro-table {
+        font-size: 11px;
+        border-collapse: collapse;
+        white-space: nowrap;
+    }
+    .cuadro-table th, .cuadro-table td {
+        border: 1px solid #ccc;
+        padding: 3px 5px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .cuadro-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    .header-seccion {
+        background: linear-gradient(135deg, #0470AC, #084163);
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+    }
+    .header-criterio {
+        background: #e8f4fd;
+        color: #084163;
+        font-weight: 600;
+        font-size: 10px;
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        height: 120px;
+        padding: 4px 2px;
+    }
+    .header-info {
+        background: #1a3a4f;
+        color: white;
+        font-weight: bold;
+    }
+    .header-total-col {
+        background: #28a745;
+        color: white;
+        font-weight: bold;
+    }
+    .header-pct {
+        background: #ffc107;
+        color: #333;
+        font-weight: bold;
+        font-size: 10px;
+    }
+    .header-monto {
+        background: #17a2b8;
+        color: white;
+        font-weight: bold;
+        font-size: 10px;
+    }
+    .contrato-row {
+        background: #f8d775;
+        font-weight: bold;
+        font-size: 12px;
+        text-align: left !important;
+    }
+    .contrato-row td {
+        text-align: left !important;
+        background: #f8d775;
+    }
+    .cell-nombre {
+        text-align: left !important;
+        min-width: 200px;
+        max-width: 250px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .cell-cargo {
+        text-align: left !important;
+        min-width: 120px;
+        font-size: 10px;
+    }
+    .cell-check {
+        padding: 1px !important;
+    }
+    .cell-check input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+    .cell-bono-base {
+        min-width: 80px;
+    }
+    .cell-bono-base input {
+        width: 70px;
+        text-align: right;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        padding: 1px 3px;
+        font-size: 11px;
+    }
+    .cell-pct {
+        background: #fff9e6;
+        font-weight: bold;
+        color: #856404;
+    }
+    .cell-monto {
+        background: #e8f8f5;
+        font-weight: bold;
+        color: #0c5460;
+    }
+    .cell-total {
+        background: #d4edda;
+        font-weight: bold;
+        color: #155724;
+        font-size: 12px;
+    }
+    .pct-100 { color: #28a745; }
+    .pct-80 { color: #ffc107; }
+    .pct-low { color: #dc3545; }
+    .month-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .month-selector select, .month-selector input {
+        font-size: 13px;
+        padding: 4px 8px;
+    }
+    .save-indicator {
+        display: none;
+        color: #28a745;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-0">
+                <i class="fas fa-table"></i> {{ tipo_bono.nombre }}
+                <small class="text-muted">({{ tipo_bono.codigo }})</small>
+            </h4>
+            <span class="text-muted">{{ mes_nombre }} {{ anio }} — Cuadro de Calificación por Áreas</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <form method="get" class="month-selector" id="mesForm">
+                <select name="mes" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for m in "123456789" %}
+                    <option value="{{ forloop.counter }}" {% if forloop.counter == mes %}selected{% endif %}>
+                        {% if forloop.counter == 1 %}Enero{% elif forloop.counter == 2 %}Febrero{% elif forloop.counter == 3 %}Marzo{% elif forloop.counter == 4 %}Abril{% elif forloop.counter == 5 %}Mayo{% elif forloop.counter == 6 %}Junio{% elif forloop.counter == 7 %}Julio{% elif forloop.counter == 8 %}Agosto{% elif forloop.counter == 9 %}Septiembre{% endif %}
+                    </option>
+                    {% endfor %}
+                    <option value="10" {% if mes == 10 %}selected{% endif %}>Octubre</option>
+                    <option value="11" {% if mes == 11 %}selected{% endif %}>Noviembre</option>
+                    <option value="12" {% if mes == 12 %}selected{% endif %}>Diciembre</option>
+                </select>
+                <select name="anio" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for a in rango_anios %}
+                    <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <button class="btn btn-success btn-sm" onclick="guardarTodo()" id="btnGuardar">
+                <i class="fas fa-save"></i> Guardar
+            </button>
+            <span class="save-indicator" id="saveIndicator">
+                <i class="fas fa-check-circle"></i> Guardado
+            </span>
+            <form method="post" action="{% url 'planilla-cuadro-calcular' tipo_bono.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <input type="hidden" name="mes" value="{{ mes }}">
+                <button class="btn btn-primary btn-sm" type="submit">
+                    <i class="fas fa-calculator"></i> Recalcular
+                </button>
+            </form>
+            <a href="{% url 'planilla-hub' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    {% if not datos_por_contrato %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        No hay configuraciones activas para este tipo de bono, o no hay trabajadores que apliquen.
+        <a href="{% url 'planilla-config-bono-create' %}">Crear configuración</a>
+    </div>
+    {% else %}
+
+    <!-- Tabla principal -->
+    <div class="cuadro-container">
+        <table class="cuadro-table" id="cuadroTable">
+            <thead>
+                <!-- Fila 1: Headers de secciones -->
+                <tr>
+                    <th class="header-info" rowspan="2">Contrato</th>
+                    <th class="header-info" rowspan="2">Cumplimientos</th>
+                    <th class="header-info" rowspan="2">Cargo</th>
+                    <th class="header-info" rowspan="2">Días Trab.</th>
+                    <th class="header-info" rowspan="2">Días Op.</th>
+                    <th class="header-info" rowspan="2">Bono (S/)</th>
+                    {% for sec in secciones_header %}
+                    <th class="header-seccion" colspan="{{ sec.colspan }}">
+                        {{ sec.nombre }} ({{ sec.peso }}%)
+                    </th>
+                    {% endfor %}
+                    <th class="header-total-col" rowspan="2">TOTAL</th>
+                </tr>
+                <!-- Fila 2: Criterios por sección -->
+                <tr>
+                    {% for sec in secciones_header %}
+                        {% for crit_nombre in sec.criterios %}
+                        <th class="header-criterio" title="{{ crit_nombre }}">{{ crit_nombre }}</th>
+                        {% endfor %}
+                        <th class="header-pct">%</th>
+                        <th class="header-monto">Monto</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for contrato_nombre, contrato_data in datos_por_contrato.items %}
+                <!-- Fila de contrato -->
+                <tr class="contrato-row">
+                    <td colspan="100">
+                        <i class="fas fa-building"></i> {{ contrato_nombre|upper }}
+                    </td>
+                </tr>
+                {% for fila in contrato_data.filas %}
+                <tr class="worker-row" data-bono-pk="{{ fila.bono_pk }}">
+                    <td></td>
+                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
+                    <td class="cell-cargo">{{ fila.cargo }}</td>
+                    <td>{{ fila.dias_trabajados }}</td>
+                    <td>{{ fila.dias_operativos }}</td>
+                    <td class="cell-bono-base">
+                        <input type="number" step="0.01" min="0"
+                               value="{{ fila.bono_base }}"
+                               class="bono-base-input"
+                               data-bono-pk="{{ fila.bono_pk }}"
+                               onchange="recalcularFila(this.closest('tr'))">
+                    </td>
+                    {% for sec in fila.secciones %}
+                        {% for crit in sec.criterios %}
+                        <td class="cell-check">
+                            <input type="checkbox"
+                                   data-bono-pk="{{ fila.bono_pk }}"
+                                   data-criterio-pk="{{ crit.criterio_pk }}"
+                                   {% if crit.cumple %}checked{% endif %}
+                                   onchange="recalcularFila(this.closest('tr'))">
+                        </td>
+                        {% endfor %}
+                        <td class="cell-pct seccion-pct {% if sec.puntaje == 100 %}pct-100{% elif sec.puntaje >= 80 %}pct-80{% else %}pct-low{% endif %}"
+                            data-concepto-pk="{{ sec.concepto_pk }}">
+                            {{ sec.puntaje }}%
+                        </td>
+                        <td class="cell-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}">
+                            S/ {{ sec.monto }}
+                        </td>
+                    {% endfor %}
+                    <td class="cell-total fila-total">S/ {{ fila.total }}</td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Estructura de secciones (pesos) inyectada desde Django
+const SECCIONES = [
+    {% for sec in secciones_header %}
+    {nombre: "{{ sec.nombre }}", peso: {{ sec.peso }}, numCriterios: {{ sec.criterios|length}} },
+    {% endfor %}
+];
+
+function recalcularFila(tr) {
+    if (!tr) return;
+    const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
+    const diasTrab = parseInt(tr.children[3].textContent) || 0;
+    const diasOp = parseInt(tr.children[4].textContent) || 30;
+    const diasFactor = diasOp > 0 ? diasTrab / diasOp : 0;
+
+    let totalFila = 0;
+    let colOffset = 6; // después de las 6 columnas de info
+
+    SECCIONES.forEach(sec => {
+        // Contar checkboxes cumplidos en esta sección
+        let cumplidos = 0;
+        for (let i = 0; i < sec.numCriterios; i++) {
+            const cell = tr.children[colOffset + i];
+            const cb = cell.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked) cumplidos++;
+        }
+
+        const pctIdx = colOffset + sec.numCriterios;
+        const montoIdx = pctIdx + 1;
+
+        const puntaje = sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100;
+        const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100) * diasFactor).toFixed(2);
+        totalFila += parseFloat(montoSeccion);
+
+        // Actualizar celdas de % y monto
+        const pctCell = tr.children[pctIdx];
+        pctCell.textContent = puntaje + '%';
+        pctCell.className = 'cell-pct seccion-pct ' +
+            (puntaje === 100 ? 'pct-100' : puntaje >= 80 ? 'pct-80' : 'pct-low');
+
+        tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
+
+        colOffset = montoIdx + 1;
+    });
+
+    tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila.toFixed(2);
+}
+
+function guardarTodo() {
+    const rows = document.querySelectorAll('.worker-row');
+    const bonos = [];
+
+    rows.forEach(tr => {
+        const bonoPk = tr.dataset.bonoPk;
+        const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
+        const criterios = {};
+
+        tr.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            criterios[cb.dataset.criterioPk] = cb.checked;
+        });
+
+        bonos.push({bono_pk: parseInt(bonoPk), bono_base: bonoBase, criterios: criterios});
+    });
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                      document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1];
+
+    fetch("{% url 'planilla-cuadro-guardar' tipo_bono.pk %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({bonos: bonos}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const ind = document.getElementById('saveIndicator');
+            ind.style.display = 'inline';
+            setTimeout(() => ind.style.display = 'none', 2500);
+        } else {
+            alert('Error al guardar: ' + (data.error || 'desconocido'));
+        }
+    })
+    .catch(err => alert('Error de conexión: ' + err));
+}
+</script>
+{% endblock %}

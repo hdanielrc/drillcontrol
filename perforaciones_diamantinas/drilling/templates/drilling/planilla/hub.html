@@ -9,23 +9,83 @@
         <h1 class="display-5">
             <i class="fas fa-money-bill-wave text-success"></i> Planilla y Bonos
         </h1>
-        <p class="lead text-muted">Configuración, cálculo y gestión de bonos del personal</p>
-        {% if user.contrato %}
-        <span class="badge bg-primary fs-6">{{ user.contrato.nombre_contrato }}</span>
-        {% endif %}
+        <p class="lead text-muted">Cuadros de calificación y gestión de bonos del personal</p>
     </div>
 
-    <!-- Acceso Rápido -->
+    <!-- CUADROS DE EVALUACIÓN (principal) -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-table me-2"></i> Cuadros de Calificación</h5>
+            <div class="d-flex gap-2 align-items-center">
+                <select id="mesSelect" class="form-select form-select-sm" style="width:auto">
+                    <option value="1" {% if mes_actual == 1 %}selected{% endif %}>Enero</option>
+                    <option value="2" {% if mes_actual == 2 %}selected{% endif %}>Febrero</option>
+                    <option value="3" {% if mes_actual == 3 %}selected{% endif %}>Marzo</option>
+                    <option value="4" {% if mes_actual == 4 %}selected{% endif %}>Abril</option>
+                    <option value="5" {% if mes_actual == 5 %}selected{% endif %}>Mayo</option>
+                    <option value="6" {% if mes_actual == 6 %}selected{% endif %}>Junio</option>
+                    <option value="7" {% if mes_actual == 7 %}selected{% endif %}>Julio</option>
+                    <option value="8" {% if mes_actual == 8 %}selected{% endif %}>Agosto</option>
+                    <option value="9" {% if mes_actual == 9 %}selected{% endif %}>Septiembre</option>
+                    <option value="10" {% if mes_actual == 10 %}selected{% endif %}>Octubre</option>
+                    <option value="11" {% if mes_actual == 11 %}selected{% endif %}>Noviembre</option>
+                    <option value="12" {% if mes_actual == 12 %}selected{% endif %}>Diciembre</option>
+                </select>
+                <select id="anioSelect" class="form-select form-select-sm" style="width:auto">
+                    {% for a in rango_anios %}
+                    <option value="{{ a }}" {% if a == anio_actual %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for tb in tipos_bono %}
+                {% if tb.tipo_calculo == 'MULTI_CONCEPTO' %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border-start border-4 {% if tb.categoria == 'REMUNERATIVO' %}border-primary{% else %}border-warning{% endif %}">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <span class="badge bg-{% if tb.categoria == 'REMUNERATIVO' %}primary{% else %}warning{% endif %} me-1">{{ tb.codigo }}</span>
+                                {{ tb.nombre }}
+                            </h5>
+                            <p class="text-muted small mb-2">{{ tb.descripcion|truncatewords:20 }}</p>
+                            {% if tb.cargos_aplicables %}
+                            <div class="mb-2">
+                                {% for cargo in tb.cargos_aplicables %}
+                                <span class="badge bg-light text-dark me-1">{{ cargo }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <p class="small mb-2">
+                                <strong>{{ tb.conceptos.count }}</strong> secciones de evaluación
+                            </p>
+                            <a href="#" class="btn btn-sm btn-primary cuadro-link" data-tipo-pk="{{ tb.pk }}">
+                                <i class="fas fa-table me-1"></i> Abrir Cuadro
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% if not tipos_bono %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i> No hay tipos de bono configurados.
+                <a href="{% url 'planilla-tipo-bono-create' %}">Crear tipo de bono</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Acceso Rápido a Administración -->
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
             <div class="card h-100 shadow-sm border-0">
-                <div class="card-body text-center py-4">
-                    <div class="mb-3">
-                        <i class="fas fa-cogs fa-3x text-primary"></i>
-                    </div>
-                    <h5>Tipos de Bono</h5>
-                    <p class="text-muted small">Catálogo de bonos (B1-B4 + custom)</p>
-                    <a href="{% url 'planilla-tipo-bono-list' %}" class="btn btn-outline-primary">
+                <div class="card-body text-center py-3">
+                    <i class="fas fa-cogs fa-2x text-primary mb-2"></i>
+                    <h6>Tipos de Bono</h6>
+                    <a href="{% url 'planilla-tipo-bono-list' %}" class="btn btn-sm btn-outline-primary">
                         <i class="fas fa-list me-1"></i> Gestionar
                     </a>
                 </div>
@@ -33,13 +93,10 @@
         </div>
         <div class="col-md-4 mb-3">
             <div class="card h-100 shadow-sm border-0">
-                <div class="card-body text-center py-4">
-                    <div class="mb-3">
-                        <i class="fas fa-sliders-h fa-3x text-warning"></i>
-                    </div>
-                    <h5>Configuración por Contrato</h5>
-                    <p class="text-muted small">Montos, escalas y conceptos por contrato</p>
-                    <a href="{% url 'planilla-config-bono-list' %}" class="btn btn-outline-warning">
+                <div class="card-body text-center py-3">
+                    <i class="fas fa-sliders-h fa-2x text-warning mb-2"></i>
+                    <h6>Configuración por Contrato</h6>
+                    <a href="{% url 'planilla-config-bono-list' %}" class="btn btn-sm btn-outline-warning">
                         <i class="fas fa-cog me-1"></i> Configurar
                     </a>
                 </div>
@@ -47,13 +104,10 @@
         </div>
         <div class="col-md-4 mb-3">
             <div class="card h-100 shadow-sm border-0">
-                <div class="card-body text-center py-4">
-                    <div class="mb-3">
-                        <i class="fas fa-calendar-alt fa-3x text-success"></i>
-                    </div>
-                    <h5>Períodos de Cálculo</h5>
-                    <p class="text-muted small">Abrir, calcular y aprobar períodos</p>
-                    <a href="{% url 'planilla-periodo-list' %}" class="btn btn-outline-success">
+                <div class="card-body text-center py-3">
+                    <i class="fas fa-calendar-alt fa-2x text-success mb-2"></i>
+                    <h6>Períodos</h6>
+                    <a href="{% url 'planilla-periodo-list' %}" class="btn btn-sm btn-outline-success">
                         <i class="fas fa-calculator me-1"></i> Períodos
                     </a>
                 </div>
@@ -63,7 +117,7 @@
 
     <!-- Últimos Períodos -->
     {% if periodos %}
-    <div class="card shadow-sm border-0 mb-4">
+    <div class="card shadow-sm border-0">
         <div class="card-header bg-dark text-white">
             <h6 class="mb-0"><i class="fas fa-history me-2"></i> Últimos Períodos</h6>
         </div>
@@ -89,7 +143,7 @@
                         </td>
                         <td class="text-center">
                             <a href="{% url 'planilla-periodo-detalle' p.pk %}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye"></i> Ver
+                                <i class="fas fa-eye"></i>
                             </a>
                         </td>
                     </tr>
@@ -99,48 +153,17 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Configuraciones Activas -->
-    {% if configuraciones %}
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-dark text-white">
-            <h6 class="mb-0"><i class="fas fa-check-circle me-2"></i> Configuraciones Activas</h6>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Contrato</th>
-                        <th>Bono</th>
-                        <th>Categoría</th>
-                        <th class="text-end">Monto Base Mensual</th>
-                        <th class="text-center">Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in configuraciones %}
-                    <tr>
-                        <td>{{ c.contrato.nombre_contrato }}</td>
-                        <td><strong>{{ c.tipo_bono.codigo }}</strong> — {{ c.tipo_bono.nombre }}</td>
-                        <td>
-                            <span class="badge bg-{% if c.tipo_bono.categoria == 'REMUNERATIVO' %}primary{% else %}warning{% endif %}">
-                                {{ c.tipo_bono.categoria }}
-                            </span>
-                        </td>
-                        <td class="text-end">S/ {{ c.monto_base_mensual|floatformat:2 }}</td>
-                        <td class="text-center">
-                            {% if c.activo %}
-                            <span class="badge bg-success">Activo</span>
-                            {% else %}
-                            <span class="badge bg-secondary">Inactivo</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
 </div>
+
+<script>
+document.querySelectorAll('.cuadro-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const tipoPk = this.dataset.tipoPk;
+        const mes = document.getElementById('mesSelect').value;
+        const anio = document.getElementById('anioSelect').value;
+        window.location.href = `/planilla/cuadro/${tipoPk}/?anio=${anio}&mes=${mes}`;
+    });
+});
+</script>
 {% endblock %}

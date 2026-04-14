@@ -25,6 +25,8 @@ from drilling.models_payroll import (
     PeriodoBono,
     BonoTrabajador,
     BonoTrabajadorDetalle,
+    CriterioBono,
+    CalificacionCriterio,
 )
 
 ZERO = Decimal('0.00')
@@ -121,43 +123,49 @@ def calcular_bono_escalonado(config, dias_trabajados):
 
 def calcular_bono_multi_concepto(bono_trabajador, config, dias_trabajados, dias_base):
     """
-    MULTI_CONCEPTO:
-    Para cada concepto: monto_concepto × (puntaje/100) × (dias_trabajados/dias_base)
-    Total = suma de conceptos.
-    Factor = promedio ponderado de puntajes.
-
-    Requiere que BonoTrabajadorDetalle ya exista con puntajes ingresados.
+    MULTI_CONCEPTO con criterios:
+    Para cada sección (ConceptoBono):
+      - Calcula puntaje desde CalificacionCriterio: (cumplidos / total) × 100
+      - monto_seccion = bono_base × peso_seccion × (puntaje/100) × (dias_trab/dias_op)
+    Total = suma de secciones.
     """
     if dias_base == 0:
         return ZERO, ZERO
 
+    bono_base = bono_trabajador.bono_base or config.monto_base_mensual
     detalles = bono_trabajador.detalles.select_related('concepto').all()
     total_monto = ZERO
     suma_puntaje_ponderado = ZERO
     suma_pesos = ZERO
+    dias_factor = Decimal(dias_trabajados) / Decimal(dias_base)
 
     for detalle in detalles:
-        concepto_contrato = ConceptoBonoContrato.objects.filter(
-            configuracion=config,
-            concepto=detalle.concepto,
-        ).first()
+        concepto = detalle.concepto
+        peso = concepto.peso_default / Decimal('100')  # 30 → 0.30
 
-        if not concepto_contrato:
-            continue
+        # Calcular puntaje desde criterios si existen
+        criterios = CriterioBono.objects.filter(concepto=concepto, activo=True)
+        if criterios.exists():
+            total_criterios = criterios.count()
+            cumplidos = CalificacionCriterio.objects.filter(
+                bono_trabajador=bono_trabajador,
+                criterio__in=criterios,
+                cumple=True,
+            ).count()
+            puntaje = Decimal(cumplidos * 100) / Decimal(total_criterios) if total_criterios > 0 else ZERO
+            detalle.puntaje = _round2(puntaje)
+        else:
+            puntaje = detalle.puntaje  # Puntaje manual si no hay criterios
 
-        monto_max = concepto_contrato.monto
-        puntaje_factor = detalle.puntaje / Decimal('100')
-        dias_factor = Decimal(dias_trabajados) / Decimal(dias_base)
+        puntaje_factor = puntaje / Decimal('100')
+        monto_seccion = _round2(bono_base * peso * puntaje_factor * dias_factor)
 
-        monto_concepto = _round2(monto_max * puntaje_factor * dias_factor)
-        detalle.monto_max_concepto = monto_max
-        detalle.monto_calculado = monto_concepto
-        detalle.save(update_fields=['monto_max_concepto', 'monto_calculado'])
+        detalle.monto_max_concepto = _round2(bono_base * peso)
+        detalle.monto_calculado = monto_seccion
+        detalle.save(update_fields=['puntaje', 'monto_max_concepto', 'monto_calculado'])
 
-        total_monto += monto_concepto
-
-        peso = detalle.concepto.peso_default or Decimal('1')
-        suma_puntaje_ponderado += detalle.puntaje * peso
+        total_monto += monto_seccion
+        suma_puntaje_ponderado += puntaje * peso
         suma_pesos += peso
 
     factor = ZERO
@@ -165,6 +173,38 @@ def calcular_bono_multi_concepto(bono_trabajador, config, dias_trabajados, dias_
         factor = _round2(suma_puntaje_ponderado / suma_pesos / Decimal('100'))
 
     return _round2(total_monto), factor
+
+
+def generar_calificaciones_criterios(bono_trabajador):
+    """
+    Crea CalificacionCriterio para cada criterio activo del tipo de bono.
+    Por defecto cumple=True (checkbox marcado).
+    """
+    conceptos = bono_trabajador.tipo_bono.conceptos.all()
+    for concepto in conceptos:
+        criterios = CriterioBono.objects.filter(concepto=concepto, activo=True)
+        for criterio in criterios:
+            CalificacionCriterio.objects.get_or_create(
+                bono_trabajador=bono_trabajador,
+                criterio=criterio,
+                defaults={'cumple': True}
+            )
+
+
+def filtrar_trabajadores_por_cargo(trabajadores_qs, tipo_bono):
+    """
+    Filtra un queryset de trabajadores según los cargos_aplicables del TipoBono.
+    Usa coincidencia parcial (icontains) para manejar variaciones de cargo.
+    """
+    cargos = tipo_bono.cargos_aplicables
+    if not cargos:
+        return trabajadores_qs
+
+    from django.db.models import Q
+    q = Q()
+    for patron in cargos:
+        q |= Q(cargo__icontains=patron) | Q(cargo_headcount__icontains=patron)
+    return trabajadores_qs.filter(q)
 
 
 def generar_detalles_vacios(bono_trabajador, config):
@@ -231,12 +271,23 @@ def abrir_periodo(contrato, anio, mes, usuario=None):
     registros_creados = 0
     for trabajador in trabajadores:
         for config in configs_vigentes:
+            # Filtrar por cargos_aplicables
+            tipo_bono = config.tipo_bono
+            if tipo_bono.cargos_aplicables:
+                from django.db.models import Q
+                q = Q()
+                for patron in tipo_bono.cargos_aplicables:
+                    q |= Q(cargo__icontains=patron) | Q(cargo_headcount__icontains=patron)
+                if not Trabajador.objects.filter(pk=trabajador.pk).filter(q).exists():
+                    continue
+
             bono, bono_created = BonoTrabajador.objects.get_or_create(
                 periodo=periodo,
                 trabajador=trabajador,
                 tipo_bono=config.tipo_bono,
                 defaults={
                     'configuracion': config,
+                    'bono_base': config.monto_base_mensual,
                     'dias_trabajados': 0,
                     'dias_base': 0,
                     'factor_cumplimiento': ONE,
@@ -247,9 +298,10 @@ def abrir_periodo(contrato, anio, mes, usuario=None):
             )
             if bono_created:
                 registros_creados += 1
-                # Para multi-concepto, crear detalles vacíos
+                # Para multi-concepto, crear detalles vacíos y calificaciones
                 if config.tipo_bono.tipo_calculo == 'MULTI_CONCEPTO':
                     generar_detalles_vacios(bono, config)
+                    generar_calificaciones_criterios(bono)
 
     return periodo, registros_creados
 
