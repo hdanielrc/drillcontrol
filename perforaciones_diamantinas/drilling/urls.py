@@ -9,6 +9,7 @@ from . import views_tareo          # módulo unificado V1 + V2
 from . import views_headcount
 from . import views_gerencia
 from . import views_mantenimiento
+from . import views_payroll
 from .views_organigrama import organigrama_view
 from .api_organigrama import (
     guardar_asignaciones_masivas, marcar_stand_by,
@@ -354,4 +355,29 @@ urlpatterns = [
     path('historial-brocas/', views.historial_brocas_lista, name='historial-brocas-lista'),
     path('historial-brocas/<str:serie>/', views.historial_broca_detalle, name='historial-broca-detalle'),
     path('historial-brocas/<str:serie>/marcar-quemada/', views.historial_broca_marcar_quemada, name='historial-broca-marcar-quemada'),
+
+    # =========================================================================
+    # PLANILLA - CÁLCULO DE BONOS
+    # =========================================================================
+    path('planilla/', views_payroll.planilla_hub, name='planilla-hub'),
+    # Tipos de Bono
+    path('planilla/tipos-bono/', views_payroll.tipo_bono_list, name='planilla-tipo-bono-list'),
+    path('planilla/tipos-bono/crear/', views_payroll.tipo_bono_create, name='planilla-tipo-bono-create'),
+    path('planilla/tipos-bono/<int:pk>/editar/', views_payroll.tipo_bono_update, name='planilla-tipo-bono-edit'),
+    # Configuraciones por Contrato
+    path('planilla/configuraciones/', views_payroll.config_bono_list, name='planilla-config-bono-list'),
+    path('planilla/configuraciones/crear/', views_payroll.config_bono_create, name='planilla-config-bono-create'),
+    path('planilla/configuraciones/<int:pk>/editar/', views_payroll.config_bono_edit, name='planilla-config-bono-edit'),
+    # Períodos
+    path('planilla/periodos/', views_payroll.periodo_list, name='planilla-periodo-list'),
+    path('planilla/periodos/abrir/', views_payroll.periodo_abrir, name='planilla-periodo-abrir'),
+    path('planilla/periodos/<int:pk>/', views_payroll.periodo_detalle, name='planilla-periodo-detalle'),
+    path('planilla/periodos/<int:pk>/calcular/', views_payroll.periodo_calcular, name='planilla-periodo-calcular'),
+    path('planilla/periodos/<int:pk>/aprobar/', views_payroll.periodo_aprobar, name='planilla-periodo-aprobar'),
+    # Evaluaciones
+    path('planilla/bono/<int:bono_pk>/evaluar/', views_payroll.evaluar_bono, name='planilla-evaluar-bono'),
+    path('planilla/periodos/<int:periodo_pk>/tipo/<int:tipo_bono_pk>/evaluar/', views_payroll.evaluar_bono_masivo, name='planilla-evaluar-masivo'),
+    # APIs
+    path('planilla/api/conceptos/<int:tipo_bono_pk>/', views_payroll.api_conceptos_tipo_bono, name='planilla-api-conceptos'),
+    path('planilla/periodos/<int:periodo_pk>/exportar/', views_payroll.api_exportar_bonos_excel, name='planilla-exportar-excel'),
 ]

@@ -1,0 +1,67 @@
+{% extends base_template %}
+{% block title %}Evaluar {{ bono.tipo_bono.codigo }} — {{ bono.trabajador.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-star me-2 text-warning"></i>
+                        Evaluar {{ bono.tipo_bono.codigo }} — {{ bono.tipo_bono.nombre }}
+                    </h4>
+                    <small class="text-muted">
+                        {{ bono.trabajador.get_full_name }} ({{ bono.trabajador.dni }}) —
+                        Período {{ bono.periodo.mes|stringformat:"02d" }}/{{ bono.periodo.anio }}
+                    </small>
+                </div>
+                <a href="{% url 'planilla-periodo-detalle' bono.periodo.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver al Período
+                </a>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0">Puntajes por Concepto (0 a 100)</h6>
+                    </div>
+                    <div class="card-body">
+                        {% for detalle in detalles %}
+                        <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                            <div class="col-md-5">
+                                <h6 class="mb-0">{{ detalle.concepto.nombre }}</h6>
+                                <small class="text-muted">Peso: {{ detalle.concepto.peso_default }}% | Monto máx: S/ {{ detalle.monto_max_concepto|floatformat:2 }}</small>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group">
+                                    <input type="number" name="puntaje_{{ detalle.pk }}" 
+                                           class="form-control text-center fw-bold" 
+                                           value="{{ detalle.puntaje|floatformat:0 }}" 
+                                           min="0" max="100" step="1">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                {% if detalle.monto_calculado > 0 %}
+                                <span class="badge bg-success fs-6">S/ {{ detalle.monto_calculado|floatformat:2 }}</span>
+                                {% else %}
+                                <span class="badge bg-light text-muted">Pendiente de cálculo</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <a href="{% url 'planilla-periodo-detalle' bono.periodo.pk %}" class="btn btn-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i> Guardar Puntajes
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

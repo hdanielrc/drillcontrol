@@ -1,0 +1,146 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}Planilla y Bonos{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="text-center mb-4">
+        <h1 class="display-5">
+            <i class="fas fa-money-bill-wave text-success"></i> Planilla y Bonos
+        </h1>
+        <p class="lead text-muted">Configuración, cálculo y gestión de bonos del personal</p>
+        {% if user.contrato %}
+        <span class="badge bg-primary fs-6">{{ user.contrato.nombre_contrato }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Acceso Rápido -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-cogs fa-3x text-primary"></i>
+                    </div>
+                    <h5>Tipos de Bono</h5>
+                    <p class="text-muted small">Catálogo de bonos (B1-B4 + custom)</p>
+                    <a href="{% url 'planilla-tipo-bono-list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-1"></i> Gestionar
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-sliders-h fa-3x text-warning"></i>
+                    </div>
+                    <h5>Configuración por Contrato</h5>
+                    <p class="text-muted small">Montos, escalas y conceptos por contrato</p>
+                    <a href="{% url 'planilla-config-bono-list' %}" class="btn btn-outline-warning">
+                        <i class="fas fa-cog me-1"></i> Configurar
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-calendar-alt fa-3x text-success"></i>
+                    </div>
+                    <h5>Períodos de Cálculo</h5>
+                    <p class="text-muted small">Abrir, calcular y aprobar períodos</p>
+                    <a href="{% url 'planilla-periodo-list' %}" class="btn btn-outline-success">
+                        <i class="fas fa-calculator me-1"></i> Períodos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimos Períodos -->
+    {% if periodos %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0"><i class="fas fa-history me-2"></i> Últimos Períodos</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Contrato</th>
+                        <th class="text-center">Período</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in periodos %}
+                    <tr>
+                        <td>{{ p.contrato.nombre_contrato }}</td>
+                        <td class="text-center"><strong>{{ p.mes|stringformat:"02d" }}/{{ p.anio }}</strong></td>
+                        <td class="text-center">
+                            <span class="badge bg-{% if p.estado == 'ABIERTO' %}primary{% elif p.estado == 'CALCULADO' %}info{% elif p.estado == 'APROBADO' %}success{% else %}secondary{% endif %}">
+                                {{ p.estado }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'planilla-periodo-detalle' p.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i> Ver
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Configuraciones Activas -->
+    {% if configuraciones %}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0"><i class="fas fa-check-circle me-2"></i> Configuraciones Activas</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Contrato</th>
+                        <th>Bono</th>
+                        <th>Categoría</th>
+                        <th class="text-end">Monto Base Mensual</th>
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in configuraciones %}
+                    <tr>
+                        <td>{{ c.contrato.nombre_contrato }}</td>
+                        <td><strong>{{ c.tipo_bono.codigo }}</strong> — {{ c.tipo_bono.nombre }}</td>
+                        <td>
+                            <span class="badge bg-{% if c.tipo_bono.categoria == 'REMUNERATIVO' %}primary{% else %}warning{% endif %}">
+                                {{ c.tipo_bono.categoria }}
+                            </span>
+                        </td>
+                        <td class="text-end">S/ {{ c.monto_base_mensual|floatformat:2 }}</td>
+                        <td class="text-center">
+                            {% if c.activo %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

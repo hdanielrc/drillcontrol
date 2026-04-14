@@ -1,0 +1,73 @@
+{% extends base_template %}
+{% block title %}Configuración de Bonos{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-sliders-h me-2"></i> Configuración de Bonos por Contrato</h3>
+        <div>
+            <a href="{% url 'planilla-hub' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+            <a href="{% url 'planilla-config-bono-create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i> Nueva Configuración
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Contrato</th>
+                        <th>Bono</th>
+                        <th>Categoría</th>
+                        <th>Tipo Cálculo</th>
+                        <th class="text-end">Monto Base Mensual</th>
+                        <th class="text-center">Días Régimen</th>
+                        <th class="text-center">Vigencia</th>
+                        <th class="text-center">Activo</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in configuraciones %}
+                    <tr>
+                        <td>{{ c.contrato.nombre_contrato }}</td>
+                        <td><strong>{{ c.tipo_bono.codigo }}</strong> — {{ c.tipo_bono.nombre }}</td>
+                        <td>
+                            <span class="badge bg-{% if c.tipo_bono.categoria == 'REMUNERATIVO' %}primary{% else %}warning text-dark{% endif %}">
+                                {{ c.tipo_bono.get_categoria_display }}
+                            </span>
+                        </td>
+                        <td><small>{{ c.tipo_bono.get_tipo_calculo_display|truncatechars:25 }}</small></td>
+                        <td class="text-end fw-bold">S/ {{ c.monto_base_mensual|floatformat:2 }}</td>
+                        <td class="text-center">
+                            {% if c.usa_dias_regimen %}
+                                <span class="badge bg-info">Régimen</span>
+                            {% else %}
+                                {{ c.dias_base_fijo }} días
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <small>{{ c.vigencia_desde|date:"d/m/Y" }} {% if c.vigencia_hasta %}→ {{ c.vigencia_hasta|date:"d/m/Y" }}{% else %}→ ∞{% endif %}</small>
+                        </td>
+                        <td class="text-center">
+                            {% if c.activo %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'planilla-config-bono-edit' c.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9" class="text-center text-muted py-4">No hay configuraciones. Crea una para comenzar.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

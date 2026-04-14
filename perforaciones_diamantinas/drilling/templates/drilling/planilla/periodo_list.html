@@ -1,0 +1,111 @@
+{% extends base_template %}
+{% block title %}Períodos de Bonos{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-calendar-alt me-2"></i> Períodos de Cálculo</h3>
+        <a href="{% url 'planilla-hub' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <!-- Abrir nuevo período -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-success text-white">
+            <h6 class="mb-0"><i class="fas fa-plus-circle me-2"></i> Abrir Nuevo Período</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'planilla-periodo-abrir' %}" class="row align-items-end">
+                {% csrf_token %}
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Año</label>
+                    {{ form_abrir.anio }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Mes</label>
+                    {{ form_abrir.mes }}
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-play me-1"></i> Abrir Período
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de períodos -->
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Contrato</th>
+                        <th class="text-center">Período</th>
+                        <th class="text-center">Rango</th>
+                        <th class="text-center">Estado</th>
+                        <th>Calculado por</th>
+                        <th>Aprobado por</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in periodos %}
+                    <tr>
+                        <td>{{ p.contrato.nombre_contrato }}</td>
+                        <td class="text-center"><strong>{{ p.mes|stringformat:"02d" }}/{{ p.anio }}</strong></td>
+                        <td class="text-center"><small>{{ p.fecha_inicio|date:"d/m" }} — {{ p.fecha_fin|date:"d/m" }}</small></td>
+                        <td class="text-center">
+                            <span class="badge bg-{% if p.estado == 'ABIERTO' %}primary{% elif p.estado == 'CALCULADO' %}info{% elif p.estado == 'APROBADO' %}success{% else %}secondary{% endif %} fs-6">
+                                {{ p.estado }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if p.calculado_por %}
+                                <small>{{ p.calculado_por.get_full_name|default:p.calculado_por.username }}</small>
+                                <br><small class="text-muted">{{ p.calculado_at|date:"d/m/Y H:i" }}</small>
+                            {% else %}
+                                <small class="text-muted">—</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.aprobado_por %}
+                                <small>{{ p.aprobado_por.get_full_name|default:p.aprobado_por.username }}</small>
+                                <br><small class="text-muted">{{ p.aprobado_at|date:"d/m/Y H:i" }}</small>
+                            {% else %}
+                                <small class="text-muted">—</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'planilla-periodo-detalle' p.pk %}" class="btn btn-outline-primary" title="Ver detalle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if p.estado == 'ABIERTO' or p.estado == 'CALCULADO' %}
+                                <a href="{% url 'planilla-periodo-calcular' p.pk %}" class="btn btn-outline-info" title="Calcular"
+                                   onclick="return confirm('¿Ejecutar el cálculo de bonos para este período?')">
+                                    <i class="fas fa-calculator"></i>
+                                </a>
+                                {% endif %}
+                                {% if p.estado == 'CALCULADO' %}
+                                <a href="{% url 'planilla-periodo-aprobar' p.pk %}" class="btn btn-outline-success" title="Aprobar"
+                                   onclick="return confirm('¿Aprobar este período? Los montos quedarán congelados.')">
+                                    <i class="fas fa-check"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'planilla-exportar-excel' p.pk %}" class="btn btn-outline-dark" title="Exportar Excel">
+                                    <i class="fas fa-file-excel"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">No hay períodos creados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

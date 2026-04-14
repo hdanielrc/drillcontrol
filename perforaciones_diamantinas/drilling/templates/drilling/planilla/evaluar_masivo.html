@@ -1,0 +1,86 @@
+{% extends base_template %}
+{% block title %}Evaluación Masiva — {{ tipo_bono.codigo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .eval-table th, .eval-table td { vertical-align: middle; }
+    .eval-table input[type="number"] { width: 70px; text-align: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1">
+                <i class="fas fa-star me-2 text-warning"></i>
+                Evaluación Masiva — {{ tipo_bono.codigo }}: {{ tipo_bono.nombre }}
+            </h4>
+            <small class="text-muted">
+                {{ periodo.contrato.nombre_contrato }} —
+                Período {{ periodo.mes|stringformat:"02d" }}/{{ periodo.anio }}
+            </small>
+        </div>
+        <a href="{% url 'planilla-periodo-detalle' periodo.pk %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Período
+        </a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm eval-table mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="sticky-start">DNI</th>
+                            <th class="sticky-start">Trabajador</th>
+                            {% for c in conceptos %}
+                            <th class="text-center">
+                                {{ c.nombre }}<br>
+                                <small class="text-light fw-normal">({{ c.peso_default }}%)</small>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in matriz %}
+                        <tr>
+                            <td><small>{{ fila.trabajador.dni }}</small></td>
+                            <td>
+                                <strong>{{ fila.trabajador.nombres }}</strong>
+                                <small class="text-muted d-block">{{ fila.trabajador.apepat }}</small>
+                            </td>
+                            {% for detalle in fila.detalles %}
+                            <td class="text-center">
+                                {% if detalle %}
+                                <input type="number" 
+                                       name="puntaje_{{ fila.bono.pk }}_{{ detalle.concepto.pk }}"
+                                       class="form-control form-control-sm d-inline-block"
+                                       value="{{ detalle.puntaje|floatformat:0 }}"
+                                       min="0" max="100" step="1">
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+                <small class="text-muted align-self-center">
+                    {{ matriz|length }} trabajadores × {{ conceptos|length }} conceptos
+                </small>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'planilla-periodo-detalle' periodo.pk %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-save me-1"></i> Guardar Todos los Puntajes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
