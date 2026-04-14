@@ -505,8 +505,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     from collections import OrderedDict
 
     tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk, activo=True)
-    anio = int(request.GET.get('anio', date.today().year))
-    mes = int(request.GET.get('mes', date.today().month))
+    anio = int(request.GET.get('anio') or date.today().year)
+    mes = int(request.GET.get('mes') or date.today().month)
     _, ultimo_dia = calendar.monthrange(anio, mes)
     fecha_inicio = date(anio, mes, 1)
     fecha_fin = date(anio, mes, ultimo_dia)
