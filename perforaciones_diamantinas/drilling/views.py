@@ -282,11 +282,37 @@ def dashboard(request):
             contrato=contract
         ).select_related('tipo_turno', 'maquina').prefetch_related('sondajes').order_by('-fecha')[:5]
         
-        # Trabajadores recientes
-        trabajadores_recientes = Trabajador.objects.filter(
-            contrato=contract
-        ).order_by('-id')[:5]
-        
+        # EMO alerts: vencidos y por vencer en los próximos 30 días
+        from datetime import timedelta
+        hoy_date = hoy
+        alerta_30 = hoy_date + timedelta(days=30)
+        emo_alertas = []
+        trabajadores_emo_qs = Trabajador.objects.filter(
+            contrato=contract,
+            estado='ACTIVO',
+            emo_fecha_vencimiento__isnull=False
+        ).order_by('emo_fecha_vencimiento')[:20]
+        for t in trabajadores_emo_qs:
+            dias = (t.emo_fecha_vencimiento - hoy_date).days
+            if dias < 0:
+                nivel = 'VENCIDO'
+                clase = 'danger'
+            elif dias <= 7:
+                nivel = 'URGENTE'
+                clase = 'danger'
+            elif dias <= 30:
+                nivel = 'POR_VENCER'
+                clase = 'warning'
+            else:
+                continue  # solo mostrar los críticos en el dashboard
+            emo_alertas.append({
+                'trabajador': t,
+                'nivel': nivel,
+                'clase': clase,
+                'dias_restantes': dias,
+                'dias_abs': abs(dias),
+            })
+
         context = {
             'trabajadores_activos': trabajadores_activos,
             'trabajadores_presentes_hoy': trabajadores_presentes_hoy,
@@ -294,7 +320,7 @@ def dashboard(request):
             'turnos_hoy': turnos_hoy,
             'maquinas_operativas': maquinas_operativas,
             'ultimos_turnos': ultimos_turnos,
-            'trabajadores_recientes': trabajadores_recientes,
+            'emo_alertas': emo_alertas,
         }
         
         return render(request, 'drilling/dashboards/manager_dashboard.html', context)
@@ -385,6 +411,35 @@ def dashboard(request):
                 'metros': float(metros)
             })
         
+        # EMO alerts para el dashboard default
+        from datetime import timedelta as _td
+        emo_alertas = []
+        trabajadores_emo_qs_default = Trabajador.objects.filter(
+            contrato=contract,
+            estado='ACTIVO',
+            emo_fecha_vencimiento__isnull=False
+        ).order_by('emo_fecha_vencimiento')[:20]
+        for t in trabajadores_emo_qs_default:
+            dias = (t.emo_fecha_vencimiento - hoy).days
+            if dias < 0:
+                nivel = 'VENCIDO'
+                clase = 'danger'
+            elif dias <= 7:
+                nivel = 'URGENTE'
+                clase = 'danger'
+            elif dias <= 30:
+                nivel = 'POR_VENCER'
+                clase = 'warning'
+            else:
+                continue
+            emo_alertas.append({
+                'trabajador': t,
+                'nivel': nivel,
+                'clase': clase,
+                'dias_restantes': dias,
+                'dias_abs': abs(dias),
+            })
+
         context = {
             'contract': contract,
             'is_system_admin': user.can_manage_all_contracts(),
@@ -396,9 +451,8 @@ def dashboard(request):
             'stock_critico': stock_critico,
             'metraje_por_maquina': json.dumps(list(metraje_por_maquina), cls=DjangoJSONEncoder),
             'tendencia_mensual': json.dumps(tendencia_mensual, cls=DjangoJSONEncoder),
+            'emo_alertas': emo_alertas,
         }
-        
-        return render(request, 'drilling/dashboard.html', context)
 
 # ===============================
 # TRABAJADOR VIEWS - CRUD COMPLETO

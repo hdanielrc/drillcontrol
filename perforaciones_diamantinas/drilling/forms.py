@@ -15,7 +15,8 @@ class TrabajadorForm(forms.ModelForm):
             'vehiculo_asignado', 'tipo_trabajo', 'regimen_laboral', 'fecha_inicio_ciclo',
             'telefono', 'email', 
             'subestado', 'es_standby',
-            'fotocheck_fecha_emision',
+            'fotocheck_fecha_emision', 'fotocheck_fecha_caducidad',
+            'emo_fecha_realizado', 'emo_fecha_vencimiento', 'emo_programacion', 'emo_estado',
             'fecha_contratacion'
         ]
         widgets = {
@@ -75,6 +76,31 @@ class TrabajadorForm(forms.ModelForm):
                 'type': 'date',
                 'id': 'id_fotocheck_fecha_emision'
             }),
+            'fotocheck_fecha_caducidad': forms.DateInput(format='%Y-%m-%d', attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'id': 'id_fotocheck_fecha_caducidad'
+            }),
+            'emo_fecha_realizado': forms.DateInput(format='%Y-%m-%d', attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'id': 'id_emo_fecha_realizado'
+            }),
+            'emo_fecha_vencimiento': forms.DateInput(format='%Y-%m-%d', attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'id': 'id_emo_fecha_vencimiento'
+            }),
+            'emo_programacion': forms.DateInput(format='%Y-%m-%d', attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'id': 'id_emo_programacion'
+            }),
+            'emo_estado': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: APTO, APTO CON RESTRICCIONES, NO APTO',
+                'id': 'id_emo_estado'
+            }),
         }
     
     def __init__(self, *args, user=None, **kwargs):
@@ -100,6 +126,13 @@ class TrabajadorForm(forms.ModelForm):
         
         # Campos de fotocheck opcionales
         self.fields['fotocheck_fecha_emision'].required = False
+        self.fields['fotocheck_fecha_caducidad'].required = False
+
+        # Campos EMO opcionales
+        self.fields['emo_fecha_realizado'].required = False
+        self.fields['emo_fecha_vencimiento'].required = False
+        self.fields['emo_programacion'].required = False
+        self.fields['emo_estado'].required = False
         
         # Labels mejorados
         self.fields['maquina_asignada'].label = 'Máquina asignada'

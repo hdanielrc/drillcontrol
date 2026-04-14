@@ -150,43 +150,50 @@
     
     <div class="col-md-6">
         <div class="list-section mb-4">
-            <div class="list-header">
-                <i class="fas fa-users-cog me-2"></i> Trabajadores Recientes
+            <div class="list-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-heartbeat me-2 text-danger"></i> Alertas EMO</span>
+                <a href="{% url 'estado-emo-trabajadores' %}" class="btn btn-outline-light btn-sm">
+                    Ver todos <i class="fas fa-arrow-right ms-1"></i>
+                </a>
             </div>
             <div class="list-body">
-                {% if trabajadores_recientes %}
+                {% if emo_alertas %}
                 <div class="list-group list-group-flush">
-                    {% for trabajador in trabajadores_recientes %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center border-0">
+                    {% for alerta in emo_alertas %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-3 py-2">
                         <div class="d-flex align-items-center">
-                            <div class="item-avatar me-3" style="background: linear-gradient(135deg, #0470AC, #084163);">
-                                <i class="fas fa-user"></i>
+                            <div class="item-avatar me-3" style="background: linear-gradient(135deg, {% if alerta.clase == 'danger' %}#dc3545, #a71d2a{% else %}#ffc107, #d39e00{% endif %});">
+                                <i class="fas fa-user-md"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0">{{ trabajador.nombres }} {{ trabajador.apellido_paterno }}</h6>
+                                <h6 class="mb-0 small">{{ alerta.trabajador.nombres }} {{ alerta.trabajador.apepat }}</h6>
                                 <small class="text-muted">
-                                    <i class="fas fa-briefcase me-1"></i>{{ trabajador.cargo.nombre }}
+                                    <i class="fas fa-calendar-times me-1"></i>
+                                    Vence: {{ alerta.trabajador.emo_fecha_vencimiento|date:"d/m/Y" }}
                                 </small>
                             </div>
                         </div>
-                        <span class="badge-status {% if trabajador.estado == 'ACTIVO' %}badge-status-active{% else %}badge-status-inactive{% endif %}">
-                            {{ trabajador.estado }}
-                        </span>
+                        <div class="text-end">
+                            <span class="badge bg-{{ alerta.clase }} mb-1">{{ alerta.nivel }}</span>
+                            <br>
+                            <small class="text-muted">
+                                {% if alerta.dias_restantes < 0 %}
+                                    Venció hace {{ alerta.dias_abs }} días
+                                {% else %}
+                                    {{ alerta.dias_restantes }} días
+                                {% endif %}
+                            </small>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
-                <div class="text-center mt-3">
-                    <a href="{% url 'trabajador-list' %}" class="btn btn-outline-primary btn-sm">
-                        Ver todos los trabajadores <i class="fas fa-arrow-right ms-1"></i>
-                    </a>
-                </div>
                 {% else %}
-                <div class="empty-state">
-                    <i class="fas fa-user-plus"></i>
-                    <h5>No hay trabajadores registrados</h5>
-                    <p>Agrega trabajadores para comenzar</p>
-                    <a href="{% url 'trabajador-create' %}" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i> Agregar Trabajador
+                <div class="empty-state py-4">
+                    <i class="fas fa-check-circle text-success fa-2x mb-2"></i>
+                    <h6 class="text-success">Sin alertas EMO</h6>
+                    <p class="text-muted small">Todos los exámenes médicos están vigentes</p>
+                    <a href="{% url 'estado-emo-trabajadores' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-heartbeat me-1"></i> Ver estado EMO
                     </a>
                 </div>
                 {% endif %}

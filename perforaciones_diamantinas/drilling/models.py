@@ -2151,7 +2151,20 @@ class Trabajador(models.Model):
     ]
     subestado = models.CharField(max_length=30, choices=SUBESTADO_CHOICES, default='EN_OPERACION')
     
-    fotocheck_fecha_emision = models.DateField(null=True, blank=True)
+    fotocheck_fecha_emision = models.DateField(null=True, blank=True, verbose_name='Fotocheck Fecha Emisión')
+    fotocheck_fecha_caducidad = models.DateField(null=True, blank=True, verbose_name='Fotocheck Fecha Caducidad')
+
+    # --- EXAMEN MÉDICO OCUPACIONAL (EMO) ---
+    emo_fecha_realizado = models.DateField(null=True, blank=True, verbose_name='EMO Fecha de Realización')
+    emo_fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name='EMO Fecha de Vencimiento')
+    emo_programacion = models.DateField(null=True, blank=True, verbose_name='EMO Programación Próximo')
+    emo_estado = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='EMO Estado',
+        help_text='Ej: APTO, APTO CON RESTRICCIONES, NO APTO'
+    )
+
     fecha_inicio_labores = models.DateField(
         null=True, blank=True,
         verbose_name='Fecha Inicio Labores',

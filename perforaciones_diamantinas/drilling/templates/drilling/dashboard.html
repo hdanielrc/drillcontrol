@@ -216,6 +216,76 @@
         </div>
     </div>
 </div>
+
+<!-- FILA: ALERTAS EMO -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="list-section animate-fade-in">
+            <div class="list-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #dc3545, #a71d2a);">
+                <span><i class="fas fa-heartbeat me-2"></i> Alertas de Vencimiento EMO</span>
+                <a href="{% url 'estado-emo-trabajadores' %}" class="btn btn-outline-light btn-sm">
+                    Ver todos <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="list-body p-0">
+                {% if emo_alertas %}
+                <div class="table-responsive">
+                    <table class="table table-enhanced mb-0">
+                        <thead>
+                            <tr>
+                                <th>Trabajador</th>
+                                <th>Cargo</th>
+                                <th class="text-center">Vencimiento EMO</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Días</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alerta in emo_alertas %}
+                            <tr>
+                                <td>
+                                    <strong>{{ alerta.trabajador.nombres }} {{ alerta.trabajador.apepat }}</strong>
+                                </td>
+                                <td><small class="text-muted">{{ alerta.trabajador.cargo }}</small></td>
+                                <td class="text-center">
+                                    <strong>{{ alerta.trabajador.emo_fecha_vencimiento|date:"d/m/Y" }}</strong>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-{{ alerta.clase }}">{{ alerta.nivel }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge-status {% if alerta.clase == 'danger' %}badge-status-danger{% else %}badge-status-warning{% endif %}">
+                                        {% if alerta.dias_restantes < 0 %}
+                                            -{{ alerta.dias_abs }}d
+                                        {% else %}
+                                            {{ alerta.dias_restantes }}d
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'trabajador-update' alerta.trabajador.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state py-4">
+                    <i class="fas fa-check-circle text-success fa-2x mb-2"></i>
+                    <p class="mb-0 text-success">Sin alertas EMO — todos los exámenes están vigentes o no hay datos registrados</p>
+                    <a href="{% url 'estado-emo-trabajadores' %}" class="btn btn-outline-secondary btn-sm mt-2">
+                        <i class="fas fa-heartbeat me-1"></i> Ver estado EMO
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
