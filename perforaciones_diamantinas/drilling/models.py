@@ -1647,6 +1647,7 @@ class AsistenciaDiaria(models.Model):
         on_delete=models.PROTECT,  # PROTECT para evitar eliminaciones accidentales
         related_name='asistencias_diarias',
         verbose_name='Trabajador',
+        db_column='empleado_id',  # Columna original en BD
         db_index=True  # Índice para FK
     )
     
