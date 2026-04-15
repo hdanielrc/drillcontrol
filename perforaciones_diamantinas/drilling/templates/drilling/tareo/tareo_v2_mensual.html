@@ -1647,7 +1647,10 @@ console.log('📋 Tareo V2 cargado - Registros en matriz: {{ matriz_tareo|length
 <script>
 // Descargar Excel del mes operativo actual sin confirmaciones
 function descargarExcelMesActual(){
-    const url = `/tareo/exportar-excel/?contrato={{ contrato.id }}&modo=mes&fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}`;
+    // Enviar fecha de referencia del mes operativo (día 1) para que el export
+    // calcule correctamente: del 23 del mes anterior al 30 del mes operativo.
+    const mesStr = String({{ mes_operativo }}).padStart(2, '0');
+    const url = `/tareo/exportar-excel/?contrato={{ contrato.id }}&modo=mes&fecha_inicio={{ anio_operativo }}-${mesStr}-01`;
     window.open(url, '_blank');
 }
 
