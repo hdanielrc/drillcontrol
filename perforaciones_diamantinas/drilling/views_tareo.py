@@ -1147,10 +1147,11 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         col_num += 1
         fecha_actual += timedelta(days=1)
     
-    # Headers de resumen (SIMPLIFICADO)
+    # Headers de resumen
     headers_resumen = [
-        'TRABAJADO (T)', 'DIAS LIBRES (DL)', 'FALTAS (F)', 
-        'VACACIONES (V)', 'D. MEDICO (DM)', 'TOTAL DIAS'
+        'TRABAJADO (TD+TN)', 'DIAS APOYO (DA)', 'PATERNIDAD (PT)',
+        'INDUCCION + RECORRIDO', 'VACACIONES (V)', 'D. MEDICO (DM)',
+        'SUBSIDIO (SUB)', 'DIAS LIBRES (DL)', 'FALTAS (F)', 'TOTAL DIAS'
     ]
     
     for header in headers_resumen:
@@ -1306,7 +1307,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                         # Marcaciones diarias
                         fecha_actual = fecha_inicio
                         col_num = 9
-                        contadores = {'T': 0, 'TD': 0, 'TN': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
+                        contadores = {'TD': 0, 'TN': 0, 'T': 0, 'DA': 0, 'DA1': 0, 'P': 0, 'IND': 0, 'REC': 0, 'V': 0, 'DM': 0, 'SUB': 0, 'DL': 0, 'F': 0}
                         while fecha_actual <= fecha_fin:
                             asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                             cell = ws.cell(row=row_num, column=col_num)
@@ -1322,7 +1323,6 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                 if codigo in contadores:
                                     contadores[codigo] += 1
                                 else:
-                                    # Fallback: si nos llega el estado largo, intentar mapear
                                     corto = MAPEO_CODIGOS.get(codigo)
                                     if corto and corto in contadores:
                                         contadores[corto] += 1
@@ -1334,14 +1334,20 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                             col_num += 1
                             fecha_actual += timedelta(days=1)
 
-                        # Totales Simplificados
-                        ws.cell(row=row_num, column=col_num).value = contadores['T']
-                        ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
-                        ws.cell(row=row_num, column=col_num+2).value = contadores['F']
-                        ws.cell(row=row_num, column=col_num+3).value = contadores['V']
-                        ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
-                        total_registrados = sum(contadores.values())
-                        ws.cell(row=row_num, column=col_num+5).value = total_registrados
+                        # Totales por categoría
+                        dias_trabajados = contadores['TD'] + contadores['TN'] + contadores['T']
+                        dias_apoyo = contadores['DA'] + contadores['DA1']
+                        dias_induccion_rec = contadores['IND'] + contadores['REC']
+                        ws.cell(row=row_num, column=col_num).value = dias_trabajados
+                        ws.cell(row=row_num, column=col_num+1).value = dias_apoyo
+                        ws.cell(row=row_num, column=col_num+2).value = contadores['P']
+                        ws.cell(row=row_num, column=col_num+3).value = dias_induccion_rec
+                        ws.cell(row=row_num, column=col_num+4).value = contadores['V']
+                        ws.cell(row=row_num, column=col_num+5).value = contadores['DM']
+                        ws.cell(row=row_num, column=col_num+6).value = contadores['SUB']
+                        ws.cell(row=row_num, column=col_num+7).value = contadores['DL']
+                        ws.cell(row=row_num, column=col_num+8).value = contadores['F']
+                        ws.cell(row=row_num, column=col_num+9).value = dias_trabajados + dias_apoyo
 
                         row_num += 1
                         item_idx += 1
@@ -1378,7 +1384,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
 
                     fecha_actual = fecha_inicio
                     col_num = 9
-                    contadores = {'T': 0, 'TD': 0, 'TN': 0, 'DL': 0, 'F': 0, 'V': 0, 'DM': 0}
+                    contadores = {'TD': 0, 'TN': 0, 'T': 0, 'DA': 0, 'DA1': 0, 'P': 0, 'IND': 0, 'REC': 0, 'V': 0, 'DM': 0, 'SUB': 0, 'DL': 0, 'F': 0}
                     while fecha_actual <= fecha_fin:
                         asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                         cell = ws.cell(row=row_num, column=col_num)
@@ -1405,13 +1411,20 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                         col_num += 1
                         fecha_actual += timedelta(days=1)
 
-                    ws.cell(row=row_num, column=col_num).value = contadores['T']
-                    ws.cell(row=row_num, column=col_num+1).value = contadores['DL']
-                    ws.cell(row=row_num, column=col_num+2).value = contadores['F']
-                    ws.cell(row=row_num, column=col_num+3).value = contadores['V']
-                    ws.cell(row=row_num, column=col_num+4).value = contadores['DM']
-                    total_registrados = sum(contadores.values())
-                    ws.cell(row=row_num, column=col_num+5).value = total_registrados
+                    # Totales por categoría
+                    dias_trabajados = contadores['TD'] + contadores['TN'] + contadores['T']
+                    dias_apoyo = contadores['DA'] + contadores['DA1']
+                    dias_induccion_rec = contadores['IND'] + contadores['REC']
+                    ws.cell(row=row_num, column=col_num).value = dias_trabajados
+                    ws.cell(row=row_num, column=col_num+1).value = dias_apoyo
+                    ws.cell(row=row_num, column=col_num+2).value = contadores['P']
+                    ws.cell(row=row_num, column=col_num+3).value = dias_induccion_rec
+                    ws.cell(row=row_num, column=col_num+4).value = contadores['V']
+                    ws.cell(row=row_num, column=col_num+5).value = contadores['DM']
+                    ws.cell(row=row_num, column=col_num+6).value = contadores['SUB']
+                    ws.cell(row=row_num, column=col_num+7).value = contadores['DL']
+                    ws.cell(row=row_num, column=col_num+8).value = contadores['F']
+                    ws.cell(row=row_num, column=col_num+9).value = dias_trabajados + dias_apoyo
 
                     row_num += 1
                     item_idx += 1
@@ -1429,6 +1442,11 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     # Días (columnas de marcación) — empiezan en columna 9 (I)
     for col in range(9, 9 + num_dias):
         ws.column_dimensions[get_column_letter(col)].width = 4
+
+    # Columnas de resumen (después de los días)
+    resumen_start = 9 + num_dias
+    for i in range(len(headers_resumen)):
+        ws.column_dimensions[get_column_letter(resumen_start + i)].width = 14
 
 
 def _crear_hoja_leyenda(ws):
