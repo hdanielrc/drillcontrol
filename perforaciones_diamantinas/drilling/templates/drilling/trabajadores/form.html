@@ -97,6 +97,12 @@
                                 <small class="text-muted">Sincronizado desde API</small>
                                 {% if form.fecha_contratacion.errors %}<div class="text-danger small">{{ form.fecha_contratacion.errors.0 }}</div>{% endif %}
                             </div>
+                            <div class="col-md-4 form-group-compact">
+                                <label class="form-label"><i class="fas fa-money-bill-wave me-1 text-success"></i> Sueldo (S/.)</label>
+                                {{ form.sueldo }}
+                                <small class="form-text text-muted">Sueldo mensual. Será sincronizado desde API más adelante.</small>
+                                {% if form.sueldo.errors %}<div class="text-danger small">{{ form.sueldo.errors.0 }}</div>{% endif %}
+                            </div>
                         </div>
 
                          <div class="row">

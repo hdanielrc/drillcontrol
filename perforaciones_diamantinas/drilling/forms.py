@@ -17,7 +17,7 @@ class TrabajadorForm(forms.ModelForm):
             'subestado', 'es_standby',
             'fotocheck_fecha_emision', 'fotocheck_fecha_caducidad',
             'emo_fecha_realizado', 'emo_fecha_vencimiento', 'emo_programacion', 'emo_estado',
-            'fecha_contratacion'
+            'fecha_contratacion', 'sueldo'
         ]
         widgets = {
             'contrato': forms.Select(attrs={'class': 'form-select'}),
@@ -101,6 +101,13 @@ class TrabajadorForm(forms.ModelForm):
                 'placeholder': 'Ej: APTO, APTO CON RESTRICCIONES, NO APTO',
                 'id': 'id_emo_estado'
             }),
+            'sueldo': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0.00',
+                'step': '0.01',
+                'min': '0',
+                'id': 'id_sueldo'
+            }),
         }
     
     def __init__(self, *args, user=None, **kwargs):
@@ -133,6 +140,7 @@ class TrabajadorForm(forms.ModelForm):
         self.fields['emo_fecha_vencimiento'].required = False
         self.fields['emo_programacion'].required = False
         self.fields['emo_estado'].required = False
+        self.fields['sueldo'].required = False
         
         # Labels mejorados
         self.fields['maquina_asignada'].label = 'Máquina asignada'

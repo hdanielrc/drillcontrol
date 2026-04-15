@@ -2166,6 +2166,13 @@ class Trabajador(models.Model):
         help_text='Ej: APTO, APTO CON RESTRICCIONES, NO APTO'
     )
 
+    sueldo = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Sueldo',
+        help_text='Sueldo mensual del trabajador. Será sincronizado desde la API más adelante.'
+    )
+
     fecha_inicio_labores = models.DateField(
         null=True, blank=True,
         verbose_name='Fecha Inicio Labores',
