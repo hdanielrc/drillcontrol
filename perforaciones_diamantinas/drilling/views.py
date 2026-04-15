@@ -1816,12 +1816,19 @@ def crear_turno_completo(request, pk=None):
                             # Usar la unidad del aditivo seleccionado; fallback a KG si no viene en payload
                             _unidad_id = int(a['unidad_medida_id']) if a.get('unidad_medida_id') else None
                             if not _unidad_id:
-                                _unidad_id = (UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first() or
-                                              UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first())
+                                _unidad_id = (
+                                    UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first()
+                                    or UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first()
+                                    or UnidadMedida.objects.filter(simbolo__iexact='kgs').values_list('id', flat=True).first()
+                                )
+                            if not _unidad_id:
+                                # Auto-crear la unidad KG si no existe
+                                _um, _ = UnidadMedida.objects.get_or_create(
+                                    simbolo='kg',
+                                    defaults={'nombre': 'Kilogramos'}
+                                )
+                                _unidad_id = _um.id
                             _kg_id = _unidad_id
-                            if _kg_id is None:
-                                messages.warning(request, 'Aditivo omitido: no se encontró unidad de medida KG en el sistema.')
-                                continue
                             aditivos_parsed.append({
                                 'tipo_aditivo_id': int(a['tipo_aditivo_id']),
                                 'cantidad_usada': float(a['cantidad_usada']),
@@ -2727,8 +2734,10 @@ def get_context_data(request):
         ).select_related('contrato').only('id', 'nombre', 'codigo', 'serie', 'contrato', 'descripcion', 'categoria', 'calibre'),
         'tipos_aditivo': _get_tipos_aditivo_desde_abastecimiento(contract),
         'unidades_medida': unidades_data,
-        'unidad_kg_id': (UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first() or
-                         UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first()),
+        'unidad_kg_id': (UnidadMedida.objects.filter(simbolo__iexact='kg').values_list('id', flat=True).first()
+                         or UnidadMedida.objects.filter(nombre__icontains='kilo').values_list('id', flat=True).first()
+                         or UnidadMedida.objects.filter(simbolo__iexact='kgs').values_list('id', flat=True).first()
+                         or UnidadMedida.objects.get_or_create(simbolo='kg', defaults={'nombre': 'Kilogramos'})[0].id),
         'today': timezone.now().date(),
     }
 
