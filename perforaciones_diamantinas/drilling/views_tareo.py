@@ -863,7 +863,9 @@ MAPEO_CODIGOS = {
     'V': 'V',
     'LICENCIA': 'L',
     'LICENCIA_SIN_GOCE': 'L',
+    'LICENCIA_SIN_GOCE_HABERES': 'LSGH',
     'LSG': 'L',
+    'LSGH': 'LSGH',
     'CESADO': 'C',
     'TRABAJO_CALIENTE': 'TC',
     'LICENCIA_FALLECIMIENTO': 'L',
@@ -1163,7 +1165,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
     headers_resumen = [
         'TRABAJADO (TD+TN+DL+DA)', 'DIAS APOYO (DA)', 'PATERNIDAD (PT)',
         'INDUCCION + RECORRIDO', 'VACACIONES (V)', 'D. MEDICO (DM)',
-        'SUBSIDIO (SUB)', 'DIAS LIBRES (DL)', 'FALTAS (F)', 'TOTAL DIAS'
+        'SUBSIDIO (SUB)', 'DIAS LIBRES (DL)', 'FALTAS (F,LSGH,SB,P,S)', 'TOTAL DIAS'
     ]
     
     for header in headers_resumen:
@@ -1320,13 +1322,20 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                         fecha_actual = fecha_inicio
                         col_num = 9
                         contadores = {'TD': 0, 'TN': 0, 'T': 0, 'DA': 0, 'DA1': 0, 'P': 0, 'IND': 0, 'REC': 0, 'V': 0, 'DM': 0, 'SUB': 0, 'DL': 0, 'F': 0}
-                        trabajado_cal = 0  # TD+TN+DL+DA solo en mes calendario (1-30)
+                        # Contadores de mes calendario (1-30)
+                        trabajado_cal = 0    # TD+TN+DL+DA
+                        paternidad_cal = 0   # PT
+                        recorrido_cal = 0    # R/REC
+                        vacaciones_cal = 0   # V
+                        dm_cal = 0           # DM
+                        sub_cal = 0          # SUB
+                        falta_cal = 0        # F, LSGH, SB, P(permiso), S
                         while fecha_actual <= fecha_fin:
                             asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                             cell = ws.cell(row=row_num, column=col_num)
                             if asist:
-                                codigo = getattr(asist, 'estado', None) or getattr(asist, 'estado', '')
-                                codigo = MAPEO_CODIGOS.get(codigo, codigo)
+                                codigo_raw = getattr(asist, 'estado', None) or ''
+                                codigo = MAPEO_CODIGOS.get(codigo_raw, codigo_raw)
                                 guardia = getattr(asist, 'guardia_snapshot', None) or ''
                                 cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
                                 hex_color = COLORES_EXCEL.get(codigo)
@@ -1339,11 +1348,27 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                     corto = MAPEO_CODIGOS.get(codigo)
                                     if corto and corto in contadores:
                                         contadores[corto] += 1
-                                # Contar TRABAJADO solo dentro del mes calendario
+                                # Contadores de mes calendario (1-30)
                                 if _cal_inicio <= fecha_actual <= _cal_fin:
-                                    cod_final = codigo if codigo in contadores else MAPEO_CODIGOS.get(codigo, '')
-                                    if cod_final in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
+                                    if codigo in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
                                         trabajado_cal += 1
+                                    if codigo_raw in ('PT', 'PERMISO_PATERNIDAD'):
+                                        paternidad_cal += 1
+                                    if codigo == 'REC':
+                                        recorrido_cal += 1
+                                    if codigo == 'V':
+                                        vacaciones_cal += 1
+                                    if codigo == 'DM':
+                                        dm_cal += 1
+                                    if codigo == 'SUB':
+                                        sub_cal += 1
+                                    # FALTA: F, LSGH, SB, P(permiso no paternidad), S
+                                    if codigo in ('F', 'SB', 'S', 'LSGH'):
+                                        falta_cal += 1
+                                    elif codigo_raw in ('LSGH', 'LICENCIA_SIN_GOCE_HABERES', 'LSG', 'LICENCIA_SIN_GOCE'):
+                                        falta_cal += 1
+                                    elif codigo == 'P' and codigo_raw not in ('PT', 'PERMISO_PATERNIDAD'):
+                                        falta_cal += 1
                             else:
                                 cell.value = ""
 
@@ -1354,17 +1379,16 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
 
                         # Totales por categoría
                         dias_trabajados = trabajado_cal
-                        dias_apoyo = contadores['DA'] + contadores['DA1']
-                        dias_induccion_rec = contadores['IND'] + contadores['REC']
+                        dias_apoyo = contadores['DA'] + contadores['DA1']  # rango operativo 26-25
                         ws.cell(row=row_num, column=col_num).value = dias_trabajados
                         ws.cell(row=row_num, column=col_num+1).value = dias_apoyo
-                        ws.cell(row=row_num, column=col_num+2).value = contadores['P']
-                        ws.cell(row=row_num, column=col_num+3).value = dias_induccion_rec
-                        ws.cell(row=row_num, column=col_num+4).value = contadores['V']
-                        ws.cell(row=row_num, column=col_num+5).value = contadores['DM']
-                        ws.cell(row=row_num, column=col_num+6).value = contadores['SUB']
+                        ws.cell(row=row_num, column=col_num+2).value = paternidad_cal
+                        ws.cell(row=row_num, column=col_num+3).value = recorrido_cal
+                        ws.cell(row=row_num, column=col_num+4).value = vacaciones_cal
+                        ws.cell(row=row_num, column=col_num+5).value = dm_cal
+                        ws.cell(row=row_num, column=col_num+6).value = sub_cal
                         ws.cell(row=row_num, column=col_num+7).value = contadores['DL']
-                        ws.cell(row=row_num, column=col_num+8).value = contadores['F']
+                        ws.cell(row=row_num, column=col_num+8).value = falta_cal
                         ws.cell(row=row_num, column=col_num+9).value = dias_trabajados
 
                         row_num += 1
@@ -1403,13 +1427,20 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                     fecha_actual = fecha_inicio
                     col_num = 9
                     contadores = {'TD': 0, 'TN': 0, 'T': 0, 'DA': 0, 'DA1': 0, 'P': 0, 'IND': 0, 'REC': 0, 'V': 0, 'DM': 0, 'SUB': 0, 'DL': 0, 'F': 0}
-                    trabajado_cal = 0  # TD+TN+DL+DA solo en mes calendario (1-30)
+                    # Contadores de mes calendario (1-30)
+                    trabajado_cal = 0    # TD+TN+DL+DA
+                    paternidad_cal = 0   # PT
+                    recorrido_cal = 0    # R/REC
+                    vacaciones_cal = 0   # V
+                    dm_cal = 0           # DM
+                    sub_cal = 0          # SUB
+                    falta_cal = 0        # F, LSGH, SB, P(permiso), S
                     while fecha_actual <= fecha_fin:
                         asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                         cell = ws.cell(row=row_num, column=col_num)
                         if asist:
-                            codigo = getattr(asist, 'estado', None) or getattr(asist, 'estado', '')
-                            codigo = MAPEO_CODIGOS.get(codigo, codigo)
+                            codigo_raw = getattr(asist, 'estado', None) or ''
+                            codigo = MAPEO_CODIGOS.get(codigo_raw, codigo_raw)
                             guardia = getattr(asist, 'guardia_snapshot', None) or ''
                             cell.value = f"{codigo}{(' - ' + guardia) if guardia else ''}"
                             hex_color = COLORES_EXCEL.get(codigo)
@@ -1422,11 +1453,27 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                 corto = MAPEO_CODIGOS.get(codigo)
                                 if corto and corto in contadores:
                                     contadores[corto] += 1
-                            # Contar TRABAJADO solo dentro del mes calendario
+                            # Contadores de mes calendario (1-30)
                             if _cal_inicio <= fecha_actual <= _cal_fin:
-                                cod_final = codigo if codigo in contadores else MAPEO_CODIGOS.get(codigo, '')
-                                if cod_final in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
+                                if codigo in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
                                     trabajado_cal += 1
+                                if codigo_raw in ('PT', 'PERMISO_PATERNIDAD'):
+                                    paternidad_cal += 1
+                                if codigo == 'REC':
+                                    recorrido_cal += 1
+                                if codigo == 'V':
+                                    vacaciones_cal += 1
+                                if codigo == 'DM':
+                                    dm_cal += 1
+                                if codigo == 'SUB':
+                                    sub_cal += 1
+                                # FALTA: F, LSGH, SB, P(permiso no paternidad), S
+                                if codigo in ('F', 'SB', 'S', 'LSGH'):
+                                    falta_cal += 1
+                                elif codigo_raw in ('LSGH', 'LICENCIA_SIN_GOCE_HABERES', 'LSG', 'LICENCIA_SIN_GOCE'):
+                                    falta_cal += 1
+                                elif codigo == 'P' and codigo_raw not in ('PT', 'PERMISO_PATERNIDAD'):
+                                    falta_cal += 1
                         else:
                             cell.value = ""
 
@@ -1437,17 +1484,16 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
 
                     # Totales por categoría
                     dias_trabajados = trabajado_cal
-                    dias_apoyo = contadores['DA'] + contadores['DA1']
-                    dias_induccion_rec = contadores['IND'] + contadores['REC']
+                    dias_apoyo = contadores['DA'] + contadores['DA1']  # rango operativo 26-25
                     ws.cell(row=row_num, column=col_num).value = dias_trabajados
                     ws.cell(row=row_num, column=col_num+1).value = dias_apoyo
-                    ws.cell(row=row_num, column=col_num+2).value = contadores['P']
-                    ws.cell(row=row_num, column=col_num+3).value = dias_induccion_rec
-                    ws.cell(row=row_num, column=col_num+4).value = contadores['V']
-                    ws.cell(row=row_num, column=col_num+5).value = contadores['DM']
-                    ws.cell(row=row_num, column=col_num+6).value = contadores['SUB']
+                    ws.cell(row=row_num, column=col_num+2).value = paternidad_cal
+                    ws.cell(row=row_num, column=col_num+3).value = recorrido_cal
+                    ws.cell(row=row_num, column=col_num+4).value = vacaciones_cal
+                    ws.cell(row=row_num, column=col_num+5).value = dm_cal
+                    ws.cell(row=row_num, column=col_num+6).value = sub_cal
                     ws.cell(row=row_num, column=col_num+7).value = contadores['DL']
-                    ws.cell(row=row_num, column=col_num+8).value = contadores['F']
+                    ws.cell(row=row_num, column=col_num+8).value = falta_cal
                     ws.cell(row=row_num, column=col_num+9).value = dias_trabajados
 
                     row_num += 1
@@ -1474,22 +1520,213 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
 
 
 def _crear_hoja_leyenda(ws):
-    """Crea la hoja de leyenda con códigos"""
-    ws.merge_cells('A1:B1')
+    """Crea la hoja de leyenda con códigos y explicación de conteos"""
+    header_font = Font(bold=True, size=14)
+    section_font = Font(bold=True, size=12, color='1F4E79')
+    subsection_font = Font(bold=True, size=11)
+    normal_font = Font(size=10)
+    bold_font = Font(bold=True, size=10)
+    border_thin = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin'),
+    )
+    fill_header = PatternFill(start_color='1F4E79', end_color='1F4E79', fill_type='solid')
+    fill_alt = PatternFill(start_color='D6E4F0', end_color='D6E4F0', fill_type='solid')
+    fill_section = PatternFill(start_color='E2EFDA', end_color='E2EFDA', fill_type='solid')
+
+    # ── SECCIÓN 1: CODIFICACIÓN ──────────────────────────────────────────
+    ws.merge_cells('A1:C1')
     cell = ws['A1']
-    cell.value = "LEYENDA: CODIFICACION"
-    cell.font = Font(bold=True, size=14)
+    cell.value = "LEYENDA: CODIFICACIÓN DE ESTADOS"
+    cell.font = header_font
     cell.alignment = Alignment(horizontal='center', vertical='center')
-    
+
     row = 3
+    # Headers de tabla
+    for col, txt in [(1, 'CÓDIGO'), (2, 'DESCRIPCIÓN')]:
+        c = ws.cell(row=row, column=col)
+        c.value = txt
+        c.font = Font(bold=True, size=10, color='FFFFFF')
+        c.fill = fill_header
+        c.alignment = Alignment(horizontal='center')
+        c.border = border_thin
+    row += 1
+
     for codigo, descripcion in LEYENDA.items():
         ws.cell(row=row, column=1).value = codigo
-        ws.cell(row=row, column=1).font = Font(bold=True)
+        ws.cell(row=row, column=1).font = bold_font
+        ws.cell(row=row, column=1).alignment = Alignment(horizontal='center')
+        ws.cell(row=row, column=1).border = border_thin
         ws.cell(row=row, column=2).value = descripcion
+        ws.cell(row=row, column=2).font = normal_font
+        ws.cell(row=row, column=2).border = border_thin
+        if (row - 4) % 2 == 0:
+            ws.cell(row=row, column=1).fill = fill_alt
+            ws.cell(row=row, column=2).fill = fill_alt
         row += 1
-    
-    ws.column_dimensions['A'].width = 10
-    ws.column_dimensions['B'].width = 40
+
+    # ── SECCIÓN 2: FORMATO DEL MES OPERATIVO ─────────────────────────────
+    row += 2
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+    c = ws.cell(row=row, column=1)
+    c.value = "FORMATO DEL REPORTE MENSUAL"
+    c.font = section_font
+    c.fill = fill_section
+    c.alignment = Alignment(horizontal='center')
+    row += 2
+
+    formato_info = [
+        ("Rango de fechas del reporte:", "Del día 23 del mes anterior al día 30 del mes actual (mes operativo 23-30)."),
+        ("Mes operativo (26-25):", "Rango que va del día 26 del mes anterior al día 25 del mes actual."),
+        ("Mes calendario (1-30):", "Rango que va del día 1 al día 30 del mes actual."),
+    ]
+    for titulo, desc in formato_info:
+        ws.cell(row=row, column=1).value = titulo
+        ws.cell(row=row, column=1).font = bold_font
+        ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=4)
+        ws.cell(row=row, column=2).value = desc
+        ws.cell(row=row, column=2).font = normal_font
+        row += 1
+
+    # ── SECCIÓN 3: REGLAS DE CONTEO POR COLUMNA ──────────────────────────
+    row += 2
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+    c = ws.cell(row=row, column=1)
+    c.value = "REGLAS DE CONTEO POR COLUMNA DE RESUMEN"
+    c.font = section_font
+    c.fill = fill_section
+    c.alignment = Alignment(horizontal='center')
+    row += 2
+
+    # Headers de tabla de conteo
+    tabla_headers = ['COLUMNA', 'CÓDIGOS QUE CUENTA', 'RANGO DE FECHAS', 'OBSERVACIONES']
+    for i, txt in enumerate(tabla_headers):
+        c = ws.cell(row=row, column=i + 1)
+        c.value = txt
+        c.font = Font(bold=True, size=10, color='FFFFFF')
+        c.fill = fill_header
+        c.alignment = Alignment(horizontal='center', wrap_text=True)
+        c.border = border_thin
+    row += 1
+
+    reglas = [
+        (
+            'TRABAJADO (TD+TN+DL+DA)',
+            'TD, TN, T, DL, DA, DA1',
+            'Mes calendario (1 al 30)',
+            'Suma todos los días trabajados (día/noche), días libres y días de apoyo '
+            'únicamente dentro del mes calendario.',
+        ),
+        (
+            'DIAS APOYO (DA)',
+            'DA, DA1',
+            'Mes operativo (26 al 25)',
+            'Cuenta los días de apoyo en el rango operativo completo.',
+        ),
+        (
+            'PATERNIDAD (PT)',
+            'PT, PERMISO_PATERNIDAD',
+            'Mes calendario (1 al 30)',
+            'Cuenta solo permisos de paternidad (PT). '
+            'Los permisos genéricos (P) NO se cuentan aquí.',
+        ),
+        (
+            'INDUCCION + RECORRIDO',
+            'REC (R)',
+            'Mes calendario (1 al 30)',
+            'Cuenta días de recorrido dentro del mes calendario.',
+        ),
+        (
+            'VACACIONES (V)',
+            'V',
+            'Mes calendario (1 al 30)',
+            'Cuenta días de vacaciones dentro del mes calendario.',
+        ),
+        (
+            'D. MEDICO (DM)',
+            'DM',
+            'Mes calendario (1 al 30)',
+            'Cuenta días de descanso médico dentro del mes calendario.',
+        ),
+        (
+            'SUBSIDIO (SUB)',
+            'SUB',
+            'Mes calendario (1 al 30)',
+            'Cuenta días de subsidio dentro del mes calendario.',
+        ),
+        (
+            'DIAS LIBRES (DL)',
+            'DL',
+            'Mes operativo (26 al 25)',
+            'Cuenta días libres en el rango operativo completo.',
+        ),
+        (
+            'FALTAS (F,LSGH,SB,P,S)',
+            'F, LSGH, SB, P (permiso), S',
+            'Mes calendario (1 al 30)',
+            'Incluye: Faltas (F), Licencia Sin Goce de Haberes (LSGH), '
+            'Stand By (SB), Permisos genéricos (P, excluyendo paternidad PT) '
+            'y Suspensiones (S).',
+        ),
+        (
+            'TOTAL DIAS',
+            '= TRABAJADO',
+            'Mes calendario (1 al 30)',
+            'Igual que la columna TRABAJADO. Representa el total de días '
+            'efectivos (TD+TN+DL+DA) del mes calendario.',
+        ),
+    ]
+
+    for idx, (col_name, codigos, rango, obs) in enumerate(reglas):
+        ws.cell(row=row, column=1).value = col_name
+        ws.cell(row=row, column=1).font = bold_font
+        ws.cell(row=row, column=1).border = border_thin
+        ws.cell(row=row, column=2).value = codigos
+        ws.cell(row=row, column=2).font = normal_font
+        ws.cell(row=row, column=2).alignment = Alignment(horizontal='center')
+        ws.cell(row=row, column=2).border = border_thin
+        ws.cell(row=row, column=3).value = rango
+        ws.cell(row=row, column=3).font = normal_font
+        ws.cell(row=row, column=3).alignment = Alignment(horizontal='center')
+        ws.cell(row=row, column=3).border = border_thin
+        ws.cell(row=row, column=4).value = obs
+        ws.cell(row=row, column=4).font = normal_font
+        ws.cell(row=row, column=4).alignment = Alignment(wrap_text=True)
+        ws.cell(row=row, column=4).border = border_thin
+        if idx % 2 == 0:
+            for c in range(1, 5):
+                ws.cell(row=row, column=c).fill = fill_alt
+        row += 1
+
+    # ── SECCIÓN 4: EJEMPLO ───────────────────────────────────────────────
+    row += 2
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+    c = ws.cell(row=row, column=1)
+    c.value = "EJEMPLO DE PERÍODO"
+    c.font = section_font
+    c.fill = fill_section
+    c.alignment = Alignment(horizontal='center')
+    row += 2
+
+    ejemplo_lines = [
+        "Para el mes operativo de ABRIL 2026:",
+        "",
+        "• Rango de fechas del reporte (columnas de días): 23 Marzo → 30 Abril",
+        "• Mes operativo (26-25) para DA y DL:  26 Marzo → 25 Abril",
+        "• Mes calendario (1-30) para TRABAJADO, PT, REC, V, DM, SUB, FALTAS:  1 Abril → 30 Abril",
+    ]
+    for line in ejemplo_lines:
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+        c = ws.cell(row=row, column=1)
+        c.value = line
+        c.font = normal_font if not line.startswith("Para") else subsection_font
+        row += 1
+
+    # Anchos de columna
+    ws.column_dimensions['A'].width = 30
+    ws.column_dimensions['B'].width = 30
+    ws.column_dimensions['C'].width = 28
+    ws.column_dimensions['D'].width = 55
 
 
 def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
