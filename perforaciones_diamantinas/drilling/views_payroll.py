@@ -29,6 +29,7 @@ from .models_payroll import (
 from .forms_payroll import (
     TipoBonoForm,
     ConceptoBonoFormSet,
+    CriterioBonoFormSet,
     ConfiguracionBonoContratoForm,
     ConceptoBonoContratoFormSet,
     EscalaBonoContratoFormSet,
@@ -129,12 +130,33 @@ def tipo_bono_update(request, pk):
             form.save()
             formset.save()
             messages.success(request, f'Tipo de bono "{tipo.codigo}" actualizado.')
-            return redirect('planilla-tipo-bono-list')
+            return redirect('planilla-tipo-bono-edit', pk=tipo.pk)
     else:
         form = TipoBonoForm(instance=tipo)
         formset = ConceptoBonoFormSet(instance=tipo, prefix='conceptos')
     return render(request, 'drilling/planilla/tipo_bono_form.html', {
         'form': form, 'conceptos_formset': formset, 'tipo': tipo, 'titulo': f'Editar {tipo.codigo}'
+    })
+
+
+@login_required
+def criterios_concepto(request, concepto_pk):
+    """Gestionar criterios (sub-conceptos / checkboxes) de un concepto."""
+    concepto = get_object_or_404(
+        ConceptoBono.objects.select_related('tipo_bono'),
+        pk=concepto_pk
+    )
+    if request.method == 'POST':
+        formset = CriterioBonoFormSet(request.POST, instance=concepto, prefix='criterios')
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, f'Criterios de "{concepto.nombre}" actualizados.')
+            return redirect('planilla-criterios-concepto', concepto_pk=concepto.pk)
+    else:
+        formset = CriterioBonoFormSet(instance=concepto, prefix='criterios')
+    return render(request, 'drilling/planilla/criterios_concepto.html', {
+        'concepto': concepto,
+        'formset': formset,
     })
 
 

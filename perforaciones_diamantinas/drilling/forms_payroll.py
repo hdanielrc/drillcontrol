@@ -7,6 +7,7 @@ from django.forms import inlineformset_factory
 from .models_payroll import (
     TipoBono,
     ConceptoBono,
+    CriterioBono,
     ConfiguracionBonoContrato,
     ConceptoBonoContrato,
     EscalaBonoContrato,
@@ -52,6 +53,28 @@ ConceptoBonoFormSet = inlineformset_factory(
     ConceptoBono,
     form=ConceptoBonoForm,
     extra=1,
+    can_delete=True,
+)
+
+
+class CriterioBonoForm(forms.ModelForm):
+    """Form para criterios (sub-conceptos / checkboxes) de un concepto."""
+
+    class Meta:
+        model = CriterioBono
+        fields = ['nombre', 'orden', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del criterio'}),
+            'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+CriterioBonoFormSet = inlineformset_factory(
+    ConceptoBono,
+    CriterioBono,
+    form=CriterioBonoForm,
+    extra=3,
     can_delete=True,
 )
 

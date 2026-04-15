@@ -1,0 +1,173 @@
+{% extends base_template %}
+{% block title %}Criterios — {{ concepto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-9 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="mb-1">Criterios de Evaluación</h3>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'planilla-tipo-bono-list' %}">Tipos de Bono</a></li>
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'planilla-tipo-bono-edit' concepto.tipo_bono.pk %}">{{ concepto.tipo_bono.codigo }}</a>
+                            </li>
+                            <li class="breadcrumb-item active">{{ concepto.nombre }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <a href="{% url 'planilla-tipo-bono-edit' concepto.tipo_bono.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver al Bono
+                </a>
+            </div>
+
+            {# Info del concepto #}
+            <div class="alert alert-info d-flex align-items-center mb-4">
+                <i class="fas fa-info-circle fa-lg me-3"></i>
+                <div>
+                    <strong>Concepto:</strong> {{ concepto.codigo }} — {{ concepto.nombre }}
+                    <span class="ms-3 badge bg-primary">Peso: {{ concepto.peso_default }}%</span>
+                    <br>
+                    <small class="text-muted">Cada criterio será un checkbox en el cuadro de evaluación. El puntaje = (criterios cumplidos / total) × 100%</small>
+                </div>
+            </div>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="fas fa-list-check me-2"></i> Criterios ({{ concepto.criterios.count }} registrados)</h6>
+                        <button type="button" class="btn btn-sm btn-success" id="btn-add-criterio">
+                            <i class="fas fa-plus me-1"></i> Agregar Criterio
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        {{ formset.management_form }}
+
+                        {# Header #}
+                        <div class="row g-0 bg-light border-bottom fw-bold small px-3 py-2">
+                            <div class="col-md-1 text-center">#</div>
+                            <div class="col-md-6">Nombre del Criterio</div>
+                            <div class="col-md-1 text-center">Orden</div>
+                            <div class="col-md-1 text-center">Activo</div>
+                            <div class="col-md-3 text-center">Acciones</div>
+                        </div>
+
+                        <div id="criterios-container">
+                            {% for f in formset %}
+                            <div class="row g-0 align-items-center px-3 py-2 border-bottom criterio-row {% if f.DELETE.value %}d-none deleted{% endif %}">
+                                {{ f.id }}
+                                <div class="d-none">{{ f.DELETE }}</div>
+                                <div class="col-md-1 text-center">
+                                    <span class="badge bg-secondary criterio-num">{{ forloop.counter }}</span>
+                                </div>
+                                <div class="col-md-6 mb-1">
+                                    {{ f.nombre }}
+                                    {% if f.nombre.errors %}<div class="text-danger small">{{ f.nombre.errors.0 }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-1 mb-1">
+                                    {{ f.orden }}
+                                </div>
+                                <div class="col-md-1 text-center mb-1">
+                                    <div class="form-check d-inline-block">{{ f.activo }}</div>
+                                </div>
+                                <div class="col-md-3 text-center mb-1">
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-criterio">
+                                        <i class="fas fa-trash-alt"></i> Quitar
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="px-3 py-3 text-center" id="no-criterios-msg" style="{% if formset.forms %}display:none{% endif %}">
+                            <span class="text-muted">No hay criterios. Haga clic en "Agregar Criterio" para añadir.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mb-4">
+                    <a href="{% url 'planilla-tipo-bono-edit' concepto.tipo_bono.pk %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-save me-1"></i> Guardar Criterios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const container = document.getElementById('criterios-container');
+    const totalFormsInput = document.getElementById('id_criterios-TOTAL_FORMS');
+    const btnAdd = document.getElementById('btn-add-criterio');
+    const noMsg = document.getElementById('no-criterios-msg');
+
+    function updateVisibility() {
+        const visible = container.querySelectorAll('.criterio-row:not(.deleted)');
+        noMsg.style.display = visible.length ? 'none' : '';
+        // Re-number
+        let n = 1;
+        visible.forEach(r => {
+            const badge = r.querySelector('.criterio-num');
+            if (badge) badge.textContent = n++;
+        });
+    }
+
+    btnAdd.addEventListener('click', function() {
+        const idx = parseInt(totalFormsInput.value);
+        const num = container.querySelectorAll('.criterio-row:not(.deleted)').length + 1;
+        const tpl = `
+        <div class="row g-0 align-items-center px-3 py-2 border-bottom criterio-row">
+            <input type="hidden" name="criterios-${idx}-id" id="id_criterios-${idx}-id">
+            <div class="d-none"><input type="checkbox" name="criterios-${idx}-DELETE" id="id_criterios-${idx}-DELETE"></div>
+            <div class="col-md-1 text-center">
+                <span class="badge bg-secondary criterio-num">${num}</span>
+            </div>
+            <div class="col-md-6 mb-1">
+                <input type="text" name="criterios-${idx}-nombre" id="id_criterios-${idx}-nombre"
+                       class="form-control" placeholder="Nombre del criterio" maxlength="300">
+            </div>
+            <div class="col-md-1 mb-1">
+                <input type="number" name="criterios-${idx}-orden" id="id_criterios-${idx}-orden"
+                       class="form-control" min="0" value="${idx}">
+            </div>
+            <div class="col-md-1 text-center mb-1">
+                <div class="form-check d-inline-block">
+                    <input type="checkbox" name="criterios-${idx}-activo" id="id_criterios-${idx}-activo"
+                           class="form-check-input" checked>
+                </div>
+            </div>
+            <div class="col-md-3 text-center mb-1">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-criterio">
+                    <i class="fas fa-trash-alt"></i> Quitar
+                </button>
+            </div>
+        </div>`;
+        container.insertAdjacentHTML('beforeend', tpl);
+        totalFormsInput.value = idx + 1;
+        updateVisibility();
+        // Focus the new name field
+        document.getElementById(`id_criterios-${idx}-nombre`).focus();
+    });
+
+    container.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-remove-criterio');
+        if (!btn) return;
+        const row = btn.closest('.criterio-row');
+        const delCb = row.querySelector('input[name$="-DELETE"]');
+        if (delCb) delCb.checked = true;
+        row.classList.add('d-none', 'deleted');
+        updateVisibility();
+    });
+
+    updateVisibility();
+})();
+</script>
+{% endblock %}

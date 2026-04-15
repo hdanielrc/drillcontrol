@@ -364,6 +364,7 @@ urlpatterns = [
     path('planilla/tipos-bono/', views_payroll.tipo_bono_list, name='planilla-tipo-bono-list'),
     path('planilla/tipos-bono/crear/', views_payroll.tipo_bono_create, name='planilla-tipo-bono-create'),
     path('planilla/tipos-bono/<int:pk>/editar/', views_payroll.tipo_bono_update, name='planilla-tipo-bono-edit'),
+    path('planilla/conceptos/<int:concepto_pk>/criterios/', views_payroll.criterios_concepto, name='planilla-criterios-concepto'),
     # Configuraciones por Contrato
     path('planilla/configuraciones/', views_payroll.config_bono_list, name='planilla-config-bono-list'),
     path('planilla/configuraciones/crear/', views_payroll.config_bono_create, name='planilla-config-bono-create'),

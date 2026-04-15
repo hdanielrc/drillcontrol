@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container-fluid py-4">
     <div class="row">
-        <div class="col-lg-8 mx-auto">
+        <div class="col-lg-10 mx-auto">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h3>{{ titulo }}</h3>
                 <a href="{% url 'planilla-tipo-bono-list' %}" class="btn btn-outline-secondary">
@@ -15,6 +15,7 @@
             <form method="post" novalidate>
                 {% csrf_token %}
 
+                {# ── Datos del Bono ── #}
                 <div class="card shadow-sm border-0 mb-4">
                     <div class="card-header bg-primary text-white">
                         <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i> Datos del Bono</h6>
@@ -56,49 +57,74 @@
                     </div>
                 </div>
 
-                <!-- Conceptos (inline formset) -->
+                {# ── Conceptos / Secciones (inline formset) ── #}
                 <div class="card shadow-sm border-0 mb-4" id="conceptos-section">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between">
-                        <h6 class="mb-0"><i class="fas fa-puzzle-piece me-2"></i> Conceptos del Bono</h6>
-                        <small class="text-light">Solo para tipo "Múltiples Conceptos"</small>
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="fas fa-puzzle-piece me-2"></i> Conceptos / Secciones del Bono</h6>
+                        <button type="button" class="btn btn-sm btn-success" id="btn-add-concepto">
+                            <i class="fas fa-plus me-1"></i> Agregar Concepto
+                        </button>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-0">
                         {{ conceptos_formset.management_form }}
+
+                        {# Header #}
+                        <div class="row g-0 bg-light border-bottom fw-bold small px-3 py-2 d-none d-md-flex">
+                            <div class="col-md-2">Código</div>
+                            <div class="col-md-3">Nombre</div>
+                            <div class="col-md-1 text-center">Peso %</div>
+                            <div class="col-md-1 text-center">Orden</div>
+                            <div class="col-md-1 text-center">Obligat.</div>
+                            <div class="col-md-2 text-center">Criterios</div>
+                            <div class="col-md-2 text-center">Acciones</div>
+                        </div>
+
                         <div id="conceptos-container">
                             {% for cf in conceptos_formset %}
-                            <div class="row align-items-end mb-2 concepto-row {% if cf.DELETE.value %}d-none{% endif %}">
-                                <div class="col-md-2">
-                                    {% if forloop.first %}<label class="form-label small fw-bold">Código</label>{% endif %}
+                            <div class="row g-0 align-items-center px-3 py-2 border-bottom concepto-row {% if cf.DELETE.value %}d-none deleted{% endif %}" data-index="{{ forloop.counter0 }}">
+                                {{ cf.id }}
+                                <div class="d-none">{{ cf.DELETE }}</div>
+                                <div class="col-md-2 mb-1">
                                     {{ cf.codigo }}
                                 </div>
-                                <div class="col-md-4">
-                                    {% if forloop.first %}<label class="form-label small fw-bold">Nombre</label>{% endif %}
+                                <div class="col-md-3 mb-1">
                                     {{ cf.nombre }}
                                 </div>
-                                <div class="col-md-2">
-                                    {% if forloop.first %}<label class="form-label small fw-bold">Peso (%)</label>{% endif %}
+                                <div class="col-md-1 mb-1">
                                     {{ cf.peso_default }}
                                 </div>
-                                <div class="col-md-1">
-                                    {% if forloop.first %}<label class="form-label small fw-bold">Orden</label>{% endif %}
+                                <div class="col-md-1 mb-1">
                                     {{ cf.orden }}
                                 </div>
-                                <div class="col-md-2">
-                                    {% if forloop.first %}<label class="form-label small fw-bold">Obligat.</label>{% endif %}
-                                    <div class="form-check mt-1">{{ cf.es_obligatorio }}</div>
+                                <div class="col-md-1 text-center mb-1">
+                                    <div class="form-check d-inline-block">{{ cf.es_obligatorio }}</div>
                                 </div>
-                                <div class="col-md-1">
-                                    {% if forloop.first %}<label class="form-label small">&nbsp;</label>{% endif %}
-                                    <div class="form-check">{{ cf.DELETE }}</div>
+                                <div class="col-md-2 text-center mb-1">
+                                    {% if cf.instance.pk %}
+                                        <a href="{% url 'planilla-criterios-concepto' cf.instance.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-list-check me-1"></i>
+                                            {{ cf.instance.criterios.count }} criterio{{ cf.instance.criterios.count|pluralize:"s" }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted small">Guarde primero</span>
+                                    {% endif %}
                                 </div>
-                                {{ cf.id }}
+                                <div class="col-md-2 text-center mb-1">
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-concepto" title="Quitar concepto">
+                                        <i class="fas fa-trash-alt"></i> Quitar
+                                    </button>
+                                </div>
                             </div>
                             {% endfor %}
+                        </div>
+
+                        <div class="px-3 py-2 text-center" id="no-conceptos-msg" style="{% if conceptos_formset.forms %}display:none{% endif %}">
+                            <span class="text-muted">No hay conceptos. Haga clic en "Agregar Concepto" para añadir uno.</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-end gap-2">
+                <div class="d-flex justify-content-end gap-2 mb-4">
                     <a href="{% url 'planilla-tipo-bono-list' %}" class="btn btn-secondary">Cancelar</a>
                     <button type="submit" class="btn btn-success btn-lg">
                         <i class="fas fa-save me-1"></i> Guardar
@@ -108,4 +134,77 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const container = document.getElementById('conceptos-container');
+    const totalFormsInput = document.getElementById('id_conceptos-TOTAL_FORMS');
+    const btnAdd = document.getElementById('btn-add-concepto');
+    const noMsg = document.getElementById('no-conceptos-msg');
+
+    function updateVisibility() {
+        const visible = container.querySelectorAll('.concepto-row:not(.deleted)');
+        noMsg.style.display = visible.length ? 'none' : '';
+    }
+
+    // ── Agregar concepto ──
+    btnAdd.addEventListener('click', function() {
+        const idx = parseInt(totalFormsInput.value);
+        const tpl = `
+        <div class="row g-0 align-items-center px-3 py-2 border-bottom concepto-row" data-index="${idx}">
+            <input type="hidden" name="conceptos-${idx}-id" id="id_conceptos-${idx}-id">
+            <div class="d-none"><input type="checkbox" name="conceptos-${idx}-DELETE" id="id_conceptos-${idx}-DELETE"></div>
+            <div class="col-md-2 mb-1">
+                <input type="text" name="conceptos-${idx}-codigo" id="id_conceptos-${idx}-codigo"
+                       class="form-control" placeholder="Ej: SEC1" maxlength="30">
+            </div>
+            <div class="col-md-3 mb-1">
+                <input type="text" name="conceptos-${idx}-nombre" id="id_conceptos-${idx}-nombre"
+                       class="form-control" maxlength="200">
+            </div>
+            <div class="col-md-1 mb-1">
+                <input type="number" name="conceptos-${idx}-peso_default" id="id_conceptos-${idx}-peso_default"
+                       class="form-control" step="0.01" min="0" max="100" value="0">
+            </div>
+            <div class="col-md-1 mb-1">
+                <input type="number" name="conceptos-${idx}-orden" id="id_conceptos-${idx}-orden"
+                       class="form-control" min="0" value="${idx}">
+            </div>
+            <div class="col-md-1 text-center mb-1">
+                <div class="form-check d-inline-block">
+                    <input type="checkbox" name="conceptos-${idx}-es_obligatorio" id="id_conceptos-${idx}-es_obligatorio"
+                           class="form-check-input">
+                </div>
+            </div>
+            <div class="col-md-2 text-center mb-1">
+                <span class="text-muted small">Guarde primero</span>
+            </div>
+            <div class="col-md-2 text-center mb-1">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-concepto">
+                    <i class="fas fa-trash-alt"></i> Quitar
+                </button>
+            </div>
+        </div>`;
+        container.insertAdjacentHTML('beforeend', tpl);
+        totalFormsInput.value = idx + 1;
+        updateVisibility();
+    });
+
+    // ── Quitar concepto (delegación) ──
+    container.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-remove-concepto');
+        if (!btn) return;
+        const row = btn.closest('.concepto-row');
+        // Marcar DELETE checkbox
+        const delCb = row.querySelector('input[name$="-DELETE"]');
+        if (delCb) delCb.checked = true;
+        row.classList.add('d-none', 'deleted');
+        updateVisibility();
+    });
+
+    updateVisibility();
+})();
+</script>
 {% endblock %}
