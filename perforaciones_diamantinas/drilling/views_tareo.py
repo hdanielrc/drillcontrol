@@ -3176,14 +3176,16 @@ def tareo_v2_mensual_view(request):
 
         mes_anterior   = fecha_base.month - 1 if fecha_base.month > 1 else 12
         anio_anterior  = fecha_base.year      if fecha_base.month > 1 else fecha_base.year - 1
-        fecha_inicio   = date(anio_anterior, mes_anterior, 26)
-        fecha_fin      = date(fecha_base.year, fecha_base.month, 25)
+        fecha_inicio   = date(anio_anterior, mes_anterior, 23)
+        import calendar as _cal_mod_rango
+        _ultimo_dia = _cal_mod_rango.monthrange(fecha_base.year, fecha_base.month)[1]
+        fecha_fin      = date(fecha_base.year, fecha_base.month, min(30, _ultimo_dia))
         nombre_periodo = f"{meses_es[fecha_base.month]} {fecha_base.year}"
         mes_operativo  = fecha_base.month
         anio_operativo = fecha_base.year
 
-    # ―― LÍMITE MÍNIMO: nunca mostrar periodos anteriores al 26 Feb 2026 ―――――――
-    FECHA_MIN_OPERATIVA = date(2026, 2, 26)
+    # ―― LÍMITE MÍNIMO: nunca mostrar periodos anteriores al 23 Feb 2026 ―――――――
+    FECHA_MIN_OPERATIVA = date(2026, 2, 23)
     # El período operativo mínimo es Marzo 2026 (inicia 26 Feb 2026).
     # Calculamos cuántos meses hacia atrás desde hoy llega hasta ese período.
     _min_op_year  = FECHA_MIN_OPERATIVA.year  if FECHA_MIN_OPERATIVA.month < 12 else FECHA_MIN_OPERATIVA.year + 1
@@ -3387,11 +3389,28 @@ def tareo_v2_mensual_view(request):
     if vista == 'mes':
         # Rango calendario: día 1 al último día del mes operativo
         import calendar as _cal_mod
+        from .models import TurnoHoraExtra as _THE
+        from django.db.models import Sum as _Sum
         _cal_anio = anio_operativo
         _cal_mes = mes_operativo
         _cal_inicio = date(_cal_anio, _cal_mes, 1)
         _ultimo_dia_cal = _cal_mod.monthrange(_cal_anio, _cal_mes)[1]
         _cal_fin = date(_cal_anio, _cal_mes, min(30, _ultimo_dia_cal))
+
+        # Rango horas extras: 23 del mes anterior al 24 del mes operativo
+        _he_mes_ant = _cal_mes - 1 if _cal_mes > 1 else 12
+        _he_anio_ant = _cal_anio if _cal_mes > 1 else _cal_anio - 1
+        _he_inicio = date(_he_anio_ant, _he_mes_ant, 23)
+        _he_fin = date(_cal_anio, _cal_mes, 24)
+
+        # Pre-cargar horas extras por trabajador en el rango 23-24
+        _horas_extras_qs = (
+            _THE.objects
+            .filter(turno__fecha__gte=_he_inicio, turno__fecha__lte=_he_fin)
+            .values('trabajador_id')
+            .annotate(total_he=_Sum('horas_extra'))
+        )
+        _he_por_trabajador = {r['trabajador_id']: float(r['total_he'] or 0) for r in _horas_extras_qs}
 
         for grupo in matriz_tareo:
             for row in grupo['rows']:
@@ -3444,6 +3463,14 @@ def tareo_v2_mensual_view(request):
                         elif codigo == 'P' and estado_raw not in ('PT', 'PERMISO_PATERNIDAD'):
                             falta_cal += 1
 
+                # Cálculos salariales
+                _sueldo_base = float(trab.sueldo or 0)
+                _sueldo_dias_trab = _sueldo_base * trabajado_cal
+                _monto_dias_apoyo = (_sueldo_dias_trab / 30 * da_op) if _sueldo_dias_trab else 0
+                _total_he = _he_por_trabajador.get(trab.id, 0)
+                _bono_dia = (_sueldo_dias_trab / 30 / 8 * _total_he) if _sueldo_dias_trab else 0
+                _total_sin_bonos = _sueldo_dias_trab + _monto_dias_apoyo + _bono_dia
+
                 resumen_tareo.append({
                     'trabajador_id': trab.id,
                     'dni': trab.dni,
@@ -3460,6 +3487,12 @@ def tareo_v2_mensual_view(request):
                     'dias_libres': dl_op,
                     'faltas': falta_cal,
                     'total': trabajado_cal,
+                    'sueldo_base': _sueldo_base,
+                    'sueldo_dias_trab': round(_sueldo_dias_trab, 2),
+                    'monto_dias_apoyo': round(_monto_dias_apoyo, 2),
+                    'bono_dia': round(_bono_dia, 2),
+                    'total_sin_bonos': round(_total_sin_bonos, 2),
+                    'horas_extras': _total_he,
                 })
 
     context = {

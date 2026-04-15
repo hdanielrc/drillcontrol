@@ -1137,6 +1137,11 @@
                         <th class="text-center" style="background:#2980b9;color:#fff;" title="DL (mes operativo 26-25)">D.LIBRES</th>
                         <th class="text-center" style="background:#c0392b;color:#fff;" title="F,LSGH,SB,P,S (mes calendario)">FALTAS</th>
                         <th class="text-center" style="background:#212529;color:#fff;">TOTAL</th>
+                        <th class="text-center" style="background:#795548;color:#fff;" title="Sueldo mensual del trabajador">SUELDO BASE</th>
+                        <th class="text-center" style="background:#4e342e;color:#fff;" title="SUELDO BASE × TRABAJADO">SUELDO x DIAS</th>
+                        <th class="text-center" style="background:#1565c0;color:#fff;" title="SUELDO x DIAS / 30 × DIAS APOYO">$ D.APOYO</th>
+                        <th class="text-center" style="background:#e65100;color:#fff;" title="SUELDO x DIAS / 30 / 8 × HORAS EXTRAS (23-24)">BONO DIA</th>
+                        <th class="text-center" style="background:#b71c1c;color:#fff;" title="SUELDO x DIAS + $ D.APOYO + BONO DIA">TOTAL S/B</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1157,13 +1162,19 @@
                         <td class="text-center" style="background:#ebf5fb;">{{ r.dias_libres }}</td>
                         <td class="text-center {% if r.faltas > 0 %}text-danger fw-bold{% endif %}" style="background:#fdedec;">{{ r.faltas }}</td>
                         <td class="text-center fw-bold" style="background:#f5f5f5;">{{ r.total }}</td>
+                        <td class="text-end" style="background:#efebe9;">{{ r.sueldo_base|floatformat:2 }}</td>
+                        <td class="text-end fw-bold" style="background:#efebe9;">{{ r.sueldo_dias_trab|floatformat:2 }}</td>
+                        <td class="text-end" style="background:#e3f2fd;">{{ r.monto_dias_apoyo|floatformat:2 }}</td>
+                        <td class="text-end" style="background:#fff3e0;">{{ r.bono_dia|floatformat:2 }}</td>
+                        <td class="text-end fw-bold" style="background:#ffebee;">{{ r.total_sin_bonos|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         <div style="margin-top: 10px; font-size: 11px; color: #7f8c8d;">
-            <strong>Nota:</strong> TRABAJADO = TD+TN+DL+DA (mes calendario 1-30) · D.APOYO = DA (mes operativo 26-25) · D.LIBRES = DL (mes operativo 26-25) · FALTAS = F+LSGH+SB+P(permiso)+S (mes calendario)
+            <strong>Nota:</strong> TRABAJADO = TD+TN+DL+DA (mes calendario 1-30) · D.APOYO = DA (mes operativo 26-25) · D.LIBRES = DL (mes operativo 26-25) · FALTAS = F+LSGH+SB+P(permiso)+S (mes calendario)<br>
+            <strong>Cálculos:</strong> SUELDO x DIAS = SUELDO BASE × TRABAJADO · $ D.APOYO = SUELDO x DIAS / 30 × D.APOYO · BONO DIA = SUELDO x DIAS / 30 / 8 × Horas Extras (rango 23-24) · TOTAL S/B = SUELDO x DIAS + $ D.APOYO + BONO DIA
         </div>
     </div>
     {% endif %}
