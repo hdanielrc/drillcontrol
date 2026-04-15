@@ -236,11 +236,23 @@
                             {% endif %}
                         </td>
                         <td class="text-center">
-                            <a href="{% url 'trabajador-update' item.trabajador.pk %}" 
-                               class="btn btn-sm btn-primary" 
-                               title="Editar fechas EMO">
-                                <i class="fas fa-edit"></i>
-                            </a>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'trabajador-update' item.trabajador.pk %}" 
+                                   class="btn btn-primary" 
+                                   title="Editar fechas EMO">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% if item.estado_emo_calculado == 'VENCIDO' or item.estado_emo_calculado == 'URGENTE' or item.estado_emo_calculado == 'POR_VENCER' %}
+                                <button type="button"
+                                        class="btn btn-warning btn-programar-emo"
+                                        title="Programar EMO"
+                                        data-trabajador-id="{{ item.trabajador.pk }}"
+                                        data-trabajador-nombre="{{ item.trabajador.nombres }} {{ item.trabajador.apellidos }}"
+                                        data-trabajador-dni="{{ item.trabajador.dni }}">
+                                    <i class="fas fa-calendar-plus"></i>
+                                </button>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
@@ -289,5 +301,208 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Programar EMO -->
+<div class="modal fade" id="modalProgramarEmo" tabindex="-1" aria-labelledby="modalProgramarEmoLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title" id="modalProgramarEmoLabel">
+          <i class="fas fa-calendar-plus me-2"></i> Programar EMO
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info py-2 mb-3" id="emo-modal-info">
+          <i class="fas fa-user me-1"></i>
+          <strong id="emo-modal-nombre"></strong>
+          <span class="text-muted ms-2" id="emo-modal-dni"></span>
+        </div>
+        <input type="hidden" id="emo-trabajador-id">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Clínica <span class="text-danger">*</span></label>
+          <select class="form-select" id="emo-clinica" required>
+            <option value="">Seleccione clínica...</option>
+            <option value="NATCLAR">Natclar</option>
+            <option value="PULSO_SALUD">Pulso Salud</option>
+            <option value="SANTA_CRUZ">Santa Cruz</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Lugar <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="emo-lugar" placeholder="Ej: Lima, Arequipa, Cusco" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Fecha Programada <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" id="emo-fecha" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Tipo de Examen <span class="text-danger">*</span></label>
+          <select class="form-select" id="emo-tipo-examen" required>
+            <option value="">Seleccione tipo...</option>
+            <option value="PERIODICO">Periódico</option>
+            <option value="RETIRO">Retiro</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Observaciones</label>
+          <textarea class="form-control" id="emo-observaciones" rows="2" placeholder="Opcional"></textarea>
+        </div>
+
+        <!-- Historial de programaciones -->
+        <div id="emo-historial-section" class="d-none">
+          <hr>
+          <h6><i class="fas fa-history me-1"></i> Programaciones anteriores</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Fecha</th>
+                  <th>Clínica</th>
+                  <th>Lugar</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="emo-historial-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-warning" id="btn-guardar-emo">
+          <i class="fas fa-save me-1"></i> Guardar Programación
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('modalProgramarEmo');
+    const bsModal = new bootstrap.Modal(modal);
+
+    // Abrir modal al hacer clic en "Programar EMO"
+    document.querySelectorAll('.btn-programar-emo').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tid = this.dataset.trabajadorId;
+            const nombre = this.dataset.trabajadorNombre;
+            const dni = this.dataset.trabajadorDni;
+
+            document.getElementById('emo-trabajador-id').value = tid;
+            document.getElementById('emo-modal-nombre').textContent = nombre;
+            document.getElementById('emo-modal-dni').textContent = 'DNI: ' + dni;
+
+            // Limpiar formulario
+            document.getElementById('emo-clinica').value = '';
+            document.getElementById('emo-lugar').value = '';
+            document.getElementById('emo-fecha').value = '';
+            document.getElementById('emo-tipo-examen').value = '';
+            document.getElementById('emo-observaciones').value = '';
+
+            // Cargar historial
+            cargarHistorialEmo(tid);
+
+            bsModal.show();
+        });
+    });
+
+    function cargarHistorialEmo(trabajadorId) {
+        const section = document.getElementById('emo-historial-section');
+        const tbody = document.getElementById('emo-historial-body');
+        tbody.innerHTML = '';
+        section.classList.add('d-none');
+
+        fetch(`/api/emo/programaciones/${trabajadorId}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.programaciones.length > 0) {
+                    data.programaciones.forEach(p => {
+                        const estadoBadge = p.estado === 'Completado'
+                            ? 'bg-success' : (p.estado === 'Cancelado' ? 'bg-secondary' : 'bg-info');
+                        tbody.innerHTML += `<tr>
+                            <td>${p.fecha}</td>
+                            <td>${p.clinica}</td>
+                            <td>${p.lugar}</td>
+                            <td>${p.tipo_examen}</td>
+                            <td><span class="badge ${estadoBadge}">${p.estado}</span></td>
+                        </tr>`;
+                    });
+                    section.classList.remove('d-none');
+                }
+            })
+            .catch(() => {});
+    }
+
+    // Guardar programación
+    document.getElementById('btn-guardar-emo').addEventListener('click', function() {
+        const trabajadorId = document.getElementById('emo-trabajador-id').value;
+        const clinica = document.getElementById('emo-clinica').value;
+        const lugar = document.getElementById('emo-lugar').value;
+        const fecha = document.getElementById('emo-fecha').value;
+        const tipoExamen = document.getElementById('emo-tipo-examen').value;
+        const observaciones = document.getElementById('emo-observaciones').value;
+
+        if (!clinica || !lugar || !fecha || !tipoExamen) {
+            alert('Complete todos los campos requeridos.');
+            return;
+        }
+
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
+
+        fetch('{% url "api-programar-emo" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                trabajador_id: trabajadorId,
+                clinica: clinica,
+                lugar: lugar,
+                fecha: fecha,
+                tipo_examen: tipoExamen,
+                observaciones: observaciones
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bsModal.hide();
+                // Actualizar la celda de programación en la fila correspondiente
+                const row = document.querySelector(`button[data-trabajador-id="${trabajadorId}"]`);
+                if (row) {
+                    const tr = row.closest('tr');
+                    if (tr) {
+                        const progCell = tr.querySelectorAll('td')[6]; // columna Programación
+                        if (progCell) {
+                            progCell.innerHTML = `<i class="fas fa-clock text-info"></i> ${data.programacion.fecha}`;
+                        }
+                    }
+                }
+                // Toast/alert de éxito
+                alert(`EMO programado exitosamente para ${data.programacion.fecha} en ${data.programacion.clinica} — ${data.programacion.lugar}`);
+            } else {
+                alert(data.error || 'Error al guardar la programación.');
+            }
+        })
+        .catch(() => {
+            alert('Error de conexión.');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-save me-1"></i> Guardar Programación';
+        });
+    });
+});
+</script>
 
 {% endblock %}

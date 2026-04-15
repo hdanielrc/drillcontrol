@@ -699,6 +699,90 @@ def estado_emo_trabajadores(request):
     
     return render(request, 'drilling/trabajadores/estado_emo.html', context)
 
+
+@login_required
+@require_http_methods(["POST"])
+def api_programar_emo(request):
+    """API para crear una programación de EMO."""
+    import json as _json
+    from .models import ProgramacionEMO
+
+    try:
+        data = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    trabajador_id = data.get('trabajador_id')
+    clinica = data.get('clinica', '').strip()
+    lugar = data.get('lugar', '').strip()
+    fecha = data.get('fecha', '').strip()
+    tipo_examen = data.get('tipo_examen', '').strip()
+    observaciones = data.get('observaciones', '').strip()
+
+    if not all([trabajador_id, clinica, lugar, fecha, tipo_examen]):
+        return JsonResponse({'success': False, 'error': 'Todos los campos son requeridos.'}, status=400)
+
+    try:
+        trabajador = Trabajador.objects.get(id=trabajador_id)
+    except Trabajador.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Trabajador no encontrado.'}, status=404)
+
+    from datetime import datetime
+    try:
+        fecha_dt = datetime.strptime(fecha, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD.'}, status=400)
+
+    prog = ProgramacionEMO.objects.create(
+        trabajador=trabajador,
+        clinica=clinica,
+        lugar=lugar,
+        fecha=fecha_dt,
+        tipo_examen=tipo_examen,
+        observaciones=observaciones,
+        creado_por=request.user,
+    )
+    # Actualizar campo emo_programacion del trabajador
+    trabajador.emo_programacion = fecha_dt
+    trabajador.save(update_fields=['emo_programacion'])
+
+    return JsonResponse({
+        'success': True,
+        'programacion': {
+            'id': prog.id,
+            'clinica': prog.get_clinica_display(),
+            'lugar': prog.lugar,
+            'fecha': prog.fecha.strftime('%d/%m/%Y'),
+            'tipo_examen': prog.get_tipo_examen_display(),
+        }
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_programaciones_emo(request, trabajador_id):
+    """Retorna las programaciones de EMO de un trabajador."""
+    from .models import ProgramacionEMO
+
+    programaciones = ProgramacionEMO.objects.filter(
+        trabajador_id=trabajador_id
+    ).order_by('-fecha')[:10]
+
+    data = []
+    for p in programaciones:
+        data.append({
+            'id': p.id,
+            'clinica': p.get_clinica_display(),
+            'lugar': p.lugar,
+            'fecha': p.fecha.strftime('%d/%m/%Y'),
+            'tipo_examen': p.get_tipo_examen_display(),
+            'estado': p.get_estado_display(),
+            'observaciones': p.observaciones,
+        })
+
+    return JsonResponse({'success': True, 'programaciones': data})
+
+
 class TrabajadorCreateView(AdminOrContractFilterMixin, CreateView):
     model = Trabajador
     form_class = TrabajadorForm

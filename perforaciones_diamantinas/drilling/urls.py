@@ -137,6 +137,8 @@ urlpatterns = [
     path('trabajadores/<int:pk>/editar/', views.TrabajadorUpdateView.as_view(), name='trabajador-update'),
     path('trabajadores/<int:pk>/eliminar/', views.TrabajadorDeleteView.as_view(), name='trabajador-delete'),
     path('trabajadores/estado-emo/', views.estado_emo_trabajadores, name='estado-emo-trabajadores'),
+    path('api/emo/programar/', views.api_programar_emo, name='api-programar-emo'),
+    path('api/emo/programaciones/<int:trabajador_id>/', views.api_programaciones_emo, name='api-programaciones-emo'),
     
     # Equipos - Dashboard y CRUD
     path('equipos/dashboard/', views.equipos_dashboard, name='equipos-dashboard'),

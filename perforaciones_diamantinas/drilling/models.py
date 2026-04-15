@@ -2584,6 +2584,50 @@ class Trabajador(models.Model):
 # Se ha eliminado la definición duplicada de TrabajadorAPI que estaba aquí.
 # La versión correcta está al final del archivo.
 
+
+class ProgramacionEMO(models.Model):
+    """Programación de Examen Médico Ocupacional para un trabajador."""
+
+    CLINICA_CHOICES = [
+        ('NATCLAR', 'Natclar'),
+        ('PULSO_SALUD', 'Pulso Salud'),
+        ('SANTA_CRUZ', 'Santa Cruz'),
+    ]
+    TIPO_EXAMEN_CHOICES = [
+        ('PERIODICO', 'Periódico'),
+        ('RETIRO', 'Retiro'),
+    ]
+    ESTADO_CHOICES = [
+        ('PROGRAMADO', 'Programado'),
+        ('COMPLETADO', 'Completado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    trabajador = models.ForeignKey(
+        Trabajador, on_delete=models.CASCADE, related_name='programaciones_emo'
+    )
+    clinica = models.CharField(max_length=30, choices=CLINICA_CHOICES, verbose_name='Clínica')
+    lugar = models.CharField(max_length=200, verbose_name='Lugar')
+    fecha = models.DateField(verbose_name='Fecha Programada')
+    tipo_examen = models.CharField(max_length=20, choices=TIPO_EXAMEN_CHOICES, verbose_name='Tipo de Examen')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PROGRAMADO')
+    observaciones = models.TextField(blank=True)
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='programaciones_emo_creadas'
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'programacion_emo'
+        ordering = ['-fecha']
+        verbose_name = 'Programación EMO'
+        verbose_name_plural = 'Programaciones EMO'
+
+    def __str__(self):
+        return f"EMO {self.trabajador} — {self.get_clinica_display()} — {self.fecha}"
+
+
 class HistorialLaboral(models.Model):
     """
     Historial de cambios laborales del trabajador (Cargo, Guardia, Régimen)
