@@ -82,6 +82,10 @@ def dashboard(request):
     if user.role == 'GERENTE_GENERAL':
         return redirect('gerencia-dashboard')
     
+    # Redireccionar usuario NOMINAS directo al tareo
+    if user.role == 'NOMINAS':
+        return redirect('tareo-v2-mensual')
+    
     # Determinar quÃ© template usar segÃºn el rol
     is_admin = user.role in ['GERENCIA', 'CONTROL_PROYECTOS'] and user.is_system_admin
     is_manager = user.role == 'ADMINISTRADOR'

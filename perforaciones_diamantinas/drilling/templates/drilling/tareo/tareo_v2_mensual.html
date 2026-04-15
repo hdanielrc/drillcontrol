@@ -764,6 +764,7 @@
             </div>
 
             <!-- Botón de proyección -->
+            {% if not es_nominas %}
             <button type="button" class="btn-proyeccion" onclick="generarProyeccion()">
                 🔄 Generar Proyección Automática
             </button>
@@ -789,6 +790,7 @@
                 🌐 Proyectar Todos los Contratos
             </button>
             {% endif %}
+            {% endif %}
 
             <!-- Selector de contrato (solo para superusers) -->
             {% if contratos_disponibles %}
@@ -804,7 +806,11 @@
     </div>
     
     <!-- FORMULARIO PRINCIPAL -->
-    {% if tareo_readonly %}
+    {% if es_nominas %}
+    <div style="background: #2c3e50; color: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-weight: 600; font-size: 14px;">
+        👁️ Vista de solo lectura — Nóminas y Planillas
+    </div>
+    {% elif tareo_readonly %}
     <div style="background: #e74c3c; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-weight: 700; font-size: 16px; box-shadow: 0 2px 8px rgba(231,76,60,.3);">
         🔒 MES OPERATIVO CERRADO ({{ mes_operativo|stringformat:"02d" }}/{{ anio_operativo }}) — Solo lectura
     </div>
@@ -826,6 +832,7 @@
                         <th class="col-dia {% if dia.es_cambio_guardia %}dia-cambio-guardia{% elif dia.es_previo_cambio %}dia-previo-cambio{% endif %}" data-fecha-th="{{ dia.fecha|date:'Y-m-d' }}">
                             <div style="font-size:11px;line-height:1.1;">{{ dia.nombre_dia }}</div>
                             <div style="font-size:15px;font-weight:700;">{{ dia.dia }}</div>
+                            {% if not es_nominas %}
                             <button type="button"
                                     class="btn-guardar-dia"
                                     data-fecha="{{ dia.fecha|date:'Y-m-d' }}"
@@ -833,6 +840,7 @@
                                     title="Guardar solo este día">
                                 💾
                             </button>
+                            {% endif %}
                         </th>
                         {% endfor %}
                     </tr>
@@ -851,6 +859,7 @@
                         </td>
                     </tr>
                     {# ── Toolbar de edición del grupo ── #}
+                    {% if not es_nominas %}
                     <tr class="grupo-toolbar-row grupo-rows-{{ grupo.grupo }}">
                         <td colspan="100">
                             <div class="grupo-toolbar">
@@ -881,6 +890,7 @@
                             </div>
                         </td>
                     </tr>
+                    {% endif %}
                     {# ── Filas (trabajadores + cabeceras máq/guardia para OPERADORES) ── #}
                     {% for row in grupo.rows %}
                     {% if row.is_maquina_header %}
@@ -1050,6 +1060,7 @@
         </div>
         
         <!-- Botón de guardar flotante -->
+        {% if not es_nominas %}
         <div style="position: sticky; bottom: 20px; text-align: center; margin-top: 20px;">
             {% if tareo_readonly %}
             <button type="button" class="btn-guardar-tareo" disabled
@@ -1066,6 +1077,7 @@
             </button>
             {% endif %}
         </div>
+        {% endif %}
     </form>
     
     <!-- Leyenda -->
@@ -1094,6 +1106,67 @@
             <div>💾 = Guardar día específico</div>
         </div>
     </div>
+
+    {% if resumen_tareo %}
+    <!-- ================================================================= -->
+    <!-- RESUMEN DE PLANILLA — Mismas columnas que el Excel                -->
+    <!-- ================================================================= -->
+    <div id="resumenPlanilla" style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h4 style="margin: 0;">📊 Resumen de Planilla — {{ nombre_periodo }}</h4>
+            <button type="button" onclick="exportarResumenCSV()" class="btn btn-sm btn-outline-success">
+                <i class="fas fa-file-csv"></i> Exportar CSV
+            </button>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="table table-sm table-bordered table-striped" style="font-size: 12px; white-space: nowrap;">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="position:sticky;left:0;z-index:2;background:#212529;">#</th>
+                        <th style="position:sticky;left:30px;z-index:2;background:#212529;">DNI</th>
+                        <th style="position:sticky;left:110px;z-index:2;background:#212529;min-width:200px;">Trabajador</th>
+                        <th>Grupo</th>
+                        <th>Gdia</th>
+                        <th class="text-center" style="background:#1b5e20;color:#fff;" title="TD+TN+DL+DA (mes calendario 1-30)">TRABAJADO</th>
+                        <th class="text-center" style="background:#1565c0;color:#fff;" title="DA (mes operativo 26-25)">D.APOYO</th>
+                        <th class="text-center" style="background:#6a1b9a;color:#fff;" title="PT (mes calendario)">PATERN.</th>
+                        <th class="text-center" style="background:#00838f;color:#fff;" title="REC (mes calendario)">IND+REC</th>
+                        <th class="text-center" style="background:#8e44ad;color:#fff;" title="V (mes calendario)">VACAC.</th>
+                        <th class="text-center" style="background:#1a5276;color:#fff;" title="DM (mes calendario)">D.MED.</th>
+                        <th class="text-center" style="background:#616a6b;color:#fff;" title="SUB (mes calendario)">SUBSID.</th>
+                        <th class="text-center" style="background:#2980b9;color:#fff;" title="DL (mes calendario)">D.LIBRES</th>
+                        <th class="text-center" style="background:#c0392b;color:#fff;" title="F,LSGH,SB,P,S (mes calendario)">FALTAS</th>
+                        <th class="text-center" style="background:#212529;color:#fff;">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in resumen_tareo %}
+                    <tr>
+                        <td style="position:sticky;left:0;background:#fff;z-index:1;">{{ forloop.counter }}</td>
+                        <td style="position:sticky;left:30px;background:#fff;z-index:1;">{{ r.dni }}</td>
+                        <td style="position:sticky;left:110px;background:#fff;z-index:1;font-weight:600;">{{ r.nombre }}</td>
+                        <td>{{ r.grupo }}</td>
+                        <td class="text-center">{{ r.guardia }}</td>
+                        <td class="text-center fw-bold" style="background:#e8f5e9;">{{ r.trabajado }}</td>
+                        <td class="text-center" style="background:#e3f2fd;">{{ r.dias_apoyo }}</td>
+                        <td class="text-center">{{ r.paternidad }}</td>
+                        <td class="text-center">{{ r.recorrido }}</td>
+                        <td class="text-center">{{ r.vacaciones }}</td>
+                        <td class="text-center">{{ r.dm }}</td>
+                        <td class="text-center">{{ r.subsidio }}</td>
+                        <td class="text-center" style="background:#ebf5fb;">{{ r.dias_libres }}</td>
+                        <td class="text-center {% if r.faltas > 0 %}text-danger fw-bold{% endif %}" style="background:#fdedec;">{{ r.faltas }}</td>
+                        <td class="text-center fw-bold" style="background:#f5f5f5;">{{ r.total }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 10px; font-size: 11px; color: #7f8c8d;">
+            <strong>Nota:</strong> TRABAJADO = TD+TN+DL+DA (mes calendario 1-30) · D.APOYO = DA (mes operativo 26-25) · FALTAS = F+LSGH+SB+P(permiso)+S (mes calendario)
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Loading Overlay -->
@@ -1711,6 +1784,28 @@ function descargarExcelSemanal(){
     iframe.src = url;
     document.body.appendChild(iframe);
     setTimeout(()=>{ try { document.body.removeChild(iframe); } catch(e){} }, 15000);
+}
+
+// Exportar tabla resumen a CSV
+function exportarResumenCSV() {
+    const table = document.querySelector('#resumenPlanilla table');
+    if (!table) return;
+    let csv = [];
+    for (const row of table.rows) {
+        const cols = [];
+        for (const cell of row.cells) {
+            let val = cell.innerText.replace(/"/g, '""');
+            cols.push('"' + val + '"');
+        }
+        csv.push(cols.join(','));
+    }
+    const blob = new Blob(['\uFEFF' + csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'resumen_planilla_{{ contrato.nombre_contrato|slugify }}_{{ nombre_periodo|slugify }}.csv';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 </script>
 

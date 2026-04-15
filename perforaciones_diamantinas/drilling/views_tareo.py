@@ -3380,6 +3380,88 @@ def tareo_v2_mensual_view(request):
     if user.role == 'NOMINAS':
         tareo_readonly = True
 
+    # =========================================================================
+    # 9. RESUMEN POR TRABAJADOR (mismas columnas que el Excel)
+    # =========================================================================
+    resumen_tareo = []
+    if vista == 'mes':
+        # Rango calendario: día 1 al último día del mes operativo
+        import calendar as _cal_mod
+        _cal_anio = anio_operativo
+        _cal_mes = mes_operativo
+        _cal_inicio = date(_cal_anio, _cal_mes, 1)
+        _ultimo_dia_cal = _cal_mod.monthrange(_cal_anio, _cal_mes)[1]
+        _cal_fin = date(_cal_anio, _cal_mes, min(30, _ultimo_dia_cal))
+
+        for grupo in matriz_tareo:
+            for row in grupo['rows']:
+                if row.get('is_maquina_header') or row.get('is_guardia_header'):
+                    continue
+                trab = row['trabajador']
+                asistencias = row.get('asistencias', {})
+
+                # Contadores operativos (rango 26-25 completo)
+                da_op = 0
+                # Contadores calendario (1-30)
+                trabajado_cal = 0
+                paternidad_cal = 0
+                recorrido_cal = 0
+                vacaciones_cal = 0
+                dm_cal = 0
+                sub_cal = 0
+                falta_cal = 0
+                dl_cal = 0
+
+                for f, datos in asistencias.items():
+                    estado_raw = datos.get('estado', '')
+                    codigo = MAPEO_CODIGOS.get(estado_raw, estado_raw)
+
+                    # DA en rango operativo completo (26-25)
+                    if codigo in ('DA', 'DA1'):
+                        da_op += 1
+
+                    # Conteo solo en rango calendario
+                    if _cal_inicio <= f <= _cal_fin:
+                        if codigo in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
+                            trabajado_cal += 1
+                        if estado_raw in ('PT', 'PERMISO_PATERNIDAD'):
+                            paternidad_cal += 1
+                        if codigo == 'REC':
+                            recorrido_cal += 1
+                        if codigo == 'V':
+                            vacaciones_cal += 1
+                        if codigo == 'DM':
+                            dm_cal += 1
+                        if codigo == 'SUB':
+                            sub_cal += 1
+                        if codigo == 'DL':
+                            dl_cal += 1
+                        # Faltas: F, LSGH, SB, P(permiso no paternidad), S
+                        if codigo in ('F', 'SB', 'S', 'LSGH'):
+                            falta_cal += 1
+                        elif estado_raw in ('LSGH', 'LICENCIA_SIN_GOCE_HABERES', 'LSG', 'LICENCIA_SIN_GOCE'):
+                            falta_cal += 1
+                        elif codigo == 'P' and estado_raw not in ('PT', 'PERMISO_PATERNIDAD'):
+                            falta_cal += 1
+
+                resumen_tareo.append({
+                    'trabajador_id': trab.id,
+                    'dni': trab.dni,
+                    'nombre': f"{trab.apellidos}, {trab.nombres}",
+                    'grupo': grupo['grupo_nombre'],
+                    'guardia': row.get('guardia', ''),
+                    'trabajado': trabajado_cal,
+                    'dias_apoyo': da_op,
+                    'paternidad': paternidad_cal,
+                    'recorrido': recorrido_cal,
+                    'vacaciones': vacaciones_cal,
+                    'dm': dm_cal,
+                    'subsidio': sub_cal,
+                    'dias_libres': dl_cal,
+                    'faltas': falta_cal,
+                    'total': trabajado_cal,
+                })
+
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
@@ -3403,6 +3485,8 @@ def tareo_v2_mensual_view(request):
         'tareo_readonly': tareo_readonly,
         'mes_cerrado': _mes_cerrado,
         'puede_editar_cerrado': _puede_editar_cerrado,
+        'resumen_tareo': resumen_tareo,
+        'es_nominas': user.role == 'NOMINAS',
     }
 
     return render(request, 'drilling/tareo/tareo_v2_mensual.html', context)

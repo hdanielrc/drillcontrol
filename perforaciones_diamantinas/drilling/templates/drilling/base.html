@@ -79,13 +79,25 @@
                         </a>
                     </li>
                     
+                    {% if user.role == 'NOMINAS' %}
+                    {# ── Nav simplificado para NÓMINAS: solo Tareo + Planilla ── #}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'tareo-v2-mensual' %}">
+                            <i class="fas fa-calendar-plus"></i> Tareo
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'planilla-hub' %}">
+                            <i class="fas fa-file-invoice-dollar"></i> Planilla
+                        </a>
+                    </li>
+                    {% else %}
                     <!-- Gestión -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-cogs"></i> Gestión
                         </a>
                         <ul class="dropdown-menu">
-                            {% if user.role != 'NOMINAS' %}
                             <li><h6 class="dropdown-header">Personal y Equipos</h6></li>
                             <li><a class="dropdown-item" href="{% url 'trabajador-list' %}">
                                 <i class="fas fa-users"></i> Trabajadores
@@ -104,14 +116,11 @@
                             <li><a class="dropdown-item" href="{% url 'sondaje-gantt' %}">
                                 <i class="fas fa-project-diagram"></i> Gantt Sondajes
                             </a></li>
-                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header">Registros</h6></li>
-                            {% if user.role != 'NOMINAS' %}
                             <li><a class="dropdown-item" href="{% url 'tareo-mensual' %}">
                                 <i class="fas fa-calendar-check"></i> Asistencias (V1)
                             </a></li>
-                            {% endif %}
                             <li><a class="dropdown-item" href="{% url 'tareo-v2-mensual' %}">
                                 <i class="fas fa-calendar-plus"></i> Asistencias V2
                             </a></li>
@@ -124,7 +133,6 @@
                         </ul>
                     </li>
                     
-                    {% if user.role != 'NOMINAS' %}
                     <!-- Turnos -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -205,7 +213,6 @@
 
                         </ul>
                     </li>
-                    {% endif %}
                     
                     <!-- Planilla -->
                     <li class="nav-item">
@@ -214,7 +221,6 @@
                         </a>
                     </li>
                     
-                    {% if user.role != 'NOMINAS' %}
                     <!-- Configuración -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
