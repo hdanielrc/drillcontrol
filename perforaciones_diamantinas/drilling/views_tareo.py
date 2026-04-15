@@ -1035,7 +1035,7 @@ def exportar_asistencias_excel(request):
             _crear_hoja_tareo(ws_ant, contrato, fi_ant, ff_ant, nd_ant)
 
         # 1. CREAR HOJA TAREO (mes actual — se agrega al final)
-        ws_tareo = wb.create_sheet(f"Tareo {fecha_inicio.strftime('%b %Y').upper()}")
+        ws_tareo = wb.create_sheet(f"Tareo {fecha_fin.strftime('%b %Y').upper()}")
         _crear_hoja_tareo(ws_tareo, contrato, fecha_inicio, fecha_fin, num_dias)
 
         # 2. CREAR HOJA LEYENDA
@@ -1050,9 +1050,9 @@ def exportar_asistencias_excel(request):
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        mes_nombre = fecha_inicio.strftime('%B').capitalize()
+        mes_nombre = fecha_fin.strftime('%B').capitalize()
         sufijo = '_con_MesAnterior' if include_mes_anterior else ''
-        filename = f"Tareo_{contrato.nombre_contrato.replace(' ', '_')}_{mes_nombre}_{fecha_inicio.year}{sufijo}.xlsx"
+        filename = f"Tareo_{contrato.nombre_contrato.replace(' ', '_')}_{mes_nombre}_{fecha_fin.year}{sufijo}.xlsx"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
         wb.save(response)
