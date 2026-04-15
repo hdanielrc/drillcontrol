@@ -3221,9 +3221,20 @@ def tareo_v2_mensual_view(request):
         fecha_actual += timedelta(days=1)
     
     # =========================================================================
-    # 5. PROCESAMIENTO POST (GUARDAR CAMBIOS)
+    # 5. PROCESAMIENTO POST (GUARDAR CAMBIOS Y CERRAR MES)
     # =========================================================================
     if request.method == 'POST':
+        # Verificar si el mes ya está cerrado (solo CONTROL_PROYECTOS puede editar)
+        from .utils.tareo_service import CierreMensualService
+        _cierre_cerrado = False
+        if vista == 'mes':
+            _cierre_cerrado = CierreMensualService.esta_cerrado_para_fecha(
+                contrato, fecha_fin, usuario=user
+            )
+        if _cierre_cerrado:
+            messages.error(request, 'Este mes operativo está cerrado. Solo Control de Proyectos puede editarlo.')
+            return redirect(f"{request.path}?contrato={contrato.id}&mes_offset={mes_offset}&vista={vista}&semana_offset={semana_offset}")
+
         try:
             with transaction.atomic():
                 # Parsear datos del formulario
@@ -3261,11 +3272,37 @@ def tareo_v2_mensual_view(request):
                     user
                 )
                 
-                # Mensajes de resultado
-                if resultado['errores']:
+                # Cerrar el mes operativo (26-25) automáticamente
+                if vista == 'mes' and not resultado.get('errores'):
+                    cierre_resultado = CierreMensualService.cerrar_mes(
+                        contrato=contrato,
+                        anio=anio_operativo,
+                        mes=mes_operativo,
+                        usuario=user,
+                        observaciones='Cierre automático desde Guardar Tareo Completo'
+                    )
+                    if cierre_resultado['success']:
+                        messages.success(
+                            request,
+                            f"Tareo guardado y cerrado exitosamente. "
+                            f"Actualizados: {resultado['actualizados']}, "
+                            f"Creados: {resultado['creados']}. "
+                            f"Mes {mes_operativo:02d}/{anio_operativo} cerrado."
+                        )
+                    else:
+                        # Guardado OK pero cierre falló (ej: proyecciones pendientes)
+                        messages.warning(
+                            request,
+                            f"Tareo guardado. "
+                            f"Actualizados: {resultado['actualizados']}, "
+                            f"Creados: {resultado['creados']}. "
+                            f"No se pudo cerrar el mes: {cierre_resultado.get('error', 'Error desconocido')}"
+                        )
+                elif resultado.get('errores'):
                     messages.warning(
                         request,
-                        f"Guardado parcialmente. Errores: {len(resultado['errores'])}"
+                        f"Guardado parcialmente. Errores: {len(resultado['errores'])}. "
+                        f"El mes NO fue cerrado."
                     )
                 else:
                     messages.success(
@@ -3317,6 +3354,23 @@ def tareo_v2_mensual_view(request):
     # =========================================================================
     # 8. CONTEXTO PARA EL TEMPLATE
     # =========================================================================
+    # Verificar si el mes está cerrado para determinar modo lectura
+    from .utils.tareo_service import CierreMensualService
+    _mes_cerrado = False
+    _puede_editar_cerrado = False
+    if vista == 'mes':
+        _anio_op, _mes_op = anio_operativo, mes_operativo
+        from .models import CierreMensualTareo
+        try:
+            _cierre_obj = CierreMensualTareo.objects.get(contrato=contrato, anio=_anio_op, mes=_mes_op)
+            _mes_cerrado = _cierre_obj.estado == 'CERRADO'
+        except CierreMensualTareo.DoesNotExist:
+            pass
+        if _mes_cerrado and user.role == 'CONTROL_PROYECTOS':
+            _puede_editar_cerrado = True
+
+    tareo_readonly = _mes_cerrado and not _puede_editar_cerrado
+
     context = {
         'contrato': contrato,
         'contratos_disponibles': contratos_disponibles,
@@ -3337,6 +3391,9 @@ def tareo_v2_mensual_view(request):
         'nombre_dia_cambio': ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][dia_cambio_guardia],
         'es_mes_minimo': es_mes_minimo,
         'turno_inicio_choices': contrato.TURNO_INICIO_CHOICES,
+        'tareo_readonly': tareo_readonly,
+        'mes_cerrado': _mes_cerrado,
+        'puede_editar_cerrado': _puede_editar_cerrado,
     }
 
     return render(request, 'drilling/tareo/tareo_v2_mensual.html', context)
@@ -3511,6 +3568,15 @@ def api_corregir_asistencia(request):
                     'error': 'No tienes acceso al contrato del trabajador para esa fecha'
                 }, status=403)
         
+        # Verificar si el mes está cerrado
+        from .utils.tareo_service import CierreMensualService
+        _contrato_trab = getattr(trabajador, 'contrato', None)
+        if _contrato_trab and CierreMensualService.esta_cerrado_para_fecha(_contrato_trab, fecha, usuario=request.user):
+            return JsonResponse({
+                'success': False,
+                'error': 'Este mes operativo está cerrado. Solo Control de Proyectos puede editarlo.'
+            }, status=403)
+
         # Ejecutar corrección
         asistencia = TareoService.corregir_asistencia(
             trabajador_id=trabajador_id,
@@ -3577,6 +3643,15 @@ def api_guardar_dia_tareo(request):
         
         # Validar contrato
         contrato = get_object_or_404(Contrato, id=contrato_id, estado='ACTIVO')
+
+        # Verificar si el mes está cerrado
+        from .utils.tareo_service import CierreMensualService
+        if CierreMensualService.esta_cerrado_para_fecha(contrato, fecha, usuario=request.user):
+            return JsonResponse({
+                'success': False,
+                'error': 'Este mes operativo está cerrado. Solo Control de Proyectos puede editarlo.'
+            }, status=403)
+
         if not request.user.has_access_to_all_contracts():
             if not request.user.contrato_id or contrato.id != request.user.contrato_id:
                 return JsonResponse({
@@ -3725,6 +3800,22 @@ def api_guardar_seleccion(request):
         payload   = json.loads(request.body)
         registros = payload.get('registros', [])
         contrato_sel_id = payload.get('contrato_id')
+
+        # Verificar si alguna fecha cae en un mes cerrado
+        if contrato_sel_id and registros:
+            from .utils.tareo_service import CierreMensualService
+            _contrato_cierre = Contrato.objects.filter(id=contrato_sel_id, estado='ACTIVO').first()
+            if _contrato_cierre:
+                for _r in registros:
+                    try:
+                        _f = datetime.strptime(_r['fecha'], '%Y-%m-%d').date()
+                        if CierreMensualService.esta_cerrado_para_fecha(_contrato_cierre, _f, usuario=request.user):
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Este mes operativo está cerrado. Solo Control de Proyectos puede editarlo.'
+                            }, status=403)
+                    except (KeyError, ValueError):
+                        continue
 
         # Validar que el usuario tiene acceso al contrato indicado
         if not contrato_sel_id:

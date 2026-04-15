@@ -804,6 +804,15 @@
     </div>
     
     <!-- FORMULARIO PRINCIPAL -->
+    {% if tareo_readonly %}
+    <div style="background: #e74c3c; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-weight: 700; font-size: 16px; box-shadow: 0 2px 8px rgba(231,76,60,.3);">
+        🔒 MES OPERATIVO CERRADO ({{ mes_operativo|stringformat:"02d" }}/{{ anio_operativo }}) — Solo lectura
+    </div>
+    {% elif mes_cerrado and puede_editar_cerrado %}
+    <div style="background: #f39c12; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-weight: 700; font-size: 16px; box-shadow: 0 2px 8px rgba(243,156,18,.3);">
+        🔓 MES CERRADO — Editando como Control de Proyectos
+    </div>
+    {% endif %}
     <form method="post" id="tareoForm">
         {% csrf_token %}
         
@@ -1042,9 +1051,20 @@
         
         <!-- Botón de guardar flotante -->
         <div style="position: sticky; bottom: 20px; text-align: center; margin-top: 20px;">
+            {% if tareo_readonly %}
+            <button type="button" class="btn-guardar-tareo" disabled
+                    style="background: #95a5a6; cursor: not-allowed; opacity: .7;">
+                🔒 Mes Cerrado
+            </button>
+            {% elif mes_cerrado and puede_editar_cerrado %}
+            <button type="submit" class="btn-guardar-tareo" style="background: #f39c12;">
+                🔓 Guardar Tareo (Control de Proyectos)
+            </button>
+            {% else %}
             <button type="submit" class="btn-guardar-tareo">
                 💾 Guardar Tareo Completo
             </button>
+            {% endif %}
         </div>
     </form>
     
@@ -1396,16 +1416,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ── Calcular resúmenes al cargar ─────────────────────────────────────────
     actualizarSummaryRows();
+
+    // ── Modo solo lectura cuando el mes está cerrado ─────────────────────────
+    {% if tareo_readonly %}
+    (function() {
+        // Desactivar todos los selects de estado y máquina
+        document.querySelectorAll('#tareoForm select').forEach(sel => {
+            sel.disabled = true;
+            sel.style.opacity = '0.6';
+            sel.style.cursor = 'not-allowed';
+        });
+        // Ocultar botones de guardar día, fila, grupo y relleno rápido
+        document.querySelectorAll('.btn-guardar-dia, .btn-save-fila, .btn-guardar-grupo, .quick-fill-btn, .row-fill-panel, .grupo-toolbar').forEach(el => {
+            el.style.display = 'none';
+        });
+    })();
+    {% endif %}
 });
 
 // Validación antes de enviar el formulario
 document.getElementById('tareoForm').addEventListener('submit', function(e) {
-    const confirmMsg = '¿Está seguro de guardar todos los cambios del tareo?';
+    {% if tareo_readonly %}
+    e.preventDefault();
+    alert('Este mes operativo está cerrado. No se pueden realizar cambios.');
+    return false;
+    {% elif mes_cerrado and puede_editar_cerrado %}
+    const confirmMsg = '⚠️ Está editando un mes CERRADO como Control de Proyectos.\n\n¿Confirma guardar los cambios?';
     if (!confirm(confirmMsg)) {
         e.preventDefault();
         return false;
     }
     showLoading();
+    {% else %}
+    const confirmMsg = '⚠️ ATENCIÓN: Al guardar el tareo completo, el mes operativo {{ mes_operativo|stringformat:"02d" }}/{{ anio_operativo }} quedará CERRADO y no será editable.\n\nSolo Control de Proyectos podrá modificarlo después.\n\n¿Está seguro de guardar y cerrar el tareo?';
+    if (!confirm(confirmMsg)) {
+        e.preventDefault();
+        return false;
+    }
+    showLoading();
+    {% endif %}
 });
 
 // Auto-guardar periódico (opcional - comentado por defecto)

@@ -1811,6 +1811,37 @@ class CierreMensualService:
     """
     
     @staticmethod
+    def mes_operativo_de_fecha(fecha):
+        """
+        Dado una fecha, devuelve (anio, mes) del mes operativo al que pertenece.
+        Mes operativo N va del 26 del mes N-1 al 25 del mes N.
+        - Si fecha.day <= 25 → pertenece al mes actual.
+        - Si fecha.day >= 26 → pertenece al mes siguiente.
+        """
+        if fecha.day >= 26:
+            if fecha.month == 12:
+                return fecha.year + 1, 1
+            return fecha.year, fecha.month + 1
+        return fecha.year, fecha.month
+
+    @staticmethod
+    def esta_cerrado_para_fecha(contrato, fecha, usuario=None):
+        """
+        Verifica si la fecha pertenece a un mes operativo cerrado.
+        Los usuarios con rol CONTROL_PROYECTOS pueden editar meses cerrados.
+        Returns True si está cerrado y el usuario NO puede editar.
+        """
+        from ..models import CierreMensualTareo
+        if usuario and getattr(usuario, 'role', '') == 'CONTROL_PROYECTOS':
+            return False
+        anio, mes = CierreMensualService.mes_operativo_de_fecha(fecha)
+        try:
+            cierre = CierreMensualTareo.objects.get(contrato=contrato, anio=anio, mes=mes)
+            return cierre.estado == 'CERRADO'
+        except CierreMensualTareo.DoesNotExist:
+            return False
+
+    @staticmethod
     def obtener_o_crear_cierre(contrato, anio, mes):
         """
         Obtiene o crea el registro de cierre mensual para un contrato/periodo.
