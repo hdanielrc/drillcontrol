@@ -3402,6 +3402,7 @@ def tareo_v2_mensual_view(request):
 
                 # Contadores operativos (rango 26-25 completo)
                 da_op = 0
+                dl_op = 0
                 # Contadores calendario (1-30)
                 trabajado_cal = 0
                 paternidad_cal = 0
@@ -3410,15 +3411,16 @@ def tareo_v2_mensual_view(request):
                 dm_cal = 0
                 sub_cal = 0
                 falta_cal = 0
-                dl_cal = 0
 
                 for f, datos in asistencias.items():
                     estado_raw = datos.get('estado', '')
                     codigo = MAPEO_CODIGOS.get(estado_raw, estado_raw)
 
-                    # DA en rango operativo completo (26-25)
+                    # DA y DL en rango operativo completo (26-25)
                     if codigo in ('DA', 'DA1'):
                         da_op += 1
+                    if codigo == 'DL':
+                        dl_op += 1
 
                     # Conteo solo en rango calendario
                     if _cal_inicio <= f <= _cal_fin:
@@ -3434,8 +3436,6 @@ def tareo_v2_mensual_view(request):
                             dm_cal += 1
                         if codigo == 'SUB':
                             sub_cal += 1
-                        if codigo == 'DL':
-                            dl_cal += 1
                         # Faltas: F, LSGH, SB, P(permiso no paternidad), S
                         if codigo in ('F', 'SB', 'S', 'LSGH'):
                             falta_cal += 1
@@ -3457,7 +3457,7 @@ def tareo_v2_mensual_view(request):
                     'vacaciones': vacaciones_cal,
                     'dm': dm_cal,
                     'subsidio': sub_cal,
-                    'dias_libres': dl_cal,
+                    'dias_libres': dl_op,
                     'faltas': falta_cal,
                     'total': trabajado_cal,
                 })
