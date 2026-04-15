@@ -1151,9 +1151,17 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
         col_num += 1
         fecha_actual += timedelta(days=1)
     
+    # Rango de mes calendario (día 1 al 30) para columna TRABAJADO
+    import calendar as _cal
+    _mes_cal = fecha_fin.month
+    _anio_cal = fecha_fin.year
+    _ultimo_dia_cal = min(30, _cal.monthrange(_anio_cal, _mes_cal)[1])
+    _cal_inicio = date(_anio_cal, _mes_cal, 1)
+    _cal_fin = date(_anio_cal, _mes_cal, _ultimo_dia_cal)
+
     # Headers de resumen
     headers_resumen = [
-        'TRABAJADO (TD+TN)', 'DIAS APOYO (DA)', 'PATERNIDAD (PT)',
+        'TRABAJADO (TD+TN+DL+DA)', 'DIAS APOYO (DA)', 'PATERNIDAD (PT)',
         'INDUCCION + RECORRIDO', 'VACACIONES (V)', 'D. MEDICO (DM)',
         'SUBSIDIO (SUB)', 'DIAS LIBRES (DL)', 'FALTAS (F)', 'TOTAL DIAS'
     ]
@@ -1312,6 +1320,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                         fecha_actual = fecha_inicio
                         col_num = 9
                         contadores = {'TD': 0, 'TN': 0, 'T': 0, 'DA': 0, 'DA1': 0, 'P': 0, 'IND': 0, 'REC': 0, 'V': 0, 'DM': 0, 'SUB': 0, 'DL': 0, 'F': 0}
+                        trabajado_cal = 0  # TD+TN+DL+DA solo en mes calendario (1-30)
                         while fecha_actual <= fecha_fin:
                             asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                             cell = ws.cell(row=row_num, column=col_num)
@@ -1330,6 +1339,11 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                     corto = MAPEO_CODIGOS.get(codigo)
                                     if corto and corto in contadores:
                                         contadores[corto] += 1
+                                # Contar TRABAJADO solo dentro del mes calendario
+                                if _cal_inicio <= fecha_actual <= _cal_fin:
+                                    cod_final = codigo if codigo in contadores else MAPEO_CODIGOS.get(codigo, '')
+                                    if cod_final in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
+                                        trabajado_cal += 1
                             else:
                                 cell.value = ""
 
@@ -1339,7 +1353,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                             fecha_actual += timedelta(days=1)
 
                         # Totales por categoría
-                        dias_trabajados = contadores['TD'] + contadores['TN'] + contadores['T']
+                        dias_trabajados = trabajado_cal
                         dias_apoyo = contadores['DA'] + contadores['DA1']
                         dias_induccion_rec = contadores['IND'] + contadores['REC']
                         ws.cell(row=row_num, column=col_num).value = dias_trabajados
@@ -1351,7 +1365,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                         ws.cell(row=row_num, column=col_num+6).value = contadores['SUB']
                         ws.cell(row=row_num, column=col_num+7).value = contadores['DL']
                         ws.cell(row=row_num, column=col_num+8).value = contadores['F']
-                        ws.cell(row=row_num, column=col_num+9).value = dias_trabajados + dias_apoyo
+                        ws.cell(row=row_num, column=col_num+9).value = dias_trabajados
 
                         row_num += 1
                         item_idx += 1
@@ -1389,6 +1403,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                     fecha_actual = fecha_inicio
                     col_num = 9
                     contadores = {'TD': 0, 'TN': 0, 'T': 0, 'DA': 0, 'DA1': 0, 'P': 0, 'IND': 0, 'REC': 0, 'V': 0, 'DM': 0, 'SUB': 0, 'DL': 0, 'F': 0}
+                    trabajado_cal = 0  # TD+TN+DL+DA solo en mes calendario (1-30)
                     while fecha_actual <= fecha_fin:
                         asist = asist_dict.get(trabajador.id, {}).get(fecha_actual)
                         cell = ws.cell(row=row_num, column=col_num)
@@ -1407,6 +1422,11 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                 corto = MAPEO_CODIGOS.get(codigo)
                                 if corto and corto in contadores:
                                     contadores[corto] += 1
+                            # Contar TRABAJADO solo dentro del mes calendario
+                            if _cal_inicio <= fecha_actual <= _cal_fin:
+                                cod_final = codigo if codigo in contadores else MAPEO_CODIGOS.get(codigo, '')
+                                if cod_final in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
+                                    trabajado_cal += 1
                         else:
                             cell.value = ""
 
@@ -1416,7 +1436,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                         fecha_actual += timedelta(days=1)
 
                     # Totales por categoría
-                    dias_trabajados = contadores['TD'] + contadores['TN'] + contadores['T']
+                    dias_trabajados = trabajado_cal
                     dias_apoyo = contadores['DA'] + contadores['DA1']
                     dias_induccion_rec = contadores['IND'] + contadores['REC']
                     ws.cell(row=row_num, column=col_num).value = dias_trabajados
@@ -1428,7 +1448,7 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                     ws.cell(row=row_num, column=col_num+6).value = contadores['SUB']
                     ws.cell(row=row_num, column=col_num+7).value = contadores['DL']
                     ws.cell(row=row_num, column=col_num+8).value = contadores['F']
-                    ws.cell(row=row_num, column=col_num+9).value = dias_trabajados + dias_apoyo
+                    ws.cell(row=row_num, column=col_num+9).value = dias_trabajados
 
                     row_num += 1
                     item_idx += 1
