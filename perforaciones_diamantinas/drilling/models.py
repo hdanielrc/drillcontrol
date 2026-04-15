@@ -257,6 +257,7 @@ class CustomUser(AbstractUser):
         ('HEADCOUNT', 'Gestión de Personal y Headcount'),
         ('JEFE_MANTENIMIENTO', 'Jefe de Mantenimiento'),
         ('MANTENIMIENTO', 'Mantenimiento de Contrato'),
+        ('NOMINAS', 'Nóminas y Planillas'),
         # Roles legacy conservados por compatibilidad con usuarios existentes.
         ('MANAGER_CONTRATO', 'Manager de Contrato'),
         ('SUPERVISOR', 'Supervisor'),
@@ -332,7 +333,7 @@ class CustomUser(AbstractUser):
         - Es Admin del Sistema (is_system_admin=True)
         - Tiene rol GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL o HEADCOUNT (independiente del contrato asignado)
         """
-        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'HEADCOUNT', 'JEFE_MANTENIMIENTO']
+        return self.is_system_admin or self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'GERENTE_GENERAL', 'HEADCOUNT', 'JEFE_MANTENIMIENTO', 'NOMINAS']
 
     def can_manage_all_contracts(self):
         """GERENCIA, CONTROL_PROYECTOS, GERENTE_GENERAL y HEADCOUNT pueden gestionar todos los contratos"""
@@ -368,7 +369,11 @@ class CustomUser(AbstractUser):
     
     def can_view_reports(self):
         """Ver reportes del sistema"""
-        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'RESIDENTE', 'LOGISTICO']
+        return self.role in ['GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'RESIDENTE', 'LOGISTICO', 'NOMINAS']
+    
+    def can_view_tareo(self):
+        """Ver tareo de asistencia (solo lectura para NOMINAS)"""
+        return self.can_manage_contract_users() or self.role == 'NOMINAS'
     
     def can_manage_system_config(self):
         """Gestionar configuración del sistema (tipos, unidades, etc.)"""

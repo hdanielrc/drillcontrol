@@ -940,7 +940,7 @@ def exportar_asistencias_excel(request):
     
     user = request.user
     
-    if not user.can_manage_contract_users():
+    if not user.can_view_tareo():
         return HttpResponse('Sin permisos', status=403)
     
     # Obtener parámetros
@@ -3101,7 +3101,7 @@ def tareo_v2_mensual_view(request):
     # =========================================================================
     # 1. VALIDACIÓN DE PERMISOS
     # =========================================================================
-    if not user.can_manage_contract_users():
+    if not user.can_view_tareo():
         messages.error(request, 'No tienes permisos para gestionar el tareo de asistencia')
         return redirect('dashboard')
     
@@ -3224,6 +3224,11 @@ def tareo_v2_mensual_view(request):
     # 5. PROCESAMIENTO POST (GUARDAR CAMBIOS Y CERRAR MES)
     # =========================================================================
     if request.method == 'POST':
+        # NOMINAS no puede guardar cambios (solo lectura)
+        if user.role == 'NOMINAS':
+            messages.error(request, 'El rol Nóminas solo tiene acceso de lectura.')
+            return redirect(f"{request.path}?contrato={contrato.id}&mes_offset={mes_offset}&vista={vista}&semana_offset={semana_offset}")
+
         # Verificar si el mes ya está cerrado (solo CONTROL_PROYECTOS puede editar)
         from .utils.tareo_service import CierreMensualService
         _cierre_cerrado = False
@@ -3370,6 +3375,10 @@ def tareo_v2_mensual_view(request):
             _puede_editar_cerrado = True
 
     tareo_readonly = _mes_cerrado and not _puede_editar_cerrado
+
+    # NOMINAS siempre en modo solo lectura
+    if user.role == 'NOMINAS':
+        tareo_readonly = True
 
     context = {
         'contrato': contrato,
@@ -4129,7 +4138,7 @@ def tareo_cierre_mensual(request):
     Muestra resumen completo antes del cierre.
     """
     # Determinar contrato
-    if request.user.is_staff or request.user.is_superuser:
+    if request.user.has_access_to_all_contracts():
         contratos = Contrato.objects.all()
         contrato_id = request.GET.get('contrato')
         if contrato_id:
@@ -4414,7 +4423,7 @@ def tareo_reporte_nomina(request):
     from calendar import monthrange
     
     # Determinar contrato
-    if request.user.is_staff or request.user.is_superuser:
+    if request.user.has_access_to_all_contracts():
         contratos = Contrato.objects.all()
         contrato_id = request.GET.get('contrato')
         if contrato_id:
@@ -4504,7 +4513,7 @@ def api_exportar_nomina_excel(request, cierre_id):
     cierre = get_object_or_404(CierreMensualTareo, id=cierre_id)
     
     # Verificar permisos
-    if not (request.user.is_staff or request.user.contrato == cierre.contrato):
+    if not (request.user.is_staff or request.user.has_access_to_all_contracts() or request.user.contrato == cierre.contrato):
         return JsonResponse({'error': 'Sin permisos'}, status=403)
     
     # Crear workbook
