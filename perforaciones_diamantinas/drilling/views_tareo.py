@@ -3406,7 +3406,11 @@ def tareo_v2_mensual_view(request):
         # Pre-cargar horas extras por trabajador en el rango 23-24
         _horas_extras_qs = (
             _THE.objects
-            .filter(turno__fecha__gte=_he_inicio, turno__fecha__lte=_he_fin)
+            .filter(
+                turno__fecha__gte=_he_inicio,
+                turno__fecha__lte=_he_fin,
+                turno__contrato=contrato,
+            )
             .values('trabajador_id')
             .annotate(total_he=_Sum('horas_extra'))
         )
