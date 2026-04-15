@@ -978,21 +978,25 @@ def exportar_asistencias_excel(request):
             dias_a_mostrar = 15
             fecha_fin = fecha_inicio + timedelta(days=dias_a_mostrar - 1)
         elif modo == 'mes':
-            # Si vienen ambas fechas (mes operativo 26→25), usarlas directamente.
-            # Solo recalcular al mes calendario cuando NO viene fecha_fin.
+            # Mes operativo: del 23 del mes anterior al 30 del mes actual.
+            # fecha_inicio indica el mes de referencia.
             if fecha_fin_str:
                 try:
                     fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
                 except Exception:
-                    fecha_fin = fecha_inicio.replace(day=25)
+                    fecha_fin = fecha_inicio.replace(day=30)
             else:
-                # Fallback: mes calendario (día 1 → último día del mes)
-                primer_dia = fecha_inicio.replace(day=1)
-                if primer_dia.month == 12:
-                    fecha_fin = primer_dia.replace(year=primer_dia.year + 1, month=1, day=1) - timedelta(days=1)
-                else:
-                    fecha_fin = primer_dia.replace(month=primer_dia.month + 1, day=1) - timedelta(days=1)
-                fecha_inicio = primer_dia
+                # Día 30 del mes de referencia
+                import calendar
+                ultimo_dia = calendar.monthrange(fecha_inicio.year, fecha_inicio.month)[1]
+                dia_fin = min(30, ultimo_dia)
+                fecha_fin = fecha_inicio.replace(day=dia_fin)
+
+            # Día 23 del mes anterior
+            if fecha_inicio.month == 1:
+                fecha_inicio = fecha_inicio.replace(year=fecha_inicio.year - 1, month=12, day=23)
+            else:
+                fecha_inicio = fecha_inicio.replace(month=fecha_inicio.month - 1, day=23)
             dias_a_mostrar = (fecha_fin - fecha_inicio).days + 1
         else:  # personalizado
             if fecha_fin_str:
