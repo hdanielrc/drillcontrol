@@ -2192,10 +2192,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==========================================
     // CARGAR TRABAJADORES DESDE TAREO (fecha + máquina)
     // ==========================================
+    // Normaliza el valor de un input date a YYYY-MM-DD
+    function normalizarFechaISO(val) {
+        if (!val) return '';
+        // Ya en formato ISO
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+        // DD/MM/YYYY o DD-MM-YYYY
+        let m = val.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+        // MM/DD/YYYY (fallback)
+        m = val.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (m) {
+            const d = new Date(val);
+            if (!isNaN(d)) return d.toISOString().split('T')[0];
+        }
+        // Último intento: usar Date nativo
+        const d = new Date(val);
+        if (!isNaN(d)) return d.toISOString().split('T')[0];
+        return val;
+    }
+
     const btnCargarTareo = document.getElementById('btn-cargar-tareo');
     if (btnCargarTareo) {
         btnCargarTareo.addEventListener('click', function() {
-            const fecha       = document.getElementById('fecha').value;
+            const fechaRaw    = document.getElementById('fecha').value;
+            const fecha       = normalizarFechaISO(fechaRaw);
             const maquinaId   = document.getElementById('maquina').value;
             const contratoId  = "{{ user.contrato.id }}";
             // Obtener nombre del tipo de turno para filtrar TD/TN

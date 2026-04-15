@@ -724,10 +724,18 @@ def api_trabajadores_por_maquina(request):
     try:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
     except ValueError:
-        return JsonResponse(
-            {'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'},
-            status=400
-        )
+        # Intentar formatos alternativos comunes (DD/MM/YYYY, DD-MM-YYYY)
+        for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%m/%d/%Y'):
+            try:
+                fecha = datetime.strptime(fecha_str, fmt).date()
+                break
+            except ValueError:
+                continue
+        else:
+            return JsonResponse(
+                {'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'},
+                status=400
+            )
 
     # ── Contrato ──────────────────────────────────────────────────────────────
     if contrato_id:
