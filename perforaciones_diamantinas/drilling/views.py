@@ -454,6 +454,8 @@ def dashboard(request):
             'emo_alertas': emo_alertas,
         }
 
+        return render(request, 'drilling/dashboards/manager_dashboard.html', context)
+
 # ===============================
 # TRABAJADOR VIEWS - CRUD COMPLETO
 # ===============================
