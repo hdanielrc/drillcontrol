@@ -3465,7 +3465,7 @@ def tareo_v2_mensual_view(request):
 
                 # Cálculos salariales
                 _sueldo_base = float(trab.sueldo or 0)
-                _sueldo_dias_trab = _sueldo_base * trabajado_cal
+                _sueldo_dias_trab = _sueldo_base / 30 * trabajado_cal
                 _monto_dias_apoyo = (_sueldo_dias_trab / 30 * da_op) if _sueldo_dias_trab else 0
                 _total_he = _he_por_trabajador.get(trab.id, 0)
                 _bono_dia = (_sueldo_dias_trab / 30 / 8 * _total_he) if _sueldo_dias_trab else 0
