@@ -795,19 +795,22 @@ def conceptos_globales(request):
     """
     Vista principal de conceptos globales: muestra todos los indicadores
     por contrato/período con sus valores y % de bono calculado.
+    Usa mes operativo: día 26 del mes anterior al día 25 del mes actual.
     Query params: ?anio=2026&mes=4&contrato=ID
     """
-    import calendar
     from .models_payroll import ConceptoGlobal, ConceptoGlobalPeriodo
     from .utils.conceptos_globales_engine import (
         inicializar_conceptos_periodo,
-        calcular_todos_conceptos_contrato,
+        get_rango_mes_operativo,
     )
 
     user = request.user
     today = date.today()
     anio = int(request.GET.get('anio') or today.year)
     mes = int(request.GET.get('mes') or today.month)
+
+    # Rango del mes operativo
+    fecha_inicio_op, fecha_fin_op = get_rango_mes_operativo(anio, mes)
 
     # Contratos disponibles según permisos
     if user.has_access_to_all_contracts():
@@ -825,7 +828,7 @@ def conceptos_globales(request):
 
     datos_por_contrato = {}
     for contrato in contratos:
-        # Inicializar si no existen
+        # Inicializar si no existen (auto-carga datos del sistema)
         inicializar_conceptos_periodo(contrato, anio, mes)
 
         periodos = ConceptoGlobalPeriodo.objects.filter(
@@ -841,6 +844,8 @@ def conceptos_globales(request):
         'anio': anio,
         'mes': mes,
         'mes_nombre': MESES[mes],
+        'fecha_inicio_op': fecha_inicio_op,
+        'fecha_fin_op': fecha_fin_op,
         'conceptos': conceptos,
         'datos_por_contrato': datos_por_contrato,
         'contratos_disponibles': Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato') if user.has_access_to_all_contracts() else contratos,

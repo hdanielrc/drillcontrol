@@ -43,11 +43,162 @@ RESULTADO OPERATIVO (10%):
 
 from decimal import Decimal, ROUND_HALF_UP
 
+from .periodo_operativo import get_rango_mes_operativo  # noqa: F401 — re-export
+
 ZERO = Decimal('0.00')
 
 
 def _round2(value):
     return value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+# ======================================================================
+# AUTO-CARGA DE DATOS DESDE SISTEMA
+# ======================================================================
+
+def cargar_metros_acumulados(contrato, fecha_inicio, fecha_fin):
+    """
+    Total de metros perforados (TurnoAvance) para un contrato
+    en el rango del mes operativo. Solo turnos COMPLETADO/APROBADO.
+    """
+    from django.db.models import Sum
+    from drilling.models import TurnoAvance
+
+    resultado = TurnoAvance.objects.filter(
+        turno__contrato=contrato,
+        turno__fecha__gte=fecha_inicio,
+        turno__fecha__lte=fecha_fin,
+        turno__estado__in=['COMPLETADO', 'APROBADO'],
+    ).aggregate(total=Sum('metros_perforados'))
+
+    return resultado['total'] or Decimal('0')
+
+
+def cargar_meta_programada(contrato, anio, mes):
+    """
+    Calcula la META PROGRAMADA (PROG.FINAL) para un contrato.
+
+    Usa ProgramacionMes + MetaTurno (la misma lógica que /gerencia/programacion/).
+    PROG.FINAL = suma de celdas activas del calendario:
+      - Cada día tiene 2 celdas (TD y TN)
+      - Valor por defecto de cada celda = meta_metros / 30 / 2
+      - MetaTurno puede sobreescribir celdas individuales
+      - Solo se suman días donde fecha >= dia_inicio de la máquina
+    """
+    from collections import defaultdict
+    from datetime import timedelta
+
+    from drilling.models import Maquina, ProgramacionMes, MetaTurno, TipoTurno
+
+    fecha_inicio, fecha_fin = get_rango_mes_operativo(anio, mes)
+    cantidad_dias = (fecha_fin - fecha_inicio).days + 1
+
+    # Máquinas operativas del contrato
+    maquinas_ids = list(
+        Maquina.objects.filter(contrato=contrato, estado='OPERATIVO')
+        .values_list('id', flat=True)
+    )
+    if not maquinas_ids:
+        return Decimal('0')
+
+    # Programaciones del período para estas máquinas
+    progs = ProgramacionMes.objects.filter(
+        maquina_id__in=maquinas_ids, año=anio, mes=mes
+    )
+    prog_dict = {p.maquina_id: p for p in progs}
+
+    if not prog_dict:
+        return Decimal('0')
+
+    # Clasificar TipoTurno en TD (día) y TN (noche) — misma lógica que views_gerencia
+    tipos_turno_all = list(TipoTurno.objects.values('id', 'nombre').order_by('nombre'))
+    td_ids = {t['id'] for t in tipos_turno_all
+              if any(kw in t['nombre'].lower() for kw in ['día', 'dia', 'diurno', ' td', 'td '])}
+    tn_ids = {t['id'] for t in tipos_turno_all
+              if any(kw in t['nombre'].lower() for kw in ['noche', 'nocturno', ' tn', 'tn '])}
+    if not td_ids and not tn_ids and tipos_turno_all:
+        td_ids = {tipos_turno_all[0]['id']}
+        tn_ids = {t['id'] for t in tipos_turno_all[1:]}
+
+    tipo_td_id = next(iter(td_ids), None)
+    tipo_tn_id = next(iter(tn_ids), None)
+
+    # Overrides de MetaTurno para el período
+    mt_qs = MetaTurno.objects.filter(
+        maquina_id__in=list(prog_dict.keys()),
+        fecha__range=[fecha_inicio, fecha_fin],
+    ).values('maquina_id', 'fecha', 'tipo_turno_id', 'meta_metros')
+
+    mt_dict = defaultdict(lambda: defaultdict(dict))
+    for mt in mt_qs:
+        mt_dict[mt['maquina_id']][mt['fecha']][mt['tipo_turno_id']] = float(mt['meta_metros'])
+
+    # Calcular PROG.FINAL por máquina y sumar
+    total_prog_final = Decimal('0')
+
+    for maq_id, prog in prog_dict.items():
+        meta = float(prog.meta_metros)
+        if not meta:
+            continue
+
+        meta_turno = meta / 30 / 2  # valor por defecto de cada celda
+        dia_ini = prog.dia_inicio
+        prog_final_maq = 0.0
+
+        for offset in range(cantidad_dias):
+            fecha_dia = fecha_inicio + timedelta(days=offset)
+            activo = (dia_ini is None) or (fecha_dia >= dia_ini)
+            if not activo:
+                continue
+
+            overrides_dia = mt_dict[maq_id].get(fecha_dia, {})
+            val_td = overrides_dia.get(tipo_td_id, meta_turno)
+            val_tn = overrides_dia.get(tipo_tn_id, meta_turno)
+            prog_final_maq += val_td + val_tn
+
+        total_prog_final += Decimal(str(round(prog_final_maq, 2)))
+
+    return total_prog_final
+
+
+def cargar_cantidad_maquinas(contrato):
+    """
+    Cantidad de máquinas OPERATIVAS en el contrato.
+    """
+    from drilling.models import Maquina
+    return Maquina.objects.filter(
+        contrato=contrato,
+        estado='OPERATIVO',
+    ).count()
+
+
+def auto_cargar_datos_produccion(cgp, anio, mes):
+    """
+    Autocarga metros_acumulados, meta_programada y cantidad_maquinas
+    para un ConceptoGlobalPeriodo de tipo PRODUCCION.
+    Retorna True si se actualizó algo.
+    """
+    fecha_inicio, fecha_fin = get_rango_mes_operativo(anio, mes)
+    contrato = cgp.contrato
+
+    metros = cargar_metros_acumulados(contrato, fecha_inicio, fecha_fin)
+    meta = cargar_meta_programada(contrato, anio, mes)
+    maquinas = cargar_cantidad_maquinas(contrato)
+
+    cgp.metros_acumulados = metros
+    cgp.meta_programada = meta
+    cgp.cantidad_maquinas = maquinas
+    return True
+
+
+def auto_cargar_datos_cxm(cgp, anio, mes):
+    """
+    Autocarga metros_acumulados para CXM (mismo dato que producción).
+    total_abastecido y meta_cxm_programada se cargan manualmente.
+    """
+    fecha_inicio, fecha_fin = get_rango_mes_operativo(anio, mes)
+    cgp.metros_acumulados = cargar_metros_acumulados(cgp.contrato, fecha_inicio, fecha_fin)
+    return True
 
 
 def _round4(value):
@@ -221,7 +372,8 @@ def calcular_concepto_global(concepto_global_periodo):
 
 def calcular_todos_conceptos_contrato(contrato, anio, mes):
     """
-    Calcula todos los conceptos globales de un contrato para un período.
+    Auto-carga datos del sistema + calcula todos los conceptos globales
+    de un contrato para un período.
     Retorna lista de ConceptoGlobalPeriodo actualizados.
     """
     from drilling.models_payroll import ConceptoGlobalPeriodo
@@ -232,17 +384,30 @@ def calcular_todos_conceptos_contrato(contrato, anio, mes):
 
     resultados = []
     for cgp in periodos:
+        # Auto-cargar datos del sistema según tipo
+        _auto_cargar_datos(cgp, anio, mes)
+        # Calcular
         calcular_concepto_global(cgp)
-        cgp.save(update_fields=['valor_calculado', 'porcentaje_bono', 'updated_at'])
+        cgp.save()
         resultados.append(cgp)
 
     return resultados
+
+
+def _auto_cargar_datos(cgp, anio, mes):
+    """Carga automática de datos según el tipo de concepto."""
+    tipo = cgp.concepto.tipo
+    if tipo == 'PRODUCCION':
+        auto_cargar_datos_produccion(cgp, anio, mes)
+    elif tipo == 'CXM':
+        auto_cargar_datos_cxm(cgp, anio, mes)
 
 
 def inicializar_conceptos_periodo(contrato, anio, mes):
     """
     Crea registros ConceptoGlobalPeriodo para todos los conceptos activos
     de un contrato en un período, si no existen.
+    Auto-carga datos del sistema para conceptos nuevos.
     Retorna la cantidad de registros creados.
     """
     from drilling.models_payroll import ConceptoGlobal, ConceptoGlobalPeriodo
@@ -251,7 +416,7 @@ def inicializar_conceptos_periodo(contrato, anio, mes):
     creados = 0
 
     for concepto in conceptos:
-        _, created = ConceptoGlobalPeriodo.objects.get_or_create(
+        cgp, created = ConceptoGlobalPeriodo.objects.get_or_create(
             contrato=contrato,
             concepto=concepto,
             anio=anio,
@@ -259,5 +424,9 @@ def inicializar_conceptos_periodo(contrato, anio, mes):
         )
         if created:
             creados += 1
+            # Auto-cargar datos del sistema
+            _auto_cargar_datos(cgp, anio, mes)
+            calcular_concepto_global(cgp)
+            cgp.save()
 
     return creados

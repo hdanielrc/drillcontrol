@@ -570,25 +570,15 @@ def metas_diarias_delete(request, pk):
 
 def _calcular_periodo_operativo(fecha):
     """Calcula fecha_inicio y fecha_fin del período operativo (26-25) para una fecha dada."""
-    if fecha.day >= 26:
-        fi = fecha.replace(day=26)
-        if fecha.month == 12:
-            ff = fecha.replace(year=fecha.year + 1, month=1, day=25)
-        else:
-            ff = fecha.replace(month=fecha.month + 1, day=25)
-    else:
-        if fecha.month == 1:
-            fi = fecha.replace(year=fecha.year - 1, month=12, day=26)
-        else:
-            fi = fecha.replace(month=fecha.month - 1, day=26)
-        ff = fecha.replace(day=25)
-    return fi, ff
+    from .utils.periodo_operativo import mes_operativo_de_fecha, get_rango_mes_operativo
+    anio, mes = mes_operativo_de_fecha(fecha)
+    return get_rango_mes_operativo(anio, mes)
 
 
 def _mes_operativo_de_fecha(fecha):
     """Devuelve (año, mes) del período operativo donde cae la fecha (mes = mes del día 25)."""
-    _, ff = _calcular_periodo_operativo(fecha)
-    return ff.year, ff.month
+    from .utils.periodo_operativo import mes_operativo_de_fecha
+    return mes_operativo_de_fecha(fecha)
 
 
 @login_required
@@ -836,9 +826,9 @@ def programacion_save(request):
     # Devolver valores calculados
     meta = float(obj.meta_metros)
     meta_dia = meta / 30
-    fi, ff = _calcular_periodo_operativo(obj.dia_inicio)
+    fi, ff = _calcular_periodo_operativo(date_class(año, mes, 1))
     cantidad_dias = (ff - fi).days + 1
-    dias_trab = max(0, min((ff - obj.dia_inicio).days + 1, cantidad_dias))
+    dias_trab = max(0, min((ff - obj.dia_inicio).days + 1, cantidad_dias)) if obj.dia_inicio >= fi else cantidad_dias
     return JsonResponse({
         'id': obj.id,
         'created': created,

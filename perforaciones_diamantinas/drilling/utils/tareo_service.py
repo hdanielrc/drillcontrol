@@ -1818,11 +1818,8 @@ class CierreMensualService:
         - Si fecha.day <= 25 → pertenece al mes actual.
         - Si fecha.day >= 26 → pertenece al mes siguiente.
         """
-        if fecha.day >= 26:
-            if fecha.month == 12:
-                return fecha.year + 1, 1
-            return fecha.year, fecha.month + 1
-        return fecha.year, fecha.month
+        from .periodo_operativo import mes_operativo_de_fecha
+        return mes_operativo_de_fecha(fecha)
 
     @staticmethod
     def esta_cerrado_para_fecha(contrato, fecha, usuario=None):

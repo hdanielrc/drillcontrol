@@ -1,7 +1,7 @@
 {% extends base_template %}
 {% load static %}
 
-{% block title %}Conceptos Globales — {{ mes_nombre }} {{ anio }}{% endblock %}
+{% block title %}Conceptos Globales — Mes Operativo {{ mes_nombre }} {{ anio }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
@@ -24,7 +24,7 @@
         <div class="card-body py-2">
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-auto">
-                    <label class="form-label small mb-0">Mes</label>
+                    <label class="form-label small mb-0">Mes Operativo</label>
                     <select name="mes" class="form-select form-select-sm">
                         {% with meses="Enero,Febrero,Marzo,Abril,Mayo,Junio,Julio,Agosto,Septiembre,Octubre,Noviembre,Diciembre" %}
                         {% for m in meses|cut:" " %}
@@ -59,6 +59,12 @@
                         <i class="fas fa-filter me-1"></i> Filtrar
                     </button>
                 </div>
+                <div class="col-auto ms-3 d-flex align-items-end">
+                    <span class="badge bg-info fs-6">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        Período: {{ fecha_inicio_op|date:"d/m/Y" }} — {{ fecha_fin_op|date:"d/m/Y" }}
+                    </span>
+                </div>
             </form>
         </div>
     </div>
@@ -76,10 +82,17 @@
             <h5 class="mb-0">
                 <i class="fas fa-file-contract me-2"></i> {{ contrato.nombre_contrato }}
             </h5>
-            <button class="btn btn-sm btn-success btn-calcular-contrato"
-                    data-contrato-id="{{ contrato.pk }}">
-                <i class="fas fa-calculator me-1"></i> Recalcular Todo
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-info btn-recargar-contrato"
+                        data-contrato-id="{{ contrato.pk }}"
+                        title="Recarga metros y metas desde los reportes de perforación">
+                    <i class="fas fa-sync-alt me-1"></i> Recargar del Sistema
+                </button>
+                <button class="btn btn-sm btn-success btn-calcular-contrato"
+                        data-contrato-id="{{ contrato.pk }}">
+                    <i class="fas fa-calculator me-1"></i> Recalcular Todo
+                </button>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -105,19 +118,34 @@
                                 {% if cgp.concepto.tipo == 'PRODUCCION' %}
                                 <div class="row g-2">
                                     <div class="col-md-4">
-                                        <label class="form-label small mb-0">Metros Acumulados</label>
-                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
-                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}">
+                                        <label class="form-label small mb-0">
+                                            Metros Acumulados
+                                            <i class="fas fa-database text-info ms-1" title="Desde reportes de perforación (turnos)"></i>
+                                        </label>
+                                        <input type="number" step="0.01"
+                                               class="form-control form-control-sm campo-entrada bg-light"
+                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}"
+                                               readonly title="Total de TurnoAvance del mes operativo">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label small mb-0">Meta Programada</label>
-                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
-                                               data-campo="meta_programada" value="{{ cgp.meta_programada }}">
+                                        <label class="form-label small mb-0">
+                                            Meta Programada
+                                            <i class="fas fa-database text-info ms-1" title="Suma de MetaMáquina"></i>
+                                        </label>
+                                        <input type="number" step="0.01"
+                                               class="form-control form-control-sm campo-entrada bg-light"
+                                               data-campo="meta_programada" value="{{ cgp.meta_programada }}"
+                                               readonly title="Suma de metas de todas las máquinas activas">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label small mb-0">Cant. Máquinas</label>
-                                        <input type="number" step="1" min="0" class="form-control form-control-sm campo-entrada"
-                                               data-campo="cantidad_maquinas" value="{{ cgp.cantidad_maquinas }}">
+                                        <label class="form-label small mb-0">
+                                            Cant. Máquinas
+                                            <i class="fas fa-database text-info ms-1" title="Máquinas operativas"></i>
+                                        </label>
+                                        <input type="number" step="1" min="0"
+                                               class="form-control form-control-sm campo-entrada bg-light"
+                                               data-campo="cantidad_maquinas" value="{{ cgp.cantidad_maquinas }}"
+                                               readonly title="Cant. máquinas operativas del contrato">
                                     </div>
                                 </div>
 
@@ -128,6 +156,9 @@
                                         <input type="number" step="1" min="0" class="form-control form-control-sm campo-entrada"
                                                data-campo="accidentes_incapacitantes" value="{{ cgp.accidentes_incapacitantes }}">
                                     </div>
+                                    <div class="col-md-8 d-flex align-items-end">
+                                        <small class="text-muted"><i class="fas fa-edit me-1"></i> Ingreso manual — 0 accidentes = 100% bono</small>
+                                    </div>
                                 </div>
 
                                 {% elif cgp.concepto.tipo == 'VALORIZACION' %}
@@ -136,6 +167,9 @@
                                         <label class="form-label small mb-0">Eficiencia de Cobro (%)</label>
                                         <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
                                                data-campo="eficiencia_cobro" value="{{ cgp.eficiencia_cobro }}">
+                                    </div>
+                                    <div class="col-md-8 d-flex align-items-end">
+                                        <small class="text-muted"><i class="fas fa-edit me-1"></i> Ingreso manual — &ge; 99.7% = 100% bono</small>
                                     </div>
                                 </div>
 
@@ -147,9 +181,14 @@
                                                data-campo="total_abastecido" value="{{ cgp.total_abastecido }}">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label small mb-0">Metros Acumulados</label>
-                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
-                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}">
+                                        <label class="form-label small mb-0">
+                                            Metros Acumulados
+                                            <i class="fas fa-database text-info ms-1" title="Desde reportes"></i>
+                                        </label>
+                                        <input type="number" step="0.01"
+                                               class="form-control form-control-sm campo-entrada bg-light"
+                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}"
+                                               readonly title="Total de TurnoAvance del mes operativo">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small mb-0">Meta CXM Programada</label>
@@ -164,6 +203,9 @@
                                         <label class="form-label small mb-0">Rentabilidad (%)</label>
                                         <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
                                                data-campo="rentabilidad" value="{{ cgp.rentabilidad }}">
+                                    </div>
+                                    <div class="col-md-8 d-flex align-items-end">
+                                        <small class="text-muted"><i class="fas fa-edit me-1"></i> Ingreso manual — &ge; 25% = 100% bono</small>
                                     </div>
                                 </div>
 
@@ -207,6 +249,12 @@
                 </table>
             </div>
         </div>
+        <div class="card-footer bg-light">
+            <small class="text-muted">
+                <i class="fas fa-database text-info me-1"></i> = Dato cargado automáticamente desde el sistema &nbsp;|&nbsp;
+                <i class="fas fa-edit me-1"></i> = Ingreso manual
+            </small>
+        </div>
     </div>
     {% endfor %}
 
@@ -226,8 +274,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // También guardar al presionar Enter en cualquier input
-    document.querySelectorAll('.campo-entrada').forEach(input => {
+    // También guardar al presionar Enter en cualquier input editable
+    document.querySelectorAll('.campo-entrada:not([readonly])').forEach(input => {
         input.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -247,6 +295,10 @@ document.addEventListener('DOMContentLoaded', function() {
             registro[campo] = parseFloat(input.value) || 0;
         });
 
+        const btn = row.querySelector('.btn-guardar-fila');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
         fetch('{% url "planilla-conceptos-globales-guardar" %}', {
             method: 'POST',
             headers: {
@@ -259,11 +311,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.ok && data.resultados.length > 0) {
                 const res = data.resultados[0];
-                // Actualizar valor calculado y porcentaje en la UI
                 row.querySelector('.valor-calculado').textContent = res.valor_calculado.toFixed(4);
                 const badgeEl = row.querySelector('.porcentaje-bono');
                 badgeEl.textContent = res.porcentaje_bono.toFixed(2) + '%';
-                // Actualizar color del badge
                 badgeEl.className = 'badge fs-6 porcentaje-bono ';
                 if (res.porcentaje_bono >= 100) {
                     badgeEl.classList.add('bg-success');
@@ -274,7 +324,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     badgeEl.classList.add('bg-danger');
                 }
-                // Flash verde
                 row.style.transition = 'background-color 0.3s';
                 row.style.backgroundColor = '#d4edda';
                 setTimeout(() => { row.style.backgroundColor = ''; }, 1000);
@@ -283,24 +332,37 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(err => {
             console.error('Error guardando concepto global:', err);
             alert('Error al guardar. Revise la consola.');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i>';
         });
     }
 
-    // Recalcular todo un contrato
+    // Recalcular / Recargar del sistema
+    function submitContratoAction(contratoId) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "planilla-conceptos-globales-calcular" %}';
+        form.innerHTML = `
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <input type="hidden" name="contrato_id" value="${contratoId}">
+            <input type="hidden" name="anio" value="{{ anio }}">
+            <input type="hidden" name="mes" value="{{ mes }}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+
     document.querySelectorAll('.btn-calcular-contrato').forEach(btn => {
         btn.addEventListener('click', function() {
-            const contratoId = this.dataset.contratoId;
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '{% url "planilla-conceptos-globales-calcular" %}';
-            form.innerHTML = `
-                <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
-                <input type="hidden" name="contrato_id" value="${contratoId}">
-                <input type="hidden" name="anio" value="{{ anio }}">
-                <input type="hidden" name="mes" value="{{ mes }}">
-            `;
-            document.body.appendChild(form);
-            form.submit();
+            submitContratoAction(this.dataset.contratoId);
+        });
+    });
+
+    document.querySelectorAll('.btn-recargar-contrato').forEach(btn => {
+        btn.addEventListener('click', function() {
+            submitContratoAction(this.dataset.contratoId);
         });
     });
 });

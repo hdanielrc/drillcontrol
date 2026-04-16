@@ -505,15 +505,13 @@
         const metaDia     = meta / 30;
         const metaTurno   = metaDia / 2;
         const programa    = metaDia * cantDias;
-        const progFinal   = metaDia * diasTrab;
 
         tr.querySelector('.dias-trab').textContent  = diasTrab;
         tr.querySelector('.programa').textContent   = programa.toFixed(2);
         tr.querySelector('.meta-dia').textContent   = metaDia.toFixed(2);
         tr.querySelector('.meta-turno').textContent = metaTurno.toFixed(2);
-        tr.querySelector('.prog-final').textContent = progFinal.toFixed(2);
 
-        // Propagar META_TURNO a las celdas sin override
+        // Propagar META_TURNO a las celdas sin override y recalcular PROG.FINAL desde celdas
         rellenarCeldasDefault(tr);
     }
 
@@ -548,6 +546,14 @@
             });
             const data = await resp.json();
             if (data.error) throw new Error(data.error);
+
+            // Actualizar campos calculados desde respuesta del servidor
+            if (data.dias_trabajados != null) tr.querySelector('.dias-trab').textContent = data.dias_trabajados;
+            if (data.programa != null) tr.querySelector('.programa').textContent = data.programa.toFixed(2);
+            if (data.meta_dia != null) tr.querySelector('.meta-dia').textContent = data.meta_dia.toFixed(2);
+            if (data.meta_turno != null) tr.querySelector('.meta-turno').textContent = data.meta_turno.toFixed(2);
+            // Propagar meta_turno a celdas sin override y recalcular prog_final desde celdas
+            rellenarCeldasDefault(tr);
 
             status.textContent = '✔';
             status.style.color = 'green';
