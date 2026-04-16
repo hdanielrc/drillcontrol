@@ -1,0 +1,309 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}Conceptos Globales — {{ mes_nombre }} {{ anio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="fas fa-globe text-primary"></i> Conceptos Globales
+            </h2>
+            <p class="text-muted mb-0">Indicadores a nivel de contrato que alimentan los bonos</p>
+        </div>
+        <div>
+            <a href="{% url 'planilla-hub' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Planilla
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label small mb-0">Mes</label>
+                    <select name="mes" class="form-select form-select-sm">
+                        {% with meses="Enero,Febrero,Marzo,Abril,Mayo,Junio,Julio,Agosto,Septiembre,Octubre,Noviembre,Diciembre" %}
+                        {% for m in meses|cut:" " %}
+                        {% with idx=forloop.counter %}
+                        <option value="{{ idx }}" {% if idx == mes %}selected{% endif %}>
+                            {% if idx == 1 %}Enero{% elif idx == 2 %}Febrero{% elif idx == 3 %}Marzo{% elif idx == 4 %}Abril{% elif idx == 5 %}Mayo{% elif idx == 6 %}Junio{% elif idx == 7 %}Julio{% elif idx == 8 %}Agosto{% elif idx == 9 %}Septiembre{% elif idx == 10 %}Octubre{% elif idx == 11 %}Noviembre{% elif idx == 12 %}Diciembre{% endif %}
+                        </option>
+                        {% endwith %}
+                        {% endfor %}
+                        {% endwith %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small mb-0">Año</label>
+                    <select name="anio" class="form-select form-select-sm">
+                        {% for a in rango_anios %}
+                        <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small mb-0">Contrato</label>
+                    <select name="contrato" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        {% for c in contratos_disponibles %}
+                        <option value="{{ c.pk }}" {% if contrato_seleccionado == c.pk|stringformat:"d" %}selected{% endif %}>{{ c.nombre_contrato }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-filter me-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if not datos_por_contrato %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No hay contratos activos o no se encontraron datos para el período seleccionado.
+    </div>
+    {% endif %}
+
+    <!-- Datos por contrato -->
+    {% for contrato, periodos in datos_por_contrato.items %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-file-contract me-2"></i> {{ contrato.nombre_contrato }}
+            </h5>
+            <button class="btn btn-sm btn-success btn-calcular-contrato"
+                    data-contrato-id="{{ contrato.pk }}">
+                <i class="fas fa-calculator me-1"></i> Recalcular Todo
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:160px">Concepto</th>
+                            <th>Datos de Entrada</th>
+                            <th style="width:150px" class="text-center">Valor Calculado</th>
+                            <th style="width:130px" class="text-center">% Bono</th>
+                            <th style="width:100px" class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cgp in periodos %}
+                        <tr data-cgp-id="{{ cgp.pk }}" data-tipo="{{ cgp.concepto.tipo }}">
+                            <td>
+                                <span class="badge bg-primary me-1">{{ cgp.concepto.codigo }}</span>
+                                <strong>{{ cgp.concepto.nombre }}</strong>
+                            </td>
+                            <td>
+                                <!-- Campos de entrada según tipo -->
+                                {% if cgp.concepto.tipo == 'PRODUCCION' %}
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Metros Acumulados</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
+                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Meta Programada</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
+                                               data-campo="meta_programada" value="{{ cgp.meta_programada }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Cant. Máquinas</label>
+                                        <input type="number" step="1" min="0" class="form-control form-control-sm campo-entrada"
+                                               data-campo="cantidad_maquinas" value="{{ cgp.cantidad_maquinas }}">
+                                    </div>
+                                </div>
+
+                                {% elif cgp.concepto.tipo == 'SEGURIDAD' %}
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Accidentes Incapacitantes</label>
+                                        <input type="number" step="1" min="0" class="form-control form-control-sm campo-entrada"
+                                               data-campo="accidentes_incapacitantes" value="{{ cgp.accidentes_incapacitantes }}">
+                                    </div>
+                                </div>
+
+                                {% elif cgp.concepto.tipo == 'VALORIZACION' %}
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Eficiencia de Cobro (%)</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
+                                               data-campo="eficiencia_cobro" value="{{ cgp.eficiencia_cobro }}">
+                                    </div>
+                                </div>
+
+                                {% elif cgp.concepto.tipo == 'CXM' %}
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Total Abastecido ($)</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
+                                               data-campo="total_abastecido" value="{{ cgp.total_abastecido }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Metros Acumulados</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
+                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Meta CXM Programada</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
+                                               data-campo="meta_cxm_programada" value="{{ cgp.meta_cxm_programada }}">
+                                    </div>
+                                </div>
+
+                                {% elif cgp.concepto.tipo == 'RESULTADO_OPERATIVO' %}
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Rentabilidad (%)</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
+                                               data-campo="rentabilidad" value="{{ cgp.rentabilidad }}">
+                                    </div>
+                                </div>
+
+                                {% else %}
+                                <span class="text-muted small">Concepto personalizado</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="valor-calculado fw-bold fs-6">{{ cgp.valor_calculado }}</span>
+                                {% if cgp.concepto.tipo == 'PRODUCCION' %}
+                                    <small class="text-muted d-block">cumplimiento</small>
+                                {% elif cgp.concepto.tipo == 'CXM' %}
+                                    <small class="text-muted d-block">desviación %</small>
+                                {% elif cgp.concepto.tipo == 'SEGURIDAD' %}
+                                    <small class="text-muted d-block">accidentes</small>
+                                {% elif cgp.concepto.tipo == 'VALORIZACION' %}
+                                    <small class="text-muted d-block">eficiencia %</small>
+                                {% elif cgp.concepto.tipo == 'RESULTADO_OPERATIVO' %}
+                                    <small class="text-muted d-block">rentabilidad %</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if cgp.porcentaje_bono >= 100 %}
+                                <span class="badge bg-success fs-6 porcentaje-bono">{{ cgp.porcentaje_bono }}%</span>
+                                {% elif cgp.porcentaje_bono >= 50 %}
+                                <span class="badge bg-warning text-dark fs-6 porcentaje-bono">{{ cgp.porcentaje_bono }}%</span>
+                                {% elif cgp.porcentaje_bono > 0 %}
+                                <span class="badge bg-info fs-6 porcentaje-bono">{{ cgp.porcentaje_bono }}%</span>
+                                {% else %}
+                                <span class="badge bg-danger fs-6 porcentaje-bono">{{ cgp.porcentaje_bono }}%</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary btn-guardar-fila" title="Guardar y recalcular">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                      '{{ csrf_token }}';
+
+    // Guardar una fila individual
+    document.querySelectorAll('.btn-guardar-fila').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const row = this.closest('tr');
+            guardarFila(row);
+        });
+    });
+
+    // También guardar al presionar Enter en cualquier input
+    document.querySelectorAll('.campo-entrada').forEach(input => {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const row = this.closest('tr');
+                guardarFila(row);
+            }
+        });
+    });
+
+    function guardarFila(row) {
+        const cgpId = row.dataset.cgpId;
+        const campos = row.querySelectorAll('.campo-entrada');
+        const registro = { id: parseInt(cgpId) };
+
+        campos.forEach(input => {
+            const campo = input.dataset.campo;
+            registro[campo] = parseFloat(input.value) || 0;
+        });
+
+        fetch('{% url "planilla-conceptos-globales-guardar" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ registros: [registro] }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok && data.resultados.length > 0) {
+                const res = data.resultados[0];
+                // Actualizar valor calculado y porcentaje en la UI
+                row.querySelector('.valor-calculado').textContent = res.valor_calculado.toFixed(4);
+                const badgeEl = row.querySelector('.porcentaje-bono');
+                badgeEl.textContent = res.porcentaje_bono.toFixed(2) + '%';
+                // Actualizar color del badge
+                badgeEl.className = 'badge fs-6 porcentaje-bono ';
+                if (res.porcentaje_bono >= 100) {
+                    badgeEl.classList.add('bg-success');
+                } else if (res.porcentaje_bono >= 50) {
+                    badgeEl.classList.add('bg-warning', 'text-dark');
+                } else if (res.porcentaje_bono > 0) {
+                    badgeEl.classList.add('bg-info');
+                } else {
+                    badgeEl.classList.add('bg-danger');
+                }
+                // Flash verde
+                row.style.transition = 'background-color 0.3s';
+                row.style.backgroundColor = '#d4edda';
+                setTimeout(() => { row.style.backgroundColor = ''; }, 1000);
+            }
+        })
+        .catch(err => {
+            console.error('Error guardando concepto global:', err);
+            alert('Error al guardar. Revise la consola.');
+        });
+    }
+
+    // Recalcular todo un contrato
+    document.querySelectorAll('.btn-calcular-contrato').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const contratoId = this.dataset.contratoId;
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "planilla-conceptos-globales-calcular" %}';
+            form.innerHTML = `
+                <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                <input type="hidden" name="contrato_id" value="${contratoId}">
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <input type="hidden" name="mes" value="{{ mes }}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

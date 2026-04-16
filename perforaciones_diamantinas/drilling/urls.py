@@ -387,4 +387,9 @@ urlpatterns = [
     path('planilla/cuadro/<int:tipo_bono_pk>/', views_payroll.cuadro_evaluacion, name='planilla-cuadro'),
     path('planilla/cuadro/<int:tipo_bono_pk>/guardar/', views_payroll.cuadro_guardar, name='planilla-cuadro-guardar'),
     path('planilla/cuadro/<int:tipo_bono_pk>/calcular/', views_payroll.cuadro_calcular, name='planilla-cuadro-calcular'),
+    # Conceptos Globales
+    path('planilla/conceptos-globales/', views_payroll.conceptos_globales, name='planilla-conceptos-globales'),
+    path('planilla/conceptos-globales/guardar/', views_payroll.conceptos_globales_guardar, name='planilla-conceptos-globales-guardar'),
+    path('planilla/conceptos-globales/calcular/', views_payroll.conceptos_globales_calcular, name='planilla-conceptos-globales-calcular'),
+    path('planilla/api/conceptos-globales/<int:contrato_id>/<int:anio>/<int:mes>/', views_payroll.api_conceptos_globales_contrato, name='planilla-api-conceptos-globales'),
 ]

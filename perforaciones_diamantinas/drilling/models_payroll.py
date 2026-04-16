@@ -2,6 +2,8 @@
 Módulo de Planilla — Modelos de Bonos y Cálculo de Pagos.
 
 Arquitectura:
+- ConceptoGlobal: Indicadores globales de contrato (PRODUCCION, CXM, SEGURIDAD, etc.)
+- ConceptoGlobalPeriodo: Valores calculados por contrato/período
 - TipoBono: Catálogo de bonos (B1-B4 del sistema + custom)
 - ConceptoBono: Sub-conceptos evaluables por bono (para MULTI_CONCEPTO)
 - ConfiguracionBonoContrato: Parámetros de un bono por contrato (montos, vigencia)
@@ -363,3 +365,148 @@ class CalificacionCriterio(models.Model):
 
     def __str__(self):
         return f"{self.criterio.nombre}: {'✓' if self.cumple else '✗'}"
+
+
+# =========================================
+# CONCEPTOS GLOBALES DE CONTRATO
+# =========================================
+
+class ConceptoGlobal(models.Model):
+    """
+    Catálogo de indicadores globales a nivel de contrato.
+    Cada concepto tiene un código único y una lógica de cálculo asociada.
+    Múltiples bonos pueden referenciar el mismo concepto global.
+
+    Conceptos del sistema:
+      PRODUCCION         — Cumplimiento de metros (acumulados vs meta)
+      SEGURIDAD          — Accidentes incapacitantes
+      VALORIZACION       — Eficiencia de cobro
+      CXM                — Costo por metro vs meta programada
+      RESULTADO_OPERATIVO — Rentabilidad del contrato
+    """
+    TIPO_CHOICES = [
+        ('PRODUCCION', 'Producción — Cumplimiento de Metros'),
+        ('SEGURIDAD', 'Seguridad — Accidentes Incapacitantes'),
+        ('VALORIZACION', 'Valorización — Eficiencia de Cobro'),
+        ('CXM', 'Costo por Metro — Desviación CXM'),
+        ('RESULTADO_OPERATIVO', 'Resultado Operativo — Rentabilidad'),
+        ('CUSTOM', 'Personalizado'),
+    ]
+
+    codigo = models.CharField(max_length=30, unique=True, verbose_name='Código')
+    nombre = models.CharField(max_length=200, verbose_name='Nombre')
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, verbose_name='Tipo de Cálculo')
+    descripcion = models.TextField(blank=True, verbose_name='Descripción')
+    es_sistema = models.BooleanField(default=False, help_text='Los conceptos del sistema no se pueden eliminar')
+    activo = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0, verbose_name='Orden')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'payroll_concepto_global'
+        ordering = ['orden', 'codigo']
+        verbose_name = 'Concepto Global'
+        verbose_name_plural = 'Conceptos Globales'
+
+    def __str__(self):
+        return f"{self.codigo} — {self.nombre}"
+
+
+class ConceptoGlobalPeriodo(models.Model):
+    """
+    Valores de un concepto global para un contrato en un período mensual.
+    Almacena las entradas, el cálculo intermedio y el % de bono resultante.
+
+    Campos de entrada por tipo:
+    ─────────────────────────────────────────────────────────────────────
+    PRODUCCION:
+      metros_acumulados    — Total metraje acumulado (todas las máquinas)
+      meta_programada      — Meta propuesta (desde control de proyectos)
+      cantidad_maquinas    — Cantidad de máquinas en el contrato
+    SEGURIDAD:
+      accidentes_incapacitantes — Número de accidentes incapacitantes
+    VALORIZACION:
+      eficiencia_cobro     — % de eficiencia en el cobro
+    CXM:
+      total_abastecido     — Monto total $ de materiales abastecidos
+      metros_acumulados    — Total metraje acumulado
+      meta_cxm_programada  — Meta de costo por metro por contrato
+    RESULTADO_OPERATIVO:
+      rentabilidad         — % de rentabilidad del contrato
+    """
+    contrato = models.ForeignKey(
+        'Contrato', on_delete=models.CASCADE, related_name='conceptos_globales_periodo'
+    )
+    concepto = models.ForeignKey(
+        ConceptoGlobal, on_delete=models.CASCADE, related_name='periodos'
+    )
+    anio = models.PositiveSmallIntegerField(verbose_name='Año')
+    mes = models.PositiveSmallIntegerField(
+        verbose_name='Mes',
+        validators=[MinValueValidator(1), MaxValueValidator(12)]
+    )
+
+    # --- Campos de entrada (se usan según el tipo de concepto) ---
+    metros_acumulados = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Metros Acumulados',
+        help_text='Total metraje acumulado por todas las máquinas del contrato'
+    )
+    meta_programada = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Meta Programada',
+        help_text='Meta propuesta por cada máquina desde control de proyectos'
+    )
+    cantidad_maquinas = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Cantidad de Máquinas',
+        help_text='Cantidad de máquinas en el contrato'
+    )
+    accidentes_incapacitantes = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Accidentes Incapacitantes'
+    )
+    eficiencia_cobro = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0,
+        verbose_name='Eficiencia de Cobro (%)',
+        help_text='Porcentaje de eficiencia en el cobro'
+    )
+    total_abastecido = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        verbose_name='Total Abastecido ($)',
+        help_text='Monto total de materiales abastecidos al centro de costo'
+    )
+    meta_cxm_programada = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Meta CXM Programada',
+        help_text='Meta de costo por metro por contrato'
+    )
+    rentabilidad = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0,
+        verbose_name='Rentabilidad (%)',
+        help_text='Porcentaje de rentabilidad del contrato'
+    )
+
+    # --- Resultados calculados ---
+    valor_calculado = models.DecimalField(
+        max_digits=12, decimal_places=4, default=0,
+        verbose_name='Valor Calculado',
+        help_text='Métrica intermedia (cumplimiento %, desviación %, etc.)'
+    )
+    porcentaje_bono = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0,
+        verbose_name='% de Bono Resultante',
+        help_text='Porcentaje de bono resultante según reglas (0-150%)'
+    )
+
+    observaciones = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'payroll_concepto_global_periodo'
+        unique_together = [('contrato', 'concepto', 'anio', 'mes')]
+        ordering = ['anio', 'mes', 'concepto__orden']
+        verbose_name = 'Concepto Global por Período'
+        verbose_name_plural = 'Conceptos Globales por Período'
+
+    def __str__(self):
+        return f"{self.contrato} — {self.concepto.codigo} — {self.mes:02d}/{self.anio}: {self.porcentaje_bono}%"

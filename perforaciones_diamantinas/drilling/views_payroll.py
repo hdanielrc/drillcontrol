@@ -784,3 +784,203 @@ def cuadro_calcular(request, tipo_bono_pk):
 
     messages.success(request, f'Se recalcularon {total_calculados} bonos para {tipo_bono.nombre}.')
     return redirect(f"{reverse('planilla-cuadro', args=[tipo_bono_pk])}?anio={anio}&mes={mes}")
+
+
+# ===========================================
+# CONCEPTOS GLOBALES DE CONTRATO
+# ===========================================
+
+@login_required
+def conceptos_globales(request):
+    """
+    Vista principal de conceptos globales: muestra todos los indicadores
+    por contrato/período con sus valores y % de bono calculado.
+    Query params: ?anio=2026&mes=4&contrato=ID
+    """
+    import calendar
+    from .models_payroll import ConceptoGlobal, ConceptoGlobalPeriodo
+    from .utils.conceptos_globales_engine import (
+        inicializar_conceptos_periodo,
+        calcular_todos_conceptos_contrato,
+    )
+
+    user = request.user
+    today = date.today()
+    anio = int(request.GET.get('anio') or today.year)
+    mes = int(request.GET.get('mes') or today.month)
+
+    # Contratos disponibles según permisos
+    if user.has_access_to_all_contracts():
+        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+    elif user.contrato:
+        contratos = Contrato.objects.filter(pk=user.contrato.pk)
+    else:
+        contratos = Contrato.objects.none()
+
+    contrato_id = request.GET.get('contrato')
+    if contrato_id:
+        contratos = contratos.filter(pk=contrato_id)
+
+    conceptos = ConceptoGlobal.objects.filter(activo=True).order_by('orden')
+
+    datos_por_contrato = {}
+    for contrato in contratos:
+        # Inicializar si no existen
+        inicializar_conceptos_periodo(contrato, anio, mes)
+
+        periodos = ConceptoGlobalPeriodo.objects.filter(
+            contrato=contrato, anio=anio, mes=mes
+        ).select_related('concepto').order_by('concepto__orden')
+
+        datos_por_contrato[contrato] = list(periodos)
+
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    context = {
+        'anio': anio,
+        'mes': mes,
+        'mes_nombre': MESES[mes],
+        'conceptos': conceptos,
+        'datos_por_contrato': datos_por_contrato,
+        'contratos_disponibles': Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato') if user.has_access_to_all_contracts() else contratos,
+        'contrato_seleccionado': contrato_id,
+        'rango_anios': range(2025, today.year + 2),
+    }
+    return render(request, 'drilling/planilla/conceptos_globales.html', context)
+
+
+@login_required
+def conceptos_globales_guardar(request):
+    """
+    Endpoint AJAX para guardar valores de conceptos globales.
+    POST JSON: {
+        "registros": [
+            {
+                "id": 1,
+                "metros_acumulados": 1500.0,
+                "meta_programada": 1200.0,
+                "cantidad_maquinas": 2,
+                ...
+            },
+            ...
+        ]
+    }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    from .models_payroll import ConceptoGlobalPeriodo
+    from .utils.conceptos_globales_engine import calcular_concepto_global
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    registros = data.get('registros', [])
+    actualizados = 0
+    resultados = []
+
+    CAMPOS_NUMERICOS = [
+        'metros_acumulados', 'meta_programada', 'cantidad_maquinas',
+        'accidentes_incapacitantes', 'eficiencia_cobro',
+        'total_abastecido', 'meta_cxm_programada', 'rentabilidad',
+    ]
+    CAMPOS_ENTEROS = ['cantidad_maquinas', 'accidentes_incapacitantes']
+
+    for reg in registros:
+        pk = reg.get('id')
+        if not pk:
+            continue
+        try:
+            cgp = ConceptoGlobalPeriodo.objects.select_related('concepto').get(pk=pk)
+        except ConceptoGlobalPeriodo.DoesNotExist:
+            continue
+
+        # Actualizar campos de entrada
+        campos_actualizados = []
+        for campo in CAMPOS_NUMERICOS:
+            if campo in reg:
+                valor = reg[campo]
+                if campo in CAMPOS_ENTEROS:
+                    setattr(cgp, campo, int(valor))
+                else:
+                    setattr(cgp, campo, Decimal(str(valor)))
+                campos_actualizados.append(campo)
+
+        if reg.get('observaciones') is not None:
+            cgp.observaciones = reg['observaciones']
+            campos_actualizados.append('observaciones')
+
+        # Recalcular
+        valor, porcentaje = calcular_concepto_global(cgp)
+        campos_actualizados.extend(['valor_calculado', 'porcentaje_bono', 'updated_at'])
+        cgp.save(update_fields=campos_actualizados)
+        actualizados += 1
+
+        resultados.append({
+            'id': cgp.pk,
+            'codigo': cgp.concepto.codigo,
+            'valor_calculado': float(valor),
+            'porcentaje_bono': float(porcentaje),
+        })
+
+    return JsonResponse({'ok': True, 'actualizados': actualizados, 'resultados': resultados})
+
+
+@login_required
+def conceptos_globales_calcular(request):
+    """
+    Recalcula todos los conceptos globales de un contrato para un período.
+    POST params: contrato_id, anio, mes
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    from .utils.conceptos_globales_engine import calcular_todos_conceptos_contrato
+
+    contrato_id = request.POST.get('contrato_id')
+    anio = int(request.POST.get('anio', date.today().year))
+    mes = int(request.POST.get('mes', date.today().month))
+
+    contrato = get_object_or_404(Contrato, pk=contrato_id)
+    resultados = calcular_todos_conceptos_contrato(contrato, anio, mes)
+
+    messages.success(request, f'Se calcularon {len(resultados)} conceptos globales para {contrato.nombre_contrato}.')
+    return redirect(f"{reverse('planilla-conceptos-globales')}?anio={anio}&mes={mes}&contrato={contrato_id}")
+
+
+@login_required
+def api_conceptos_globales_contrato(request, contrato_id, anio, mes):
+    """
+    API que retorna los conceptos globales calculados de un contrato/período.
+    Útil para que otros módulos consulten los % de bono.
+    """
+    from .models_payroll import ConceptoGlobalPeriodo
+
+    periodos = ConceptoGlobalPeriodo.objects.filter(
+        contrato_id=contrato_id, anio=anio, mes=mes
+    ).select_related('concepto').order_by('concepto__orden')
+
+    data = {}
+    for cgp in periodos:
+        data[cgp.concepto.codigo] = {
+            'id': cgp.pk,
+            'nombre': cgp.concepto.nombre,
+            'tipo': cgp.concepto.tipo,
+            'valor_calculado': float(cgp.valor_calculado),
+            'porcentaje_bono': float(cgp.porcentaje_bono),
+            'inputs': {
+                'metros_acumulados': float(cgp.metros_acumulados),
+                'meta_programada': float(cgp.meta_programada),
+                'cantidad_maquinas': cgp.cantidad_maquinas,
+                'accidentes_incapacitantes': cgp.accidentes_incapacitantes,
+                'eficiencia_cobro': float(cgp.eficiencia_cobro),
+                'total_abastecido': float(cgp.total_abastecido),
+                'meta_cxm_programada': float(cgp.meta_cxm_programada),
+                'rentabilidad': float(cgp.rentabilidad),
+            },
+        }
+
+    return JsonResponse(data)
