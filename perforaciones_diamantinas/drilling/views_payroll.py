@@ -802,6 +802,8 @@ def conceptos_globales(request):
     from .utils.conceptos_globales_engine import (
         inicializar_conceptos_periodo,
         get_rango_mes_operativo,
+        _auto_cargar_datos,
+        calcular_concepto_global,
     )
 
     user = request.user
@@ -828,12 +830,20 @@ def conceptos_globales(request):
 
     datos_por_contrato = {}
     for contrato in contratos:
-        # Inicializar si no existen (auto-carga datos del sistema)
+        # Inicializar si no existen
         inicializar_conceptos_periodo(contrato, anio, mes)
 
         periodos = ConceptoGlobalPeriodo.objects.filter(
             contrato=contrato, anio=anio, mes=mes
         ).select_related('concepto').order_by('concepto__orden')
+
+        # Siempre recargar datos automáticos (metros, meta, máquinas)
+        # para que reflejen el estado actual de los reportes
+        for cgp in periodos:
+            if cgp.concepto.tipo in ('PRODUCCION', 'CXM'):
+                _auto_cargar_datos(cgp, anio, mes)
+                calcular_concepto_global(cgp)
+                cgp.save()
 
         datos_por_contrato[contrato] = list(periodos)
 
