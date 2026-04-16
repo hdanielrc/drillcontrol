@@ -121,8 +121,8 @@
         </div>
         <div class="col-md-3">
             <div class="stats-card" style="background: linear-gradient(135deg, #FFC248 0%, #e0a800 100%);">
-                <h3>S/ {{ stats.total_valor|floatformat:2|default:0 }}</h3>
-                <p>Valor Total</p>
+                <h3>$ {{ stats.total_valor|floatformat:2|default:0 }}</h3>
+                <p>Valor Total (USD)</p>
             </div>
         </div>
         <div class="col-md-3">
@@ -146,6 +146,44 @@
                     {% endfor %}
                 </select>
             </div>
+            
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Mes Operativo</label>
+                <select name="mes_operativo" class="form-select" id="selMesOp">
+                    <option value="">-- Todos --</option>
+                    <option value="1" {% if mes_operativo == "1" %}selected{% endif %}>Enero</option>
+                    <option value="2" {% if mes_operativo == "2" %}selected{% endif %}>Febrero</option>
+                    <option value="3" {% if mes_operativo == "3" %}selected{% endif %}>Marzo</option>
+                    <option value="4" {% if mes_operativo == "4" %}selected{% endif %}>Abril</option>
+                    <option value="5" {% if mes_operativo == "5" %}selected{% endif %}>Mayo</option>
+                    <option value="6" {% if mes_operativo == "6" %}selected{% endif %}>Junio</option>
+                    <option value="7" {% if mes_operativo == "7" %}selected{% endif %}>Julio</option>
+                    <option value="8" {% if mes_operativo == "8" %}selected{% endif %}>Agosto</option>
+                    <option value="9" {% if mes_operativo == "9" %}selected{% endif %}>Septiembre</option>
+                    <option value="10" {% if mes_operativo == "10" %}selected{% endif %}>Octubre</option>
+                    <option value="11" {% if mes_operativo == "11" %}selected{% endif %}>Noviembre</option>
+                    <option value="12" {% if mes_operativo == "12" %}selected{% endif %}>Diciembre</option>
+                </select>
+            </div>
+
+            <div class="col-md-1">
+                <label class="form-label fw-bold">Año</label>
+                <select name="anio_operativo" class="form-select">
+                    <option value="">--</option>
+                    {% for a in rango_anios %}
+                    <option value="{{ a }}" {% if anio_operativo == a|stringformat:"d" %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if fecha_inicio_op and fecha_fin_op %}
+            <div class="col-md-3 d-flex align-items-end">
+                <span class="badge bg-dark fs-6 px-3 py-2">
+                    <i class="fas fa-calendar me-1"></i>
+                    {{ fecha_inicio_op|date:"d/m/Y" }} — {{ fecha_fin_op|date:"d/m/Y" }}
+                </span>
+            </div>
+            {% endif %}
             
             <div class="col-md-2">
                 <label class="form-label fw-bold">Familia</label>
@@ -240,10 +278,10 @@
                         <small class="text-muted d-block">{{ item.unidad }}</small>
                     </td>
                     <td class="text-end">
-                        S/ {{ item.precio_unitario|floatformat:2 }}
+                        $ {{ item.precio_unitario|floatformat:2 }}
                     </td>
                     <td class="text-end">
-                        <strong class="text-success">S/ {{ item.precio_total|floatformat:2 }}</strong>
+                        <strong class="text-success">$ {{ item.precio_total|floatformat:2 }}</strong>
                     </td>
                     <td>
                         <small class="text-muted">{{ item.documento }}</small>

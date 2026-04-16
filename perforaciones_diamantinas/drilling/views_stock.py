@@ -630,6 +630,20 @@ def lista_abastecimientos(request):
     busqueda = request.GET.get('busqueda', '')
     fecha_inicio = request.GET.get('fecha_inicio', '')
     fecha_fin = request.GET.get('fecha_fin', '')
+    mes_operativo = request.GET.get('mes_operativo', '')
+    anio_operativo = request.GET.get('anio_operativo', '')
+    
+    # Si se selecciona mes operativo, calcular rango de fechas
+    fecha_inicio_op = None
+    fecha_fin_op = None
+    if mes_operativo and anio_operativo:
+        from .utils.periodo_operativo import get_rango_mes_operativo
+        try:
+            fecha_inicio_op, fecha_fin_op = get_rango_mes_operativo(
+                int(anio_operativo), int(mes_operativo)
+            )
+        except (ValueError, TypeError):
+            pass
     
     # Queryset base
     abastecimientos = AbastecimientoArticulo.objects.filter(
@@ -653,6 +667,12 @@ def lista_abastecimientos(request):
     
     if fecha_fin:
         abastecimientos = abastecimientos.filter(fecha__lte=fecha_fin)
+    
+    # Filtro mes operativo (sobreescribe fecha_inicio/fecha_fin si está activo)
+    if fecha_inicio_op and fecha_fin_op:
+        abastecimientos = abastecimientos.filter(
+            fecha__gte=fecha_inicio_op, fecha__lte=fecha_fin_op
+        )
     
     # Ordenar
     abastecimientos = abastecimientos.order_by('-fecha', '-fecha_sincronizacion')
@@ -701,6 +721,10 @@ def lista_abastecimientos(request):
     # Obtener todas las familias disponibles para el filtro
     familias_disponibles = AbastecimientoArticulo.objects.values_list('familia', flat=True).distinct().order_by('familia')
     
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    today = timezone.now().date()
+    
     context = {
         'contratos': contratos,
         'contrato': contrato,
@@ -711,6 +735,12 @@ def lista_abastecimientos(request):
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
         'familias_disponibles': familias_disponibles,
+        'mes_operativo': mes_operativo,
+        'anio_operativo': anio_operativo,
+        'fecha_inicio_op': fecha_inicio_op,
+        'fecha_fin_op': fecha_fin_op,
+        'meses': MESES,
+        'rango_anios': range(2025, today.year + 2),
     }
     
     return render(request, 'drilling/abastecimientos/lista.html', context)
