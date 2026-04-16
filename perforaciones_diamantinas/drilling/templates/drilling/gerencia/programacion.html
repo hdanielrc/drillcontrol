@@ -1,5 +1,6 @@
 {% extends 'drilling/base.html' %}
 {% load static %}
+{% load l10n %}
 
 {% block extra_css %}
 <style>
@@ -336,7 +337,7 @@
                     <!-- INGRESADO -->
                     <td class="celda-ingresada">
                         <input type="number" class="inp-meta" min="0" step="0.01"
-                               value="{{ fila.meta|default_if_none:'' }}"
+                               value="{% if fila.meta %}{{ fila.meta|unlocalize }}{% endif %}"
                                placeholder="0.00"
                                onchange="recalcularFila(this.closest('tr'))"
                                title="Meta total del mes en metros">
@@ -353,16 +354,16 @@
                     <!-- CALCULADO -->
                     <td class="celda-calc dias-trab">{{ fila.dias_trabajados|default_if_none:'—' }}</td>
                     <td class="celda-calc programa">
-                        {% if fila.programa %}{{ fila.programa|floatformat:2 }}{% else %}—{% endif %}
+                        {% if fila.programa %}{{ fila.programa|unlocalize }}{% else %}—{% endif %}
                     </td>
                     <td class="celda-calc meta-dia">
-                        {% if fila.meta_dia %}{{ fila.meta_dia|floatformat:2 }}{% else %}—{% endif %}
+                        {% if fila.meta_dia %}{{ fila.meta_dia|unlocalize }}{% else %}—{% endif %}
                     </td>
                     <td class="celda-calc meta-turno">
-                        {% if fila.meta_turno %}{{ fila.meta_turno|floatformat:2 }}{% else %}—{% endif %}
+                        {% if fila.meta_turno %}{{ fila.meta_turno|unlocalize }}{% else %}—{% endif %}
                     </td>
                     <td class="celda-calc prog-final">
-                        {% if fila.programa_final %}{{ fila.programa_final|floatformat:2 }}{% else %}—{% endif %}
+                        {% if fila.programa_final %}{{ fila.programa_final|unlocalize }}{% else %}—{% endif %}
                     </td>
 
                     <!-- ACCIÓN -->
@@ -391,9 +392,9 @@
                         {% if dia_cal.td.override_id %}data-override-id="{{ dia_cal.td.override_id }}"{% endif %}
                         title="{% if dia_cal.td.estado %}Turno {{ dia_cal.td.estado }}{% else %}Sin turno{% endif %}{% if dia_cal.td.es_override %} — Valor personalizado{% endif %}">
                         <input type="number" class="cal-input"
-                               value="{{ dia_cal.td.valor|floatformat:2 }}"
+                               value="{{ dia_cal.td.valor|unlocalize }}"
                                min="0" step="0.01"
-                               data-default="{{ fila.meta_turno|default_if_none:0 }}"
+                               data-default="{% if fila.meta_turno %}{{ fila.meta_turno|unlocalize }}{% else %}0{% endif %}"
                                {% if not dia_cal.activo %}disabled{% endif %}>
                     </td>
                     {# ── Celda TN ── #}
@@ -407,9 +408,9 @@
                         {% if dia_cal.tn.override_id %}data-override-id="{{ dia_cal.tn.override_id }}"{% endif %}
                         title="{% if dia_cal.tn.estado %}Turno {{ dia_cal.tn.estado }}{% else %}Sin turno{% endif %}{% if dia_cal.tn.es_override %} — Valor personalizado{% endif %}">
                         <input type="number" class="cal-input"
-                               value="{{ dia_cal.tn.valor|floatformat:2 }}"
+                               value="{{ dia_cal.tn.valor|unlocalize }}"
                                min="0" step="0.01"
-                               data-default="{{ fila.meta_turno|default_if_none:0 }}"
+                               data-default="{% if fila.meta_turno %}{{ fila.meta_turno|unlocalize }}{% else %}0{% endif %}"
                                {% if not dia_cal.activo %}disabled{% endif %}>
                     </td>
                     {% endfor %}

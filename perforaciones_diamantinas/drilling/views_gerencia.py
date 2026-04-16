@@ -10,7 +10,7 @@ from decimal import Decimal
 from collections import defaultdict
 from .models import (
     Turno, TurnoAvance, Maquina, Trabajador, Contrato,
-    TurnoActividad, Sondaje, MetaDiariaMaquina, ProgramacionMes, TipoTurno, MetaTurno
+    TurnoActividad, Sondaje, ProgramacionMes, TipoTurno, MetaTurno
 )
 
 
@@ -279,7 +279,7 @@ def gerencia_dashboard(request):
     sondajes_completados = Sondaje.objects.filter(estado='FINALIZADO').count()
 
     # ============================================
-    # METAS DIARIAS: suma de metas por máquina por día
+    # METAS DIARIAS: calculadas desde ProgramacionMes
     # ============================================
     # Obtener máquinas del filtro actual
     if contrato_id:
@@ -287,21 +287,12 @@ def gerencia_dashboard(request):
     else:
         maquinas_filtro = Maquina.objects.all()
 
-    # Traer todos los registros de MetaDiariaMaquina relevantes
-    # (vigentes hasta fecha_fin del período, para todas las máquinas del filtro)
-    metas_diarias_qs = MetaDiariaMaquina.objects.filter(
+    año_op, mes_op = _mes_operativo_de_fecha(fecha_inicio + timedelta(days=15))
+    progs_periodo = ProgramacionMes.objects.filter(
         maquina__in=maquinas_filtro,
-        fecha_vigencia__lte=fecha_fin
-    ).order_by('maquina_id', 'fecha_vigencia').values(
-        'maquina_id', 'fecha_vigencia', 'meta_metros_dia'
-    )
-
-    # Agrupar por máquina: [(fecha_vigencia, meta_metros_dia), ...]
-    metas_por_maquina = defaultdict(list)
-    for r in metas_diarias_qs:
-        metas_por_maquina[r['maquina_id']].append(
-            (r['fecha_vigencia'], float(r['meta_metros_dia']))
-        )
+        año=año_op,
+        mes=mes_op,
+    ).select_related('maquina')
 
     # Para cada día del período calcular la suma de metas
     metraje_diario_meta_dict = {}
@@ -309,16 +300,10 @@ def gerencia_dashboard(request):
     for dia_num in range(1, dias_periodo_total + 1):
         fecha_dia = fecha_inicio + timedelta(days=dia_num - 1)
         total_meta_dia = 0.0
-        for rates in metas_por_maquina.values():
-            # Encontrar la última vigencia <= fecha_dia
-            meta_vigente = None
-            for fecha_vig, metros_dia in rates:
-                if fecha_vig <= fecha_dia:
-                    meta_vigente = metros_dia
-                else:
-                    break
-            if meta_vigente is not None:
-                total_meta_dia += meta_vigente
+        for prog in progs_periodo:
+            if prog.dia_inicio and fecha_dia >= prog.dia_inicio and prog.meta_metros:
+                meta_dia = float(prog.meta_metros) / 30
+                total_meta_dia += meta_dia
         if total_meta_dia > 0:
             metraje_diario_meta_dict[dia_num] = round(total_meta_dia, 2)
     
@@ -471,97 +456,6 @@ def gerencia_dashboard(request):
     }
     
     return render(request, 'drilling/gerencia/dashboard.html', context)
-
-
-# =============================================================================
-# AJAX: Metas Diarias por Máquina
-# =============================================================================
-
-@login_required
-@gerente_required
-@require_http_methods(["GET"])
-def metas_diarias_list(request):
-    """Devuelve los registros de MetaDiariaMaquina para las máquinas del contrato.
-    Con all_machines=1 también incluye la lista completa de máquinas disponibles.
-    """
-    contrato_id = request.GET.get('contrato_id')
-    all_machines = request.GET.get('all_machines') == '1'
-
-    qs = MetaDiariaMaquina.objects.select_related('maquina', 'maquina__contrato')
-    if contrato_id:
-        qs = qs.filter(maquina__contrato_id=contrato_id)
-
-    data = [
-        {
-            'id': r.id,
-            'maquina_id': r.maquina_id,
-            'maquina_nombre': r.maquina.nombre,
-            'contrato_nombre': r.maquina.contrato.nombre_contrato,
-            'fecha_vigencia': r.fecha_vigencia.strftime('%Y-%m-%d'),
-            'meta_metros_dia': float(r.meta_metros_dia),
-            'observaciones': r.observaciones,
-        }
-        for r in qs.order_by('maquina__nombre', 'fecha_vigencia')
-    ]
-
-    response = {'metas': data}
-
-    if all_machines:
-        mqs = Maquina.objects.select_related('contrato').filter(estado='OPERATIVO')
-        if contrato_id:
-            mqs = mqs.filter(contrato_id=contrato_id)
-        response['maquinas'] = [
-            {'id': m.id, 'nombre': m.nombre, 'contrato': m.contrato.nombre_contrato}
-            for m in mqs.order_by('nombre')
-        ]
-
-    return JsonResponse(response)
-
-
-@login_required
-@gerente_required
-@require_http_methods(["POST"])
-def metas_diarias_create(request):
-    """Crea o actualiza un registro de MetaDiariaMaquina."""
-    try:
-        body = json.loads(request.body)
-        maquina_id = int(body['maquina_id'])
-        fecha_vigencia = date_class.fromisoformat(body['fecha_vigencia'])
-        meta_metros_dia = Decimal(str(body['meta_metros_dia']))
-        observaciones = body.get('observaciones', '')
-    except (KeyError, ValueError, TypeError) as e:
-        return JsonResponse({'error': f'Datos inválidos: {e}'}, status=400)
-
-    maquina = get_object_or_404(Maquina, pk=maquina_id)
-
-    obj, created = MetaDiariaMaquina.objects.update_or_create(
-        maquina=maquina,
-        fecha_vigencia=fecha_vigencia,
-        defaults={
-            'meta_metros_dia': meta_metros_dia,
-            'observaciones': observaciones,
-            'created_by': request.user,
-        }
-    )
-
-    return JsonResponse({
-        'id': obj.id,
-        'maquina_id': obj.maquina_id,
-        'maquina_nombre': obj.maquina.nombre,
-        'fecha_vigencia': obj.fecha_vigencia.strftime('%Y-%m-%d'),
-        'meta_metros_dia': float(obj.meta_metros_dia),
-        'created': created,
-    }, status=201 if created else 200)
-
-
-@login_required
-@gerente_required
-@require_http_methods(["DELETE"])
-def metas_diarias_delete(request, pk):
-    """Elimina un registro de MetaDiariaMaquina."""
-    meta = get_object_or_404(MetaDiariaMaquina, pk=pk)
-    meta.delete()
-    return JsonResponse({'deleted': True})
 
 
 # =============================================================================
