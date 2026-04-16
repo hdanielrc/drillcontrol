@@ -120,57 +120,42 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING('  ⚠️  Sin trabajadores asignados, omitiendo...'))
                     continue
                 
-                # Buscar configuración aplicable usando las reglas hardcoded por contrato
+                # Buscar configuración aplicable desde BD
                 from decimal import Decimal
                 
-                REGLAS_HORAS_EXTRAS = {
-                    'AMERICANA': {'metros_minimos': Decimal('25.00'), 'horas_extra': Decimal('1.00')},
-                    'COLQUISIRI': {'metros_minimos': Decimal('15.00'), 'horas_extra': Decimal('1.00')},
-                }
+                configuraciones = ConfiguracionHoraExtra.objects.filter(
+                    contrato=turno.contrato,
+                    activo=True
+                )
                 
-                nombre_contrato = turno.contrato.nombre_contrato.upper().strip()
-                
-                # Buscar regla específica por nombre de contrato
                 regla = None
-                for contrato_key, config in REGLAS_HORAS_EXTRAS.items():
-                    if contrato_key in nombre_contrato:
-                        regla = config
-                        break
+                config_aplicable = None
                 
-                # Si no hay regla hardcoded, buscar en configuración de BD
-                if not regla:
-                    configuraciones = ConfiguracionHoraExtra.objects.filter(
-                        contrato=turno.contrato,
-                        activo=True
-                    )
-                    
-                    config_aplicable = None
-                    
-                    # Buscar configuración específica de la máquina
+                # Buscar configuración específica de la máquina
+                for config in configuraciones:
+                    if config.maquina and config.maquina_id == turno.maquina_id:
+                        if config.aplica_para_turno(turno, avance.metros_perforados):
+                            config_aplicable = config
+                            break
+                
+                # Si no hay configuración específica, buscar general
+                if not config_aplicable:
                     for config in configuraciones:
-                        if config.maquina and config.maquina_id == turno.maquina_id:
+                        if not config.maquina:
                             if config.aplica_para_turno(turno, avance.metros_perforados):
                                 config_aplicable = config
                                 break
-                    
-                    # Si no hay configuración específica, buscar general
-                    if not config_aplicable:
-                        for config in configuraciones:
-                            if not config.maquina:
-                                if config.aplica_para_turno(turno, avance.metros_perforados):
-                                    config_aplicable = config
-                                    break
-                    
-                    if config_aplicable:
-                        regla = {
-                            'metros_minimos': config_aplicable.metros_minimos,
-                            'horas_extra': config_aplicable.horas_extra,
-                            'config_obj': config_aplicable
-                        }
+                
+                if config_aplicable:
+                    regla = {
+                        'metros_minimos': config_aplicable.metros_minimos,
+                        'horas_extra': config_aplicable.horas_extra,
+                        'config_obj': config_aplicable
+                    }
                 
                 # Verificar si aplica horas extras (metraje > mínimo, no >=)
-                if regla and avance.metros_perforados > regla['metros_minimos']:
-                    self.stdout.write(self.style.SUCCESS(f"  ✓ Aplica regla: >{regla['metros_minimos']}m → {regla['horas_extra']}h"))
+                if regla and avance.metros_perforados >= regla['metros_minimos']:
+                    self.stdout.write(self.style.SUCCESS(f"  ✓ Aplica regla: >={regla['metros_minimos']}m → {regla['horas_extra']}h"))
                     
                     if not dry_run:
                         with transaction.atomic():
@@ -187,7 +172,7 @@ class Command(BaseCommand):
                                         horas_extra=regla['horas_extra'],
                                         metros_turno=avance.metros_perforados,
                                         configuracion_aplicada=regla.get('config_obj'),
-                                        observaciones=f'Recalculado automáticamente. Metraje: {avance.metros_perforados}m > {regla["metros_minimos"]}m'
+                                        observaciones=f'Recalculado automáticamente. Metraje: {avance.metros_perforados}m >= {regla["metros_minimos"]}m'
                                     )
                                 )
                             
@@ -203,7 +188,7 @@ class Command(BaseCommand):
                     turnos_con_horas_extras += 1
                     self.stdout.write(self.style.SUCCESS(f"  ✓ {trabajadores_count} trabajadores recibirán {regla['horas_extra']}h extra"))
                 else:
-                    self.stdout.write(self.style.WARNING(f"  - No aplica (metraje: {avance.metros_perforados}m, se requiere >{regla['metros_minimos'] if regla else '?'}m)"))
+                    self.stdout.write(self.style.WARNING(f"  - No aplica (metraje: {avance.metros_perforados}m, se requiere >={regla['metros_minimos'] if regla else '?'}m)"))
                     
                     if not dry_run:
                         # Eliminar horas extras si existían

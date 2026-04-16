@@ -2811,63 +2811,46 @@ class TurnoAvance(models.Model):
     def calcular_horas_extras(self):
         """
         Calcula y asigna horas extras a todos los trabajadores del turno
-        según las reglas específicas por contrato:
-        
-        - Americana: > 25 metros → 1 hora extra
-        - Colquisiri: > 15 metros → 1 hora extra
+        según la configuración en BD (ConfiguracionHoraExtra).
         """
         from decimal import Decimal
         
-        # Reglas de horas extras por contrato (nombre del contrato)
-        REGLAS_HORAS_EXTRAS = {
-            'AMERICANA': {'metros_minimos': Decimal('25.00'), 'horas_extra': Decimal('1.00')},
-            'COLQUISIRI': {'metros_minimos': Decimal('15.00'), 'horas_extra': Decimal('1.00')},
-        }
-        
-        # Obtener nombre del contrato en mayúsculas para comparación
         nombre_contrato = self.turno.contrato.nombre_contrato.upper().strip()
         
-        # Buscar si existe una regla para este contrato
-        regla = None
-        for contrato_key, config in REGLAS_HORAS_EXTRAS.items():
-            if contrato_key in nombre_contrato:
-                regla = config
-                break
+        # Buscar configuración en BD
+        configuraciones = ConfiguracionHoraExtra.objects.filter(
+            contrato=self.turno.contrato,
+            activo=True
+        ).select_related('maquina')
         
-        # Si no hay regla específica, buscar configuración en BD (fallback)
-        if not regla:
-            configuraciones = ConfiguracionHoraExtra.objects.filter(
-                contrato=self.turno.contrato,
-                activo=True
-            ).select_related('maquina')
-            
-            config_aplicable = None
-            
-            # Primero buscar configuración específica de la máquina
+        regla = None
+        config_aplicable = None
+        
+        # Primero buscar configuración específica de la máquina
+        for config in configuraciones:
+            if config.maquina and config.maquina_id == self.turno.maquina_id:
+                if config.aplica_para_turno(self.turno, self.metros_perforados):
+                    config_aplicable = config
+                    break
+        
+        # Si no hay configuración específica, buscar configuración general
+        if not config_aplicable:
             for config in configuraciones:
-                if config.maquina and config.maquina_id == self.turno.maquina_id:
+                if not config.maquina:
                     if config.aplica_para_turno(self.turno, self.metros_perforados):
                         config_aplicable = config
                         break
-            
-            # Si no hay configuración específica, buscar configuración general
-            if not config_aplicable:
-                for config in configuraciones:
-                    if not config.maquina:
-                        if config.aplica_para_turno(self.turno, self.metros_perforados):
-                            config_aplicable = config
-                            break
-            
-            if config_aplicable:
-                regla = {
-                    'metros_minimos': config_aplicable.metros_minimos,
-                    'horas_extra': config_aplicable.horas_extra,
-                    'config_obj': config_aplicable
-                }
+        
+        if config_aplicable:
+            regla = {
+                'metros_minimos': config_aplicable.metros_minimos,
+                'horas_extra': config_aplicable.horas_extra,
+                'config_obj': config_aplicable
+            }
         
         # Verificar si se cumplen las condiciones para otorgar horas extras
         aplica_horas_extras = False
-        if regla and self.metros_perforados > regla['metros_minimos']:
+        if regla and self.metros_perforados >= regla['metros_minimos']:
             aplica_horas_extras = True
         
         # Eliminar horas extras previas de este turno (por si se está actualizando)
