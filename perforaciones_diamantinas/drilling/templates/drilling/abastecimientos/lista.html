@@ -196,6 +196,16 @@
                     {% endfor %}
                 </select>
             </div>
+
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Cód. Movimiento</label>
+                <select name="codigo_movimiento" class="form-select">
+                    <option value="">Todos</option>
+                    {% for cm in codigos_movimiento %}
+                        <option value="{{ cm }}" {% if codigo_mov == cm %}selected{% endif %}>{{ cm }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             
             <div class="col-md-2">
                 <label class="form-label fw-bold">Fecha Inicio</label>

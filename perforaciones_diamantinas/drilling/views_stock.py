@@ -632,6 +632,7 @@ def lista_abastecimientos(request):
     fecha_fin = request.GET.get('fecha_fin', '')
     mes_operativo = request.GET.get('mes_operativo', '')
     anio_operativo = request.GET.get('anio_operativo', '')
+    codigo_mov = request.GET.get('codigo_movimiento', '')
     
     # Si se selecciona mes operativo, calcular rango de fechas
     fecha_inicio_op = None
@@ -661,6 +662,9 @@ def lista_abastecimientos(request):
             Q(serie__icontains=busqueda) |
             Q(documento__icontains=busqueda)
         )
+    
+    if codigo_mov:
+        abastecimientos = abastecimientos.filter(codigo_movimiento=codigo_mov)
     
     if fecha_inicio:
         abastecimientos = abastecimientos.filter(fecha__gte=fecha_inicio)
@@ -720,6 +724,9 @@ def lista_abastecimientos(request):
     
     # Obtener todas las familias disponibles para el filtro
     familias_disponibles = AbastecimientoArticulo.objects.values_list('familia', flat=True).distinct().order_by('familia')
+    codigos_movimiento = AbastecimientoArticulo.objects.filter(
+        contrato=contrato
+    ).values_list('codigo_movimiento', flat=True).distinct().order_by('codigo_movimiento')
     
     MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -735,6 +742,8 @@ def lista_abastecimientos(request):
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
         'familias_disponibles': familias_disponibles,
+        'codigos_movimiento': codigos_movimiento,
+        'codigo_mov': codigo_mov,
         'mes_operativo': mes_operativo,
         'anio_operativo': anio_operativo,
         'fecha_inicio_op': fecha_inicio_op,
