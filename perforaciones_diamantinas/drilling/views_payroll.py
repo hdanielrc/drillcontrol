@@ -805,6 +805,8 @@ def conceptos_globales(request):
         _auto_cargar_datos,
         calcular_concepto_global,
     )
+    import logging
+    logger = logging.getLogger('drilling')
 
     user = request.user
     today = date.today()
@@ -829,6 +831,7 @@ def conceptos_globales(request):
     conceptos = ConceptoGlobal.objects.filter(activo=True).order_by('orden')
 
     datos_por_contrato = {}
+    debug_autocarga = []
     for contrato in contratos:
         # Inicializar si no existen
         inicializar_conceptos_periodo(contrato, anio, mes)
@@ -841,9 +844,24 @@ def conceptos_globales(request):
         # para que reflejen el estado actual de los reportes
         for cgp in periodos:
             if cgp.concepto.tipo in ('PRODUCCION', 'CXM'):
-                _auto_cargar_datos(cgp, anio, mes)
-                calcular_concepto_global(cgp)
-                cgp.save()
+                try:
+                    _auto_cargar_datos(cgp, anio, mes)
+                    calcular_concepto_global(cgp)
+                    cgp.save()
+                    debug_autocarga.append(
+                        f"OK {cgp.concepto.codigo}/{contrato.nombre_contrato}: "
+                        f"metros={cgp.metros_acumulados}, meta={cgp.meta_programada}, "
+                        f"maquinas={cgp.cantidad_maquinas}"
+                    )
+                except Exception as e:
+                    debug_autocarga.append(
+                        f"ERROR {cgp.concepto.codigo}/{contrato.nombre_contrato}: {e}"
+                    )
+                    logger.error(
+                        f"[ConceptosGlobales] Error auto-cargando {cgp.concepto.codigo} "
+                        f"contrato={contrato.nombre_contrato}: {e}",
+                        exc_info=True,
+                    )
 
         datos_por_contrato[contrato] = list(periodos)
 
@@ -861,6 +879,7 @@ def conceptos_globales(request):
         'contratos_disponibles': Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato') if user.has_access_to_all_contracts() else contratos,
         'contrato_seleccionado': contrato_id,
         'rango_anios': range(2025, today.year + 2),
+        'debug_autocarga': debug_autocarga,
     }
     return render(request, 'drilling/planilla/conceptos_globales.html', context)
 
@@ -1015,7 +1034,19 @@ def api_diagnostico_conceptos(request):
     anio = int(request.GET.get('anio', date.today().year))
     mes = int(request.GET.get('mes', date.today().month))
 
-    contrato = get_object_or_404(Contrato, pk=contrato_id)
+    # Acepta ID numérico o nombre parcial del contrato
+    if contrato_id and contrato_id.isdigit():
+        contrato = get_object_or_404(Contrato, pk=int(contrato_id))
+    elif contrato_id:
+        contrato = Contrato.objects.filter(
+            nombre_contrato__icontains=contrato_id
+        ).first()
+        if not contrato:
+            return JsonResponse({'error': f'No se encontró contrato con nombre "{contrato_id}"'}, status=404)
+    else:
+        # Listar contratos disponibles
+        contratos = list(Contrato.objects.filter(estado='ACTIVO').values('id', 'nombre_contrato'))
+        return JsonResponse({'error': 'Falta contrato_id', 'contratos_disponibles': contratos})
     fecha_inicio, fecha_fin = get_rango_mes_operativo(anio, mes)
 
     # 1. Máquinas operativas
@@ -1080,6 +1111,41 @@ def api_diagnostico_conceptos(request):
         avance__isnull=False,
     ).count()
 
+    # 8. Test directo de las funciones de auto-carga
+    from .utils.conceptos_globales_engine import (
+        cargar_metros_acumulados,
+        cargar_meta_programada,
+        cargar_cantidad_maquinas,
+    )
+    test_autocarga = {}
+    try:
+        metros = cargar_metros_acumulados(contrato, fecha_inicio, fecha_fin)
+        test_autocarga['metros_acumulados'] = float(metros)
+    except Exception as e:
+        test_autocarga['metros_acumulados_error'] = str(e)
+
+    try:
+        meta = cargar_meta_programada(contrato, anio, mes)
+        test_autocarga['meta_programada'] = float(meta)
+    except Exception as e:
+        test_autocarga['meta_programada_error'] = str(e)
+
+    try:
+        maq = cargar_cantidad_maquinas(contrato)
+        test_autocarga['cantidad_maquinas'] = maq
+    except Exception as e:
+        test_autocarga['cantidad_maquinas_error'] = str(e)
+
+    # 9. Estado actual de ConceptoGlobalPeriodo
+    from .models_payroll import ConceptoGlobalPeriodo
+    cgps = list(ConceptoGlobalPeriodo.objects.filter(
+        contrato=contrato, anio=anio, mes=mes,
+    ).select_related('concepto').values(
+        'id', 'concepto__codigo', 'concepto__tipo',
+        'metros_acumulados', 'meta_programada', 'cantidad_maquinas',
+        'valor_calculado', 'porcentaje_bono',
+    ))
+
     return JsonResponse({
         'contrato': contrato.nombre_contrato,
         'periodo': f'{fecha_inicio} a {fecha_fin}',
@@ -1099,4 +1165,6 @@ def api_diagnostico_conceptos(request):
         'muestra_avances': samples,
         'programacion_mes': progs,
         'turnos_sin_avance': turnos_sin_avance,
+        'test_autocarga': test_autocarga,
+        'conceptos_globales_periodo_actual': cgps,
     })

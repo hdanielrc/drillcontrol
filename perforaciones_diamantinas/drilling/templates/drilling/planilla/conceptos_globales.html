@@ -75,6 +75,17 @@
     </div>
     {% endif %}
 
+    {% if debug_autocarga %}
+    <div class="alert alert-secondary small py-2 mb-3">
+        <strong><i class="fas fa-bug me-1"></i> Debug Auto-carga:</strong>
+        <ul class="mb-0 mt-1">
+        {% for msg in debug_autocarga %}
+            <li>{{ msg }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
     <!-- Datos por contrato -->
     {% for contrato, periodos in datos_por_contrato.items %}
     <div class="card shadow-sm border-0 mb-4">
