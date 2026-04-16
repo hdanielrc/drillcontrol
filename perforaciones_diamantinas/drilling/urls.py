@@ -392,4 +392,5 @@ urlpatterns = [
     path('planilla/conceptos-globales/guardar/', views_payroll.conceptos_globales_guardar, name='planilla-conceptos-globales-guardar'),
     path('planilla/conceptos-globales/calcular/', views_payroll.conceptos_globales_calcular, name='planilla-conceptos-globales-calcular'),
     path('planilla/api/conceptos-globales/<int:contrato_id>/<int:anio>/<int:mes>/', views_payroll.api_conceptos_globales_contrato, name='planilla-api-conceptos-globales'),
+    path('planilla/api/diagnostico-conceptos/', views_payroll.api_diagnostico_conceptos, name='planilla-api-diagnostico-conceptos'),
 ]

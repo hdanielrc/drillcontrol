@@ -999,3 +999,104 @@ def api_conceptos_globales_contrato(request, contrato_id, anio, mes):
         }
 
     return JsonResponse(data)
+
+
+@login_required
+def api_diagnostico_conceptos(request):
+    """
+    Diagnóstico: muestra qué datos encuentra el sistema para cargar metros y metas.
+    GET params: contrato_id, anio, mes
+    """
+    from django.db.models import Sum, Count
+    from .models import TurnoAvance, Turno, Maquina, ProgramacionMes, MetaTurno
+    from .utils.periodo_operativo import get_rango_mes_operativo
+
+    contrato_id = request.GET.get('contrato_id')
+    anio = int(request.GET.get('anio', date.today().year))
+    mes = int(request.GET.get('mes', date.today().month))
+
+    contrato = get_object_or_404(Contrato, pk=contrato_id)
+    fecha_inicio, fecha_fin = get_rango_mes_operativo(anio, mes)
+
+    # 1. Máquinas operativas
+    maquinas = list(Maquina.objects.filter(
+        contrato=contrato, estado='OPERATIVO'
+    ).values('id', 'nombre', 'estado'))
+
+    maquinas_todas = list(Maquina.objects.filter(
+        contrato=contrato
+    ).values('id', 'nombre', 'estado'))
+
+    # 2. Turnos en el período
+    turnos_por_estado = list(Turno.objects.filter(
+        contrato=contrato,
+        fecha__gte=fecha_inicio,
+        fecha__lte=fecha_fin,
+    ).values('estado').annotate(cnt=Count('id')))
+
+    # 3. TurnoAvance en el período (todos los estados)
+    avance_todos = TurnoAvance.objects.filter(
+        turno__contrato=contrato,
+        turno__fecha__gte=fecha_inicio,
+        turno__fecha__lte=fecha_fin,
+    ).aggregate(
+        total=Sum('metros_perforados'),
+        count=Count('id'),
+    )
+
+    # 4. TurnoAvance solo COMPLETADO/APROBADO
+    avance_filtrado = TurnoAvance.objects.filter(
+        turno__contrato=contrato,
+        turno__fecha__gte=fecha_inicio,
+        turno__fecha__lte=fecha_fin,
+        turno__estado__in=['COMPLETADO', 'APROBADO'],
+    ).aggregate(
+        total=Sum('metros_perforados'),
+        count=Count('id'),
+    )
+
+    # 5. Muestra de TurnoAvance
+    samples = list(TurnoAvance.objects.filter(
+        turno__contrato=contrato,
+        turno__fecha__gte=fecha_inicio,
+        turno__fecha__lte=fecha_fin,
+    ).select_related('turno', 'turno__maquina').values(
+        'turno__fecha', 'turno__estado', 'turno__maquina__nombre',
+        'metros_perforados',
+    ).order_by('-turno__fecha')[:10])
+
+    # 6. ProgramacionMes
+    maquinas_ids = [m['id'] for m in maquinas]
+    progs = list(ProgramacionMes.objects.filter(
+        maquina_id__in=maquinas_ids, año=anio, mes=mes,
+    ).values('maquina__nombre', 'meta_metros', 'dia_inicio'))
+
+    # 7. Turnos sin TurnoAvance (posible causa: reportes sin avance creado)
+    turnos_sin_avance = Turno.objects.filter(
+        contrato=contrato,
+        fecha__gte=fecha_inicio,
+        fecha__lte=fecha_fin,
+    ).exclude(
+        avance__isnull=False,
+    ).count()
+
+    return JsonResponse({
+        'contrato': contrato.nombre_contrato,
+        'periodo': f'{fecha_inicio} a {fecha_fin}',
+        'anio': anio,
+        'mes': mes,
+        'maquinas_operativas': maquinas,
+        'maquinas_todas': maquinas_todas,
+        'turnos_por_estado': turnos_por_estado,
+        'turno_avance_todos_estados': {
+            'total_metros': float(avance_todos['total'] or 0),
+            'count': avance_todos['count'],
+        },
+        'turno_avance_completado_aprobado': {
+            'total_metros': float(avance_filtrado['total'] or 0),
+            'count': avance_filtrado['count'],
+        },
+        'muestra_avances': samples,
+        'programacion_mes': progs,
+        'turnos_sin_avance': turnos_sin_avance,
+    })
