@@ -1,5 +1,6 @@
 {% extends base_template %}
 {% load static %}
+{% load l10n %}
 
 {% block title %}Conceptos Globales — Mes Operativo {{ mes_nombre }} {{ anio }}{% endblock %}
 
@@ -135,7 +136,7 @@
                                         </label>
                                         <input type="number" step="0.01"
                                                class="form-control form-control-sm campo-entrada bg-light"
-                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}"
+                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados|unlocalize }}"
                                                readonly title="Total de TurnoAvance del mes operativo">
                                     </div>
                                     <div class="col-md-4">
@@ -145,7 +146,7 @@
                                         </label>
                                         <input type="number" step="0.01"
                                                class="form-control form-control-sm campo-entrada bg-light"
-                                               data-campo="meta_programada" value="{{ cgp.meta_programada }}"
+                                               data-campo="meta_programada" value="{{ cgp.meta_programada|unlocalize }}"
                                                readonly title="Suma de metas de todas las máquinas activas">
                                     </div>
                                     <div class="col-md-4">
@@ -155,7 +156,7 @@
                                         </label>
                                         <input type="number" step="1" min="0"
                                                class="form-control form-control-sm campo-entrada bg-light"
-                                               data-campo="cantidad_maquinas" value="{{ cgp.cantidad_maquinas }}"
+                                               data-campo="cantidad_maquinas" value="{{ cgp.cantidad_maquinas|unlocalize }}"
                                                readonly title="Cant. máquinas operativas del contrato">
                                     </div>
                                 </div>
@@ -165,7 +166,7 @@
                                     <div class="col-md-4">
                                         <label class="form-label small mb-0">Accidentes Incapacitantes</label>
                                         <input type="number" step="1" min="0" class="form-control form-control-sm campo-entrada"
-                                               data-campo="accidentes_incapacitantes" value="{{ cgp.accidentes_incapacitantes }}">
+                                               data-campo="accidentes_incapacitantes" value="{{ cgp.accidentes_incapacitantes|unlocalize }}">
                                     </div>
                                     <div class="col-md-8 d-flex align-items-end">
                                         <small class="text-muted"><i class="fas fa-edit me-1"></i> Ingreso manual — 0 accidentes = 100% bono</small>
@@ -177,7 +178,7 @@
                                     <div class="col-md-4">
                                         <label class="form-label small mb-0">Eficiencia de Cobro (%)</label>
                                         <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
-                                               data-campo="eficiencia_cobro" value="{{ cgp.eficiencia_cobro }}">
+                                               data-campo="eficiencia_cobro" value="{{ cgp.eficiencia_cobro|unlocalize }}">
                                     </div>
                                     <div class="col-md-8 d-flex align-items-end">
                                         <small class="text-muted"><i class="fas fa-edit me-1"></i> Ingreso manual — &ge; 99.7% = 100% bono</small>
@@ -189,7 +190,7 @@
                                     <div class="col-md-4">
                                         <label class="form-label small mb-0">Total Abastecido ($)</label>
                                         <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
-                                               data-campo="total_abastecido" value="{{ cgp.total_abastecido }}">
+                                               data-campo="total_abastecido" value="{{ cgp.total_abastecido|unlocalize }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small mb-0">
@@ -198,13 +199,13 @@
                                         </label>
                                         <input type="number" step="0.01"
                                                class="form-control form-control-sm campo-entrada bg-light"
-                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados }}"
+                                               data-campo="metros_acumulados" value="{{ cgp.metros_acumulados|unlocalize }}"
                                                readonly title="Total de TurnoAvance del mes operativo">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small mb-0">Meta CXM Programada</label>
                                         <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
-                                               data-campo="meta_cxm_programada" value="{{ cgp.meta_cxm_programada }}">
+                                               data-campo="meta_cxm_programada" value="{{ cgp.meta_cxm_programada|unlocalize }}">
                                     </div>
                                 </div>
 
@@ -213,7 +214,7 @@
                                     <div class="col-md-4">
                                         <label class="form-label small mb-0">Rentabilidad (%)</label>
                                         <input type="number" step="0.01" class="form-control form-control-sm campo-entrada"
-                                               data-campo="rentabilidad" value="{{ cgp.rentabilidad }}">
+                                               data-campo="rentabilidad" value="{{ cgp.rentabilidad|unlocalize }}">
                                     </div>
                                     <div class="col-md-8 d-flex align-items-end">
                                         <small class="text-muted"><i class="fas fa-edit me-1"></i> Ingreso manual — &ge; 25% = 100% bono</small>
