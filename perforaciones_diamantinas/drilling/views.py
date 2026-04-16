@@ -3282,6 +3282,17 @@ class StockDisponibleView(AdminOrContractFilterMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
+        contrato = self.request.user.contrato
+        # Admin sin contrato asignado o contrato query param
+        if contrato is None:
+            contrato_id = self.request.GET.get('contrato')
+            if contrato_id:
+                contrato = Contrato.objects.filter(pk=contrato_id).first()
+            if contrato is None:
+                context['stock_por_familia'] = {}
+                context['total_valor_stock'] = 0
+                return context
+        
         # Calcular stock disponible por producto
         stock_query = '''
             SELECT 
@@ -3306,7 +3317,7 @@ class StockDisponibleView(AdminOrContractFilterMixin, TemplateView):
         
         from django.db import connection
         with connection.cursor() as cursor:
-            cursor.execute(stock_query, [self.request.user.contrato.id])
+            cursor.execute(stock_query, [contrato.id])
             stock_data = cursor.fetchall()
         
         # Organizar por familia
