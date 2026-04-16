@@ -226,7 +226,10 @@
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <span class="valor-calculado fw-bold fs-6">{{ cgp.valor_calculado }}</span>
+                                <span class="valor-calculado fw-bold fs-6"
+                                      {% if cgp.concepto.tipo == 'PRODUCCION' %}data-raw="{{ cgp.valor_calculado|unlocalize }}"{% endif %}>
+                                    {{ cgp.valor_calculado }}
+                                </span>
                                 {% if cgp.concepto.tipo == 'PRODUCCION' %}
                                     <small class="text-muted d-block">cumplimiento</small>
                                 {% elif cgp.concepto.tipo == 'CXM' %}
@@ -275,6 +278,14 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Formatear valor calculado como porcentaje para filas PRODUCCION
+    document.querySelectorAll('tr[data-tipo="PRODUCCION"] .valor-calculado[data-raw]').forEach(el => {
+        const raw = parseFloat(el.dataset.raw);
+        if (!isNaN(raw)) {
+            el.textContent = (raw * 100).toFixed(2) + '%';
+        }
+    });
+
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
                       '{{ csrf_token }}';
 
@@ -323,7 +334,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.ok && data.resultados.length > 0) {
                 const res = data.resultados[0];
-                row.querySelector('.valor-calculado').textContent = res.valor_calculado.toFixed(4);
+                const tipo = row.dataset.tipo;
+                if (tipo === 'PRODUCCION') {
+                    row.querySelector('.valor-calculado').textContent = (res.valor_calculado * 100).toFixed(2) + '%';
+                } else {
+                    row.querySelector('.valor-calculado').textContent = res.valor_calculado.toFixed(4);
+                }
                 const badgeEl = row.querySelector('.porcentaje-bono');
                 badgeEl.textContent = res.porcentaje_bono.toFixed(2) + '%';
                 badgeEl.className = 'badge fs-6 porcentaje-bono ';
