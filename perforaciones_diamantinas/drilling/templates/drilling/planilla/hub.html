@@ -127,6 +127,22 @@
         </div>
     </div>
 
+    <!-- Estructura Salarial -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 border-danger">
+                <div class="card-body text-center py-3">
+                    <i class="fas fa-file-invoice-dollar fa-2x text-danger mb-2"></i>
+                    <h6>Estructura Salarial</h6>
+                    <p class="small text-muted mb-2">Sueldo, bonos por metraje, bonificación área por CTR y cargo</p>
+                    <a href="{% url 'planilla-estructura-salarial-list' %}" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-table me-1"></i> Gestionar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Últimos Períodos -->
     {% if periodos %}
     <div class="card shadow-sm border-0">

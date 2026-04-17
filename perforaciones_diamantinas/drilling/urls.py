@@ -389,4 +389,10 @@ urlpatterns = [
     path('planilla/conceptos-globales/calcular/', views_payroll.conceptos_globales_calcular, name='planilla-conceptos-globales-calcular'),
     path('planilla/api/conceptos-globales/<int:contrato_id>/<int:anio>/<int:mes>/', views_payroll.api_conceptos_globales_contrato, name='planilla-api-conceptos-globales'),
     path('planilla/api/diagnostico-conceptos/', views_payroll.api_diagnostico_conceptos, name='planilla-api-diagnostico-conceptos'),
+    # Estructura Salarial
+    path('planilla/estructura-salarial/', views_payroll.estructura_salarial_list, name='planilla-estructura-salarial-list'),
+    path('planilla/estructura-salarial/crear/', views_payroll.estructura_salarial_create, name='planilla-estructura-salarial-create'),
+    path('planilla/estructura-salarial/<int:pk>/editar/', views_payroll.estructura_salarial_edit, name='planilla-estructura-salarial-edit'),
+    path('planilla/estructura-salarial/<int:pk>/historial/', views_payroll.estructura_salarial_historial, name='planilla-estructura-salarial-historial'),
+    path('planilla/api/ctr-por-contrato/<int:contrato_id>/', views_payroll.api_ctr_por_contrato, name='planilla-api-ctr-contrato'),
 ]

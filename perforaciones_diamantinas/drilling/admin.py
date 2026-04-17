@@ -8,6 +8,7 @@ from django.utils.html import format_html
 from datetime import date, timedelta
 from collections import Counter
 from .models import *
+from .models_payroll import EstructuraSalarial, HistorialEstructuraSalarial
 from .auth_views import send_activation_email
 
 # ======================================
@@ -334,6 +335,42 @@ class ContratoServicioAdmin(admin.ModelAdmin):
     list_filter = ['tipo_servicio', 'activo', 'contrato']
     search_fields = ['contrato__nombre_contrato', 'codigo_centro_costo']
     ordering = ['contrato__nombre_contrato', 'tipo_servicio']
+
+
+class HistorialEstructuraSalarialInline(admin.TabularInline):
+    model = HistorialEstructuraSalarial
+    extra = 0
+    readonly_fields = ['version', 'sueldo_basico', 'bono_por_metraje', 'metraje_base',
+                       'bonificacion_area', 'modificado_por', 'motivo_cambio', 'created_at']
+    can_delete = False
+    ordering = ['-version']
+
+
+@admin.register(EstructuraSalarial)
+class EstructuraSalarialAdmin(admin.ModelAdmin):
+    list_display = ['contrato', 'get_ctr', 'cargo_contratado', 'sueldo_basico',
+                    'bono_por_metraje', 'metraje_base', 'bonificacion_area', 'version', 'activo']
+    list_filter = ['contrato', 'activo', 'contrato_servicio__tipo_servicio']
+    search_fields = ['cargo_contratado', 'contrato__nombre_contrato',
+                     'contrato_servicio__codigo_centro_costo']
+    raw_id_fields = ['contrato', 'contrato_servicio']
+    inlines = [HistorialEstructuraSalarialInline]
+    readonly_fields = ['version', 'created_at', 'updated_at']
+
+    @admin.display(description='CTR')
+    def get_ctr(self, obj):
+        return obj.contrato_servicio.codigo_centro_costo if obj.contrato_servicio else '—'
+
+
+@admin.register(HistorialEstructuraSalarial)
+class HistorialEstructuraSalarialAdmin(admin.ModelAdmin):
+    list_display = ['estructura', 'version', 'sueldo_basico', 'bono_por_metraje',
+                    'metraje_base', 'bonificacion_area', 'modificado_por', 'created_at']
+    list_filter = ['estructura__contrato']
+    search_fields = ['estructura__cargo_contratado']
+    readonly_fields = ['estructura', 'version', 'sueldo_basico', 'bono_por_metraje',
+                       'metraje_base', 'bonificacion_area', 'modificado_por',
+                       'motivo_cambio', 'created_at']
 
 @admin.register(Trabajador)
 class TrabajadorAdmin(admin.ModelAdmin):

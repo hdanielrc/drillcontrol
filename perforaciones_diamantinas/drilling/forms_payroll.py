@@ -14,6 +14,7 @@ from .models_payroll import (
     PeriodoBono,
     BonoTrabajador,
     BonoTrabajadorDetalle,
+    EstructuraSalarial,
 )
 
 
@@ -185,3 +186,60 @@ class PuntajeDetalleForm(forms.ModelForm):
                 'style': 'width: 80px;',
             }),
         }
+
+
+class EstructuraSalarialForm(forms.ModelForm):
+    """Form para crear/editar estructura salarial por CTR y cargo."""
+
+    motivo_cambio = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 2,
+            'placeholder': 'Motivo del cambio (requerido al editar)',
+        }),
+        label='Motivo del Cambio',
+    )
+
+    class Meta:
+        model = EstructuraSalarial
+        fields = [
+            'contrato', 'contrato_servicio', 'cargo_contratado',
+            'sueldo_basico', 'bono_por_metraje', 'metraje_base',
+            'bonificacion_area', 'activo', 'observaciones',
+        ]
+        widgets = {
+            'contrato': forms.Select(attrs={'class': 'form-select'}),
+            'contrato_servicio': forms.Select(attrs={'class': 'form-select'}),
+            'cargo_contratado': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: PERFORISTA, AYUDANTE PERFORISTA',
+                'list': 'cargos-list',
+            }),
+            'sueldo_basico': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': '0.01', 'min': '0',
+            }),
+            'bono_por_metraje': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': '0.01', 'min': '0',
+            }),
+            'metraje_base': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': '0.01', 'min': '0',
+            }),
+            'bonificacion_area': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': '0.01', 'min': '0',
+            }),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'observaciones': forms.Textarea(attrs={
+                'class': 'form-control', 'rows': 2,
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import Contrato, ContratoServicio
+        self.fields['contrato'].queryset = Contrato.objects.filter(
+            estado='ACTIVO'
+        ).order_by('nombre_contrato')
+        self.fields['contrato_servicio'].queryset = ContratoServicio.objects.filter(
+            activo=True
+        ).select_related('contrato').order_by('contrato__nombre_contrato', 'tipo_servicio')

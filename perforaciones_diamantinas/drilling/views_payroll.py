@@ -24,6 +24,8 @@ from .models_payroll import (
     BonoTrabajadorDetalle,
     CriterioBono,
     CalificacionCriterio,
+    EstructuraSalarial,
+    HistorialEstructuraSalarial,
     ESTADOS_DIA_TRABAJADO,
 )
 from .forms_payroll import (
@@ -35,6 +37,7 @@ from .forms_payroll import (
     EscalaBonoContratoFormSet,
     AbrirPeriodoForm,
     PuntajeDetalleForm,
+    EstructuraSalarialForm,
 )
 from .utils.payroll_engine import (
     abrir_periodo,
@@ -1168,3 +1171,145 @@ def api_diagnostico_conceptos(request):
         'test_autocarga': test_autocarga,
         'conceptos_globales_periodo_actual': cgps,
     })
+
+
+# ===========================================
+# ESTRUCTURA SALARIAL — CRUD
+# ===========================================
+
+@login_required
+def estructura_salarial_list(request):
+    """Lista de todas las estructuras salariales."""
+    user = request.user
+    contrato_filter = request.GET.get('contrato', '')
+
+    estructuras = EstructuraSalarial.objects.select_related(
+        'contrato', 'contrato_servicio', 'creado_por'
+    ).order_by('contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado')
+
+    if not user.has_access_to_all_contracts() and user.contrato:
+        estructuras = estructuras.filter(contrato=user.contrato)
+    elif contrato_filter:
+        estructuras = estructuras.filter(contrato_id=contrato_filter)
+
+    if user.has_access_to_all_contracts():
+        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+    elif user.contrato:
+        contratos = Contrato.objects.filter(pk=user.contrato.pk)
+    else:
+        contratos = Contrato.objects.none()
+
+    return render(request, 'drilling/planilla/estructura_salarial_list.html', {
+        'estructuras': estructuras,
+        'contratos': contratos,
+        'contrato_filter': contrato_filter,
+    })
+
+
+@login_required
+def estructura_salarial_create(request):
+    """Crear nueva estructura salarial."""
+    if request.method == 'POST':
+        form = EstructuraSalarialForm(request.POST)
+        if form.is_valid():
+            estructura = form.save(commit=False)
+            estructura.creado_por = request.user
+            estructura.version = 1
+            estructura.save()
+            # Crear registro inicial en historial
+            estructura.guardar_historial(
+                usuario=request.user,
+                motivo='Creación inicial'
+            )
+            messages.success(request, f'Estructura salarial creada para "{estructura.cargo_contratado}".')
+            return redirect('planilla-estructura-salarial-list')
+    else:
+        form = EstructuraSalarialForm()
+
+    # Cargos existentes para autocompletado
+    cargos = list(
+        Trabajador.objects.filter(estado='ACTIVO')
+        .values_list('cargo', flat=True)
+        .distinct()
+        .order_by('cargo')
+    )
+
+    return render(request, 'drilling/planilla/estructura_salarial_form.html', {
+        'form': form,
+        'titulo': 'Nueva Estructura Salarial',
+        'cargos': cargos,
+    })
+
+
+@login_required
+def estructura_salarial_edit(request, pk):
+    """Editar estructura salarial existente (genera historial de versión)."""
+    estructura = get_object_or_404(EstructuraSalarial, pk=pk)
+
+    if request.method == 'POST':
+        form = EstructuraSalarialForm(request.POST, instance=estructura)
+        if form.is_valid():
+            motivo = form.cleaned_data.get('motivo_cambio', '')
+            if not motivo:
+                form.add_error('motivo_cambio', 'Debe indicar el motivo del cambio al editar.')
+                cargos = list(
+                    Trabajador.objects.filter(estado='ACTIVO')
+                    .values_list('cargo', flat=True).distinct().order_by('cargo')
+                )
+                return render(request, 'drilling/planilla/estructura_salarial_form.html', {
+                    'form': form,
+                    'titulo': f'Editar Estructura Salarial — {estructura.cargo_contratado}',
+                    'estructura': estructura,
+                    'cargos': cargos,
+                })
+
+            # Guardar snapshot de la versión anterior
+            estructura.guardar_historial(
+                usuario=request.user,
+                motivo=motivo,
+            )
+            # Incrementar versión y guardar
+            estructura = form.save(commit=False)
+            estructura.version += 1
+            estructura.save()
+            messages.success(request, f'Estructura salarial actualizada a v{estructura.version}.')
+            return redirect('planilla-estructura-salarial-list')
+    else:
+        form = EstructuraSalarialForm(instance=estructura)
+
+    cargos = list(
+        Trabajador.objects.filter(estado='ACTIVO')
+        .values_list('cargo', flat=True).distinct().order_by('cargo')
+    )
+
+    return render(request, 'drilling/planilla/estructura_salarial_form.html', {
+        'form': form,
+        'titulo': f'Editar Estructura Salarial — {estructura.cargo_contratado}',
+        'estructura': estructura,
+        'cargos': cargos,
+    })
+
+
+@login_required
+def estructura_salarial_historial(request, pk):
+    """Ver historial de versiones de una estructura salarial."""
+    estructura = get_object_or_404(
+        EstructuraSalarial.objects.select_related('contrato', 'contrato_servicio'),
+        pk=pk
+    )
+    historial = estructura.historial.select_related('modificado_por').order_by('-version')
+
+    return render(request, 'drilling/planilla/estructura_salarial_historial.html', {
+        'estructura': estructura,
+        'historial': historial,
+    })
+
+
+@login_required
+def api_ctr_por_contrato(request, contrato_id):
+    """API: devuelve los CTR (ContratoServicio) de un contrato, para filtrar dinámicamente."""
+    from .models import ContratoServicio
+    ctrs = ContratoServicio.objects.filter(
+        contrato_id=contrato_id, activo=True
+    ).values('id', 'tipo_servicio', 'codigo_centro_costo', 'descripcion')
+    return JsonResponse(list(ctrs), safe=False)

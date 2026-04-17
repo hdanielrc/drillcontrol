@@ -1,0 +1,154 @@
+{% extends base_template %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-file-invoice-dollar me-2"></i> {{ titulo }}</h3>
+        <a href="{% url 'planilla-estructura-salarial-list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                    <p class="mb-0">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Contrato + CTR -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="{{ form.contrato.id_for_label }}" class="form-label fw-bold">Contrato *</label>
+                        {{ form.contrato }}
+                        {% if form.contrato.errors %}<div class="text-danger small">{{ form.contrato.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.contrato_servicio.id_for_label }}" class="form-label fw-bold">CTR (Centro de Costo) *</label>
+                        {{ form.contrato_servicio }}
+                        {% if form.contrato_servicio.errors %}<div class="text-danger small">{{ form.contrato_servicio.errors.0 }}</div>{% endif %}
+                        <small class="text-muted">Se filtra automáticamente según el contrato seleccionado</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.cargo_contratado.id_for_label }}" class="form-label fw-bold">Cargo Contratado *</label>
+                        {{ form.cargo_contratado }}
+                        {% if form.cargo_contratado.errors %}<div class="text-danger small">{{ form.cargo_contratado.errors.0 }}</div>{% endif %}
+                        <datalist id="cargos-list">
+                            {% for cargo in cargos %}
+                            <option value="{{ cargo }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                </div>
+
+                <hr>
+                <h5 class="mb-3"><i class="fas fa-coins me-2"></i> Componentes Salariales</h5>
+
+                <!-- Componentes salariales -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label for="{{ form.sueldo_basico.id_for_label }}" class="form-label fw-bold">Sueldo Básico (S/)</label>
+                        {{ form.sueldo_basico }}
+                        {% if form.sueldo_basico.errors %}<div class="text-danger small">{{ form.sueldo_basico.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="{{ form.bono_por_metraje.id_for_label }}" class="form-label fw-bold">Bono por Metraje (S/)</label>
+                        {{ form.bono_por_metraje }}
+                        {% if form.bono_por_metraje.errors %}<div class="text-danger small">{{ form.bono_por_metraje.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="{{ form.metraje_base.id_for_label }}" class="form-label fw-bold">Metraje Base (m)</label>
+                        {{ form.metraje_base }}
+                        {% if form.metraje_base.errors %}<div class="text-danger small">{{ form.metraje_base.errors.0 }}</div>{% endif %}
+                        <small class="text-muted">Metros requeridos para bono</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="{{ form.bonificacion_area.id_for_label }}" class="form-label fw-bold">Bonificación Área (S/)</label>
+                        {{ form.bonificacion_area }}
+                        {% if form.bonificacion_area.errors %}<div class="text-danger small">{{ form.bonificacion_area.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <!-- Activo + Observaciones -->
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <div class="form-check mt-4">
+                            {{ form.activo }}
+                            <label class="form-check-label" for="{{ form.activo.id_for_label }}">Activo</label>
+                        </div>
+                    </div>
+                    <div class="col-md-10">
+                        <label for="{{ form.observaciones.id_for_label }}" class="form-label">Observaciones</label>
+                        {{ form.observaciones }}
+                    </div>
+                </div>
+
+                {% if estructura %}
+                <hr>
+                <h5 class="mb-3"><i class="fas fa-pen me-2"></i> Motivo del Cambio</h5>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        {{ form.motivo_cambio }}
+                        {% if form.motivo_cambio.errors %}<div class="text-danger small">{{ form.motivo_cambio.errors.0 }}</div>{% endif %}
+                        <small class="text-muted">Requerido al editar — explique por qué se realizó el cambio</small>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Versión actual: <strong>v{{ estructura.version }}</strong> — Al guardar se creará la versión <strong>v{{ estructura.version|add:1 }}</strong>.
+                </div>
+                {% endif %}
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'planilla-estructura-salarial-list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> {% if estructura %}Guardar Cambios{% else %}Crear Estructura{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Filtrar CTRs dinámicamente cuando cambia el contrato
+document.addEventListener('DOMContentLoaded', function() {
+    const contratoSelect = document.getElementById('{{ form.contrato.id_for_label }}');
+    const ctrSelect = document.getElementById('{{ form.contrato_servicio.id_for_label }}');
+    
+    if (!contratoSelect || !ctrSelect) return;
+
+    const initialCtrValue = ctrSelect.value;
+
+    contratoSelect.addEventListener('change', function() {
+        const contratoId = this.value;
+        ctrSelect.innerHTML = '<option value="">Cargando...</option>';
+        
+        if (!contratoId) {
+            ctrSelect.innerHTML = '<option value="">— Seleccione contrato primero —</option>';
+            return;
+        }
+
+        fetch(`/planilla/api/ctr-por-contrato/${contratoId}/`)
+            .then(r => r.json())
+            .then(data => {
+                ctrSelect.innerHTML = '<option value="">— Seleccione CTR —</option>';
+                data.forEach(ctr => {
+                    const opt = document.createElement('option');
+                    opt.value = ctr.id;
+                    opt.textContent = `${ctr.codigo_centro_costo} — ${ctr.tipo_servicio}${ctr.descripcion ? ' (' + ctr.descripcion + ')' : ''}`;
+                    ctrSelect.appendChild(opt);
+                });
+            });
+    });
+});
+</script>
+{% endblock %}

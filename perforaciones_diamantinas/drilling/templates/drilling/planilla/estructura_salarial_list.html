@@ -1,0 +1,97 @@
+{% extends base_template %}
+{% block title %}Estructura Salarial{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-file-invoice-dollar me-2"></i> Estructura Salarial por CTR y Cargo</h3>
+        <div class="d-flex gap-2">
+            <a href="{% url 'planilla-hub' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+            <a href="{% url 'planilla-estructura-salarial-create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i> Nueva Estructura
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtro por contrato -->
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="d-flex align-items-center gap-3">
+                <label class="fw-bold mb-0">Contrato:</label>
+                <select name="contrato" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="">— Todos —</option>
+                    {% for c in contratos %}
+                    <option value="{{ c.pk }}" {% if contrato_filter == c.pk|stringformat:"d" %}selected{% endif %}>
+                        {{ c.nombre_contrato }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Contrato</th>
+                        <th>CTR (Centro Costo)</th>
+                        <th>Cargo Contratado</th>
+                        <th class="text-end">Sueldo Básico</th>
+                        <th class="text-end">Bono Metraje</th>
+                        <th class="text-end">Metraje Base</th>
+                        <th class="text-end">Bonif. Área</th>
+                        <th class="text-center">Versión</th>
+                        <th class="text-center">Activo</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in estructuras %}
+                    <tr>
+                        <td>{{ e.contrato.nombre_contrato }}</td>
+                        <td>
+                            <span class="badge bg-info text-dark">{{ e.contrato_servicio.codigo_centro_costo }}</span>
+                            <small class="text-muted">{{ e.contrato_servicio.get_tipo_servicio_display }}</small>
+                        </td>
+                        <td><strong>{{ e.cargo_contratado }}</strong></td>
+                        <td class="text-end">S/ {{ e.sueldo_basico|floatformat:2 }}</td>
+                        <td class="text-end">S/ {{ e.bono_por_metraje|floatformat:2 }}</td>
+                        <td class="text-end">{{ e.metraje_base|floatformat:2 }} m</td>
+                        <td class="text-end">S/ {{ e.bonificacion_area|floatformat:2 }}</td>
+                        <td class="text-center"><span class="badge bg-secondary">v{{ e.version }}</span></td>
+                        <td class="text-center">
+                            {% if e.activo %}
+                            <span class="badge bg-success">Sí</span>
+                            {% else %}
+                            <span class="badge bg-danger">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'planilla-estructura-salarial-edit' e.pk %}" class="btn btn-outline-primary" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'planilla-estructura-salarial-historial' e.pk %}" class="btn btn-outline-info" title="Historial">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            No hay estructuras salariales configuradas.
+                            <a href="{% url 'planilla-estructura-salarial-create' %}">Crear la primera</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

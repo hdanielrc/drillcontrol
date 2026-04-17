@@ -12,6 +12,8 @@ Arquitectura:
 - PeriodoBono: Período mensual de cálculo por contrato
 - BonoTrabajador: Resultado calculado por trabajador
 - BonoTrabajadorDetalle: Desglose por concepto (multi-concepto)
+- EstructuraSalarial: Estructura salarial por contrato/CTR/cargo
+- HistorialEstructuraSalarial: Historial de versiones de estructura salarial
 """
 
 from django.db import models
@@ -510,3 +512,153 @@ class ConceptoGlobalPeriodo(models.Model):
 
     def __str__(self):
         return f"{self.contrato} — {self.concepto.codigo} — {self.mes:02d}/{self.anio}: {self.porcentaje_bono}%"
+
+
+# =============================================================================
+# ESTRUCTURA SALARIAL POR CONTRATO / CTR / CARGO
+# =============================================================================
+
+class EstructuraSalarial(models.Model):
+    """
+    Estructura salarial vigente por Contrato + CTR (centro de costo) + Cargo contratado.
+    Define los componentes salariales para cada combinación única.
+    Cada modificación genera un registro en HistorialEstructuraSalarial.
+    """
+    contrato = models.ForeignKey(
+        'Contrato', on_delete=models.CASCADE,
+        related_name='estructuras_salariales',
+        verbose_name='Contrato'
+    )
+    contrato_servicio = models.ForeignKey(
+        'ContratoServicio', on_delete=models.CASCADE,
+        related_name='estructuras_salariales',
+        verbose_name='CTR (Centro de Costo)',
+        help_text='Centro de costo / servicio del contrato'
+    )
+    cargo_contratado = models.CharField(
+        max_length=200,
+        verbose_name='Cargo Contratado',
+        help_text='Nombre del cargo (debe coincidir con el campo cargo del Trabajador)'
+    )
+
+    # --- Componentes Salariales ---
+    sueldo_basico = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Sueldo Básico (S/)',
+        help_text='Sueldo base mensual para este cargo'
+    )
+    bono_por_metraje = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Bono por Metraje (S/)',
+        help_text='Monto del bono por cumplimiento de metraje'
+    )
+    metraje_base = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Metraje Base (m)',
+        help_text='Metraje base requerido para acceder al bono por metraje'
+    )
+    bonificacion_area = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Bonificación Área (S/)',
+        help_text='Bonificación adicional por zona o área de trabajo'
+    )
+
+    # --- Control ---
+    version = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Versión',
+        help_text='Número de versión actual (se incrementa en cada cambio)'
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    observaciones = models.TextField(blank=True, verbose_name='Observaciones')
+    creado_por = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='estructuras_salariales_creadas',
+        verbose_name='Creado por'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'payroll_estructura_salarial'
+        unique_together = [('contrato', 'contrato_servicio', 'cargo_contratado')]
+        ordering = ['contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado']
+        verbose_name = 'Estructura Salarial'
+        verbose_name_plural = 'Estructuras Salariales'
+        indexes = [
+            models.Index(fields=['contrato', 'activo']),
+            models.Index(fields=['cargo_contratado']),
+        ]
+
+    def __str__(self):
+        ctr = self.contrato_servicio.codigo_centro_costo if self.contrato_servicio else '—'
+        return f"{self.contrato} | CTR:{ctr} | {self.cargo_contratado} (v{self.version})"
+
+    def guardar_historial(self, usuario=None, motivo=''):
+        """Crea un snapshot del estado actual antes de modificar."""
+        HistorialEstructuraSalarial.objects.create(
+            estructura=self,
+            version=self.version,
+            sueldo_basico=self.sueldo_basico,
+            bono_por_metraje=self.bono_por_metraje,
+            metraje_base=self.metraje_base,
+            bonificacion_area=self.bonificacion_area,
+            modificado_por=usuario,
+            motivo_cambio=motivo,
+        )
+
+
+class HistorialEstructuraSalarial(models.Model):
+    """
+    Registro histórico de cada versión de una estructura salarial.
+    Se crea automáticamente cada vez que se modifica una EstructuraSalarial.
+    """
+    estructura = models.ForeignKey(
+        EstructuraSalarial, on_delete=models.CASCADE,
+        related_name='historial',
+        verbose_name='Estructura Salarial'
+    )
+    version = models.PositiveIntegerField(verbose_name='Versión')
+
+    # --- Snapshot de los valores en esta versión ---
+    sueldo_basico = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Sueldo Básico (S/)'
+    )
+    bono_por_metraje = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Bono por Metraje (S/)'
+    )
+    metraje_base = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Metraje Base (m)'
+    )
+    bonificacion_area = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Bonificación Área (S/)'
+    )
+
+    # --- Auditoría ---
+    modificado_por = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cambios_estructura_salarial',
+        verbose_name='Modificado por'
+    )
+    motivo_cambio = models.TextField(
+        blank=True,
+        verbose_name='Motivo del Cambio',
+        help_text='Descripción del motivo de la modificación'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha del Cambio')
+
+    class Meta:
+        db_table = 'payroll_historial_estructura_salarial'
+        ordering = ['-version']
+        verbose_name = 'Historial Estructura Salarial'
+        verbose_name_plural = 'Historial Estructuras Salariales'
+        indexes = [
+            models.Index(fields=['estructura', '-version']),
+        ]
+
+    def __str__(self):
+        return f"{self.estructura.cargo_contratado} — v{self.version} ({self.created_at:%d/%m/%Y %H:%M})"
