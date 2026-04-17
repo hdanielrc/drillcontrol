@@ -395,4 +395,5 @@ urlpatterns = [
     path('planilla/estructura-salarial/<int:pk>/editar/', views_payroll.estructura_salarial_edit, name='planilla-estructura-salarial-edit'),
     path('planilla/estructura-salarial/<int:pk>/historial/', views_payroll.estructura_salarial_historial, name='planilla-estructura-salarial-historial'),
     path('planilla/api/ctr-por-contrato/<int:contrato_id>/', views_payroll.api_ctr_por_contrato, name='planilla-api-ctr-contrato'),
+    path('planilla/api/cargos-por-ctr/<int:contrato_id>/<int:ctr_id>/', views_payroll.api_cargos_por_ctr, name='planilla-api-cargos-ctr'),
 ]

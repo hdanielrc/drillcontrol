@@ -1208,36 +1208,89 @@ def estructura_salarial_list(request):
 
 @login_required
 def estructura_salarial_create(request):
-    """Crear nueva estructura salarial."""
-    if request.method == 'POST':
-        form = EstructuraSalarialForm(request.POST)
-        if form.is_valid():
-            estructura = form.save(commit=False)
-            estructura.creado_por = request.user
-            estructura.version = 1
-            estructura.save()
-            # Crear registro inicial en historial
-            estructura.guardar_historial(
-                usuario=request.user,
-                motivo='Creación inicial'
-            )
-            messages.success(request, f'Estructura salarial creada para "{estructura.cargo_contratado}".')
-            return redirect('planilla-estructura-salarial-list')
-    else:
-        form = EstructuraSalarialForm()
+    """Crear/actualizar estructuras salariales en bloque para un contrato+CTR."""
+    from .models import ContratoServicio
 
-    # Cargos existentes para autocompletado
-    cargos = list(
-        Trabajador.objects.filter(estado='ACTIVO')
-        .values_list('cargo', flat=True)
-        .distinct()
-        .order_by('cargo')
-    )
+    if request.method == 'POST':
+        contrato_id = request.POST.get('contrato')
+        ctr_id = request.POST.get('ctr_id')
+
+        contrato = get_object_or_404(Contrato, pk=contrato_id)
+        ctr = get_object_or_404(ContratoServicio, pk=ctr_id)
+
+        # Recopilar datos de cada fila de cargo del POST
+        i = 0
+        creados = 0
+        actualizados = 0
+        while f'cargo_{i}' in request.POST:
+            if not request.POST.get(f'incluir_{i}'):
+                i += 1
+                continue
+
+            cargo = request.POST[f'cargo_{i}'].strip()
+            if not cargo:
+                i += 1
+                continue
+
+            sueldo = request.POST.get(f'sueldo_basico_{i}', '0') or '0'
+            bono = request.POST.get(f'bono_por_metraje_{i}', '0') or '0'
+            metraje = request.POST.get(f'metraje_base_{i}', '0') or '0'
+            bonif = request.POST.get(f'bonificacion_area_{i}', '0') or '0'
+
+            existing = EstructuraSalarial.objects.filter(
+                contrato=contrato,
+                contrato_servicio=ctr,
+                cargo_contratado=cargo,
+            ).first()
+
+            if existing:
+                existing.guardar_historial(request.user, 'Actualización masiva')
+                existing.sueldo_basico = Decimal(sueldo)
+                existing.bono_por_metraje = Decimal(bono)
+                existing.metraje_base = Decimal(metraje)
+                existing.bonificacion_area = Decimal(bonif)
+                existing.version += 1
+                existing.save()
+                actualizados += 1
+            else:
+                est = EstructuraSalarial.objects.create(
+                    contrato=contrato,
+                    contrato_servicio=ctr,
+                    cargo_contratado=cargo,
+                    sueldo_basico=Decimal(sueldo),
+                    bono_por_metraje=Decimal(bono),
+                    metraje_base=Decimal(metraje),
+                    bonificacion_area=Decimal(bonif),
+                    creado_por=request.user,
+                    version=1,
+                )
+                est.guardar_historial(request.user, 'Creación inicial')
+                creados += 1
+            i += 1
+
+        partes = []
+        if creados:
+            partes.append(f'{creados} creadas')
+        if actualizados:
+            partes.append(f'{actualizados} actualizadas')
+        if partes:
+            messages.success(request, f'Estructuras salariales: {", ".join(partes)}.')
+        else:
+            messages.warning(request, 'No se seleccionó ningún cargo.')
+        return redirect('planilla-estructura-salarial-list')
+
+    # GET: mostrar selector de contrato + CTR
+    user = request.user
+    if user.has_access_to_all_contracts():
+        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+    elif user.contrato:
+        contratos = Contrato.objects.filter(pk=user.contrato.pk)
+    else:
+        contratos = Contrato.objects.none()
 
     return render(request, 'drilling/planilla/estructura_salarial_form.html', {
-        'form': form,
+        'contratos': contratos,
         'titulo': 'Nueva Estructura Salarial',
-        'cargos': cargos,
     })
 
 
@@ -1332,3 +1385,52 @@ def api_ctr_por_contrato(request, contrato_id):
         pass
 
     return JsonResponse(ctrs, safe=False)
+
+
+@login_required
+def api_cargos_por_ctr(request, contrato_id, ctr_id):
+    """API: devuelve los cargos distintos de trabajadores activos para un contrato+CTR,
+    junto con la estructura salarial existente si la hay."""
+    from django.db.models import Count
+    from .models import ContratoServicio
+
+    ctr = get_object_or_404(ContratoServicio, pk=ctr_id)
+    codigo_cc = ctr.codigo_centro_costo
+
+    cargos = (
+        Trabajador.objects.filter(
+            contrato_id=contrato_id,
+            centro_costo=codigo_cc,
+            estado='ACTIVO',
+        )
+        .exclude(cargo='')
+        .values('cargo')
+        .annotate(cantidad=Count('id'))
+        .order_by('cargo')
+    )
+
+    result = []
+    for c in cargos:
+        existing = EstructuraSalarial.objects.filter(
+            contrato_id=contrato_id,
+            contrato_servicio=ctr,
+            cargo_contratado=c['cargo'],
+        ).first()
+
+        item = {
+            'cargo': c['cargo'],
+            'cantidad': c['cantidad'],
+            'tiene_estructura': existing is not None,
+        }
+        if existing:
+            item['estructura'] = {
+                'id': existing.pk,
+                'sueldo_basico': str(existing.sueldo_basico),
+                'bono_por_metraje': str(existing.bono_por_metraje),
+                'metraje_base': str(existing.metraje_base),
+                'bonificacion_area': str(existing.bonificacion_area),
+                'version': existing.version,
+            }
+        result.append(item)
+
+    return JsonResponse({'ctr_id': ctr.pk, 'codigo_cc': codigo_cc, 'cargos': result})

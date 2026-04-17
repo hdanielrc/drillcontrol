@@ -461,3 +461,4 @@ def proyectar_contrato(
             totales['errores'].append({'trabajador_id': trabajador.pk, 'error': str(exc)})
 
     return totales
+

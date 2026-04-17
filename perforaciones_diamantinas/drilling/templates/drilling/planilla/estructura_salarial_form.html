@@ -10,6 +10,8 @@
         </a>
     </div>
 
+    {% if estructura %}
+    {# ── MODO EDICIÓN individual (reutiliza el form de Django) ── #}
     <div class="card shadow-sm border-0">
         <div class="card-body">
             <form method="post" novalidate>
@@ -23,23 +25,18 @@
                 </div>
                 {% endif %}
 
-                <!-- Contrato + CTR -->
                 <div class="row mb-3">
                     <div class="col-md-4">
-                        <label for="{{ form.contrato.id_for_label }}" class="form-label fw-bold">Contrato *</label>
+                        <label class="form-label fw-bold">Contrato *</label>
                         {{ form.contrato }}
-                        {% if form.contrato.errors %}<div class="text-danger small">{{ form.contrato.errors.0 }}</div>{% endif %}
                     </div>
                     <div class="col-md-4">
-                        <label for="{{ form.contrato_servicio.id_for_label }}" class="form-label fw-bold">CTR (Centro de Costo) *</label>
+                        <label class="form-label fw-bold">CTR (Centro de Costo) *</label>
                         {{ form.contrato_servicio }}
-                        {% if form.contrato_servicio.errors %}<div class="text-danger small">{{ form.contrato_servicio.errors.0 }}</div>{% endif %}
-                        <small class="text-muted">Se filtra automáticamente según el contrato seleccionado</small>
                     </div>
                     <div class="col-md-4">
-                        <label for="{{ form.cargo_contratado.id_for_label }}" class="form-label fw-bold">Cargo Contratado *</label>
+                        <label class="form-label fw-bold">Cargo Contratado *</label>
                         {{ form.cargo_contratado }}
-                        {% if form.cargo_contratado.errors %}<div class="text-danger small">{{ form.cargo_contratado.errors.0 }}</div>{% endif %}
                         <datalist id="cargos-list">
                             {% for cargo in cargos %}
                             <option value="{{ cargo }}">
@@ -50,33 +47,25 @@
 
                 <hr>
                 <h5 class="mb-3"><i class="fas fa-coins me-2"></i> Componentes Salariales</h5>
-
-                <!-- Componentes salariales -->
                 <div class="row mb-3">
                     <div class="col-md-3">
-                        <label for="{{ form.sueldo_basico.id_for_label }}" class="form-label fw-bold">Sueldo Básico (S/)</label>
+                        <label class="form-label fw-bold">Sueldo Básico (S/)</label>
                         {{ form.sueldo_basico }}
-                        {% if form.sueldo_basico.errors %}<div class="text-danger small">{{ form.sueldo_basico.errors.0 }}</div>{% endif %}
                     </div>
                     <div class="col-md-3">
-                        <label for="{{ form.bono_por_metraje.id_for_label }}" class="form-label fw-bold">Bono por Metraje (S/)</label>
+                        <label class="form-label fw-bold">Bono por Metraje (S/)</label>
                         {{ form.bono_por_metraje }}
-                        {% if form.bono_por_metraje.errors %}<div class="text-danger small">{{ form.bono_por_metraje.errors.0 }}</div>{% endif %}
                     </div>
                     <div class="col-md-3">
-                        <label for="{{ form.metraje_base.id_for_label }}" class="form-label fw-bold">Metraje Base (m)</label>
+                        <label class="form-label fw-bold">Metraje Base (m)</label>
                         {{ form.metraje_base }}
-                        {% if form.metraje_base.errors %}<div class="text-danger small">{{ form.metraje_base.errors.0 }}</div>{% endif %}
-                        <small class="text-muted">Metros requeridos para bono</small>
                     </div>
                     <div class="col-md-3">
-                        <label for="{{ form.bonificacion_area.id_for_label }}" class="form-label fw-bold">Bonificación Área (S/)</label>
+                        <label class="form-label fw-bold">Bonificación Área (S/)</label>
                         {{ form.bonificacion_area }}
-                        {% if form.bonificacion_area.errors %}<div class="text-danger small">{{ form.bonificacion_area.errors.0 }}</div>{% endif %}
                     </div>
                 </div>
 
-                <!-- Activo + Observaciones -->
                 <div class="row mb-3">
                     <div class="col-md-2">
                         <div class="form-check mt-4">
@@ -85,12 +74,11 @@
                         </div>
                     </div>
                     <div class="col-md-10">
-                        <label for="{{ form.observaciones.id_for_label }}" class="form-label">Observaciones</label>
+                        <label class="form-label">Observaciones</label>
                         {{ form.observaciones }}
                     </div>
                 </div>
 
-                {% if estructura %}
                 <hr>
                 <h5 class="mb-3"><i class="fas fa-pen me-2"></i> Motivo del Cambio</h5>
                 <div class="row mb-3">
@@ -105,50 +93,246 @@
                     <i class="fas fa-info-circle me-1"></i>
                     Versión actual: <strong>v{{ estructura.version }}</strong> — Al guardar se creará la versión <strong>v{{ estructura.version|add:1 }}</strong>.
                 </div>
-                {% endif %}
 
                 <div class="d-flex justify-content-end gap-2">
                     <a href="{% url 'planilla-estructura-salarial-list' %}" class="btn btn-outline-secondary">Cancelar</a>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-1"></i> {% if estructura %}Guardar Cambios{% else %}Crear Estructura{% endif %}
+                        <i class="fas fa-save me-1"></i> Guardar Cambios
                     </button>
                 </div>
             </form>
         </div>
     </div>
+
+    {% else %}
+    {# ── MODO CREACIÓN MASIVA ── #}
+    <form method="post" id="bulkForm" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="ctr_id" id="ctr_id_hidden">
+
+        <!-- Paso 1: Seleccionar Contrato + CTR -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-5">
+                        <label for="sel_contrato" class="form-label fw-bold">Contrato *</label>
+                        <select id="sel_contrato" name="contrato" class="form-select" required>
+                            <option value="">— Seleccione contrato —</option>
+                            {% for c in contratos %}
+                            <option value="{{ c.pk }}">{{ c.nombre_contrato }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="sel_ctr" class="form-label fw-bold">CTR (Centro de Costo) *</label>
+                        <select id="sel_ctr" class="form-select" required>
+                            <option value="">— Seleccione contrato primero —</option>
+                        </select>
+                        <small class="text-muted">Se filtra automáticamente según el contrato seleccionado</small>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" id="btnCargarCargos" class="btn btn-outline-primary w-100" disabled>
+                            <i class="fas fa-search me-1"></i> Cargar Cargos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Paso 2: Tabla de cargos (se llena dinámicamente) -->
+        <div id="cargos_section" style="display:none;">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-users me-2"></i> Cargos de Trabajadores Activos — <span id="ctr_label"></span></span>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-light me-1" id="btnSelectAll">Seleccionar todos</button>
+                        <button type="button" class="btn btn-sm btn-outline-light" id="btnDeselectAll">Deseleccionar</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:40px" class="text-center">
+                                    <i class="fas fa-check-square" title="Incluir"></i>
+                                </th>
+                                <th>Cargo</th>
+                                <th class="text-center" style="width:60px">Trab.</th>
+                                <th class="text-center" style="width:80px">Estado</th>
+                                <th class="text-end" style="width:140px">Sueldo Básico (S/)</th>
+                                <th class="text-end" style="width:140px">Bono Metraje (S/)</th>
+                                <th class="text-end" style="width:140px">Metraje Base (m)</th>
+                                <th class="text-end" style="width:140px">Bonif. Área (S/)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cargos_tbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <span class="text-muted" id="resumen_seleccion">0 cargos seleccionados</span>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'planilla-estructura-salarial-list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary" id="btnGuardar" disabled>
+                            <i class="fas fa-save me-1"></i> Guardar Estructuras
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="no_cargos_msg" class="alert alert-warning mt-3" style="display:none;">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            No se encontraron trabajadores activos con cargo asignado para este contrato y centro de costo.
+        </div>
+    </form>
+    {% endif %}
 </div>
 
 <script>
-// Filtrar CTRs dinámicamente cuando cambia el contrato
 document.addEventListener('DOMContentLoaded', function() {
-    const contratoSelect = document.getElementById('{{ form.contrato.id_for_label }}');
-    const ctrSelect = document.getElementById('{{ form.contrato_servicio.id_for_label }}');
-    
-    if (!contratoSelect || !ctrSelect) return;
+    const contratoSel = document.getElementById('sel_contrato');
+    const ctrSel = document.getElementById('sel_ctr');
+    const btnCargar = document.getElementById('btnCargarCargos');
+    const cargosSection = document.getElementById('cargos_section');
+    const noCargosMsg = document.getElementById('no_cargos_msg');
+    const tbody = document.getElementById('cargos_tbody');
+    const ctrHidden = document.getElementById('ctr_id_hidden');
+    const ctrLabel = document.getElementById('ctr_label');
+    const btnGuardar = document.getElementById('btnGuardar');
+    const resumen = document.getElementById('resumen_seleccion');
 
-    const initialCtrValue = ctrSelect.value;
+    if (!contratoSel) return; // modo edición, no hay estos elementos
 
-    contratoSelect.addEventListener('change', function() {
-        const contratoId = this.value;
-        ctrSelect.innerHTML = '<option value="">Cargando...</option>';
-        
-        if (!contratoId) {
-            ctrSelect.innerHTML = '<option value="">— Seleccione contrato primero —</option>';
+    // Paso 1a: Al cambiar contrato, recargar CTRs
+    contratoSel.addEventListener('change', function() {
+        const id = this.value;
+        ctrSel.innerHTML = '<option value="">Cargando...</option>';
+        cargosSection.style.display = 'none';
+        noCargosMsg.style.display = 'none';
+        btnCargar.disabled = true;
+
+        if (!id) {
+            ctrSel.innerHTML = '<option value="">— Seleccione contrato primero —</option>';
             return;
         }
 
-        fetch(`/planilla/api/ctr-por-contrato/${contratoId}/`)
+        fetch(`/planilla/api/ctr-por-contrato/${id}/`)
             .then(r => r.json())
             .then(data => {
-                ctrSelect.innerHTML = '<option value="">— Seleccione CTR —</option>';
+                ctrSel.innerHTML = '<option value="">— Seleccione CTR —</option>';
                 data.forEach(ctr => {
                     const opt = document.createElement('option');
                     opt.value = ctr.id;
+                    opt.dataset.cc = ctr.codigo_centro_costo;
                     opt.textContent = `${ctr.codigo_centro_costo} — ${ctr.tipo_servicio}${ctr.descripcion ? ' (' + ctr.descripcion + ')' : ''}`;
-                    ctrSelect.appendChild(opt);
+                    ctrSel.appendChild(opt);
                 });
             });
     });
+
+    // Paso 1b: Al seleccionar CTR, habilitar botón
+    ctrSel.addEventListener('change', function() {
+        btnCargar.disabled = !this.value;
+        cargosSection.style.display = 'none';
+        noCargosMsg.style.display = 'none';
+    });
+
+    // Paso 2: Cargar cargos
+    btnCargar.addEventListener('click', function() {
+        const contratoId = contratoSel.value;
+        const ctrId = ctrSel.value;
+        if (!contratoId || !ctrId) return;
+
+        btnCargar.disabled = true;
+        btnCargar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
+
+        fetch(`/planilla/api/cargos-por-ctr/${contratoId}/${ctrId}/`)
+            .then(r => r.json())
+            .then(data => {
+                btnCargar.disabled = false;
+                btnCargar.innerHTML = '<i class="fas fa-search me-1"></i> Cargar Cargos';
+
+                ctrHidden.value = data.ctr_id;
+                ctrLabel.textContent = data.codigo_cc;
+                tbody.innerHTML = '';
+
+                if (!data.cargos.length) {
+                    cargosSection.style.display = 'none';
+                    noCargosMsg.style.display = 'block';
+                    return;
+                }
+
+                noCargosMsg.style.display = 'none';
+                cargosSection.style.display = 'block';
+
+                data.cargos.forEach((c, i) => {
+                    const est = c.estructura || {};
+                    const tieneEst = c.tiene_estructura;
+                    const badge = tieneEst
+                        ? '<span class="badge bg-success">Configurado</span>'
+                        : '<span class="badge bg-warning text-dark">Pendiente</span>';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input cargo-check"
+                                   name="incluir_${i}" value="1" ${!tieneEst ? 'checked' : ''}>
+                        </td>
+                        <td>
+                            <strong>${c.cargo}</strong>
+                            <input type="hidden" name="cargo_${i}" value="${c.cargo}">
+                        </td>
+                        <td class="text-center"><span class="badge bg-secondary">${c.cantidad}</span></td>
+                        <td class="text-center">${badge}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-end"
+                                   name="sueldo_basico_${i}" value="${est.sueldo_basico || '0'}"
+                                   step="0.01" min="0">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-end"
+                                   name="bono_por_metraje_${i}" value="${est.bono_por_metraje || '0'}"
+                                   step="0.01" min="0">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-end"
+                                   name="metraje_base_${i}" value="${est.metraje_base || '0'}"
+                                   step="0.01" min="0">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-end"
+                                   name="bonificacion_area_${i}" value="${est.bonificacion_area || '0'}"
+                                   step="0.01" min="0">
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                actualizarResumen();
+            });
+    });
+
+    // Select all / deselect
+    document.getElementById('btnSelectAll').addEventListener('click', () => {
+        document.querySelectorAll('.cargo-check').forEach(cb => cb.checked = true);
+        actualizarResumen();
+    });
+    document.getElementById('btnDeselectAll').addEventListener('click', () => {
+        document.querySelectorAll('.cargo-check').forEach(cb => cb.checked = false);
+        actualizarResumen();
+    });
+
+    // Actualizar resumen al cambiar checks
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('cargo-check')) actualizarResumen();
+    });
+
+    function actualizarResumen() {
+        const checks = document.querySelectorAll('.cargo-check:checked');
+        const total = document.querySelectorAll('.cargo-check');
+        resumen.textContent = `${checks.length} de ${total.length} cargos seleccionados`;
+        btnGuardar.disabled = checks.length === 0;
+    }
 });
 </script>
 {% endblock %}
