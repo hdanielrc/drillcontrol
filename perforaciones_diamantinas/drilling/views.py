@@ -818,6 +818,19 @@ class TrabajadorUpdateView(AdminOrContractFilterMixin, UpdateView):
         kwargs['user'] = self.request.user
         return kwargs
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models_payroll import EstructuraSalarial
+        trabajador = self.object
+        estructura = EstructuraSalarial.objects.filter(
+            contrato=trabajador.contrato,
+            contrato_servicio__codigo_centro_costo=trabajador.centro_costo,
+            cargo_contratado=trabajador.cargo,
+            activo=True,
+        ).first()
+        ctx['estructura_salarial'] = estructura
+        return ctx
+
     def form_valid(self, form):
         messages.success(self.request, 'Trabajador actualizado exitosamente')
         return super().form_valid(form)

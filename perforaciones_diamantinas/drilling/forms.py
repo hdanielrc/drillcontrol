@@ -106,7 +106,8 @@ class TrabajadorForm(forms.ModelForm):
                 'placeholder': '0.00',
                 'step': '0.01',
                 'min': '0',
-                'id': 'id_sueldo'
+                'id': 'id_sueldo',
+                'readonly': True,
             }),
         }
     

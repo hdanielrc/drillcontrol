@@ -100,7 +100,15 @@
                             <div class="col-md-4 form-group-compact">
                                 <label class="form-label"><i class="fas fa-money-bill-wave me-1 text-success"></i> Sueldo (S/.)</label>
                                 {{ form.sueldo }}
-                                <small class="form-text text-muted">Sueldo mensual. Será sincronizado desde API más adelante.</small>
+                                {% if estructura_salarial %}
+                                <small class="form-text text-success">
+                                    <i class="fas fa-link"></i> Desde Estructura Salarial: {{ estructura_salarial.contrato_servicio.codigo_centro_costo }} / {{ estructura_salarial.cargo_contratado }} (v{{ estructura_salarial.version }})
+                                </small>
+                                {% else %}
+                                <small class="form-text text-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> Sin estructura salarial configurada para este CTR/cargo.
+                                </small>
+                                {% endif %}
                                 {% if form.sueldo.errors %}<div class="text-danger small">{{ form.sueldo.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
