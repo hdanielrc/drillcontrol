@@ -1307,9 +1307,28 @@ def estructura_salarial_historial(request, pk):
 
 @login_required
 def api_ctr_por_contrato(request, contrato_id):
-    """API: devuelve los CTR (ContratoServicio) de un contrato, para filtrar dinámicamente."""
-    from .models import ContratoServicio
-    ctrs = ContratoServicio.objects.filter(
+    """API: devuelve los CTR (ContratoServicio) de un contrato, para filtrar dinámicamente.
+    Incluye tanto los ContratoServicio existentes como el CC principal del Contrato si no está ya registrado.
+    """
+    from .models import Contrato, ContratoServicio
+
+    ctrs = list(ContratoServicio.objects.filter(
         contrato_id=contrato_id, activo=True
-    ).values('id', 'tipo_servicio', 'codigo_centro_costo', 'descripcion')
-    return JsonResponse(list(ctrs), safe=False)
+    ).values('id', 'tipo_servicio', 'codigo_centro_costo', 'descripcion'))
+
+    # Safety net: si el CC principal del contrato no está en ContratoServicio, agregarlo
+    try:
+        contrato = Contrato.objects.get(pk=contrato_id)
+        if contrato.codigo_centro_costo:
+            cc_existentes = {c['codigo_centro_costo'] for c in ctrs}
+            if contrato.codigo_centro_costo not in cc_existentes:
+                ctrs.insert(0, {
+                    'id': None,
+                    'tipo_servicio': 'DDH',
+                    'codigo_centro_costo': contrato.codigo_centro_costo,
+                    'descripcion': f'CTR Principal ({contrato.nombre_contrato})',
+                })
+    except Contrato.DoesNotExist:
+        pass
+
+    return JsonResponse(ctrs, safe=False)
