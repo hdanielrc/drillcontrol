@@ -3416,6 +3416,16 @@ def tareo_v2_mensual_view(request):
         )
         _he_por_trabajador = {r['trabajador_id']: float(r['total_he'] or 0) for r in _horas_extras_qs}
 
+        # Pre-cargar sueldo desde EstructuraSalarial (fuente primaria)
+        from .models_payroll import EstructuraSalarial as _ES
+        _estructuras_qs = _ES.objects.filter(
+            contrato=contrato, activo=True,
+        ).values('contrato_servicio__codigo_centro_costo', 'cargo_contratado', 'sueldo_basico')
+        _sueldo_estructura = {}
+        for e in _estructuras_qs:
+            key = (e['contrato_servicio__codigo_centro_costo'], e['cargo_contratado'])
+            _sueldo_estructura[key] = float(e['sueldo_basico'])
+
         for grupo in matriz_tareo:
             for row in grupo['rows']:
                 if row.get('is_maquina_header') or row.get('is_guardia_header'):
@@ -3467,8 +3477,9 @@ def tareo_v2_mensual_view(request):
                         elif codigo == 'P' and estado_raw not in ('PT', 'PERMISO_PATERNIDAD'):
                             falta_cal += 1
 
-                # Cálculos salariales
-                _sueldo_base = float(trab.sueldo or 0)
+                # Cálculos salariales — prioridad: EstructuraSalarial > Trabajador.sueldo
+                _key_es = (trab.centro_costo or '', trab.cargo or '')
+                _sueldo_base = _sueldo_estructura.get(_key_es, float(trab.sueldo or 0))
                 _sueldo_dias_trab = _sueldo_base / 30 * trabajado_cal
                 _monto_dias_apoyo = (_sueldo_dias_trab / 30 * da_op) if _sueldo_dias_trab else 0
                 _total_he = _he_por_trabajador.get(trab.id, 0)
