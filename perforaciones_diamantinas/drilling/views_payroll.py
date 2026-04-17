@@ -1177,6 +1177,19 @@ def api_diagnostico_conceptos(request):
 # ESTRUCTURA SALARIAL — CRUD
 # ===========================================
 
+
+def _sync_sueldo_trabajadores(estructura):
+    """Actualiza Trabajador.sueldo para todos los activos que coincidan
+    con el contrato + centro_costo + cargo de la estructura."""
+    cc = estructura.contrato_servicio.codigo_centro_costo
+    actualizados = Trabajador.objects.filter(
+        contrato=estructura.contrato,
+        centro_costo=cc,
+        cargo=estructura.cargo_contratado,
+        estado='ACTIVO',
+    ).update(sueldo=estructura.sueldo_basico)
+    return actualizados
+
 @login_required
 def estructura_salarial_list(request):
     """Lista de todas las estructuras salariales."""
@@ -1251,6 +1264,7 @@ def estructura_salarial_create(request):
                 existing.bonificacion_area = Decimal(bonif)
                 existing.version += 1
                 existing.save()
+                _sync_sueldo_trabajadores(existing)
                 actualizados += 1
             else:
                 est = EstructuraSalarial.objects.create(
@@ -1265,6 +1279,7 @@ def estructura_salarial_create(request):
                     version=1,
                 )
                 est.guardar_historial(request.user, 'Creación inicial')
+                _sync_sueldo_trabajadores(est)
                 creados += 1
             i += 1
 
@@ -1325,6 +1340,7 @@ def estructura_salarial_edit(request, pk):
             estructura = form.save(commit=False)
             estructura.version += 1
             estructura.save()
+            _sync_sueldo_trabajadores(estructura)
             messages.success(request, f'Estructura salarial actualizada a v{estructura.version}.')
             return redirect('planilla-estructura-salarial-list')
     else:
