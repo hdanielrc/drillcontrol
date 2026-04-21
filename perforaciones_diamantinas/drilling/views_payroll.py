@@ -954,6 +954,14 @@ def cuadro_guardar(request, tipo_bono_pk):
             bono_trab.metraje_acumulado = Decimal(str(metraje_acumulado))
             bono_trab.save(update_fields=['metraje_acumulado'])
 
+        # Actualizar monto_final (total calculado enviado desde el DOM)
+        monto_final = bd.get('monto_final')
+        if monto_final is not None:
+            monto_final_dec = Decimal(str(monto_final))
+            bono_trab.monto_calculado = monto_final_dec
+            bono_trab.monto_final = monto_final_dec + bono_trab.monto_ajuste
+            bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
+
         # Actualizar criterios
         criterios_dict = bd.get('criterios', {})
         for crit_pk_str, cumple in criterios_dict.items():

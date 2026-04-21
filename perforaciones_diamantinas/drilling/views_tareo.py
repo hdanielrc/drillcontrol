@@ -3518,6 +3518,7 @@ def tareo_v2_mensual_view(request):
                     'total_sin_bonos': round(_total_sin_bonos, 2),
                     'horas_extras': _total_he,
                     'bono_area': _bono_area_por_trabajador.get(trab.id, None),
+                    'total_con_bonos': round(_total_sin_bonos + _bono_area_por_trabajador.get(trab.id, 0), 2),
                 })
 
     context = {

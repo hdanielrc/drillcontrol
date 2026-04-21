@@ -420,7 +420,7 @@ function recalcularFila(tr) {
 function guardarTodo() {
     const bonos = [];
 
-    // Trabajadores cumplimiento
+    // Trabajadores cumplimiento: enviar criterios + bono_base + monto_final calculado
     document.querySelectorAll('.worker-row').forEach(tr => {
         const bonoPk = tr.dataset.bonoPk;
         const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
@@ -428,11 +428,20 @@ function guardarTodo() {
         tr.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             if (cb.dataset.criterioPk) criterios[cb.dataset.criterioPk] = cb.checked;
         });
-        bonos.push({bono_pk: parseInt(bonoPk), bono_base: bonoBase, criterios: criterios});
+        // Leer el total ya calculado en el DOM
+        const totalCell = tr.querySelector('.fila-total');
+        const montoFinal = totalCell ? parseFloat(totalCell.textContent.replace(/[^0-9.\-]/g, '')) || 0 : 0;
+        bonos.push({bono_pk: parseInt(bonoPk), bono_base: bonoBase, criterios: criterios, monto_final: montoFinal});
     });
 
-    // Trabajadores metraje: nada editable que guardar
-    // (el metraje_acumulado se calcula automáticamente desde TurnoAvance al cargar la página)
+    // Trabajadores metraje: enviar bono_pk + monto_final calculado
+    document.querySelectorAll('.metraje-row').forEach(tr => {
+        const bonoPk = tr.dataset.bonoPk;
+        if (!bonoPk) return;
+        const calcCell = tr.querySelector('.metraje-bono-calc');
+        const montoFinal = calcCell ? parseFloat(calcCell.textContent.replace(/[^0-9.\-]/g, '')) || 0 : 0;
+        bonos.push({bono_pk: parseInt(bonoPk), criterios: {}, monto_final: montoFinal});
+    });
 
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
                       document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1];

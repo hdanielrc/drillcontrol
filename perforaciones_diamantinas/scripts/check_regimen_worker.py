@@ -95,6 +95,7 @@ def main():
     current = 0
     consec_segments = []
 
+
     
     # build a dict for fast lookup
     row_map = {f: s for (f, s) in rows}

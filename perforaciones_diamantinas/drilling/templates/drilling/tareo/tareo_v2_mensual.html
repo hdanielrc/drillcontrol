@@ -1134,7 +1134,6 @@
                         <th class="text-center" style="background:#8e44ad;color:#fff;" title="V (mes calendario)">VACAC.</th>
                         <th class="text-center" style="background:#1a5276;color:#fff;" title="DM (mes calendario)">D.MED.</th>
                         <th class="text-center" style="background:#616a6b;color:#fff;" title="SUB (mes calendario)">SUBSID.</th>
-                        <th class="text-center" style="background:#2980b9;color:#fff;" title="DL (mes operativo 26-25)">D.LIBRES</th>
                         <th class="text-center" style="background:#c0392b;color:#fff;" title="F,LSGH,SB,P,S (mes calendario)">FALTAS</th>
                         <th class="text-center" style="background:#e65100;color:#fff;" title="Horas extras (rango 23-24)">BONO DIA</th>
                         <th class="text-center" style="background:#212529;color:#fff;">TOTAL</th>
@@ -1144,6 +1143,7 @@
                         <th class="text-center" style="background:#e65100;color:#fff;" title="SUELDO x DIAS / 30 / 8 × HORAS EXTRAS (23-24)">BONO DIA</th>
                         <th class="text-center" style="background:#b71c1c;color:#fff;" title="SUELDO x DIAS + $ D.APOYO + BONO DIA">TOTAL S/B</th>
                         <th class="text-center" style="background:#0d6efd;color:#fff;" title="Suma de todos los bonos calculados en los Cuadros de Calificación del período">BONO ÁREA</th>
+                        <th class="text-center" style="background:#155724;color:#fff;" title="TOTAL S/B + BONO ÁREA">TOTAL CON BONOS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1161,7 +1161,6 @@
                         <td class="text-center">{{ r.vacaciones }}</td>
                         <td class="text-center">{{ r.dm }}</td>
                         <td class="text-center">{{ r.subsidio }}</td>
-                        <td class="text-center" style="background:#ebf5fb;">{{ r.dias_libres }}</td>
                         <td class="text-center {% if r.faltas > 0 %}text-danger fw-bold{% endif %}" style="background:#fdedec;">{{ r.faltas }}</td>
                         <td class="text-center" style="background:#fff3e0;">{{ r.horas_extras }}</td>
                         <td class="text-center fw-bold" style="background:#f5f5f5;">{{ r.total }}</td>
@@ -1171,6 +1170,7 @@
                         <td class="text-end" style="background:#fff3e0;">{{ r.bono_dia|floatformat:2 }}</td>
                         <td class="text-end fw-bold" style="background:#ffebee;">{{ r.total_sin_bonos|floatformat:2 }}</td>
                         <td class="text-end fw-bold" style="background:#e8f0fe;color:#0d47a1;">{% if r.bono_area is not None %}S/ {{ r.bono_area|floatformat:2 }}{% else %}<span style="color:#aaa;">—</span>{% endif %}</td>
+                        <td class="text-end fw-bold" style="background:#d4edda;color:#155724;font-size:13px;">S/ {{ r.total_con_bonos|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
