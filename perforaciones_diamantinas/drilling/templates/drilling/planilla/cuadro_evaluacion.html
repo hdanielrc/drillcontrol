@@ -266,8 +266,9 @@
                         </td>
                         {% endfor %}
                         <td class="cell-pct seccion-pct {% if sec.puntaje == 100 %}pct-100{% elif sec.puntaje >= 80 %}pct-80{% else %}pct-low{% endif %}"
-                            data-concepto-pk="{{ sec.concepto_pk }}">
-                            {{ sec.puntaje }}%
+                            data-concepto-pk="{{ sec.concepto_pk }}"
+                            {% if sec.fuente_puntaje == 'global' %}data-puntaje-global="{{ sec.puntaje }}"{% endif %}>
+                            <span class="pct-valor">{{ sec.puntaje }}%</span>{% if sec.fuente_puntaje == 'global' %}<i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;color:#6c757d;margin-left:2px;vertical-align:middle;"></i>{% endif %}
                         </td>
                         <td class="cell-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}">
                             S/ {{ sec.monto }}
@@ -315,13 +316,22 @@ function recalcularFila(tr) {
         const pctIdx = colOffset + sec.numCriterios;
         const montoIdx = pctIdx + 1;
 
-        const puntaje = sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100;
+        // Si el % viene de Conceptos Globales, no lo recalculamos desde checkboxes
+        const pctCell = tr.children[pctIdx];
+        const globalPuntaje = pctCell.dataset.puntajeGlobal;
+        const puntaje = (globalPuntaje !== undefined)
+            ? parseFloat(globalPuntaje)
+            : (sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100);
         const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100) * diasFactor).toFixed(2);
         totalFila += parseFloat(montoSeccion);
 
         // Actualizar celdas de % y monto
-        const pctCell = tr.children[pctIdx];
-        pctCell.textContent = puntaje + '%';
+        const pctValor = pctCell.querySelector('.pct-valor');
+        if (pctValor) {
+            pctValor.textContent = puntaje + '%';
+        } else {
+            pctCell.textContent = puntaje + '%';
+        }
         pctCell.className = 'cell-pct seccion-pct ' +
             (puntaje === 100 ? 'pct-100' : puntaje >= 80 ? 'pct-80' : 'pct-low');
 

@@ -524,10 +524,14 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     Vista principal del cuadro de evaluación estilo Excel.
     Muestra todos los trabajadores agrupados por contrato, con secciones
     y criterios como columnas de checkboxes.
+    El % de cada sección se toma de ConceptoGlobalPeriodo cuando el código del
+    ConceptoBono coincide con un ConceptoGlobal del sistema; si no existe se usa
+    el conteo de criterios manual (checkboxes).
     Query params: ?anio=2026&mes=4
     """
     import calendar
     from collections import OrderedDict
+    from .models_payroll import ConceptoGlobalPeriodo
 
     tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk, activo=True)
     anio = int(request.GET.get('anio') or date.today().year)
@@ -554,6 +558,16 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
     for config in configs:
         contrato = config.contrato
+        # Cargar conceptos globales del período para este contrato
+        # Indexados por código en mayúsculas para matching con ConceptoBono.codigo
+        cgp_qs = ConceptoGlobalPeriodo.objects.filter(
+            contrato=contrato, anio=anio, mes=mes
+        ).select_related('concepto')
+        conceptos_globales_periodo = {
+            cgp.concepto.codigo.upper(): cgp
+            for cgp in cgp_qs
+        }
+
         # Obtener o crear período
         periodo, _ = PeriodoBono.objects.get_or_create(
             contrato=contrato, anio=anio, mes=mes,
@@ -626,7 +640,17 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     if calif.cumple:
                         cumplidos += 1
 
-                puntaje = round(cumplidos * 100 / total_crit) if total_crit > 0 else 100
+                # Puntaje: usar ConceptoGlobalPeriodo si existe para este código de sección
+                cgp = conceptos_globales_periodo.get(seccion.codigo.upper())
+                if cgp is not None:
+                    # % viene del indicador global del contrato (producción, seguridad, etc.)
+                    puntaje = float(cgp.porcentaje_bono)
+                    fuente_puntaje = 'global'
+                else:
+                    # Fallback: conteo manual de criterios (checkboxes)
+                    puntaje = round(cumplidos * 100 / total_crit) if total_crit > 0 else 100
+                    fuente_puntaje = 'manual'
+
                 peso = float(seccion.peso_default)
                 bono_base = float(bono_trab.bono_base)
                 dias_trab = bono_trab.dias_trabajados
@@ -641,6 +665,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'peso': peso,
                     'criterios': criterios_data,
                     'puntaje': puntaje,
+                    'fuente_puntaje': fuente_puntaje,
                     'monto': monto_seccion,
                 })
 
