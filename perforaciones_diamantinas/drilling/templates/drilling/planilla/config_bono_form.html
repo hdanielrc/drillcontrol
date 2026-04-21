@@ -575,17 +575,21 @@
                 listaDisp.appendChild(div);
             });
 
-            // Pre-cargar cargos ya guardados
-            if (preseleccionados && preseleccionados.length > 0) {
-                for (const cargo of preseleccionados) {
-                    if (!(cargo in montosMap)) {
-                        montosMap[cargo] = montosMap[cargo] || '';
-                    }
-                    const div = listaDisp.querySelector(`[data-cargo="${cargo}"]`);
-                    if (div) div.classList.add('bg-success', 'text-white');
-                }
+            // ── Marcar cargos ya en montosMap (sea por preseleccionados o por
+            // montos_por_cargo_json cargado al inicio) ────────────────────────
+            const cargosGuardados = new Set([
+                ...((preseleccionados && preseleccionados.length > 0) ? preseleccionados : []),
+                ...Object.keys(montosMap),
+            ]);
+
+            cargosGuardados.forEach(cargo => {
+                if (!(cargo in montosMap)) montosMap[cargo] = '';
+                const div = listaDisp.querySelector(`[data-cargo="${cargo}"]`);
+                if (div) div.classList.add('bg-success', 'text-white');
+            });
+
+            if (Object.keys(montosMap).length > 0) {
                 renderTabla();
-                // Cargar trabajadores para los cargos pre-seleccionados
                 cargarTrabajadores(contratoId);
             }
         } catch(e) {
