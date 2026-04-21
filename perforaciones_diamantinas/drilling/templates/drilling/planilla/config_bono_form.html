@@ -469,7 +469,7 @@
                         <i class="fas fa-hard-hat me-1"></i> ${cargo}
                         <small class="fw-normal text-muted ms-2">Bono metraje: ${bonoMetraje}</small>
                     </h6>
-                    <table class="table table-sm table-hover mb-0" id="tablaTrab-${CSS.escape(cargo)}">
+                    <table class="table table-sm table-hover mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th class="small">Trabajador</th>
@@ -480,11 +480,11 @@
                                 </th>
                             </tr>
                         </thead>
-                        <tbody id="tbodyTrab-${CSS.escape(cargo)}"></tbody>
+                        <tbody></tbody>
                     </table>`;
                 tablasTrab.appendChild(section);
 
-                const tbody = section.querySelector(`#tbodyTrab-${CSS.escape(cargo)}`);
+                const tbody = section.querySelector('tbody');
                 trabajadores.forEach(({ dni, nombre }) => {
                     const tipo = tipoCalculoMap[dni] || 'cumplimiento';
                     const tr = document.createElement('tr');
