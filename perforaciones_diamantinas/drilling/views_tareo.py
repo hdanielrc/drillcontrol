@@ -3537,7 +3537,12 @@ def tareo_v2_mensual_view(request):
         'es_nominas': user.role == 'NOMINAS',
     }
 
-    return render(request, 'drilling/tareo/tareo_v2_mensual.html', context)
+    template = (
+        'drilling/tareo/tareo_v2_nominas.html'
+        if user.role == 'NOMINAS'
+        else 'drilling/tareo/tareo_v2_mensual.html'
+    )
+    return render(request, template, context)
 
 
 # =============================================================================
