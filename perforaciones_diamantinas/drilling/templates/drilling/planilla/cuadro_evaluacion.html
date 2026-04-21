@@ -299,8 +299,6 @@
                 <tr>
                     <th style="background:#1a3a4f;color:white;">Trabajador</th>
                     <th style="background:#1a3a4f;color:white;">Cargo</th>
-                    <th style="background:#1a3a4f;color:white;">Días Trab.</th>
-                    <th style="background:#1a3a4f;color:white;">Días Op.</th>
                     <th style="background:#0470AC;color:white;">Bono p/metro (S/m)</th>
                     <th style="background:#0470AC;color:white;">Metraje base (m)</th>
                     <th style="background:#dc3545;color:white;">SEGURIDAD %</th>
@@ -312,8 +310,7 @@
                         <i class="fas fa-info-circle" style="font-size:10px;cursor:help;"
                            title="Promedio ponderado por días de todas las máquinas del contrato: Σ(metros_máquina × días_máquina) / Σ(días_máquina)"></i>
                     </th>
-                    <th style="background:#084163;color:white;">Bono calculado</th>
-                    <th style="background:#28a745;color:white;">TOTAL</th>
+                    <th style="background:#28a745;color:white;">BONO ÁREA</th>
                 </tr>
             </thead>
             <tbody>
@@ -326,8 +323,6 @@
                     data-cxm-activo="{{ fila.cxm_activo|yesno:'true,false' }}">
                     <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
                     <td class="cell-cargo">{{ fila.cargo }}</td>
-                    <td class="text-center dias-trab">{{ fila.dias_trabajados }}</td>
-                    <td class="text-center dias-op">{{ fila.dias_operativos }}</td>
                     <td class="text-center fw-bold">{{ fila.bono_por_metraje|floatformat:3 }}</td>
                     <td class="text-center">{{ fila.metraje_base|floatformat:0 }}</td>
                     <td class="text-center fw-bold {% if fila.seg_activo %}text-success{% else %}text-danger{% endif %}">
@@ -349,14 +344,13 @@
                             <i class="fas fa-calculator"></i> {{ fila.metraje_ponderado_detalle|length }} máq.
                         </small>
                     </td>
-                    {# Bono = (metraje_acum - metraje_base) × monto_ajustado #}
-                    <td class="text-center cell-monto metraje-bono-calc">
+                    {# BONO ÁREA = (metraje_acum - metraje_base) × monto_ajustado #}
+                    <td class="text-center cell-total metraje-bono-calc">
                         S/ {{ fila.bono_calculado|floatformat:2 }}
                         <br><small class="text-muted" style="font-size:9px;">
                             ({{ fila.metraje_acumulado|floatformat:1 }} − {{ fila.metraje_base|floatformat:0 }}) × {{ fila.monto_ajustado|floatformat:3 }}
                         </small>
                     </td>
-                    <td class="text-center cell-total metraje-total">S/ {{ fila.total|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
