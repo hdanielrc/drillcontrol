@@ -302,7 +302,9 @@ function recalcularFila(tr) {
     const diasOp = parseInt(tr.children[4].textContent) || 30;
     const diasFactor = diasOp > 0 ? diasTrab / diasOp : 0;
 
-    let totalFila = 0;
+    // Monto por sección = bono × peso% × puntaje%  (SIN días factor)
+    // Factor de días se aplica una sola vez al total.
+    let sumaSeccionesSinDias = 0;
     let colOffset = 6; // después de las 6 columnas de info
 
     SECCIONES.forEach(sec => {
@@ -323,8 +325,10 @@ function recalcularFila(tr) {
         const puntaje = (globalPuntaje !== undefined)
             ? parseFloat(globalPuntaje)
             : (sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100);
-        const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100) * diasFactor).toFixed(2);
-        totalFila += parseFloat(montoSeccion);
+
+        // Monto sección sin días factor
+        const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
+        sumaSeccionesSinDias += parseFloat(montoSeccion);
 
         // Actualizar celdas de % y monto
         const pctValor = pctCell.querySelector('.pct-valor');
@@ -341,7 +345,9 @@ function recalcularFila(tr) {
         colOffset = montoIdx + 1;
     });
 
-    tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila.toFixed(2);
+    // Total = suma de secciones × factor de días
+    const totalFila = (sumaSeccionesSinDias * diasFactor).toFixed(2);
+    tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila;
 }
 
 function guardarTodo() {

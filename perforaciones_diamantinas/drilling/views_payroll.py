@@ -534,49 +534,45 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     import unicodedata
     from .models_payroll import ConceptoGlobalPeriodo
 
-    # Aliases: códigos cortos o variantes comunes → código oficial de ConceptoGlobal
-    _ALIAS_GLOBAL = {
-        'PROD': 'PRODUCCION',
-        'PRODUCCION': 'PRODUCCION',
-        'PRODUCCIÓN': 'PRODUCCION',
-        'SEG': 'SEGURIDAD',
-        'SEGURIDAD': 'SEGURIDAD',
-        'VAL': 'VALORIZACION',
-        'VALORIZACION': 'VALORIZACION',
-        'VALORIZACIÓN': 'VALORIZACION',
-        'CXM': 'CXM',
-        'COSTO': 'CXM',
-        'COSTO_METRO': 'CXM',
-        'RO': 'RESULTADO_OPERATIVO',
-        'RESULTADO': 'RESULTADO_OPERATIVO',
-        'RESULTADOS': 'RESULTADO_OPERATIVO',
-        'RESULTADO_OP': 'RESULTADO_OPERATIVO',
-        'RESULTADO_OPERATIVO': 'RESULTADO_OPERATIVO',
-    }
+    # Prefijos ordenados de mayor a menor longitud para evitar falsos matches.
+    # Cualquier ConceptoBono.codigo que empiece con uno de estos prefijos
+    # (tras quitar tildes y mayúsculas) se mapea al código oficial de ConceptoGlobal.
+    _PREFIJOS_GLOBAL = [
+        ('RESULTADO_OPERATIVO', 'RESULTADO_OPERATIVO'),
+        ('RESULTADO_OP',        'RESULTADO_OPERATIVO'),
+        ('RESULTADO',           'RESULTADO_OPERATIVO'),
+        ('PRODUCCION',          'PRODUCCION'),
+        ('SEGURIDAD',           'SEGURIDAD'),
+        ('VALORIZACION',        'VALORIZACION'),
+        ('COSTO_METRO',         'CXM'),
+        ('COSTO',               'CXM'),
+        ('RROO',                'RESULTADO_OPERATIVO'),
+        ('PROD',                'PRODUCCION'),
+        ('SEGU',                'SEGURIDAD'),
+        ('SEG',                 'SEGURIDAD'),
+        ('VALO',                'VALORIZACION'),
+        ('VAL',                 'VALORIZACION'),
+        ('CXM',                 'CXM'),
+        ('RO',                  'RESULTADO_OPERATIVO'),
+    ]
 
     def _strip_accents(s):
-        """Elimina tildes y convierte a mayúsculas para comparación robusta."""
+        """Quita tildes y devuelve en mayúsculas."""
         return ''.join(
             c for c in unicodedata.normalize('NFD', s.upper())
             if unicodedata.category(c) != 'Mn'
         )
 
-    def _buscar_cgp(codigo_seccion, cgp_map):
+    def _codigo_a_global(codigo_seccion):
         """
-        Busca ConceptoGlobalPeriodo por código de sección usando:
-        1. Coincidencia exacta (ya sin acento).
-        2. Alias de códigos cortos/variantes comunes.
-        Devuelve (cgp, fuente) o (None, None).
+        Convierte el código de un ConceptoBono al código oficial de ConceptoGlobal.
+        Primero busca coincidencia exacta en el dict de prefijos, luego startswith
+        (de mayor a menor longitud) para tolerar sufijos extras como '_01', etc.
         """
-        normalizado = _strip_accents(codigo_seccion)
-        # 1) coincidencia directa tras normalizar acentos
-        cgp = cgp_map.get(normalizado)
-        if cgp:
-            return cgp
-        # 2) alias → código oficial
-        global_codigo = _ALIAS_GLOBAL.get(normalizado)
-        if global_codigo:
-            return cgp_map.get(global_codigo)
+        norm = _strip_accents(codigo_seccion)
+        for prefijo, global_cod in _PREFIJOS_GLOBAL:
+            if norm == prefijo or norm.startswith(prefijo):
+                return global_cod
         return None
 
     tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk, activo=True)
@@ -702,8 +698,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         cumplidos += 1
 
                 # Puntaje: usar ConceptoGlobalPeriodo si existe para este código de sección
-                # Matching robusto: normalización de acentos + alias de códigos cortos
-                cgp = _buscar_cgp(seccion.codigo, conceptos_globales_periodo)
+                # Matching robusto: normalización de acentos + prefijo startswith
+                global_codigo = _codigo_a_global(seccion.codigo)
+                cgp = conceptos_globales_periodo.get(global_codigo) if global_codigo else None
                 if cgp is not None:
                     # % viene del indicador global del contrato (producción, seguridad, etc.)
                     puntaje = float(cgp.porcentaje_bono)
@@ -715,10 +712,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
                 peso = float(seccion.peso_default)
                 bono_base = float(bono_trab.bono_base)
-                dias_trab = bono_trab.dias_trabajados
-                dias_base = bono_trab.dias_base or 30
-                dias_factor = dias_trab / dias_base if dias_base > 0 else 0
-                monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100) * dias_factor, 2)
+                # Monto de la sección = bono_base × peso% × puntaje%  (sin días factor)
+                # El factor de días se aplica UNA sola vez al total de la fila.
+                monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100), 2)
                 total_monto_trab += Decimal(str(monto_seccion))
 
                 secciones_data.append({
@@ -730,6 +726,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'fuente_puntaje': fuente_puntaje,
                     'monto': monto_seccion,
                 })
+
+            # Aplicar factor de días al total de la fila
+            dias_trab = bono_trab.dias_trabajados
+            dias_base = bono_trab.dias_base or 30
+            dias_factor = Decimal(str(dias_trab)) / Decimal(str(dias_base)) if dias_base > 0 else Decimal('0')
+            total_monto_trab = (total_monto_trab * dias_factor).quantize(Decimal('0.01'))
 
             filas.append({
                 'bono_pk': bono_trab.pk,
