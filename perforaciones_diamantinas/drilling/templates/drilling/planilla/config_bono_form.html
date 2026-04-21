@@ -435,27 +435,51 @@
             if (sinTrab) sinTrab.classList.add('d-none');
             return;
         }
+        if (tablasTrab) {
+            tablasTrab.innerHTML = '<div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-1"></span> Cargando trabajadores…</div>';
+        }
         try {
             const params = new URLSearchParams({ contrato_id: contratoId, cargos: cargos.join(',') });
             const resp = await fetch(`/planilla/api/trabajadores-por-cargo/?${params}`);
+
+            if (!resp.ok) {
+                const txt = await resp.text();
+                if (tablasTrab) tablasTrab.innerHTML = `<div class="alert alert-danger small py-2">
+                    Error HTTP ${resp.status} al cargar trabajadores.<br>
+                    <code style="font-size:10px;">${txt.substring(0, 300)}</code>
+                </div>`;
+                return;
+            }
+
             const data = await resp.json();
             const cargosData = data.cargos || {};
-            const totalTrab = Object.values(cargosData).reduce((s, arr) => s + arr.length, 0);
+
+            // Usar las claves que devuelve la API (no las de montosMap) para evitar
+            // que una diferencia mínima en el nombre deje la tabla vacía
+            const cargosConTrab = Object.keys(cargosData).filter(k => cargosData[k].length > 0);
+            const totalTrab = cargosConTrab.reduce((s, k) => s + cargosData[k].length, 0);
 
             if (!tablasTrab) return;
             tablasTrab.innerHTML = '';
 
             if (totalTrab === 0) {
-                sinTrab && sinTrab.classList.remove('d-none');
+                if (sinTrab) sinTrab.classList.remove('d-none');
+                tablasTrab.innerHTML = `<div class="text-muted small fst-italic">
+                    Sin trabajadores activos para los cargos: <strong>${cargos.join(', ')}</strong>.
+                    Verifica que tengan estado ACTIVO y el cargo asignado.
+                </div>`;
                 return;
             }
-            sinTrab && sinTrab.classList.add('d-none');
+            if (sinTrab) sinTrab.classList.add('d-none');
 
-            cargos.forEach(cargo => {
-                const trabajadores = cargosData[cargo] || [];
-                if (trabajadores.length === 0) return;
+            cargosConTrab.forEach(cargoKey => {
+                const trabajadores = cargosData[cargoKey];
 
-                const est = estructuraMap[cargo] || {};
+                // Buscar datos de estructura: primero clave exacta, luego búsqueda parcial
+                const est = estructuraMap[cargoKey]
+                    || Object.entries(estructuraMap).find(([k]) =>
+                        k.toUpperCase() === cargoKey.toUpperCase())?.[1]
+                    || {};
                 const bpm = est.bono_por_metraje ? parseFloat(est.bono_por_metraje) : 0;
                 const mb  = est.metraje_base     ? parseFloat(est.metraje_base)     : 0;
                 const bonoMetraje = (bpm > 0 && mb > 0)
@@ -466,14 +490,14 @@
                 section.className = 'mb-4';
                 section.innerHTML = `
                     <h6 class="fw-bold text-secondary border-bottom pb-1 mb-2">
-                        <i class="fas fa-hard-hat me-1"></i> ${cargo}
+                        <i class="fas fa-hard-hat me-1"></i> ${cargoKey}
                         <small class="fw-normal text-muted ms-2">Bono metraje: ${bonoMetraje}</small>
                     </h6>
                     <table class="table table-sm table-hover mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th class="small">Trabajador</th>
-                                <th class="small text-center" style="width:140px;">
+                                <th class="small text-center" style="width:210px;">
                                     <span class="text-success">Metraje</span>
                                     <small class="text-muted"> / </small>
                                     <span class="text-primary">Cumplimiento</span>
@@ -496,13 +520,13 @@
                                 <input type="radio" class="btn-check trab-tipo-radio" name="tipo_${dni}"
                                        id="tipo_metraje_${dni}" value="metraje" autocomplete="off"
                                        data-dni="${dni}" ${tipo === 'metraje' ? 'checked' : ''}>
-                                <label class="btn btn-outline-success py-0 px-2" for="tipo_metraje_${dni}" title="Bono por metros perforados">
+                                <label class="btn btn-outline-success py-0 px-2" for="tipo_metraje_${dni}">
                                     <i class="fas fa-ruler-vertical me-1"></i>Metraje
                                 </label>
                                 <input type="radio" class="btn-check trab-tipo-radio" name="tipo_${dni}"
                                        id="tipo_cumpl_${dni}" value="cumplimiento" autocomplete="off"
                                        data-dni="${dni}" ${tipo === 'cumplimiento' ? 'checked' : ''}>
-                                <label class="btn btn-outline-primary py-0 px-2" for="tipo_cumpl_${dni}" title="Bono por cumplimiento de KPIs">
+                                <label class="btn btn-outline-primary py-0 px-2" for="tipo_cumpl_${dni}">
                                     <i class="fas fa-chart-bar me-1"></i>Cumplimiento
                                 </label>
                             </div>
@@ -517,7 +541,7 @@
                     if (radio.checked) {
                         const dni = radio.dataset.dni;
                         if (radio.value === 'cumplimiento') {
-                            delete tipoCalculoMap[dni];  // cumplimiento es el default, no necesita guardarse
+                            delete tipoCalculoMap[dni];
                         } else {
                             tipoCalculoMap[dni] = radio.value;
                         }
@@ -528,6 +552,9 @@
 
         } catch(e) {
             console.error('Error cargando trabajadores:', e);
+            if (tablasTrab) tablasTrab.innerHTML = `<div class="alert alert-warning small py-2">
+                Error al cargar trabajadores: <code>${e.message}</code>
+            </div>`;
         }
     }
 
