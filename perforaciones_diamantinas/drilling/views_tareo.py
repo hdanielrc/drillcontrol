@@ -3417,7 +3417,7 @@ def tareo_v2_mensual_view(request):
         _he_por_trabajador = {r['trabajador_id']: float(r['total_he'] or 0) for r in _horas_extras_qs}
 
         # Pre-cargar sueldo desde EstructuraSalarial (fuente primaria)
-        from .models_payroll import EstructuraSalarial as _ES
+        from .models_payroll import EstructuraSalarial as _ES, BonoTrabajador as _BT
         _estructuras_qs = _ES.objects.filter(
             contrato=contrato, activo=True,
         ).values('contrato_servicio__codigo_centro_costo', 'cargo_contratado', 'sueldo_basico')
@@ -3425,6 +3425,15 @@ def tareo_v2_mensual_view(request):
         for e in _estructuras_qs:
             key = (e['contrato_servicio__codigo_centro_costo'], e['cargo_contratado'])
             _sueldo_estructura[key] = float(e['sueldo_basico'])
+
+        # Pre-cargar BONO ÁREA: suma de monto_final de todos los bonos del período
+        _bonos_qs = (
+            _BT.objects
+            .filter(periodo__contrato=contrato, periodo__anio=anio_operativo, periodo__mes=mes_operativo)
+            .values('trabajador_id')
+            .annotate(bono_area_total=_Sum('monto_final'))
+        )
+        _bono_area_por_trabajador = {r['trabajador_id']: float(r['bono_area_total'] or 0) for r in _bonos_qs}
 
         for grupo in matriz_tareo:
             for row in grupo['rows']:
@@ -3508,6 +3517,7 @@ def tareo_v2_mensual_view(request):
                     'bono_dia': round(_bono_dia, 2),
                     'total_sin_bonos': round(_total_sin_bonos, 2),
                     'horas_extras': _total_he,
+                    'bono_area': _bono_area_por_trabajador.get(trab.id, None),
                 })
 
     context = {

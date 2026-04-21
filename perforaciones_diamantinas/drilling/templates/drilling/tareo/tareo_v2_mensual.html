@@ -1143,6 +1143,7 @@
                         <th class="text-center" style="background:#1565c0;color:#fff;" title="SUELDO x DIAS / 30 × DIAS APOYO">$ D.APOYO</th>
                         <th class="text-center" style="background:#e65100;color:#fff;" title="SUELDO x DIAS / 30 / 8 × HORAS EXTRAS (23-24)">BONO DIA</th>
                         <th class="text-center" style="background:#b71c1c;color:#fff;" title="SUELDO x DIAS + $ D.APOYO + BONO DIA">TOTAL S/B</th>
+                        <th class="text-center" style="background:#0d6efd;color:#fff;" title="Suma de todos los bonos calculados en los Cuadros de Calificación del período">BONO ÁREA</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1169,6 +1170,7 @@
                         <td class="text-end" style="background:#e3f2fd;">{{ r.monto_dias_apoyo|floatformat:2 }}</td>
                         <td class="text-end" style="background:#fff3e0;">{{ r.bono_dia|floatformat:2 }}</td>
                         <td class="text-end fw-bold" style="background:#ffebee;">{{ r.total_sin_bonos|floatformat:2 }}</td>
+                        <td class="text-end fw-bold" style="background:#e8f0fe;color:#0d47a1;">{% if r.bono_area is not None %}S/ {{ r.bono_area|floatformat:2 }}{% else %}<span style="color:#aaa;">—</span>{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
