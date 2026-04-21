@@ -94,6 +94,8 @@ def main():
     max_consec = 0
     current = 0
     consec_segments = []
+
+    
     # build a dict for fast lookup
     row_map = {f: s for (f, s) in rows}
     while d <= span_end:
