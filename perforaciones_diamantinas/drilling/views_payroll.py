@@ -557,10 +557,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     ]
 
     # Multiplicadores de bono para trabajadores de tipo METRAJE.
-    # Si el indicador global llega al 100 %, se suma ese porcentaje al bono base.
+    # Si el indicador global llega al 100 %, se suma ese porcentaje al bono base por metro.
     _METRAJE_MULT = {
         'SEGURIDAD': Decimal('0.04'),   # SEG al 100 % → +4 %
-        'CXM':       Decimal('0.08'),   # CXM al 100 % → +8 %
+        'CXM':       Decimal('0.04'),   # CXM al 100 % → +4 %
     }
 
     def _strip_accents(s):
@@ -629,7 +629,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         ).order_by('apepat', 'apemat', 'nombres')
         trabajadores = filtrar_trabajadores_por_cargo(trabajadores, tipo_bono, config=config)
 
-        filas = []
+        filas_cumplimiento = []
+        filas_metraje = []
         for trab in trabajadores:
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
             from decimal import Decimal as _D
@@ -645,8 +646,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         cargo_contratado=cargo,
                         activo=True,
                     ).first()
-                    if est and est.bono_por_metraje and est.metraje_base:
-                        return (est.bono_por_metraje * est.metraje_base).quantize(Decimal('0.01'))
+                    if est and est.bono_por_metraje:
+                        # Almacenar solo la TARIFA por metro (no el producto con metraje_base)
+                        return est.bono_por_metraje
                 # cumplimiento (default): per-cargo o global
                 if cfg.montos_por_cargo and cargo in cfg.montos_por_cargo:
                     return _D(str(cfg.montos_por_cargo[cargo]))
@@ -688,12 +690,62 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             if fields_to_update:
                 bono_trab.save(update_fields=fields_to_update)
 
-            # Generar detalles y calificaciones si faltan
-            if bt_created:
+            # Generar detalles y calificaciones si faltan (solo cumplimiento)
+            if bt_created and tipo_calc != 'metraje':
                 generar_detalles_vacios(bono_trab, config)
                 generar_calificaciones_criterios(bono_trab)
 
-            # Construir datos de secciones con criterios
+            # ── TRABAJADORES DE METRAJE: cálculo directo ──────────────────────
+            if tipo_calc == 'metraje':
+                seg_cgp = conceptos_globales_periodo.get('SEGURIDAD')
+                cxm_cgp = conceptos_globales_periodo.get('CXM')
+                seg_puntaje = float(seg_cgp.porcentaje_bono) if seg_cgp else 0.0
+                cxm_puntaje = float(cxm_cgp.porcentaje_bono) if cxm_cgp else 0.0
+                seg_activo = seg_puntaje >= 100
+                cxm_activo = cxm_puntaje >= 100
+
+                mult_seg = Decimal('0.04') if seg_activo else Decimal('0')
+                mult_cxm = Decimal('0.04') if cxm_activo else Decimal('0')
+                mult_total = Decimal('1') + mult_seg + mult_cxm
+                mult_total_pct = int(mult_total * 100)  # 100, 104, 108
+
+                est_m = EstructuraSalarial.objects.filter(
+                    contrato=config.contrato, cargo_contratado=cargo_trab, activo=True
+                ).first()
+                metraje_base_val = est_m.metraje_base if est_m and est_m.metraje_base else Decimal('0')
+                metraje_acum_val = bono_trab.metraje_acumulado or Decimal('0')
+                bono_por_metro_val = bono_trab.bono_base  # tarifa por metro (unit rate)
+
+                monto_ajustado = (bono_por_metro_val * mult_total).quantize(Decimal('0.001'))
+                bono_calculado = ((metraje_acum_val - metraje_base_val) * monto_ajustado).quantize(Decimal('0.01'))
+
+                dias_trab_m = bono_trab.dias_trabajados
+                dias_base_m = bono_trab.dias_base or 30
+                dias_factor_m = Decimal(str(dias_trab_m)) / Decimal(str(dias_base_m)) if dias_base_m > 0 else Decimal('0')
+                total_metraje = (bono_calculado * dias_factor_m).quantize(Decimal('0.01'))
+
+                filas_metraje.append({
+                    'bono_pk': bono_trab.pk,
+                    'trabajador_pk': trab.pk,
+                    'nombre_completo': f"{trab.apepat} {trab.apemat} {trab.nombres}".strip(),
+                    'cargo': cargo_trab,
+                    'dias_trabajados': bono_trab.dias_trabajados,
+                    'dias_operativos': bono_trab.dias_base,
+                    'bono_por_metraje': float(bono_por_metro_val),
+                    'metraje_base': float(metraje_base_val),
+                    'metraje_acumulado': float(metraje_acum_val),
+                    'seg_puntaje': seg_puntaje,
+                    'cxm_puntaje': cxm_puntaje,
+                    'seg_activo': seg_activo,
+                    'cxm_activo': cxm_activo,
+                    'mult_total_pct': mult_total_pct,
+                    'monto_ajustado': float(monto_ajustado),
+                    'bono_calculado': float(bono_calculado),
+                    'total': float(total_metraje),
+                })
+                continue  # no procesar secciones para trabajadores de metraje
+
+            # Construir datos de secciones con criterios (solo cumplimiento)
             secciones_data = []
             total_monto_trab = Decimal('0')
             for seccion in secciones:
@@ -734,18 +786,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 # Multiplicador metraje para esta sección (0 si no aplica)
                 metraje_mult = _METRAJE_MULT.get(global_codigo, Decimal('0'))
 
-                if tipo_calc == 'metraje':
-                    # Para trabajadores de metraje el monto de la sección es el
-                    # incremento que aporta al bono:
-                    #   SEG ≥ 100 % → +4 % del bono base ; CXM ≥ 100 % → +8 %
-                    #   Cualquier otra sección (PROD, etc.) → 0
-                    if metraje_mult and puntaje >= 100:
-                        monto_seccion = round(bono_base * float(metraje_mult), 2)
-                    else:
-                        monto_seccion = 0.0
-                else:
-                    # Fórmula normal: bono_base × peso% × puntaje%
-                    monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100), 2)
+                # Fórmula cumplimiento: bono_base × peso% × puntaje%
+                monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100), 2)
 
                 total_monto_trab += Decimal(str(monto_seccion))
 
@@ -765,16 +807,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             dias_base = bono_trab.dias_base or 30
             dias_factor = Decimal(str(dias_trab)) / Decimal(str(dias_base)) if dias_base > 0 else Decimal('0')
 
-            if tipo_calc == 'metraje':
-                # total = (bono_base + increments_de_secciones) × días_factor
-                # total_monto_trab contiene la suma de los incrementos (4 % / 8 %)
-                total_monto_trab = (bono_trab.bono_base + total_monto_trab) * dias_factor
-            else:
-                # total = suma_secciones × días_factor
-                total_monto_trab = total_monto_trab * dias_factor
-            total_monto_trab = total_monto_trab.quantize(Decimal('0.01'))
+            # Fórmula cumplimiento: suma_secciones × días_factor
+            total_monto_trab = (total_monto_trab * dias_factor).quantize(Decimal('0.01'))
 
-            filas.append({
+            filas_cumplimiento.append({
                 'bono_pk': bono_trab.pk,
                 'trabajador_pk': trab.pk,
                 'nombre_completo': f"{trab.apepat} {trab.apemat} {trab.nombres}".strip(),
@@ -787,11 +823,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 'total': float(total_monto_trab),
             })
 
-        if filas:
+        if filas_cumplimiento or filas_metraje:
             datos_por_contrato[contrato.nombre_contrato] = {
                 'contrato_pk': contrato.pk,
                 'periodo_pk': periodo.pk,
-                'filas': filas,
+                'filas': filas_cumplimiento,
+                'filas_metraje': filas_metraje,
             }
 
     # Preparar estructura de secciones para el header
@@ -867,6 +904,12 @@ def cuadro_guardar(request, tipo_bono_pk):
             bono_trab.dias_base = int(dias_op)
         if dias_trab is not None or dias_op is not None:
             bono_trab.save(update_fields=['dias_trabajados', 'dias_base'])
+
+        # Actualizar metraje_acumulado (trabajadores de tipo metraje)
+        metraje_acumulado = bd.get('metraje_acumulado')
+        if metraje_acumulado is not None:
+            bono_trab.metraje_acumulado = Decimal(str(metraje_acumulado))
+            bono_trab.save(update_fields=['metraje_acumulado'])
 
         # Actualizar criterios
         criterios_dict = bd.get('criterios', {})

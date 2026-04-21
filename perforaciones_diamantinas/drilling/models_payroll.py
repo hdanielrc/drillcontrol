@@ -309,6 +309,11 @@ class BonoTrabajador(models.Model):
         max_digits=10, decimal_places=2, default=0,
         verbose_name='Monto Final (S/)'
     )
+    metraje_acumulado = models.DecimalField(
+        max_digits=10, decimal_places=3, null=True, blank=True,
+        verbose_name='Metraje Acumulado (m)',
+        help_text='Metros perforados acumulados en el período. Solo para trabajadores de tipo metraje.'
+    )
     observaciones = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

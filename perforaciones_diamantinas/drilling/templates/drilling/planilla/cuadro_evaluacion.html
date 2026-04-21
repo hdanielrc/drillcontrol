@@ -244,19 +244,13 @@
                     </td>
                 </tr>
                 {% for fila in contrato_data.filas %}
-                <tr class="worker-row{% if fila.tipo_calculo == 'metraje' %} worker-metraje{% endif %}"
-                    data-bono-pk="{{ fila.bono_pk }}"
-                    data-tipo-calculo="{{ fila.tipo_calculo|default:'cumplimiento' }}">
+                <tr class="worker-row"
+                    data-bono-pk="{{ fila.bono_pk }}">
                     <td></td>
-                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">
-                        {{ fila.nombre_completo }}
-                        {% if fila.tipo_calculo == 'metraje' %}
-                        <br><span class="badge bg-warning text-dark" style="font-size:9px;letter-spacing:.3px;">&#9889; METRAJE</span>
-                        {% endif %}
-                    </td>
+                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
                     <td class="cell-cargo">{{ fila.cargo }}</td>
-                    <td>{{ fila.dias_trabajados }}</td>
-                    <td>{{ fila.dias_operativos }}</td>
+                    <td class="dias-trab">{{ fila.dias_trabajados }}</td>
+                    <td class="dias-op">{{ fila.dias_operativos }}</td>
                     <td class="cell-bono-base">
                         <input type="number" step="0.01" min="0"
                                value="{{ fila.bono_base|floatformat:0 }}"
@@ -266,54 +260,23 @@
                                onchange="recalcularFila(this.closest('tr'))">
                     </td>
                     {% for sec in fila.secciones %}
-                        {% if fila.tipo_calculo == 'metraje' %}
-                            {# Metraje: checkboxes deshabilitados para mantener alineación de columnas #}
-                            {% for crit in sec.criterios %}
-                            <td class="cell-check" style="opacity:.3;">
-                                <input type="checkbox" disabled>
-                            </td>
-                            {% endfor %}
-                            {% if sec.metraje_mult_pct > 0 %}
-                            <td class="cell-pct seccion-pct {% if sec.puntaje >= 100 %}pct-100{% else %}pct-low{% endif %}"
-                                data-concepto-pk="{{ sec.concepto_pk }}"
-                                data-puntaje-global="{{ sec.puntaje }}"
-                                data-metraje-mult="{{ sec.metraje_mult_pct|floatformat:0 }}">
-                                <span class="pct-valor">{{ sec.puntaje }}%</span>
-                                {% if sec.fuente_puntaje == 'global' %}<i class="fas fa-globe" style="font-size:9px;color:#6c757d;margin-left:2px;"></i>{% endif %}
-                                <br><small class="{% if sec.puntaje >= 100 %}text-success fw-bold{% else %}text-muted{% endif %}">
-                                    {% if sec.puntaje >= 100 %}&#10003; +{{ sec.metraje_mult_pct|floatformat:0 }}%{% else %}(+{{ sec.metraje_mult_pct|floatformat:0 }}%){% endif %}
-                                </small>
-                            </td>
-                            {% else %}
-                            <td class="cell-pct text-muted" style="opacity:.35;"
-                                data-concepto-pk="{{ sec.concepto_pk }}"
-                                data-metraje-mult="0">
-                                <small>N/A</small>
-                            </td>
-                            {% endif %}
-                            <td class="cell-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}">
-                                S/ {{ sec.monto }}
-                            </td>
-                        {% else %}
-                            {# Cumplimiento normal #}
-                            {% for crit in sec.criterios %}
-                            <td class="cell-check">
-                                <input type="checkbox"
-                                       data-bono-pk="{{ fila.bono_pk }}"
-                                       data-criterio-pk="{{ crit.criterio_pk }}"
-                                       {% if crit.cumple %}checked{% endif %}
-                                       onchange="recalcularFila(this.closest('tr'))">
-                            </td>
-                            {% endfor %}
-                            <td class="cell-pct seccion-pct {% if sec.puntaje == 100 %}pct-100{% elif sec.puntaje >= 80 %}pct-80{% else %}pct-low{% endif %}"
-                                data-concepto-pk="{{ sec.concepto_pk }}"
-                                {% if sec.fuente_puntaje == 'global' %}data-puntaje-global="{{ sec.puntaje }}"{% endif %}>
-                                <span class="pct-valor">{{ sec.puntaje }}%</span>{% if sec.fuente_puntaje == 'global' %}<i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;color:#6c757d;margin-left:2px;vertical-align:middle;"></i>{% endif %}
-                            </td>
-                            <td class="cell-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}">
-                                S/ {{ sec.monto }}
-                            </td>
-                        {% endif %}
+                        {% for crit in sec.criterios %}
+                        <td class="cell-check">
+                            <input type="checkbox"
+                                   data-bono-pk="{{ fila.bono_pk }}"
+                                   data-criterio-pk="{{ crit.criterio_pk }}"
+                                   {% if crit.cumple %}checked{% endif %}
+                                   onchange="recalcularFila(this.closest('tr'))">
+                        </td>
+                        {% endfor %}
+                        <td class="cell-pct seccion-pct {% if sec.puntaje == 100 %}pct-100{% elif sec.puntaje >= 80 %}pct-80{% else %}pct-low{% endif %}"
+                            data-concepto-pk="{{ sec.concepto_pk }}"
+                            {% if sec.fuente_puntaje == 'global' %}data-puntaje-global="{{ sec.puntaje }}"{% endif %}>
+                            <span class="pct-valor">{{ sec.puntaje }}%</span>{% if sec.fuente_puntaje == 'global' %}<i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;color:#6c757d;margin-left:2px;vertical-align:middle;"></i>{% endif %}
+                        </td>
+                        <td class="cell-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}">
+                            S/ {{ sec.monto }}
+                        </td>
                     {% endfor %}
                     <td class="cell-total fila-total">S/ {{ fila.total }}</td>
                 </tr>
@@ -322,6 +285,76 @@
             </tbody>
         </table>
     </div>
+
+    <!-- ── Tablas de Trabajadores por METRAJE (una por contrato) ───────────── -->
+    {% for contrato_nombre, contrato_data in datos_por_contrato.items %}
+    {% if contrato_data.filas_metraje %}
+    <div class="mt-4 mb-4">
+        <h6 style="background:#fff3cd;padding:8px 12px;border-radius:4px;color:#856404;border-left:4px solid #ffc107;">
+            <i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; <strong>{{ contrato_nombre|upper }}</strong>
+        </h6>
+        <div class="table-responsive">
+        <table class="table table-bordered table-sm" style="font-size:11px;white-space:nowrap;">
+            <thead>
+                <tr>
+                    <th style="background:#1a3a4f;color:white;">Trabajador</th>
+                    <th style="background:#1a3a4f;color:white;">Cargo</th>
+                    <th style="background:#1a3a4f;color:white;">Días Trab.</th>
+                    <th style="background:#1a3a4f;color:white;">Días Op.</th>
+                    <th style="background:#0470AC;color:white;">Bono p/metro (S/m)</th>
+                    <th style="background:#0470AC;color:white;">Metraje base (m)</th>
+                    <th style="background:#dc3545;color:white;">SEGURIDAD %</th>
+                    <th style="background:#fd7e14;color:white;">COSTO POR METRO %</th>
+                    <th style="background:#6c757d;color:white;">TOTAL %</th>
+                    <th style="background:#17a2b8;color:white;">Monto (S/m &times; %)</th>
+                    <th style="background:#084163;color:white;">Metraje acum. (m)</th>
+                    <th style="background:#084163;color:white;">Bono calculado</th>
+                    <th style="background:#28a745;color:white;">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in contrato_data.filas_metraje %}
+                <tr class="metraje-row worker-metraje"
+                    data-bono-pk="{{ fila.bono_pk }}"
+                    data-bono-por-metro="{{ fila.bono_por_metraje }}"
+                    data-metraje-base="{{ fila.metraje_base }}"
+                    data-seg-activo="{{ fila.seg_activo|yesno:'true,false' }}"
+                    data-cxm-activo="{{ fila.cxm_activo|yesno:'true,false' }}">
+                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
+                    <td class="cell-cargo">{{ fila.cargo }}</td>
+                    <td class="text-center dias-trab">{{ fila.dias_trabajados }}</td>
+                    <td class="text-center dias-op">{{ fila.dias_operativos }}</td>
+                    <td class="text-center fw-bold">{{ fila.bono_por_metraje|floatformat:3 }}</td>
+                    <td class="text-center">{{ fila.metraje_base|floatformat:0 }}</td>
+                    <td class="text-center fw-bold {% if fila.seg_activo %}text-success{% else %}text-danger{% endif %}">
+                        {% if fila.seg_activo %}SI{% else %}NO{% endif %}
+                        <br><small>({{ fila.seg_puntaje|floatformat:0 }}%)</small>
+                    </td>
+                    <td class="text-center fw-bold {% if fila.cxm_activo %}text-success{% else %}text-danger{% endif %}">
+                        {% if fila.cxm_activo %}SI{% else %}NO{% endif %}
+                        <br><small>({{ fila.cxm_puntaje|floatformat:0 }}%)</small>
+                    </td>
+                    <td class="text-center fw-bold cell-pct">{{ fila.mult_total_pct }}%</td>
+                    <td class="text-center cell-monto metraje-monto-ajustado">{{ fila.monto_ajustado|floatformat:3 }}</td>
+                    <td class="cell-bono-base">
+                        <input type="number" step="0.001" min="0"
+                               value="{{ fila.metraje_acumulado|floatformat:3 }}"
+                               class="metraje-input"
+                               style="width:100px;text-align:right;border:1px solid #ddd;border-radius:3px;padding:2px 4px;font-size:11px;"
+                               data-bono-pk="{{ fila.bono_pk }}"
+                               onchange="recalcularMetraje(this.closest('tr'))">
+                    </td>
+                    <td class="text-center cell-monto metraje-bono-calc">S/ {{ fila.bono_calculado|floatformat:2 }}</td>
+                    <td class="text-center cell-total metraje-total">S/ {{ fila.total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
     {% endif %}
 </div>
 {% endblock %}
@@ -337,110 +370,94 @@ const SECCIONES = [
 
 function recalcularFila(tr) {
     if (!tr) return;
-    const tipoCalculo = tr.dataset.tipoCalculo || 'cumplimiento';
     const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
-    const diasTrab = parseInt(tr.children[3].textContent) || 0;
-    const diasOp   = parseInt(tr.children[4].textContent) || 30;
+    const diasTrab = parseInt(tr.querySelector('.dias-trab') ? tr.querySelector('.dias-trab').textContent : tr.children[3].textContent) || 0;
+    const diasOp   = parseInt(tr.querySelector('.dias-op') ? tr.querySelector('.dias-op').textContent : tr.children[4].textContent) || 30;
     const diasFactor = diasOp > 0 ? diasTrab / diasOp : 0;
 
-    let colOffset = 6; // después de las 6 columnas de info (sel, nombre, cargo, días, días op, bono_base)
+    let colOffset = 6;
+    let sumaSeccionesSinDias = 0;
 
-    if (tipoCalculo === 'metraje') {
-        // ── Fórmula metraje ──────────────────────────────────────────────────
-        // total = bono_base × (1 + Σ mult_kpi) × días_factor
-        // Cada sección KPI activa su multiplicador si puntaje_global >= 100.
-        let incrementoPct = 0;
+    SECCIONES.forEach(sec => {
+        let cumplidos = 0;
+        for (let i = 0; i < sec.numCriterios; i++) {
+            const cell = tr.children[colOffset + i];
+            const cb = cell.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked) cumplidos++;
+        }
 
-        SECCIONES.forEach(sec => {
-            const pctIdx   = colOffset + sec.numCriterios;
-            const montoIdx = pctIdx + 1;
-            const pctCell  = tr.children[pctIdx];
+        const pctIdx   = colOffset + sec.numCriterios;
+        const montoIdx = pctIdx + 1;
+        const pctCell  = tr.children[pctIdx];
 
-            const globalPuntaje = parseFloat(pctCell.dataset.puntajeGlobal || '0');
-            const metrajeMult   = parseFloat(pctCell.dataset.metrajeMult   || '0'); // 0, 4 ó 8
+        const globalPuntaje = pctCell.dataset.puntajeGlobal;
+        const puntaje = (globalPuntaje !== undefined)
+            ? parseFloat(globalPuntaje)
+            : (sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100);
 
-            const activo = metrajeMult > 0 && globalPuntaje >= 100;
-            const incremento = activo ? bonoBase * (metrajeMult / 100) : 0;
-            incrementoPct += activo ? metrajeMult : 0;
+        const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
+        sumaSeccionesSinDias += parseFloat(montoSeccion);
 
-            // Actualizar celda de monto de sección
-            tr.children[montoIdx].textContent = 'S/ ' + incremento.toFixed(2);
+        const pctValor = pctCell.querySelector('.pct-valor');
+        if (pctValor) pctValor.textContent = puntaje + '%';
+        else pctCell.textContent = puntaje + '%';
 
-            // Actualizar estilos de la celda %
-            if (metrajeMult > 0) {
-                pctCell.className = 'cell-pct seccion-pct ' + (globalPuntaje >= 100 ? 'pct-100' : 'pct-low');
-                const smallEl = pctCell.querySelector('small');
-                if (smallEl) {
-                    smallEl.textContent = activo
-                        ? '\u2713 +' + metrajeMult + '%'
-                        : '(+' + metrajeMult + '%)';
-                    smallEl.className = activo ? 'text-success fw-bold' : 'text-muted';
-                }
-            }
+        pctCell.className = 'cell-pct seccion-pct ' +
+            (puntaje === 100 ? 'pct-100' : puntaje >= 80 ? 'pct-80' : 'pct-low');
 
-            colOffset = montoIdx + 1;
-        });
+        tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
 
-        // total = (bono_base + incrementos) × días_factor
-        const totalFila = (bonoBase * (1 + incrementoPct / 100) * diasFactor).toFixed(2);
-        tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila;
+        colOffset = montoIdx + 1;
+    });
 
-    } else {
-        // ── Fórmula cumplimiento normal ──────────────────────────────────────
-        // Monto por sección = bono × peso% × puntaje%  (SIN días factor)
-        let sumaSeccionesSinDias = 0;
+    const totalFila = (sumaSeccionesSinDias * diasFactor).toFixed(2);
+    tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila;
+}
 
-        SECCIONES.forEach(sec => {
-            let cumplidos = 0;
-            for (let i = 0; i < sec.numCriterios; i++) {
-                const cell = tr.children[colOffset + i];
-                const cb = cell.querySelector('input[type="checkbox"]');
-                if (cb && cb.checked) cumplidos++;
-            }
+function recalcularMetraje(tr) {
+    if (!tr) return;
+    const bonoPorMetro = parseFloat(tr.dataset.bonoPorMetro) || 0;
+    const metrajeBase  = parseFloat(tr.dataset.metrajeBase)  || 0;
+    const segActivo    = tr.dataset.segActivo === 'true';
+    const cxmActivo    = tr.dataset.cxmActivo === 'true';
 
-            const pctIdx   = colOffset + sec.numCriterios;
-            const montoIdx = pctIdx + 1;
-            const pctCell  = tr.children[pctIdx];
+    const diasTrab = parseInt(tr.querySelector('.dias-trab').textContent) || 0;
+    const diasOp   = parseInt(tr.querySelector('.dias-op').textContent)   || 30;
+    const diasFactor = diasOp > 0 ? diasTrab / diasOp : 0;
 
-            const globalPuntaje = pctCell.dataset.puntajeGlobal;
-            const puntaje = (globalPuntaje !== undefined)
-                ? parseFloat(globalPuntaje)
-                : (sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100);
+    const metrajeAcum = parseFloat(tr.querySelector('.metraje-input').value) || 0;
 
-            const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
-            sumaSeccionesSinDias += parseFloat(montoSeccion);
+    const multTotal  = 1 + (segActivo ? 0.04 : 0) + (cxmActivo ? 0.04 : 0);
+    const totalPct   = Math.round(multTotal * 100);  // 100, 104, 108
+    const montoAjust = bonoPorMetro * multTotal;
+    const bonoCalc   = (metrajeAcum - metrajeBase) * montoAjust;
+    const total      = bonoCalc * diasFactor;
 
-            const pctValor = pctCell.querySelector('.pct-valor');
-            if (pctValor) pctValor.textContent = puntaje + '%';
-            else pctCell.textContent = puntaje + '%';
-
-            pctCell.className = 'cell-pct seccion-pct ' +
-                (puntaje === 100 ? 'pct-100' : puntaje >= 80 ? 'pct-80' : 'pct-low');
-
-            tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
-
-            colOffset = montoIdx + 1;
-        });
-
-        const totalFila = (sumaSeccionesSinDias * diasFactor).toFixed(2);
-        tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila;
-    }
+    tr.querySelector('.metraje-monto-ajustado').textContent = montoAjust.toFixed(3);
+    tr.querySelector('.metraje-bono-calc').textContent = 'S/ ' + bonoCalc.toFixed(2);
+    tr.querySelector('.metraje-total').textContent = 'S/ ' + total.toFixed(2);
+    tr.querySelector('.cell-pct').textContent = totalPct + '%';
 }
 
 function guardarTodo() {
-    const rows = document.querySelectorAll('.worker-row');
     const bonos = [];
 
-    rows.forEach(tr => {
+    // Trabajadores cumplimiento
+    document.querySelectorAll('.worker-row').forEach(tr => {
         const bonoPk = tr.dataset.bonoPk;
         const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
         const criterios = {};
-
         tr.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            criterios[cb.dataset.criterioPk] = cb.checked;
+            if (cb.dataset.criterioPk) criterios[cb.dataset.criterioPk] = cb.checked;
         });
-
         bonos.push({bono_pk: parseInt(bonoPk), bono_base: bonoBase, criterios: criterios});
+    });
+
+    // Trabajadores metraje
+    document.querySelectorAll('.metraje-row').forEach(tr => {
+        const bonoPk = tr.dataset.bonoPk;
+        const metrajeAcum = parseFloat(tr.querySelector('.metraje-input').value) || 0;
+        bonos.push({bono_pk: parseInt(bonoPk), metraje_acumulado: metrajeAcum, criterios: {}});
     });
 
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
