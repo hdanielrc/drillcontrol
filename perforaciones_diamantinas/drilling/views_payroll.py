@@ -564,7 +564,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         trabajadores = Trabajador.objects.filter(
             contrato=contrato, estado='ACTIVO'
         ).order_by('apepat', 'apemat', 'nombres')
-        trabajadores = filtrar_trabajadores_por_cargo(trabajadores, tipo_bono)
+        trabajadores = filtrar_trabajadores_por_cargo(trabajadores, tipo_bono, config=config)
 
         filas = []
         for trab in trabajadores:
