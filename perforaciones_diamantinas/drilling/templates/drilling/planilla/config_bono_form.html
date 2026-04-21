@@ -48,9 +48,26 @@
                         <div class="row">
                             <div class="col-md-7 mb-3">
                                 <label class="form-label fw-bold">Cargos activos en el contrato</label>
-                                {{ form.cargos_seleccionados }}
+                                {# data-cargos-guardados permite que el JS recupere exactamente los cargos ya guardados #}
+                                <div data-cargos-guardados="{% if config %}{{ config.cargos_aplicables|default:'[]' }}{% else %}[]{% endif %}">
+                                    {{ form.cargos_seleccionados }}
+                                </div>
                                 {% if form.cargos_seleccionados.errors %}<div class="text-danger small">{{ form.cargos_seleccionados.errors.0 }}</div>{% endif %}
                                 <small class="text-muted d-block mt-1">{{ form.cargos_seleccionados.help_text }}</small>
+                                {% if config and config.cargos_aplicables %}
+                                <div class="mt-2 p-2 border border-success rounded bg-light">
+                                    <small class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Cargos actualmente asignados a este bono:</small><br>
+                                    <div class="mt-1">
+                                    {% for cargo in config.cargos_aplicables %}
+                                        <span class="badge bg-success me-1 mb-1">{{ cargo }}</span>
+                                    {% endfor %}
+                                    </div>
+                                </div>
+                                {% elif config %}
+                                <div class="mt-2 p-2 border border-warning rounded bg-light">
+                                    <small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Sin cargos asignados — aplica a todos los del tipo de bono.</small>
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="col-md-5">
                                 <label class="form-label fw-bold">Bono Área (Estructura Salarial)</label>
@@ -308,7 +325,13 @@
     document.addEventListener('DOMContentLoaded', () => {
         const cid = contratoSel ? contratoSel.value : '';
         if (cid) {
-            const preselec = Array.from(cargosSelect.options).map(o => o.value).filter(Boolean);
+            // Leer los cargos GUARDADOS desde el data-attribute inyectado por Django,
+            // NO desde las opciones del DOM (evita el bug de pre-seleccionar todo).
+            const wrapper = cargosSelect.closest('[data-cargos-guardados]');
+            let preselec = [];
+            try {
+                preselec = wrapper ? JSON.parse(wrapper.dataset.cargosGuardados || '[]') : [];
+            } catch(e) { preselec = []; }
             cargarCargos(cid, preselec).then(() => {
                 if (cargosSelect.selectedOptions.length > 0) actualizarBonoArea();
             });
