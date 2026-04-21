@@ -398,4 +398,5 @@ urlpatterns = [
     path('planilla/api/cargos-por-ctr/<int:contrato_id>/<int:ctr_id>/', views_payroll.api_cargos_por_ctr, name='planilla-api-cargos-ctr'),
     path('planilla/api/cargos-activos/<int:contrato_id>/', views_payroll.api_cargos_activos_contrato, name='planilla-api-cargos-activos'),
     path('planilla/api/bonificacion-area/', views_payroll.api_bonificacion_area_cargo, name='planilla-api-bonificacion-area'),
+    path('planilla/api/trabajadores-por-cargo/', views_payroll.api_trabajadores_por_cargo, name='planilla-api-trabajadores-por-cargo'),
 ]

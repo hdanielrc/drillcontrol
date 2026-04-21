@@ -104,6 +104,12 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
         widget=forms.HiddenInput(attrs={'id': 'id_montos_por_cargo_json'}),
     )
 
+    # Campo oculto: JSON con tipo de cálculo por trabajador {"DNI": "metraje"|"cumplimiento"}
+    tipo_calculo_por_trabajador_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_tipo_calculo_por_trabajador_json'}),
+    )
+
     class Meta:
         model = ConfiguracionBonoContrato
         fields = [
@@ -159,6 +165,12 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
             if instance and instance.montos_por_cargo:
                 self.fields['montos_por_cargo_json'].initial = json.dumps(instance.montos_por_cargo)
 
+            # Pre-cargar tipo_calculo_por_trabajador como JSON para el template JS
+            if instance and instance.tipo_calculo_por_trabajador:
+                self.fields['tipo_calculo_por_trabajador_json'].initial = json.dumps(
+                    instance.tipo_calculo_por_trabajador
+                )
+
     def save(self, commit=True):
         import json
         instance = super().save(commit=False)
@@ -181,6 +193,18 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
         # monto_base_mensual = máximo de los montos por cargo (fallback global)
         if instance.montos_por_cargo:
             instance.monto_base_mensual = max(instance.montos_por_cargo.values())
+
+        # Deserializar tipo_calculo_por_trabajador desde el campo oculto
+        tipo_calc_json = self.cleaned_data.get('tipo_calculo_por_trabajador_json', '')
+        try:
+            tipo_calc_raw = json.loads(tipo_calc_json) if tipo_calc_json else {}
+            instance.tipo_calculo_por_trabajador = {
+                dni: tipo
+                for dni, tipo in tipo_calc_raw.items()
+                if tipo in ('metraje', 'cumplimiento')
+            }
+        except (ValueError, TypeError):
+            instance.tipo_calculo_por_trabajador = {}
 
         if commit:
             instance.save()

@@ -141,6 +141,15 @@ class ConfiguracionBonoContrato(models.Model):
         verbose_name='Montos por Cargo',
         help_text='Monto base mensual específico por cargo. Ej: {"RESIDENTE": 1500.00, "ASISTENTE DE RESIDENTE": 800.00}. Sobreescribe monto_base_mensual para ese cargo.'
     )
+    tipo_calculo_por_trabajador = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Tipo de Cálculo por Trabajador',
+        help_text=(
+            'DNI → "metraje" | "cumplimiento". '
+            'Ej: {"12345678": "metraje"}. '
+            'Vacío o sin clave = trabajador calcula por cumplimiento KPI (lógica normal).'
+        )
+    )
     activo = models.BooleanField(default=True)
     vigencia_desde = models.DateField(verbose_name='Vigencia Desde')
     vigencia_hasta = models.DateField(null=True, blank=True, verbose_name='Vigencia Hasta')

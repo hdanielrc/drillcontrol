@@ -624,13 +624,28 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
         filas = []
         for trab in trabajadores:
-            # Monto base según cargo del trabajador (per-cargo o global)
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
             from decimal import Decimal as _D
-            if config.montos_por_cargo and cargo_trab in config.montos_por_cargo:
-                monto_inicial = _D(str(config.montos_por_cargo[cargo_trab]))
-            else:
-                monto_inicial = config.monto_base_mensual
+
+            # ── Determinar tipo de cálculo del trabajador ─────────────────────
+            tipo_calc = (config.tipo_calculo_por_trabajador or {}).get(trab.dni, 'cumplimiento')
+
+            def _bono_base_para(cfg, cargo, tipo):
+                """Retorna el monto base según el tipo de cálculo del trabajador."""
+                if tipo == 'metraje':
+                    est = EstructuraSalarial.objects.filter(
+                        contrato=cfg.contrato,
+                        cargo_contratado=cargo,
+                        activo=True,
+                    ).first()
+                    if est and est.bono_por_metraje and est.metraje_base:
+                        return (est.bono_por_metraje * est.metraje_base).quantize(Decimal('0.01'))
+                # cumplimiento (default): per-cargo o global
+                if cfg.montos_por_cargo and cargo in cfg.montos_por_cargo:
+                    return _D(str(cfg.montos_por_cargo[cargo]))
+                return cfg.monto_base_mensual
+
+            monto_inicial = _bono_base_para(config, cargo_trab, tipo_calc)
 
             # Obtener o crear BonoTrabajador
             bono_trab, bt_created = BonoTrabajador.objects.get_or_create(
@@ -647,12 +662,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             )
 
             # Siempre sincronizar bono_base desde la configuración si está vacío o desactualizado
-            # Prioridad: montos_por_cargo[cargo del trabajador] > monto_base_mensual global
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
-            monto_esperado = config.monto_base_mensual
-            if config.montos_por_cargo and cargo_trab in config.montos_por_cargo:
-                from decimal import Decimal as _D
-                monto_esperado = _D(str(config.montos_por_cargo[cargo_trab]))
+            monto_esperado = _bono_base_para(config, cargo_trab, tipo_calc)
 
             fields_to_update = []
             if not bono_trab.bono_base or bono_trab.bono_base != monto_esperado:
@@ -741,6 +752,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 'dias_trabajados': bono_trab.dias_trabajados,
                 'dias_operativos': bono_trab.dias_base,
                 'bono_base': float(bono_trab.bono_base),
+                'tipo_calculo': tipo_calc,
                 'secciones': secciones_data,
                 'total': float(total_monto_trab),
             })
@@ -1637,3 +1649,46 @@ def api_bonificacion_area_cargo(request):
         sugerido = f"{max(valores):.2f}"
 
     return JsonResponse({'cargos': resultado, 'sugerido': sugerido})
+
+
+@login_required
+def api_trabajadores_por_cargo(request):
+    """
+    API: dado un contrato_id y una lista de cargos (opcionales), devuelve los
+    trabajadores ACTIVOS del contrato agrupados por cargo, con nombre y DNI.
+    GET params:
+        contrato_id  — requerido
+        cargos       — comma-separated; vacío = todos los cargos
+    Response: { cargos: { "CARGO": [{ dni, nombre }, ...] } }
+    """
+    contrato_id = request.GET.get('contrato_id')
+    cargos_param = request.GET.get('cargos', '')
+
+    if not contrato_id:
+        return JsonResponse({'error': 'contrato_id requerido'}, status=400)
+
+    cargos_list = [c.strip() for c in cargos_param.split(',') if c.strip()]
+
+    from django.db.models import Q
+    qs = Trabajador.objects.filter(
+        contrato_id=contrato_id, estado='ACTIVO'
+    ).order_by('cargo', 'apepat', 'apemat', 'nombres')
+
+    if cargos_list:
+        qs = qs.filter(
+            Q(cargo__in=cargos_list) | Q(cargo_headcount__in=cargos_list)
+        )
+
+    resultado = {}
+    for trab in qs:
+        cargo = trab.cargo_headcount or trab.cargo or ''
+        if not cargo:
+            continue
+        if cargo not in resultado:
+            resultado[cargo] = []
+        resultado[cargo].append({
+            'dni': trab.dni,
+            'nombre': f"{trab.apepat} {trab.apemat} {trab.nombres}".strip(),
+        })
+
+    return JsonResponse({'cargos': resultado})

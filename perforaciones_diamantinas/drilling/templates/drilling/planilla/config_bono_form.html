@@ -51,6 +51,8 @@
                         </div>
                         {# Hidden: JSON de montos por cargo, serializado por JS al submit #}
                         {{ form.montos_por_cargo_json }}
+                        {# Hidden: JSON de tipo de cálculo por trabajador {"DNI": "metraje"|"cumplimiento"} #}
+                        {{ form.tipo_calculo_por_trabajador_json }}
 
                         <div class="row">
                             <!-- Columna izquierda: cargos disponibles -->
@@ -85,6 +87,31 @@
                                 </table>
                                 <div id="resumenMontos" class="small text-muted"></div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Paso 2b: Tipo de cálculo por trabajador ───────────────────────── -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-secondary text-white d-flex align-items-center justify-content-between">
+                        <h6 class="mb-0">
+                            <i class="fas fa-user-cog me-2"></i> 2b. Tipo de Cálculo por Trabajador
+                            <span id="trabLoadingSpinner" class="spinner-border spinner-border-sm ms-2 d-none"></span>
+                        </h6>
+                        <small class="opacity-75">Visible solo cuando hay cargos seleccionados</small>
+                    </div>
+                    <div class="card-body" id="seccionTipoCalculo">
+                        <p class="text-muted small mb-2">
+                            Selecciona el contrato y al menos un cargo para ver los trabajadores.
+                            Marca <strong>Metraje</strong> para los que bonifican por metros perforados
+                            (bono_por_metraje × metraje_base de la Estructura Salarial);
+                            deja <strong>Cumplimiento</strong> para los que califican por KPIs.
+                        </p>
+                        <div id="tablasTrabajadores">
+                            <!-- Se genera por JS cuando se seleccionan cargos -->
+                        </div>
+                        <div id="sinTrabajadores" class="text-muted small fst-italic text-center py-3 d-none">
+                            No hay trabajadores activos para los cargos seleccionados.
                         </div>
                     </div>
                 </div>
@@ -238,17 +265,27 @@
     const trSinCargos    = document.getElementById('trSinCargos');
     const resumenMontos  = document.getElementById('resumenMontos');
     const montosJsonInput = document.getElementById('id_montos_por_cargo_json');
+    const tipoCalculoInput = document.getElementById('id_tipo_calculo_por_trabajador_json');
+    const tablasTrab       = document.getElementById('tablasTrabajadores');
+    const sinTrab          = document.getElementById('sinTrabajadores');
 
     // Estado en memoria: {cargo → monto_bonificacion_area}
     let montosMap = {};
     // Datos de estructura salarial por cargo: {cargo → {bono_por_metraje, metraje_base, sueldo_basico}}
     let estructuraMap = {};
+    // Tipo de cálculo por trabajador: {dni → "metraje"|"cumplimiento"}
+    let tipoCalculoMap = {};
 
     // Leer montos guardados al cargar (modo edición)
     try {
         const saved = montosJsonInput ? montosJsonInput.value : '';
         if (saved) montosMap = JSON.parse(saved);
     } catch(e) { montosMap = {}; }
+    // Leer tipo_calculo guardado
+    try {
+        const saved = tipoCalculoInput ? tipoCalculoInput.value : '';
+        if (saved) tipoCalculoMap = JSON.parse(saved);
+    } catch(e) { tipoCalculoMap = {}; }
 
     function showSpinner() { spinner && spinner.classList.remove('d-none'); }
     function hideSpinner() { spinner && spinner.classList.add('d-none'); }
@@ -271,6 +308,13 @@
             montoInput.value = Math.max(...valores).toFixed(2);
         }
         actualizarResumen();
+    }
+
+    // ── Serializar tipoCalculoMap → hidden field ──────────────────────────────
+    function sincronizarTipoCalculo() {
+        if (tipoCalculoInput) {
+            tipoCalculoInput.value = JSON.stringify(tipoCalculoMap);
+        }
     }
 
     // ── Actualizar fila del resumen ───────────────────────────────────────────
@@ -336,12 +380,16 @@
         // Listener para quitar cargo
         tbodyCargos.querySelectorAll('.btn-quitar-cargo').forEach(btn => {
             btn.addEventListener('click', () => {
-                delete montosMap[btn.dataset.cargo];
-                delete estructuraMap[btn.dataset.cargo];
+                const cargo = btn.dataset.cargo;
+                delete montosMap[cargo];
+                delete estructuraMap[cargo];
                 renderTabla();
                 sincronizarHiddenFields();
-                const li = listaDisp.querySelector(`[data-cargo="${btn.dataset.cargo}"]`);
+                const li = listaDisp.querySelector(`[data-cargo="${cargo}"]`);
                 if (li) li.classList.remove('text-white', 'bg-success');
+                // Refrescar tabla de trabajadores
+                const cid = contratoSel ? contratoSel.value : '';
+                if (cid) cargarTrabajadores(cid);
             });
         });
 
@@ -374,6 +422,113 @@
         } catch(e) { /* silenciar */ }
         renderTabla();  // re-render con datos completos
         sincronizarHiddenFields();
+        // Después de agregar el cargo, recargar tabla de trabajadores
+        const cid = contratoSel ? contratoSel.value : '';
+        if (cid) cargarTrabajadores(cid);
+    }
+
+    // ── Cargar trabajadores para los cargos seleccionados ────────────────────
+    async function cargarTrabajadores(contratoId) {
+        const cargos = Object.keys(montosMap);
+        if (!contratoId || cargos.length === 0) {
+            if (tablasTrab) tablasTrab.innerHTML = '';
+            if (sinTrab) sinTrab.classList.add('d-none');
+            return;
+        }
+        try {
+            const params = new URLSearchParams({ contrato_id: contratoId, cargos: cargos.join(',') });
+            const resp = await fetch(`/planilla/api/trabajadores-por-cargo/?${params}`);
+            const data = await resp.json();
+            const cargosData = data.cargos || {};
+            const totalTrab = Object.values(cargosData).reduce((s, arr) => s + arr.length, 0);
+
+            if (!tablasTrab) return;
+            tablasTrab.innerHTML = '';
+
+            if (totalTrab === 0) {
+                sinTrab && sinTrab.classList.remove('d-none');
+                return;
+            }
+            sinTrab && sinTrab.classList.add('d-none');
+
+            cargos.forEach(cargo => {
+                const trabajadores = cargosData[cargo] || [];
+                if (trabajadores.length === 0) return;
+
+                const est = estructuraMap[cargo] || {};
+                const bpm = est.bono_por_metraje ? parseFloat(est.bono_por_metraje) : 0;
+                const mb  = est.metraje_base     ? parseFloat(est.metraje_base)     : 0;
+                const bonoMetraje = (bpm > 0 && mb > 0)
+                    ? `S/ ${(bpm * mb).toFixed(2)} (${bpm.toFixed(2)} S/m × ${mb.toFixed(0)} m)`
+                    : '<span class="text-muted">—</span>';
+
+                const section = document.createElement('div');
+                section.className = 'mb-4';
+                section.innerHTML = `
+                    <h6 class="fw-bold text-secondary border-bottom pb-1 mb-2">
+                        <i class="fas fa-hard-hat me-1"></i> ${cargo}
+                        <small class="fw-normal text-muted ms-2">Bono metraje: ${bonoMetraje}</small>
+                    </h6>
+                    <table class="table table-sm table-hover mb-0" id="tablaTrab-${CSS.escape(cargo)}">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="small">Trabajador</th>
+                                <th class="small text-center" style="width:140px;">
+                                    <span class="text-success">Metraje</span>
+                                    <small class="text-muted"> / </small>
+                                    <span class="text-primary">Cumplimiento</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyTrab-${CSS.escape(cargo)}"></tbody>
+                    </table>`;
+                tablasTrab.appendChild(section);
+
+                const tbody = section.querySelector(`#tbodyTrab-${CSS.escape(cargo)}`);
+                trabajadores.forEach(({ dni, nombre }) => {
+                    const tipo = tipoCalculoMap[dni] || 'cumplimiento';
+                    const tr = document.createElement('tr');
+                    tr.dataset.dni = dni;
+                    tr.innerHTML = `
+                        <td class="small align-middle">${nombre} <span class="text-muted" style="font-size:10px;">${dni}</span></td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <input type="radio" class="btn-check trab-tipo-radio" name="tipo_${dni}"
+                                       id="tipo_metraje_${dni}" value="metraje" autocomplete="off"
+                                       data-dni="${dni}" ${tipo === 'metraje' ? 'checked' : ''}>
+                                <label class="btn btn-outline-success py-0 px-2" for="tipo_metraje_${dni}" title="Bono por metros perforados">
+                                    <i class="fas fa-ruler-vertical me-1"></i>Metraje
+                                </label>
+                                <input type="radio" class="btn-check trab-tipo-radio" name="tipo_${dni}"
+                                       id="tipo_cumpl_${dni}" value="cumplimiento" autocomplete="off"
+                                       data-dni="${dni}" ${tipo === 'cumplimiento' ? 'checked' : ''}>
+                                <label class="btn btn-outline-primary py-0 px-2" for="tipo_cumpl_${dni}" title="Bono por cumplimiento de KPIs">
+                                    <i class="fas fa-chart-bar me-1"></i>Cumplimiento
+                                </label>
+                            </div>
+                        </td>`;
+                    tbody.appendChild(tr);
+                });
+            });
+
+            // Event listeners para los radio buttons
+            tablasTrab.querySelectorAll('.trab-tipo-radio').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    if (radio.checked) {
+                        const dni = radio.dataset.dni;
+                        if (radio.value === 'cumplimiento') {
+                            delete tipoCalculoMap[dni];  // cumplimiento es el default, no necesita guardarse
+                        } else {
+                            tipoCalculoMap[dni] = radio.value;
+                        }
+                        sincronizarTipoCalculo();
+                    }
+                });
+            });
+
+        } catch(e) {
+            console.error('Error cargando trabajadores:', e);
+        }
     }
 
     // ── Cargar lista de cargos disponibles ────────────────────────────────────
@@ -430,6 +585,8 @@
                     if (div) div.classList.add('bg-success', 'text-white');
                 }
                 renderTabla();
+                // Cargar trabajadores para los cargos pre-seleccionados
+                cargarTrabajadores(contratoId);
             }
         } catch(e) {
             console.error('Error cargando cargos:', e);
@@ -443,6 +600,9 @@
     if (contratoSel) {
         contratoSel.addEventListener('change', () => {
             montosMap = {};
+            estructuraMap = {};
+            tipoCalculoMap = {};
+            sincronizarTipoCalculo();
             renderTabla();
             cargarCargos(contratoSel.value, []);
         });
@@ -459,10 +619,15 @@
             } catch(e) { preselec = []; }
 
             // Inicializar montosMap con los montos guardados (viene del input oculto)
-            // para los cargos pre-seleccionados
             preselec.forEach(cargo => {
                 if (!(cargo in montosMap)) montosMap[cargo] = '';
             });
+
+            // Cargar tipo_calculo guardado
+            try {
+                const savedTipo = tipoCalculoInput ? tipoCalculoInput.value : '';
+                if (savedTipo) tipoCalculoMap = JSON.parse(savedTipo);
+            } catch(e) { tipoCalculoMap = {}; }
 
             cargarCargos(cid, preselec);
         }
