@@ -556,6 +556,13 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         ('RO',                  'RESULTADO_OPERATIVO'),
     ]
 
+    # Multiplicadores de bono para trabajadores de tipo METRAJE.
+    # Si el indicador global llega al 100 %, se suma ese porcentaje al bono base.
+    _METRAJE_MULT = {
+        'SEGURIDAD': Decimal('0.04'),   # SEG al 100 % → +4 %
+        'CXM':       Decimal('0.08'),   # CXM al 100 % → +8 %
+    }
+
     def _strip_accents(s):
         """Quita tildes y devuelve en mayúsculas."""
         return ''.join(
@@ -723,9 +730,23 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
                 peso = float(seccion.peso_default)
                 bono_base = float(bono_trab.bono_base)
-                # Monto de la sección = bono_base × peso% × puntaje%  (sin días factor)
-                # El factor de días se aplica UNA sola vez al total de la fila.
-                monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100), 2)
+
+                # Multiplicador metraje para esta sección (0 si no aplica)
+                metraje_mult = _METRAJE_MULT.get(global_codigo, Decimal('0'))
+
+                if tipo_calc == 'metraje':
+                    # Para trabajadores de metraje el monto de la sección es el
+                    # incremento que aporta al bono:
+                    #   SEG ≥ 100 % → +4 % del bono base ; CXM ≥ 100 % → +8 %
+                    #   Cualquier otra sección (PROD, etc.) → 0
+                    if metraje_mult and puntaje >= 100:
+                        monto_seccion = round(bono_base * float(metraje_mult), 2)
+                    else:
+                        monto_seccion = 0.0
+                else:
+                    # Fórmula normal: bono_base × peso% × puntaje%
+                    monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100), 2)
+
                 total_monto_trab += Decimal(str(monto_seccion))
 
                 secciones_data.append({
@@ -736,13 +757,22 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'puntaje': puntaje,
                     'fuente_puntaje': fuente_puntaje,
                     'monto': monto_seccion,
+                    'metraje_mult_pct': float(metraje_mult * 100),  # 0, 4 ó 8
                 })
 
             # Aplicar factor de días al total de la fila
             dias_trab = bono_trab.dias_trabajados
             dias_base = bono_trab.dias_base or 30
             dias_factor = Decimal(str(dias_trab)) / Decimal(str(dias_base)) if dias_base > 0 else Decimal('0')
-            total_monto_trab = (total_monto_trab * dias_factor).quantize(Decimal('0.01'))
+
+            if tipo_calc == 'metraje':
+                # total = (bono_base + increments_de_secciones) × días_factor
+                # total_monto_trab contiene la suma de los incrementos (4 % / 8 %)
+                total_monto_trab = (bono_trab.bono_base + total_monto_trab) * dias_factor
+            else:
+                # total = suma_secciones × días_factor
+                total_monto_trab = total_monto_trab * dias_factor
+            total_monto_trab = total_monto_trab.quantize(Decimal('0.01'))
 
             filas.append({
                 'bono_pk': bono_trab.pk,
