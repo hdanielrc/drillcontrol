@@ -83,6 +83,21 @@ CriterioBonoFormSet = inlineformset_factory(
 class ConfiguracionBonoContratoForm(forms.ModelForm):
     """Form para configurar un bono en un contrato."""
 
+    # Campo extra: selección múltiple de cargos (no es un campo del modelo,
+    # se mapea a cargos_aplicables JSONField en save())
+    cargos_seleccionados = forms.MultipleChoiceField(
+        choices=[],
+        required=False,
+        label='Cargos Aplicables',
+        widget=forms.SelectMultiple(attrs={
+            'class': 'form-select',
+            'id': 'id_cargos_seleccionados',
+            'size': '8',
+        }),
+        help_text='Mantén Ctrl (Windows) o ⌘ (Mac) para seleccionar varios cargos. '
+                  'Al seleccionar un cargo se auto-completa el Monto Base desde la Estructura Salarial.',
+    )
+
     class Meta:
         model = ConfiguracionBonoContrato
         fields = [
@@ -91,9 +106,9 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
             'vigencia_desde', 'vigencia_hasta', 'observaciones',
         ]
         widgets = {
-            'contrato': forms.Select(attrs={'class': 'form-select'}),
+            'contrato': forms.Select(attrs={'class': 'form-select', 'id': 'id_contrato'}),
             'tipo_bono': forms.Select(attrs={'class': 'form-select'}),
-            'monto_base_mensual': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'monto_base_mensual': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'id': 'id_monto_base_mensual'}),
             'monto_por_dia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'usa_dias_regimen': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'dias_base_fijo': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
@@ -109,6 +124,37 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
         if user and not user.has_access_to_all_contracts():
             from .models import Contrato
             self.fields['contrato'].queryset = Contrato.objects.filter(pk=user.contrato_id)
+
+        # Si hay instancia con contrato, cargar los cargos disponibles
+        instance = kwargs.get('instance')
+        contrato_id = None
+        if instance and instance.contrato_id:
+            contrato_id = instance.contrato_id
+        elif args and args[0]:  # POST data
+            contrato_id = args[0].get('contrato')
+
+        if contrato_id:
+            from .models import Trabajador
+            cargos = (
+                Trabajador.objects.filter(contrato_id=contrato_id, estado='ACTIVO')
+                .values_list('cargo', flat=True)
+                .distinct()
+                .order_by('cargo')
+            )
+            choices = [(c, c) for c in cargos if c]
+            self.fields['cargos_seleccionados'].choices = choices
+
+            # Pre-seleccionar los cargos guardados en la instancia
+            if instance and instance.cargos_aplicables:
+                self.fields['cargos_seleccionados'].initial = instance.cargos_aplicables
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        cargos = self.cleaned_data.get('cargos_seleccionados', [])
+        instance.cargos_aplicables = list(cargos)
+        if commit:
+            instance.save()
+        return instance
 
 
 class ConceptoBonoContratoForm(forms.ModelForm):

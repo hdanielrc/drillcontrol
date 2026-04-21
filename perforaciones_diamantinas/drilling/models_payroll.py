@@ -122,6 +122,11 @@ class ConfiguracionBonoContrato(models.Model):
         verbose_name='Días Base Fijo',
         help_text='Días base fijos (solo si no usa régimen). Ej: 30'
     )
+    cargos_aplicables = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Cargos Aplicables',
+        help_text='Lista de cargos a los que aplica este bono en este contrato. Vacío = todos los del tipo de bono.'
+    )
     activo = models.BooleanField(default=True)
     vigencia_desde = models.DateField(verbose_name='Vigencia Desde')
     vigencia_hasta = models.DateField(null=True, blank=True, verbose_name='Vigencia Hasta')

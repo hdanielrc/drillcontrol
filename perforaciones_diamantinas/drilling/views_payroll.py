@@ -1450,3 +1450,79 @@ def api_cargos_por_ctr(request, contrato_id, ctr_id):
         result.append(item)
 
     return JsonResponse({'ctr_id': ctr.pk, 'codigo_cc': codigo_cc, 'cargos': result})
+
+
+# ===========================================
+# APIs PARA CONFIGURACIÓN DE BONOS
+# ===========================================
+
+@login_required
+def api_cargos_activos_contrato(request, contrato_id):
+    """
+    API: devuelve los cargos distintos de trabajadores ACTIVOS en un contrato.
+    Usado para poblar el selector de cargos en el formulario de configuración de bono.
+    """
+    cargos = (
+        Trabajador.objects.filter(contrato_id=contrato_id, estado='ACTIVO')
+        .exclude(cargo__isnull=True)
+        .exclude(cargo='')
+        .values_list('cargo', flat=True)
+        .distinct()
+        .order_by('cargo')
+    )
+    return JsonResponse({'cargos': list(cargos)})
+
+
+@login_required
+def api_bonificacion_area_cargo(request):
+    """
+    API: dado un contrato_id y una lista de cargos, devuelve el bonificacion_area
+    desde EstructuraSalarial para cada cargo.
+    GET params: contrato_id, cargos (lista separada por comas)
+
+    Retorna: {
+        "cargos": {
+            "OPERADOR": {"bonificacion_area": "1200.00", "encontrado": true},
+            "ASISTENTE": {"bonificacion_area": "0.00", "encontrado": false},
+        },
+        "sugerido": "1200.00"   <- primer valor encontrado, o promedio si difieren
+    }
+    """
+    contrato_id = request.GET.get('contrato_id')
+    cargos_param = request.GET.get('cargos', '')
+
+    if not contrato_id:
+        return JsonResponse({'error': 'contrato_id requerido'}, status=400)
+
+    cargos_list = [c.strip() for c in cargos_param.split(',') if c.strip()]
+    if not cargos_list:
+        return JsonResponse({'cargos': {}, 'sugerido': None})
+
+    resultado = {}
+    valores = []
+
+    for cargo in cargos_list:
+        # Buscar en estructura salarial; si hay varias entradas (distintos CTR)
+        # tomamos el primer valor no nulo de bonificacion_area
+        estructura = (
+            EstructuraSalarial.objects.filter(
+                contrato_id=contrato_id,
+                cargo_contratado=cargo,
+                activo=True,
+            )
+            .order_by('-bonificacion_area')  # primero los de mayor valor
+            .first()
+        )
+        if estructura and estructura.bonificacion_area:
+            val = float(estructura.bonificacion_area)
+            resultado[cargo] = {'bonificacion_area': str(estructura.bonificacion_area), 'encontrado': True}
+            valores.append(val)
+        else:
+            resultado[cargo] = {'bonificacion_area': '0.00', 'encontrado': False}
+
+    # Valor sugerido: si todos son iguales → ese valor; si difieren → el mayor
+    sugerido = None
+    if valores:
+        sugerido = f"{max(valores):.2f}"
+
+    return JsonResponse({'cargos': resultado, 'sugerido': sugerido})

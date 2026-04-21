@@ -191,11 +191,22 @@ def generar_calificaciones_criterios(bono_trabajador):
             )
 
 
-def filtrar_trabajadores_por_cargo(trabajadores_qs, tipo_bono):
+def filtrar_trabajadores_por_cargo(trabajadores_qs, tipo_bono, config=None):
     """
-    Filtra un queryset de trabajadores según los cargos_aplicables del TipoBono.
-    Usa coincidencia parcial (icontains) para manejar variaciones de cargo.
+    Filtra un queryset de trabajadores según los cargos_aplicables.
+    Si se pasa una ConfiguracionBonoContrato y ésta tiene cargos_aplicables propios,
+    éstos tienen precedencia sobre los del TipoBono.
+    Usa coincidencia exacta para los cargos de la config (selección explícita)
+    y coincidencia parcial (icontains) para los patrones del TipoBono.
     """
+    # Prioridad: config.cargos_aplicables > tipo_bono.cargos_aplicables
+    if config is not None and config.cargos_aplicables:
+        from django.db.models import Q
+        q = Q()
+        for cargo in config.cargos_aplicables:
+            q |= Q(cargo=cargo) | Q(cargo_headcount=cargo)
+        return trabajadores_qs.filter(q)
+
     cargos = tipo_bono.cargos_aplicables
     if not cargos:
         return trabajadores_qs
@@ -271,13 +282,20 @@ def abrir_periodo(contrato, anio, mes, usuario=None):
     registros_creados = 0
     for trabajador in trabajadores:
         for config in configs_vigentes:
-            # Filtrar por cargos_aplicables
+            # Filtrar por cargos: config.cargos_aplicables tiene prioridad
             tipo_bono = config.tipo_bono
-            if tipo_bono.cargos_aplicables:
+            cargos_filter = config.cargos_aplicables if config.cargos_aplicables else tipo_bono.cargos_aplicables
+            if cargos_filter:
                 from django.db.models import Q
                 q = Q()
-                for patron in tipo_bono.cargos_aplicables:
-                    q |= Q(cargo__icontains=patron) | Q(cargo_headcount__icontains=patron)
+                if config.cargos_aplicables:
+                    # Coincidencia exacta para selección explícita en la config
+                    for cargo in cargos_filter:
+                        q |= Q(cargo=cargo) | Q(cargo_headcount=cargo)
+                else:
+                    # Coincidencia parcial para patrones del TipoBono
+                    for patron in cargos_filter:
+                        q |= Q(cargo__icontains=patron) | Q(cargo_headcount__icontains=patron)
                 if not Trabajador.objects.filter(pk=trabajador.pk).filter(q).exists():
                     continue
 

@@ -15,10 +15,10 @@
             <form method="post" novalidate>
                 {% csrf_token %}
 
-                <!-- Datos principales -->
+                <!-- ── Paso 1 & 2: Contrato + Tipo de Bono ──────────────────────────── -->
                 <div class="card shadow-sm border-0 mb-4">
                     <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="fas fa-cog me-2"></i> Configuración General</h6>
+                        <h6 class="mb-0"><i class="fas fa-cog me-2"></i> 1. Contrato y Tipo de Bono</h6>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -33,11 +33,52 @@
                                 {% if form.tipo_bono.errors %}<div class="text-danger small">{{ form.tipo_bono.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- ── Paso 2: Cargos Aplicables ──────────────────────────────────────── -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-users me-2"></i> 2. Cargos Aplicables
+                            <span id="cargosLoadingSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-7 mb-3">
+                                <label class="form-label fw-bold">Cargos activos en el contrato</label>
+                                {{ form.cargos_seleccionados }}
+                                {% if form.cargos_seleccionados.errors %}<div class="text-danger small">{{ form.cargos_seleccionados.errors.0 }}</div>{% endif %}
+                                <small class="text-muted d-block mt-1">{{ form.cargos_seleccionados.help_text }}</small>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold">Bono Área (Estructura Salarial)</label>
+                                <div id="bonoAreaInfo" class="border rounded p-3 bg-light" style="min-height:80px;">
+                                    <span class="text-muted small">Selecciona cargo(s) para ver los montos.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Paso 3: Montos y configuración ────────────────────────────────── -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="fas fa-dollar-sign me-2"></i> 3. Montos y Configuración</h6>
+                    </div>
+                    <div class="card-body">
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Monto Base Mensual (S/)</label>
+                                <label class="form-label fw-bold">
+                                    Monto Base Mensual (S/)
+                                    <i class="fas fa-info-circle text-info ms-1"
+                                       title="Se auto-completa desde el campo Bono Área de la Estructura Salarial al seleccionar cargo(s)."
+                                       data-bs-toggle="tooltip"></i>
+                                </label>
                                 {{ form.monto_base_mensual }}
                                 {% if form.monto_base_mensual.errors %}<div class="text-danger small">{{ form.monto_base_mensual.errors.0 }}</div>{% endif %}
+                                <small class="text-muted">Auto-completado · Editable</small>
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label fw-bold">Monto por Día (S/)</label>
@@ -153,4 +194,130 @@
         </div>
     </div>
 </div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Config Bono — UX dinámica
+// 1. Contrato cambia → carga cargos activos vía AJAX
+// 2. Selección de cargos cambia → consulta bonificacion_area y auto-llena monto
+// ─────────────────────────────────────────────────────────────────────────────
+(function () {
+    const contratoSel  = document.getElementById('id_contrato');
+    const cargosSelect = document.getElementById('id_cargos_seleccionados');
+    const montoInput   = document.getElementById('id_monto_base_mensual');
+    const bonoInfo     = document.getElementById('bonoAreaInfo');
+    const spinner      = document.getElementById('cargosLoadingSpinner');
+
+    function showSpinner() { spinner && spinner.classList.remove('d-none'); }
+    function hideSpinner() { spinner && spinner.classList.add('d-none'); }
+
+    // ── Cargar cargos desde API ───────────────────────────────────────────────
+    async function cargarCargos(contratoId, preseleccionados) {
+        if (!contratoId) return;
+        showSpinner();
+        try {
+            const resp = await fetch(`/planilla/api/cargos-activos/${contratoId}/`);
+            const data = await resp.json();
+            const cargos = data.cargos || [];
+            cargosSelect.innerHTML = '';
+            cargos.forEach(cargo => {
+                const opt = document.createElement('option');
+                opt.value = cargo;
+                opt.textContent = cargo;
+                if (preseleccionados && preseleccionados.includes(cargo)) opt.selected = true;
+                cargosSelect.appendChild(opt);
+            });
+            if (cargos.length === 0) {
+                bonoInfo.innerHTML = '<span class="text-muted small">No hay cargos activos para este contrato.</span>';
+            } else {
+                bonoInfo.innerHTML = '<span class="text-muted small">Selecciona uno o más cargos.</span>';
+            }
+        } catch (e) {
+            console.error('Error cargando cargos:', e);
+            bonoInfo.innerHTML = '<span class="text-danger small">Error al cargar cargos.</span>';
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    // ── Consultar bonificacion_area y auto-llenar monto ───────────────────────
+    async function actualizarBonoArea() {
+        const contratoId    = contratoSel ? contratoSel.value : '';
+        const seleccionados = Array.from(cargosSelect.selectedOptions).map(o => o.value);
+        if (!contratoId || seleccionados.length === 0) {
+            bonoInfo.innerHTML = '<span class="text-muted small">Selecciona uno o más cargos.</span>';
+            return;
+        }
+        const params = new URLSearchParams({ contrato_id: contratoId, cargos: seleccionados.join(',') });
+        try {
+            const resp = await fetch(`/planilla/api/bonificacion-area/?${params}`);
+            const data = await resp.json();
+            const resultado = data.cargos || {};
+            const sugerido  = data.sugerido;
+
+            let html = '<table class="table table-sm mb-0" style="font-size:12px;">';
+            html += '<thead><tr><th>Cargo</th><th class="text-end">Bono Área</th></tr></thead><tbody>';
+            for (const [cargo, info] of Object.entries(resultado)) {
+                const val = info.encontrado
+                    ? `<span class="badge bg-success">S/ ${parseFloat(info.bonificacion_area).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>`
+                    : `<span class="badge bg-secondary">No configurado</span>`;
+                html += `<tr><td>${cargo}</td><td class="text-end">${val}</td></tr>`;
+            }
+            html += '</tbody></table>';
+
+            if (sugerido && parseFloat(sugerido) > 0) {
+                html += `<div class="mt-2 d-flex align-items-center gap-2">
+                    <span class="text-success small fw-bold">Sugerido: S/ ${parseFloat(sugerido).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2"
+                            onclick="aplicarSugerido('${sugerido}')">Aplicar</button>
+                </div>`;
+                // Auto-aplicar si el campo está vacío o en 0
+                if (!montoInput.value || parseFloat(montoInput.value) === 0) {
+                    montoInput.value = sugerido;
+                }
+            } else {
+                html += `<div class="mt-2 text-warning small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>Sin bono de área en Estructura Salarial.</div>`;
+            }
+            bonoInfo.innerHTML = html;
+        } catch (e) {
+            console.error('Error consultando bonificacion_area:', e);
+            bonoInfo.innerHTML = '<span class="text-danger small">Error al consultar estructura salarial.</span>';
+        }
+    }
+
+    window.aplicarSugerido = function (valor) {
+        if (montoInput) {
+            montoInput.value = valor;
+            montoInput.classList.add('border-success');
+            setTimeout(() => montoInput.classList.remove('border-success'), 1500);
+        }
+    };
+
+    // ── Event listeners ───────────────────────────────────────────────────────
+    if (contratoSel) {
+        contratoSel.addEventListener('change', () => {
+            cargarCargos(contratoSel.value, null);
+        });
+    }
+    if (cargosSelect) {
+        cargosSelect.addEventListener('change', actualizarBonoArea);
+    }
+
+    // Inicializar al cargar (modo edición: contrato ya seleccionado)
+    document.addEventListener('DOMContentLoaded', () => {
+        const cid = contratoSel ? contratoSel.value : '';
+        if (cid) {
+            const preselec = Array.from(cargosSelect.options).map(o => o.value).filter(Boolean);
+            cargarCargos(cid, preselec).then(() => {
+                if (cargosSelect.selectedOptions.length > 0) actualizarBonoArea();
+            });
+        }
+        if (typeof bootstrap !== 'undefined') {
+            document.querySelectorAll('[data-bs-toggle="tooltip"]')
+                .forEach(el => new bootstrap.Tooltip(el));
+        }
+    });
+})();
+</script>
 {% endblock %}
