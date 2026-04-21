@@ -69,13 +69,15 @@
                                     <thead class="table-success">
                                         <tr>
                                             <th>Cargo</th>
-                                            <th style="width:140px;">Monto Base (S/)</th>
+                                            <th style="width:120px;">Bono Área (S/)</th>
+                                            <th style="width:100px;">S/m (metraje)</th>
+                                            <th style="width:90px;">m base</th>
                                             <th style="width:40px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tbodyCargos">
                                         <tr id="trSinCargos">
-                                            <td colspan="3" class="text-muted text-center small fst-italic">
+                                            <td colspan="5" class="text-muted text-center small fst-italic">
                                                 Sin cargos asignados — aplica a todos los del tipo de bono.
                                             </td>
                                         </tr>
@@ -237,8 +239,10 @@
     const resumenMontos  = document.getElementById('resumenMontos');
     const montosJsonInput = document.getElementById('id_montos_por_cargo_json');
 
-    // Estado en memoria: {cargo → monto}
+    // Estado en memoria: {cargo → monto_bonificacion_area}
     let montosMap = {};
+    // Datos de estructura salarial por cargo: {cargo → {bono_por_metraje, metraje_base, sueldo_basico}}
+    let estructuraMap = {};
 
     // Leer montos guardados al cargar (modo edición)
     try {
@@ -288,15 +292,17 @@
         const cargos = Object.keys(montosMap);
         if (cargos.length === 0) {
             trSinCargos.style.display = '';
-            // Eliminar todas las filas de cargo excepto trSinCargos
             Array.from(tbodyCargos.querySelectorAll('tr.fila-cargo')).forEach(r => r.remove());
             return;
         }
         trSinCargos.style.display = 'none';
-        // Reconstruir filas
         Array.from(tbodyCargos.querySelectorAll('tr.fila-cargo')).forEach(r => r.remove());
         cargos.forEach(cargo => {
             const monto = montosMap[cargo] || '';
+            const est   = estructuraMap[cargo] || {};
+            const bpm   = est.bono_por_metraje ? parseFloat(est.bono_por_metraje).toFixed(2) : '';
+            const mb    = est.metraje_base     ? parseFloat(est.metraje_base).toFixed(0)     : '';
+
             const tr = document.createElement('tr');
             tr.className = 'fila-cargo';
             tr.dataset.cargo = cargo;
@@ -306,10 +312,11 @@
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">S/</span>
                         <input type="number" step="0.01" min="0" class="form-control monto-cargo-input"
-                               value="${monto}" placeholder="0.00"
-                               data-cargo="${cargo}">
+                               value="${monto}" placeholder="0.00" data-cargo="${cargo}">
                     </div>
                 </td>
+                <td class="text-end small text-secondary">${bpm ? 'S/ ' + bpm : '<span class="text-muted">—</span>'}</td>
+                <td class="text-end small text-secondary">${mb  ? mb + ' m'   : '<span class="text-muted">—</span>'}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 btn-quitar-cargo"
                             data-cargo="${cargo}" title="Quitar cargo">
@@ -330,35 +337,42 @@
         tbodyCargos.querySelectorAll('.btn-quitar-cargo').forEach(btn => {
             btn.addEventListener('click', () => {
                 delete montosMap[btn.dataset.cargo];
+                delete estructuraMap[btn.dataset.cargo];
                 renderTabla();
                 sincronizarHiddenFields();
-                // Marcar cargo como disponible de nuevo en la lista izquierda
                 const li = listaDisp.querySelector(`[data-cargo="${btn.dataset.cargo}"]`);
-                if (li) li.classList.remove('active', 'text-white', 'bg-success');
+                if (li) li.classList.remove('text-white', 'bg-success');
             });
         });
 
         sincronizarHiddenFields();
     }
 
-    // ── Agregar un cargo a montosMap y precargar monto desde API ─────────────
+    // ── Agregar un cargo a montosMap y precargar datos desde API ─────────────
     async function agregarCargo(cargo, contratoId) {
         if (cargo in montosMap) return;  // ya está
         montosMap[cargo] = '';
         renderTabla();
-        // Consultar bonificacion_area para ese cargo
+        // Consultar estructura salarial para ese cargo
         try {
             const params = new URLSearchParams({ contrato_id: contratoId, cargos: cargo });
             const resp = await fetch(`/planilla/api/bonificacion-area/?${params}`);
             const data = await resp.json();
             const info = (data.cargos || {})[cargo];
-            if (info && info.encontrado && parseFloat(info.bonificacion_area) > 0) {
-                montosMap[cargo] = parseFloat(info.bonificacion_area).toFixed(2);
-                // Actualizar input en la tabla
-                const inp = tbodyCargos.querySelector(`.monto-cargo-input[data-cargo="${cargo}"]`);
-                if (inp) inp.value = montosMap[cargo];
+            if (info && info.encontrado) {
+                // Guardar monto bonificación área
+                if (parseFloat(info.bonificacion_area) > 0) {
+                    montosMap[cargo] = parseFloat(info.bonificacion_area).toFixed(2);
+                }
+                // Guardar datos de estructura para mostrar en tabla
+                estructuraMap[cargo] = {
+                    bono_por_metraje: info.bono_por_metraje || '0.00',
+                    metraje_base:     info.metraje_base     || '0.00',
+                    sueldo_basico:    info.sueldo_basico    || '0.00',
+                };
             }
         } catch(e) { /* silenciar */ }
+        renderTabla();  // re-render con datos completos
         sincronizarHiddenFields();
     }
 

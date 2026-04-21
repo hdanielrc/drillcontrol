@@ -1611,12 +1611,25 @@ def api_bonificacion_area_cargo(request):
             .order_by('-bonificacion_area')  # primero los de mayor valor
             .first()
         )
-        if estructura and estructura.bonificacion_area:
-            val = float(estructura.bonificacion_area)
-            resultado[cargo] = {'bonificacion_area': str(estructura.bonificacion_area), 'encontrado': True}
-            valores.append(val)
+        if estructura:
+            val = float(estructura.bonificacion_area or 0)
+            resultado[cargo] = {
+                'bonificacion_area': str(estructura.bonificacion_area or '0.00'),
+                'bono_por_metraje':  str(estructura.bono_por_metraje or '0.00'),
+                'metraje_base':      str(estructura.metraje_base or '0.00'),
+                'sueldo_basico':     str(estructura.sueldo_basico or '0.00'),
+                'encontrado': True,
+            }
+            if val:
+                valores.append(val)
         else:
-            resultado[cargo] = {'bonificacion_area': '0.00', 'encontrado': False}
+            resultado[cargo] = {
+                'bonificacion_area': '0.00',
+                'bono_por_metraje':  '0.00',
+                'metraje_base':      '0.00',
+                'sueldo_basico':     '0.00',
+                'encontrado': False,
+            }
 
     # Valor sugerido: si todos son iguales → ese valor; si difieren → el mayor
     sugerido = None
