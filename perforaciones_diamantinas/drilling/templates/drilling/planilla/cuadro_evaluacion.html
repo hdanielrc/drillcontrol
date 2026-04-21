@@ -307,7 +307,11 @@
                     <th style="background:#fd7e14;color:white;">COSTO POR METRO %</th>
                     <th style="background:#6c757d;color:white;">TOTAL %</th>
                     <th style="background:#17a2b8;color:white;">Monto (S/m &times; %)</th>
-                    <th style="background:#084163;color:white;">Metraje acum. (m)</th>
+                    <th style="background:#084163;color:white;">
+                        Metraje pond. acum. (m)
+                        <i class="fas fa-info-circle" style="font-size:10px;cursor:help;"
+                           title="Promedio ponderado por días de todas las máquinas del contrato: Σ(metros_máquina × días_máquina) / Σ(días_máquina)"></i>
+                    </th>
                     <th style="background:#084163;color:white;">Bono calculado</th>
                     <th style="background:#28a745;color:white;">TOTAL</th>
                 </tr>
@@ -336,15 +340,22 @@
                     </td>
                     <td class="text-center fw-bold cell-pct">{{ fila.mult_total_pct }}%</td>
                     <td class="text-center cell-monto metraje-monto-ajustado">{{ fila.monto_ajustado|floatformat:3 }}</td>
-                    <td class="cell-bono-base">
-                        <input type="number" step="0.001" min="0"
-                               value="{{ fila.metraje_acumulado|floatformat:3 }}"
-                               class="metraje-input"
-                               style="width:100px;text-align:right;border:1px solid #ddd;border-radius:3px;padding:2px 4px;font-size:11px;"
-                               data-bono-pk="{{ fila.bono_pk }}"
-                               onchange="recalcularMetraje(this.closest('tr'))">
+                    {# Metraje ponderado: calculado automáticamente, solo lectura #}
+                    <td class="text-center fw-bold"
+                        style="background:#e8f4fd;"
+                        title="Promedio ponderado de máquinas:{% for m in fila.metraje_ponderado_detalle %} {{ m.maquina }}: {{ m.metros|floatformat:1 }}m × {{ m.dias }}d;{% endfor %}">
+                        {{ fila.metraje_acumulado|floatformat:3 }} m
+                        <br><small class="text-muted" style="font-size:9px;">
+                            <i class="fas fa-calculator"></i> {{ fila.metraje_ponderado_detalle|length }} máq.
+                        </small>
                     </td>
-                    <td class="text-center cell-monto metraje-bono-calc">S/ {{ fila.bono_calculado|floatformat:2 }}</td>
+                    {# Bono = (metraje_acum - metraje_base) × monto_ajustado #}
+                    <td class="text-center cell-monto metraje-bono-calc">
+                        S/ {{ fila.bono_calculado|floatformat:2 }}
+                        <br><small class="text-muted" style="font-size:9px;">
+                            ({{ fila.metraje_acumulado|floatformat:1 }} − {{ fila.metraje_base|floatformat:0 }}) × {{ fila.monto_ajustado|floatformat:3 }}
+                        </small>
+                    </td>
                     <td class="text-center cell-total metraje-total">S/ {{ fila.total|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
@@ -414,31 +425,6 @@ function recalcularFila(tr) {
     tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila;
 }
 
-function recalcularMetraje(tr) {
-    if (!tr) return;
-    const bonoPorMetro = parseFloat(tr.dataset.bonoPorMetro) || 0;
-    const metrajeBase  = parseFloat(tr.dataset.metrajeBase)  || 0;
-    const segActivo    = tr.dataset.segActivo === 'true';
-    const cxmActivo    = tr.dataset.cxmActivo === 'true';
-
-    const diasTrab = parseInt(tr.querySelector('.dias-trab').textContent) || 0;
-    const diasOp   = parseInt(tr.querySelector('.dias-op').textContent)   || 30;
-    const diasFactor = diasOp > 0 ? diasTrab / diasOp : 0;
-
-    const metrajeAcum = parseFloat(tr.querySelector('.metraje-input').value) || 0;
-
-    const multTotal  = 1 + (segActivo ? 0.04 : 0) + (cxmActivo ? 0.04 : 0);
-    const totalPct   = Math.round(multTotal * 100);  // 100, 104, 108
-    const montoAjust = bonoPorMetro * multTotal;
-    const bonoCalc   = (metrajeAcum - metrajeBase) * montoAjust;
-    const total      = bonoCalc * diasFactor;
-
-    tr.querySelector('.metraje-monto-ajustado').textContent = montoAjust.toFixed(3);
-    tr.querySelector('.metraje-bono-calc').textContent = 'S/ ' + bonoCalc.toFixed(2);
-    tr.querySelector('.metraje-total').textContent = 'S/ ' + total.toFixed(2);
-    tr.querySelector('.cell-pct').textContent = totalPct + '%';
-}
-
 function guardarTodo() {
     const bonos = [];
 
@@ -453,12 +439,8 @@ function guardarTodo() {
         bonos.push({bono_pk: parseInt(bonoPk), bono_base: bonoBase, criterios: criterios});
     });
 
-    // Trabajadores metraje
-    document.querySelectorAll('.metraje-row').forEach(tr => {
-        const bonoPk = tr.dataset.bonoPk;
-        const metrajeAcum = parseFloat(tr.querySelector('.metraje-input').value) || 0;
-        bonos.push({bono_pk: parseInt(bonoPk), metraje_acumulado: metrajeAcum, criterios: {}});
-    });
+    // Trabajadores metraje: nada editable que guardar
+    // (el metraje_acumulado se calcula automáticamente desde TurnoAvance al cargar la página)
 
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
                       document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1];

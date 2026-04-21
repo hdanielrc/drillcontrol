@@ -14,6 +14,7 @@ from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy, reverse
 
 from .models import Contrato, Trabajador
+from .models import TurnoAvance  # metraje acumulado por máquina
 from .models_payroll import (
     TipoBono,
     ConceptoBono,
@@ -631,6 +632,35 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
         filas_cumplimiento = []
         filas_metraje = []
+
+        # ── Metraje ponderado del contrato (calculado una vez, aplica a todos ──
+        # los trabajadores de tipo METRAJE del mismo contrato).
+        # Fórmula: Σ(metros_maquina × dias_maquina) / Σ(dias_maquina)
+        # donde días_maquina = nº de fechas distintas con turno en el período.
+        from django.db.models import Sum, Count
+        maquinas_metraje = (
+            TurnoAvance.objects
+            .filter(
+                turno__contrato=contrato,
+                turno__fecha__gte=fecha_inicio,
+                turno__fecha__lte=fecha_fin,
+            )
+            .values('turno__maquina')
+            .annotate(
+                metros_total=Sum('metros_perforados'),
+                dias_maquina=Count('turno__fecha', distinct=True),
+            )
+        )
+        _num = sum(
+            (row['metros_total'] or Decimal('0')) * row['dias_maquina']
+            for row in maquinas_metraje
+        )
+        _den = sum(row['dias_maquina'] for row in maquinas_metraje)
+        metraje_ponderado_contrato = (
+            (Decimal(str(_num)) / Decimal(str(_den))).quantize(Decimal('0.001'))
+            if _den > 0 else Decimal('0')
+        )
+
         for trab in trabajadores:
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
             from decimal import Decimal as _D
@@ -713,8 +743,13 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     contrato=config.contrato, cargo_contratado=cargo_trab, activo=True
                 ).first()
                 metraje_base_val = est_m.metraje_base if est_m and est_m.metraje_base else Decimal('0')
-                metraje_acum_val = bono_trab.metraje_acumulado or Decimal('0')
+                metraje_acum_val = metraje_ponderado_contrato  # calculado automáticamente
                 bono_por_metro_val = bono_trab.bono_base  # tarifa por metro (unit rate)
+
+                # Persiste el valor calculado para referencia histórica
+                if bono_trab.metraje_acumulado != metraje_acum_val:
+                    bono_trab.metraje_acumulado = metraje_acum_val
+                    bono_trab.save(update_fields=['metraje_acumulado'])
 
                 monto_ajustado = (bono_por_metro_val * mult_total).quantize(Decimal('0.001'))
                 bono_calculado = ((metraje_acum_val - metraje_base_val) * monto_ajustado).quantize(Decimal('0.01'))
@@ -734,6 +769,14 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'bono_por_metraje': float(bono_por_metro_val),
                     'metraje_base': float(metraje_base_val),
                     'metraje_acumulado': float(metraje_acum_val),
+                    'metraje_ponderado_detalle': [
+                        {
+                            'maquina': str(row['turno__maquina']),
+                            'metros': float(row['metros_total'] or 0),
+                            'dias': int(row['dias_maquina']),
+                        }
+                        for row in maquinas_metraje
+                    ],
                     'seg_puntaje': seg_puntaje,
                     'cxm_puntaje': cxm_puntaje,
                     'seg_activo': seg_activo,
