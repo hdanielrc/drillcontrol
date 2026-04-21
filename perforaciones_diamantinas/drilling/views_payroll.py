@@ -27,6 +27,8 @@ from .models_payroll import (
     CalificacionCriterio,
     EstructuraSalarial,
     HistorialEstructuraSalarial,
+    HistorialBonoTrabajador,
+    HistorialBonoTrabajador,
     ESTADOS_DIA_TRABAJADO,
 )
 from .forms_payroll import (
@@ -759,6 +761,22 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 dias_factor_m = Decimal(str(dias_trab_m)) / Decimal(str(dias_base_m)) if dias_base_m > 0 else Decimal('0')
                 total_metraje = (bono_calculado * dias_factor_m).quantize(Decimal('0.01'))
 
+                # Auto-persistir monto_final en cada carga (no esperar a que el usuario pulse Guardar)
+                if bono_trab.monto_final != bono_calculado:
+                    bono_trab.monto_calculado = bono_calculado
+                    bono_trab.monto_final = (bono_calculado + bono_trab.monto_ajuste).quantize(Decimal('0.01'))
+                    bono_trab.registrar_historial(
+                        fuente='CALCULO',
+                        usuario=request.user,
+                        observacion=f'Cálculo automático metraje: {float(metraje_acum_val):.3f}m × {float(monto_ajustado):.3f}',
+                    )
+                    bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
+                    bono_trab.registrar_historial(
+                        fuente='CALCULO',
+                        usuario=request.user,
+                        observacion=f'Cálculo automático metraje: {float(metraje_acum_val):.3f}m × {float(monto_ajustado):.3f}',
+                    )
+
                 filas_metraje.append({
                     'bono_pk': bono_trab.pk,
                     'trabajador_pk': trab.pk,
@@ -852,6 +870,17 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
             # Fórmula cumplimiento: suma_secciones × días_factor
             total_monto_trab = (total_monto_trab * dias_factor).quantize(Decimal('0.01'))
+
+            # Auto-persistir monto_final en cada carga (no esperar a que el usuario pulse Guardar)
+            if bono_trab.monto_final != total_monto_trab:
+                bono_trab.monto_calculado = total_monto_trab
+                bono_trab.monto_final = (total_monto_trab + bono_trab.monto_ajuste).quantize(Decimal('0.01'))
+                bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
+                bono_trab.registrar_historial(
+                    fuente='CALCULO',
+                    usuario=request.user,
+                    observacion=f'Cálculo automático cumplimiento: {bono_trab.dias_trabajados}/{bono_trab.dias_base} días',
+                )
 
             filas_cumplimiento.append({
                 'bono_pk': bono_trab.pk,
@@ -961,6 +990,11 @@ def cuadro_guardar(request, tipo_bono_pk):
             bono_trab.monto_calculado = monto_final_dec
             bono_trab.monto_final = monto_final_dec + bono_trab.monto_ajuste
             bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
+            bono_trab.registrar_historial(
+                fuente='GUARDAR',
+                usuario=request.user,
+                observacion='Guardado manual desde cuadro de calificación',
+            )
 
         # Actualizar criterios
         criterios_dict = bd.get('criterios', {})
@@ -1017,6 +1051,11 @@ def cuadro_calcular(request, tipo_bono_pk):
                 bono.monto_calculado = monto
                 bono.monto_final = _round2(monto + bono.monto_ajuste)
                 bono.save()
+                bono.registrar_historial(
+                    fuente='RECALC',
+                    usuario=user,
+                    observacion=f'Recalcular manual: factor={float(factor):.4f}',
+                )
                 total_calculados += 1
 
     messages.success(request, f'Se recalcularon {total_calculados} bonos para {tipo_bono.nombre}.')

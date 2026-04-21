@@ -328,6 +328,89 @@ class BonoTrabajador(models.Model):
     def __str__(self):
         return f"{self.trabajador} — {self.tipo_bono.codigo}: S/{self.monto_final}"
 
+    def registrar_historial(self, fuente='CALCULO', usuario=None, observacion=''):
+        """Crea un snapshot auditable del estado actual de monto_final."""
+        HistorialBonoTrabajador.objects.create(
+            bono_trabajador=self,
+            periodo=self.periodo,
+            trabajador=self.trabajador,
+            tipo_bono=self.tipo_bono,
+            monto_calculado=self.monto_calculado,
+            monto_ajuste=self.monto_ajuste,
+            monto_final=self.monto_final,
+            dias_trabajados=self.dias_trabajados,
+            dias_base=self.dias_base,
+            fuente=fuente,
+            registrado_por=usuario,
+            observacion=observacion,
+        )
+
+
+class HistorialBonoTrabajador(models.Model):
+    """
+    Registro histórico auditable de cada vez que se recalcula o guarda
+    el monto_final de un BonoTrabajador.
+    Permite rastrear quién calculó, cuándo y qué valor resultó.
+    """
+    FUENTE_CHOICES = [
+        ('CALCULO',  'Cálculo automático (vista cuadro)'),
+        ('GUARDAR',  'Guardado manual por usuario'),
+        ('RECALC',   'Recalcular (botón)'),
+        ('API',      'API / importación'),
+    ]
+
+    bono_trabajador = models.ForeignKey(
+        BonoTrabajador, on_delete=models.CASCADE,
+        related_name='historial',
+        verbose_name='Bono Trabajador'
+    )
+    # Snapshot de relaciones (para no perder referencia si se borra el período)
+    periodo = models.ForeignKey(
+        'PeriodoBono', on_delete=models.SET_NULL, null=True,
+        related_name='+', verbose_name='Período'
+    )
+    trabajador = models.ForeignKey(
+        'Trabajador', on_delete=models.SET_NULL, null=True,
+        related_name='+', verbose_name='Trabajador'
+    )
+    tipo_bono = models.ForeignKey(
+        'TipoBono', on_delete=models.SET_NULL, null=True,
+        related_name='+', verbose_name='Tipo de Bono'
+    )
+
+    # Snapshot de valores
+    monto_calculado = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monto Calculado (S/)')
+    monto_ajuste    = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Ajuste Manual (S/)')
+    monto_final     = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monto Final (S/)')
+    dias_trabajados = models.PositiveSmallIntegerField(default=0, verbose_name='Días Trabajados')
+    dias_base       = models.PositiveSmallIntegerField(default=0, verbose_name='Días Operativos')
+
+    # Auditoría
+    fuente          = models.CharField(max_length=10, choices=FUENTE_CHOICES, default='CALCULO', verbose_name='Fuente')
+    registrado_por  = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='historial_bonos_registrados',
+        verbose_name='Registrado por'
+    )
+    observacion     = models.TextField(blank=True, verbose_name='Observación')
+    created_at      = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Registro')
+
+    class Meta:
+        db_table  = 'payroll_historial_bono_trabajador'
+        ordering  = ['-created_at']
+        verbose_name = 'Historial Bono Trabajador'
+        verbose_name_plural = 'Historial Bonos Trabajadores'
+        indexes = [
+            models.Index(fields=['bono_trabajador', '-created_at']),
+            models.Index(fields=['trabajador', 'tipo_bono', '-created_at']),
+            models.Index(fields=['periodo', 'tipo_bono']),
+        ]
+
+    def __str__(self):
+        trab = self.trabajador or '—'
+        bono = self.tipo_bono.codigo if self.tipo_bono else '—'
+        return f"{trab} | {bono} | S/{self.monto_final} | {self.created_at:%d/%m/%Y %H:%M}"
+
 
 class BonoTrabajadorDetalle(models.Model):
     """
