@@ -462,3 +462,5 @@ def proyectar_contrato(
 
     return totales
 
+
+

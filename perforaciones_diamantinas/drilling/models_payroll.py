@@ -20,7 +20,16 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Estados de asistencia que cuentan como "día trabajado" para bonos
-ESTADOS_DIA_TRABAJADO = ('DL', 'TD', 'TN', 'DA')
+# Estados de AsistenciaDiaria que cuentan como día trabajado
+# Incluye formas cortas (TD, TN, DL, DA) Y formas largas (TRABAJO_DIA, DIA_LIBRE, etc.)
+# Fórmula: TRABAJADO = TD + TN + DL + DA  (mes calendario 1-30)
+ESTADOS_DIA_TRABAJADO = (
+    'TD', 'TRABAJO_DIA',
+    'TN', 'TRABAJO_NOCHE',
+    'T',  'TRABAJADO', 'TRABAJO',
+    'DL', 'DIA_LIBRE', 'DESCANSO',
+    'DA', 'DIA_APOYO', 'DA1',
+)
 
 
 class TipoBono(models.Model):

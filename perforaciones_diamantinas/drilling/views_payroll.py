@@ -582,13 +582,22 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 }
             )
 
+            # Siempre sincronizar bono_base desde la configuración si está vacío o desactualizado
+            fields_to_update = []
+            if not bono_trab.bono_base or bono_trab.bono_base != config.monto_base_mensual:
+                bono_trab.bono_base = config.monto_base_mensual
+                fields_to_update.append('bono_base')
+
             if bt_created or bono_trab.dias_trabajados == 0:
                 # Calcular días automáticamente
                 dias_trab = contar_dias_trabajados(trab, fecha_inicio, fecha_fin)
                 dias_base = calcular_dias_base_regimen(trab, fecha_inicio, fecha_fin)
                 bono_trab.dias_trabajados = dias_trab
                 bono_trab.dias_base = dias_base or 30
-                bono_trab.save(update_fields=['dias_trabajados', 'dias_base'])
+                fields_to_update += ['dias_trabajados', 'dias_base']
+
+            if fields_to_update:
+                bono_trab.save(update_fields=fields_to_update)
 
             # Generar detalles y calificaciones si faltan
             if bt_created:

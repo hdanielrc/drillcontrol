@@ -35,13 +35,21 @@ ONE = Decimal('1.0000')
 
 def contar_dias_trabajados(trabajador, fecha_inicio, fecha_fin):
     """
-    Cuenta los días con estado en ESTADOS_DIA_TRABAJADO para un trabajador
-    en un rango de fechas, usando AsistenciaDiaria.
+    Cuenta los días trabajados para un trabajador en el rango calendario.
+    Fórmula: TRABAJADO = TD + TN + DL + DA  (igual que la Matriz Resumen de Planilla).
+    El rango se limita al día 30 del mes (nunca día 31) para consistencia.
     """
+    import calendar as _cal
+    # Capear al día 30 igual que la Matriz Resumen de Planilla
+    ultimo_dia_mes = _cal.monthrange(fecha_fin.year, fecha_fin.month)[1]
+    fecha_fin_cal = date(fecha_fin.year, fecha_fin.month, min(30, ultimo_dia_mes))
+    # Si fecha_inicio es del mismo mes, usar tal cual; si viene del mes anterior mantener
+    fecha_inicio_cal = fecha_inicio
+
     return AsistenciaDiaria.objects.filter(
         trabajador=trabajador,
-        fecha__gte=fecha_inicio,
-        fecha__lte=fecha_fin,
+        fecha__gte=fecha_inicio_cal,
+        fecha__lte=fecha_fin_cal,
         estado__in=ESTADOS_DIA_TRABAJADO,
     ).count()
 
