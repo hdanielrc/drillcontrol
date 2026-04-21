@@ -98,6 +98,12 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
                   'Al seleccionar un cargo se auto-completa el Monto Base desde la Estructura Salarial.',
     )
 
+    # Campo oculto: JSON con montos específicos por cargo {"CARGO": monto}
+    montos_por_cargo_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_montos_por_cargo_json'}),
+    )
+
     class Meta:
         model = ConfiguracionBonoContrato
         fields = [
@@ -119,6 +125,7 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, user=None, **kwargs):
+        import json
         super().__init__(*args, **kwargs)
         self.fields['tipo_bono'].queryset = TipoBono.objects.filter(activo=True)
         if user and not user.has_access_to_all_contracts():
@@ -146,12 +153,35 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
 
             # Pre-seleccionar los cargos guardados en la instancia
             if instance and instance.cargos_aplicables:
-                self.fields['cargos_seleccionados'].initial = instance.cargos_aplicables
+                self.fields['cargos_seleccionados'].initial = list(instance.cargos_aplicables)
+
+            # Pre-cargar montos_por_cargo como JSON para el template JS
+            if instance and instance.montos_por_cargo:
+                self.fields['montos_por_cargo_json'].initial = json.dumps(instance.montos_por_cargo)
 
     def save(self, commit=True):
+        import json
         instance = super().save(commit=False)
         cargos = self.cleaned_data.get('cargos_seleccionados', [])
         instance.cargos_aplicables = list(cargos)
+
+        # Deserializar montos por cargo desde el campo oculto
+        montos_json = self.cleaned_data.get('montos_por_cargo_json', '')
+        try:
+            montos = json.loads(montos_json) if montos_json else {}
+            # Solo guardar montos para cargos que están en la selección actual
+            instance.montos_por_cargo = {
+                cargo: float(montos[cargo])
+                for cargo in cargos
+                if cargo in montos and montos[cargo]
+            }
+        except (ValueError, TypeError, KeyError):
+            instance.montos_por_cargo = {}
+
+        # monto_base_mensual = máximo de los montos por cargo (fallback global)
+        if instance.montos_por_cargo:
+            instance.monto_base_mensual = max(instance.montos_por_cargo.values())
+
         if commit:
             instance.save()
         return instance

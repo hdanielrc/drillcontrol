@@ -136,6 +136,11 @@ class ConfiguracionBonoContrato(models.Model):
         verbose_name='Cargos Aplicables',
         help_text='Lista de cargos a los que aplica este bono en este contrato. Vacío = todos los del tipo de bono.'
     )
+    montos_por_cargo = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Montos por Cargo',
+        help_text='Monto base mensual específico por cargo. Ej: {"RESIDENTE": 1500.00, "ASISTENTE DE RESIDENTE": 800.00}. Sobreescribe monto_base_mensual para ese cargo.'
+    )
     activo = models.BooleanField(default=True)
     vigencia_desde = models.DateField(verbose_name='Vigencia Desde')
     vigencia_hasta = models.DateField(null=True, blank=True, verbose_name='Vigencia Hasta')

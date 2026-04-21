@@ -628,12 +628,20 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
         filas = []
         for trab in trabajadores:
+            # Monto base según cargo del trabajador (per-cargo o global)
+            cargo_trab = trab.cargo or trab.cargo_headcount or ''
+            from decimal import Decimal as _D
+            if config.montos_por_cargo and cargo_trab in config.montos_por_cargo:
+                monto_inicial = _D(str(config.montos_por_cargo[cargo_trab]))
+            else:
+                monto_inicial = config.monto_base_mensual
+
             # Obtener o crear BonoTrabajador
             bono_trab, bt_created = BonoTrabajador.objects.get_or_create(
                 periodo=periodo, trabajador=trab, tipo_bono=tipo_bono,
                 defaults={
                     'configuracion': config,
-                    'bono_base': config.monto_base_mensual,
+                    'bono_base': monto_inicial,
                     'dias_trabajados': 0, 'dias_base': 0,
                     'factor_cumplimiento': Decimal('1'),
                     'monto_calculado': Decimal('0'),
@@ -643,9 +651,16 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             )
 
             # Siempre sincronizar bono_base desde la configuración si está vacío o desactualizado
+            # Prioridad: montos_por_cargo[cargo del trabajador] > monto_base_mensual global
+            cargo_trab = trab.cargo or trab.cargo_headcount or ''
+            monto_esperado = config.monto_base_mensual
+            if config.montos_por_cargo and cargo_trab in config.montos_por_cargo:
+                from decimal import Decimal as _D
+                monto_esperado = _D(str(config.montos_por_cargo[cargo_trab]))
+
             fields_to_update = []
-            if not bono_trab.bono_base or bono_trab.bono_base != config.monto_base_mensual:
-                bono_trab.bono_base = config.monto_base_mensual
+            if not bono_trab.bono_base or bono_trab.bono_base != monto_esperado:
+                bono_trab.bono_base = monto_esperado
                 fields_to_update.append('bono_base')
 
             # Siempre recalcular días desde el tareo para mantener datos frescos

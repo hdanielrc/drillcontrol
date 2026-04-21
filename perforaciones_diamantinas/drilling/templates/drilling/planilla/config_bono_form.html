@@ -40,40 +40,48 @@
                 <div class="card shadow-sm border-0 mb-4">
                     <div class="card-header bg-success text-white">
                         <h6 class="mb-0">
-                            <i class="fas fa-users me-2"></i> 2. Cargos Aplicables
+                            <i class="fas fa-users me-2"></i> 2. Cargos Aplicables y Montos
                             <span id="cargosLoadingSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
                         </h6>
                     </div>
                     <div class="card-body">
+                        {# Hidden: multi-select requerido por el form (se sincroniza por JS) #}
+                        <div style="display:none;" data-cargos-guardados="{{ config.cargos_aplicables|default:'[]'|safe }}">
+                            {{ form.cargos_seleccionados }}
+                        </div>
+                        {# Hidden: JSON de montos por cargo, serializado por JS al submit #}
+                        {{ form.montos_por_cargo_json }}
+
                         <div class="row">
-                            <div class="col-md-7 mb-3">
+                            <!-- Columna izquierda: cargos disponibles -->
+                            <div class="col-md-5 mb-3">
                                 <label class="form-label fw-bold">Cargos activos en el contrato</label>
-                                {# data-cargos-guardados permite que el JS recupere exactamente los cargos ya guardados #}
-                                <div data-cargos-guardados="{% if config %}{{ config.cargos_aplicables|default:'[]' }}{% else %}[]{% endif %}">
-                                    {{ form.cargos_seleccionados }}
+                                <div id="listaCargosDisponibles" class="border rounded p-2" style="max-height:220px;overflow-y:auto;background:#f8f9fa;">
+                                    <span class="text-muted small">Cargando cargos…</span>
                                 </div>
-                                {% if form.cargos_seleccionados.errors %}<div class="text-danger small">{{ form.cargos_seleccionados.errors.0 }}</div>{% endif %}
-                                <small class="text-muted d-block mt-1">{{ form.cargos_seleccionados.help_text }}</small>
-                                {% if config and config.cargos_aplicables %}
-                                <div class="mt-2 p-2 border border-success rounded bg-light">
-                                    <small class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Cargos actualmente asignados a este bono:</small><br>
-                                    <div class="mt-1">
-                                    {% for cargo in config.cargos_aplicables %}
-                                        <span class="badge bg-success me-1 mb-1">{{ cargo }}</span>
-                                    {% endfor %}
-                                    </div>
-                                </div>
-                                {% elif config %}
-                                <div class="mt-2 p-2 border border-warning rounded bg-light">
-                                    <small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Sin cargos asignados — aplica a todos los del tipo de bono.</small>
-                                </div>
-                                {% endif %}
+                                <small class="text-muted">Haz clic en un cargo para agregarlo a la tabla.</small>
                             </div>
-                            <div class="col-md-5">
-                                <label class="form-label fw-bold">Bono Área (Estructura Salarial)</label>
-                                <div id="bonoAreaInfo" class="border rounded p-3 bg-light" style="min-height:80px;">
-                                    <span class="text-muted small">Selecciona cargo(s) para ver los montos.</span>
-                                </div>
+
+                            <!-- Columna derecha: tabla de cargos seleccionados con montos -->
+                            <div class="col-md-7">
+                                <label class="form-label fw-bold">Cargos incluidos en este bono</label>
+                                <table class="table table-sm table-bordered mb-1" id="tablaCargosSeleccionados">
+                                    <thead class="table-success">
+                                        <tr>
+                                            <th>Cargo</th>
+                                            <th style="width:140px;">Monto Base (S/)</th>
+                                            <th style="width:40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyCargos">
+                                        <tr id="trSinCargos">
+                                            <td colspan="3" class="text-muted text-center small fst-italic">
+                                                Sin cargos asignados — aplica a todos los del tipo de bono.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div id="resumenMontos" class="small text-muted"></div>
                             </div>
                         </div>
                     </div>
@@ -219,122 +227,230 @@
 // 2. Selección de cargos cambia → consulta bonificacion_area y auto-llena monto
 // ─────────────────────────────────────────────────────────────────────────────
 (function () {
-    const contratoSel  = document.getElementById('id_contrato');
-    const cargosSelect = document.getElementById('id_cargos_seleccionados');
-    const montoInput   = document.getElementById('id_monto_base_mensual');
-    const bonoInfo     = document.getElementById('bonoAreaInfo');
-    const spinner      = document.getElementById('cargosLoadingSpinner');
+    const contratoSel    = document.getElementById('id_contrato');
+    const cargosSelect   = document.getElementById('id_cargos_seleccionados');  // hidden multi-select
+    const montoInput     = document.getElementById('id_monto_base_mensual');
+    const spinner        = document.getElementById('cargosLoadingSpinner');
+    const listaDisp      = document.getElementById('listaCargosDisponibles');
+    const tbodyCargos    = document.getElementById('tbodyCargos');
+    const trSinCargos    = document.getElementById('trSinCargos');
+    const resumenMontos  = document.getElementById('resumenMontos');
+    const montosJsonInput = document.getElementById('id_montos_por_cargo_json');
+
+    // Estado en memoria: {cargo → monto}
+    let montosMap = {};
+
+    // Leer montos guardados al cargar (modo edición)
+    try {
+        const saved = montosJsonInput ? montosJsonInput.value : '';
+        if (saved) montosMap = JSON.parse(saved);
+    } catch(e) { montosMap = {}; }
 
     function showSpinner() { spinner && spinner.classList.remove('d-none'); }
     function hideSpinner() { spinner && spinner.classList.add('d-none'); }
 
-    // ── Cargar cargos desde API ───────────────────────────────────────────────
+    // ── Sincronizar hidden multi-select + hidden JSON con el estado actual ─────
+    function sincronizarHiddenFields() {
+        // Multi-select: seleccionar exactamente los cargos en montosMap
+        if (cargosSelect) {
+            Array.from(cargosSelect.options).forEach(opt => {
+                opt.selected = (opt.value in montosMap);
+            });
+        }
+        // JSON oculto
+        if (montosJsonInput) {
+            montosJsonInput.value = JSON.stringify(montosMap);
+        }
+        // monto_base_mensual = máximo (fallback)
+        const valores = Object.values(montosMap).map(v => parseFloat(v) || 0).filter(v => v > 0);
+        if (montoInput && valores.length > 0) {
+            montoInput.value = Math.max(...valores).toFixed(2);
+        }
+        actualizarResumen();
+    }
+
+    // ── Actualizar fila del resumen ───────────────────────────────────────────
+    function actualizarResumen() {
+        const n = Object.keys(montosMap).length;
+        if (resumenMontos) {
+            if (n === 0) {
+                resumenMontos.textContent = 'Sin cargos asignados — aplica a todos los del tipo de bono.';
+            } else {
+                const total = Object.values(montosMap).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+                resumenMontos.innerHTML = `<span class="text-success fw-bold">${n} cargo(s) asignado(s).</span> ` +
+                    `Monto máx: <strong>S/ ${Math.max(...Object.values(montosMap).map(v => parseFloat(v)||0)).toFixed(2)}</strong>`;
+            }
+        }
+    }
+
+    // ── Renderizar tabla de cargos seleccionados ──────────────────────────────
+    function renderTabla() {
+        const cargos = Object.keys(montosMap);
+        if (cargos.length === 0) {
+            trSinCargos.style.display = '';
+            // Eliminar todas las filas de cargo excepto trSinCargos
+            Array.from(tbodyCargos.querySelectorAll('tr.fila-cargo')).forEach(r => r.remove());
+            return;
+        }
+        trSinCargos.style.display = 'none';
+        // Reconstruir filas
+        Array.from(tbodyCargos.querySelectorAll('tr.fila-cargo')).forEach(r => r.remove());
+        cargos.forEach(cargo => {
+            const monto = montosMap[cargo] || '';
+            const tr = document.createElement('tr');
+            tr.className = 'fila-cargo';
+            tr.dataset.cargo = cargo;
+            tr.innerHTML = `
+                <td class="small">${cargo}</td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">S/</span>
+                        <input type="number" step="0.01" min="0" class="form-control monto-cargo-input"
+                               value="${monto}" placeholder="0.00"
+                               data-cargo="${cargo}">
+                    </div>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 btn-quitar-cargo"
+                            data-cargo="${cargo}" title="Quitar cargo">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </td>`;
+            tbodyCargos.appendChild(tr);
+        });
+
+        // Listeners para cambios de monto
+        tbodyCargos.querySelectorAll('.monto-cargo-input').forEach(inp => {
+            inp.addEventListener('input', () => {
+                montosMap[inp.dataset.cargo] = inp.value;
+                sincronizarHiddenFields();
+            });
+        });
+        // Listener para quitar cargo
+        tbodyCargos.querySelectorAll('.btn-quitar-cargo').forEach(btn => {
+            btn.addEventListener('click', () => {
+                delete montosMap[btn.dataset.cargo];
+                renderTabla();
+                sincronizarHiddenFields();
+                // Marcar cargo como disponible de nuevo en la lista izquierda
+                const li = listaDisp.querySelector(`[data-cargo="${btn.dataset.cargo}"]`);
+                if (li) li.classList.remove('active', 'text-white', 'bg-success');
+            });
+        });
+
+        sincronizarHiddenFields();
+    }
+
+    // ── Agregar un cargo a montosMap y precargar monto desde API ─────────────
+    async function agregarCargo(cargo, contratoId) {
+        if (cargo in montosMap) return;  // ya está
+        montosMap[cargo] = '';
+        renderTabla();
+        // Consultar bonificacion_area para ese cargo
+        try {
+            const params = new URLSearchParams({ contrato_id: contratoId, cargos: cargo });
+            const resp = await fetch(`/planilla/api/bonificacion-area/?${params}`);
+            const data = await resp.json();
+            const info = (data.cargos || {})[cargo];
+            if (info && info.encontrado && parseFloat(info.bonificacion_area) > 0) {
+                montosMap[cargo] = parseFloat(info.bonificacion_area).toFixed(2);
+                // Actualizar input en la tabla
+                const inp = tbodyCargos.querySelector(`.monto-cargo-input[data-cargo="${cargo}"]`);
+                if (inp) inp.value = montosMap[cargo];
+            }
+        } catch(e) { /* silenciar */ }
+        sincronizarHiddenFields();
+    }
+
+    // ── Cargar lista de cargos disponibles ────────────────────────────────────
     async function cargarCargos(contratoId, preseleccionados) {
         if (!contratoId) return;
         showSpinner();
+        listaDisp.innerHTML = '<span class="text-muted small">Cargando…</span>';
         try {
             const resp = await fetch(`/planilla/api/cargos-activos/${contratoId}/`);
             const data = await resp.json();
             const cargos = data.cargos || [];
-            cargosSelect.innerHTML = '';
-            cargos.forEach(cargo => {
-                const opt = document.createElement('option');
-                opt.value = cargo;
-                opt.textContent = cargo;
-                if (preseleccionados && preseleccionados.includes(cargo)) opt.selected = true;
-                cargosSelect.appendChild(opt);
-            });
-            if (cargos.length === 0) {
-                bonoInfo.innerHTML = '<span class="text-muted small">No hay cargos activos para este contrato.</span>';
-            } else {
-                bonoInfo.innerHTML = '<span class="text-muted small">Selecciona uno o más cargos.</span>';
+
+            // Poblar hidden multi-select (necesario para que el form lo envíe)
+            if (cargosSelect) {
+                cargosSelect.innerHTML = '';
+                cargos.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c; opt.textContent = c;
+                    cargosSelect.appendChild(opt);
+                });
             }
-        } catch (e) {
+
+            if (cargos.length === 0) {
+                listaDisp.innerHTML = '<span class="text-muted small">No hay cargos activos.</span>';
+                return;
+            }
+
+            listaDisp.innerHTML = '';
+            cargos.forEach(cargo => {
+                const div = document.createElement('div');
+                div.className = 'p-1 px-2 rounded mb-1 d-flex justify-content-between align-items-center';
+                div.dataset.cargo = cargo;
+                div.style.cursor = 'pointer';
+                div.style.fontSize = '12px';
+                if (cargo in montosMap) {
+                    div.classList.add('bg-success', 'text-white');
+                }
+                div.innerHTML = `<span>${cargo}</span><i class="fas fa-plus-circle text-success ms-2" style="font-size:10px;"></i>`;
+                div.addEventListener('click', () => {
+                    if (cargo in montosMap) return;
+                    div.classList.add('bg-success', 'text-white');
+                    agregarCargo(cargo, contratoId);
+                });
+                listaDisp.appendChild(div);
+            });
+
+            // Pre-cargar cargos ya guardados
+            if (preseleccionados && preseleccionados.length > 0) {
+                for (const cargo of preseleccionados) {
+                    if (!(cargo in montosMap)) {
+                        montosMap[cargo] = montosMap[cargo] || '';
+                    }
+                    const div = listaDisp.querySelector(`[data-cargo="${cargo}"]`);
+                    if (div) div.classList.add('bg-success', 'text-white');
+                }
+                renderTabla();
+            }
+        } catch(e) {
             console.error('Error cargando cargos:', e);
-            bonoInfo.innerHTML = '<span class="text-danger small">Error al cargar cargos.</span>';
+            listaDisp.innerHTML = '<span class="text-danger small">Error al cargar cargos.</span>';
         } finally {
             hideSpinner();
         }
     }
 
-    // ── Consultar bonificacion_area y auto-llenar monto ───────────────────────
-    async function actualizarBonoArea() {
-        const contratoId    = contratoSel ? contratoSel.value : '';
-        const seleccionados = Array.from(cargosSelect.selectedOptions).map(o => o.value);
-        if (!contratoId || seleccionados.length === 0) {
-            bonoInfo.innerHTML = '<span class="text-muted small">Selecciona uno o más cargos.</span>';
-            return;
-        }
-        const params = new URLSearchParams({ contrato_id: contratoId, cargos: seleccionados.join(',') });
-        try {
-            const resp = await fetch(`/planilla/api/bonificacion-area/?${params}`);
-            const data = await resp.json();
-            const resultado = data.cargos || {};
-            const sugerido  = data.sugerido;
-
-            let html = '<table class="table table-sm mb-0" style="font-size:12px;">';
-            html += '<thead><tr><th>Cargo</th><th class="text-end">Bono Área</th></tr></thead><tbody>';
-            for (const [cargo, info] of Object.entries(resultado)) {
-                const val = info.encontrado
-                    ? `<span class="badge bg-success">S/ ${parseFloat(info.bonificacion_area).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>`
-                    : `<span class="badge bg-secondary">No configurado</span>`;
-                html += `<tr><td>${cargo}</td><td class="text-end">${val}</td></tr>`;
-            }
-            html += '</tbody></table>';
-
-            if (sugerido && parseFloat(sugerido) > 0) {
-                html += `<div class="mt-2 d-flex align-items-center gap-2">
-                    <span class="text-success small fw-bold">Sugerido: S/ ${parseFloat(sugerido).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
-                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2"
-                            onclick="aplicarSugerido('${sugerido}')">Aplicar</button>
-                </div>`;
-                // Auto-aplicar si el campo está vacío o en 0
-                if (!montoInput.value || parseFloat(montoInput.value) === 0) {
-                    montoInput.value = sugerido;
-                }
-            } else {
-                html += `<div class="mt-2 text-warning small">
-                    <i class="fas fa-exclamation-triangle me-1"></i>Sin bono de área en Estructura Salarial.</div>`;
-            }
-            bonoInfo.innerHTML = html;
-        } catch (e) {
-            console.error('Error consultando bonificacion_area:', e);
-            bonoInfo.innerHTML = '<span class="text-danger small">Error al consultar estructura salarial.</span>';
-        }
-    }
-
-    window.aplicarSugerido = function (valor) {
-        if (montoInput) {
-            montoInput.value = valor;
-            montoInput.classList.add('border-success');
-            setTimeout(() => montoInput.classList.remove('border-success'), 1500);
-        }
-    };
-
     // ── Event listeners ───────────────────────────────────────────────────────
     if (contratoSel) {
         contratoSel.addEventListener('change', () => {
-            cargarCargos(contratoSel.value, null);
+            montosMap = {};
+            renderTabla();
+            cargarCargos(contratoSel.value, []);
         });
     }
-    if (cargosSelect) {
-        cargosSelect.addEventListener('change', actualizarBonoArea);
-    }
 
-    // Inicializar al cargar (modo edición: contrato ya seleccionado)
+    // ── Inicializar al cargar (modo edición) ──────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
         const cid = contratoSel ? contratoSel.value : '';
         if (cid) {
-            // Leer los cargos GUARDADOS desde el data-attribute inyectado por Django,
-            // NO desde las opciones del DOM (evita el bug de pre-seleccionar todo).
-            const wrapper = cargosSelect.closest('[data-cargos-guardados]');
+            const wrapper = cargosSelect ? cargosSelect.closest('[data-cargos-guardados]') : null;
             let preselec = [];
             try {
                 preselec = wrapper ? JSON.parse(wrapper.dataset.cargosGuardados || '[]') : [];
             } catch(e) { preselec = []; }
-            cargarCargos(cid, preselec).then(() => {
-                if (cargosSelect.selectedOptions.length > 0) actualizarBonoArea();
+
+            // Inicializar montosMap con los montos guardados (viene del input oculto)
+            // para los cargos pre-seleccionados
+            preselec.forEach(cargo => {
+                if (!(cargo in montosMap)) montosMap[cargo] = '';
             });
+
+            cargarCargos(cid, preselec);
         }
         if (typeof bootstrap !== 'undefined') {
             document.querySelectorAll('[data-bs-toggle="tooltip"]')
