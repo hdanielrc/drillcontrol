@@ -129,8 +129,52 @@
     .pct-100 { color: #28a745; }
     .pct-80 { color: #ffc107; }
     .pct-low { color: #dc3545; }
+    /* ── Tabla metraje: misma base que cuadro-table ─────────────────── */
+    .metraje-table {
+        font-size: 11px;
+        border-collapse: collapse;
+        white-space: nowrap;
+        width: 100%;
+    }
+    .metraje-table th, .metraje-table td {
+        border: 1px solid #ccc;
+        padding: 3px 5px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .metraje-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        font-weight: bold;
+        font-size: 11px;
+    }
+    .metraje-section-header {
+        background: linear-gradient(135deg, #0470AC, #084163);
+        color: white;
+    }
+    .metraje-section-kpi {
+        background: linear-gradient(135deg, #495057, #343a40);
+        color: white;
+    }
+    .metraje-header-total {
+        background: #28a745;
+        color: white;
+    }
+    .metraje-header-acum {
+        background: #084163;
+        color: white;
+    }
     .worker-metraje td { background: #fffbea; }
     .worker-metraje .cell-total { background: #fff3cd; color: #856404; }
+    .section-label {
+        background: #f8d775;
+        font-weight: bold;
+        font-size: 12px;
+        text-align: left !important;
+        padding: 5px 10px !important;
+        border-left: 4px solid #ffc107;
+    }
     .month-selector {
         display: inline-flex;
         align-items: center;
@@ -289,28 +333,33 @@
     <!-- ── Tablas de Trabajadores por METRAJE (una por contrato) ───────────── -->
     {% for contrato_nombre, contrato_data in datos_por_contrato.items %}
     {% if contrato_data.filas_metraje %}
-    <div class="mt-4 mb-4">
-        <h6 style="background:#fff3cd;padding:8px 12px;border-radius:4px;color:#856404;border-left:4px solid #ffc107;">
-            <i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; <strong>{{ contrato_nombre|upper }}</strong>
-        </h6>
-        <div class="table-responsive">
-        <table class="table table-bordered table-sm" style="font-size:11px;white-space:nowrap;">
+    <div class="cuadro-container mt-3">
+        <table class="metraje-table">
+            <!-- Fila separadora de contrato (metraje) -->
+            <tbody>
+            <tr>
+                <td colspan="10" class="section-label">
+                    <i class="fas fa-bolt" style="color:#856404;"></i>
+                    Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}
+                </td>
+            </tr>
+            </tbody>
             <thead>
                 <tr>
-                    <th style="background:#1a3a4f;color:white;">Trabajador</th>
-                    <th style="background:#1a3a4f;color:white;">Cargo</th>
-                    <th style="background:#0470AC;color:white;">Bono p/metro (S/m)</th>
-                    <th style="background:#0470AC;color:white;">Metraje base (m)</th>
-                    <th style="background:#dc3545;color:white;">SEGURIDAD %</th>
-                    <th style="background:#fd7e14;color:white;">COSTO POR METRO %</th>
-                    <th style="background:#6c757d;color:white;">TOTAL %</th>
-                    <th style="background:#17a2b8;color:white;">Monto (S/m &times; %)</th>
-                    <th style="background:#084163;color:white;">
+                    <th class="header-info" style="min-width:200px;text-align:left;">Trabajador</th>
+                    <th class="header-info" style="min-width:120px;text-align:left;">Cargo</th>
+                    <th class="metraje-section-header">Bono p/metro (S/m)</th>
+                    <th class="metraje-section-header">Metraje base (m)</th>
+                    <th class="metraje-section-kpi">SEGURIDAD %</th>
+                    <th class="metraje-section-kpi">COSTO POR METRO %</th>
+                    <th class="header-pct">TOTAL %</th>
+                    <th class="header-monto">Monto (S/m &times; %)</th>
+                    <th class="metraje-header-acum">
                         Metraje pond. acum. (m)
-                        <i class="fas fa-info-circle" style="font-size:10px;cursor:help;"
-                           title="Promedio ponderado por días de todas las máquinas del contrato: Σ(metros_máquina × días_máquina) / Σ(días_máquina)"></i>
+                        <i class="fas fa-info-circle" style="font-size:9px;cursor:help;"
+                           title="Promedio ponderado por días: Σ(metros_máquina × días_máquina) / Σ(días_máquina)"></i>
                     </th>
-                    <th style="background:#28a745;color:white;">BONO ÁREA</th>
+                    <th class="metraje-header-total">BONO ÁREA</th>
                 </tr>
             </thead>
             <tbody>
@@ -323,39 +372,35 @@
                     data-cxm-activo="{{ fila.cxm_activo|yesno:'true,false' }}">
                     <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
                     <td class="cell-cargo">{{ fila.cargo }}</td>
-                    <td class="text-center fw-bold">{{ fila.bono_por_metraje|floatformat:3 }}</td>
-                    <td class="text-center">{{ fila.metraje_base|floatformat:0 }}</td>
-                    <td class="text-center fw-bold {% if fila.seg_activo %}text-success{% else %}text-danger{% endif %}">
+                    <td>{{ fila.bono_por_metraje|floatformat:3 }}</td>
+                    <td>{{ fila.metraje_base|floatformat:0 }}</td>
+                    <td class="cell-pct {% if fila.seg_activo %}pct-100{% else %}pct-low{% endif %}">
                         {% if fila.seg_activo %}SI{% else %}NO{% endif %}
                         <br><small>({{ fila.seg_puntaje|floatformat:0 }}%)</small>
                     </td>
-                    <td class="text-center fw-bold {% if fila.cxm_activo %}text-success{% else %}text-danger{% endif %}">
+                    <td class="cell-pct {% if fila.cxm_activo %}pct-100{% else %}pct-low{% endif %}">
                         {% if fila.cxm_activo %}SI{% else %}NO{% endif %}
                         <br><small>({{ fila.cxm_puntaje|floatformat:0 }}%)</small>
                     </td>
-                    <td class="text-center fw-bold cell-pct">{{ fila.mult_total_pct }}%</td>
-                    <td class="text-center cell-monto metraje-monto-ajustado">{{ fila.monto_ajustado|floatformat:3 }}</td>
-                    {# Metraje ponderado: calculado automáticamente, solo lectura #}
-                    <td class="text-center fw-bold"
-                        style="background:#e8f4fd;"
+                    <td class="cell-pct">{{ fila.mult_total_pct }}%</td>
+                    <td class="cell-monto metraje-monto-ajustado">{{ fila.monto_ajustado|floatformat:3 }}</td>
+                    <td class="cell-monto"
                         title="Promedio ponderado de máquinas:{% for m in fila.metraje_ponderado_detalle %} {{ m.maquina }}: {{ m.metros|floatformat:1 }}m × {{ m.dias }}d;{% endfor %}">
                         {{ fila.metraje_acumulado|floatformat:3 }} m
                         <br><small class="text-muted" style="font-size:9px;">
                             <i class="fas fa-calculator"></i> {{ fila.metraje_ponderado_detalle|length }} máq.
                         </small>
                     </td>
-                    {# BONO ÁREA = (metraje_acum - metraje_base) × monto_ajustado #}
-                    <td class="text-center cell-total metraje-bono-calc">
+                    <td class="cell-total metraje-bono-calc">
                         S/ {{ fila.bono_calculado|floatformat:2 }}
                         <br><small class="text-muted" style="font-size:9px;">
-                            ({{ fila.metraje_acumulado|floatformat:1 }} − {{ fila.metraje_base|floatformat:0 }}) × {{ fila.monto_ajustado|floatformat:3 }}
+                            ({{ fila.metraje_acumulado|floatformat:1 }} &minus; {{ fila.metraje_base|floatformat:0 }}) &times; {{ fila.monto_ajustado|floatformat:3 }}
                         </small>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        </div>
     </div>
     {% endif %}
     {% endfor %}
