@@ -531,7 +531,53 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     """
     import calendar
     from collections import OrderedDict
+    import unicodedata
     from .models_payroll import ConceptoGlobalPeriodo
+
+    # Aliases: códigos cortos o variantes comunes → código oficial de ConceptoGlobal
+    _ALIAS_GLOBAL = {
+        'PROD': 'PRODUCCION',
+        'PRODUCCION': 'PRODUCCION',
+        'PRODUCCIÓN': 'PRODUCCION',
+        'SEG': 'SEGURIDAD',
+        'SEGURIDAD': 'SEGURIDAD',
+        'VAL': 'VALORIZACION',
+        'VALORIZACION': 'VALORIZACION',
+        'VALORIZACIÓN': 'VALORIZACION',
+        'CXM': 'CXM',
+        'COSTO': 'CXM',
+        'COSTO_METRO': 'CXM',
+        'RO': 'RESULTADO_OPERATIVO',
+        'RESULTADO': 'RESULTADO_OPERATIVO',
+        'RESULTADOS': 'RESULTADO_OPERATIVO',
+        'RESULTADO_OP': 'RESULTADO_OPERATIVO',
+        'RESULTADO_OPERATIVO': 'RESULTADO_OPERATIVO',
+    }
+
+    def _strip_accents(s):
+        """Elimina tildes y convierte a mayúsculas para comparación robusta."""
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', s.upper())
+            if unicodedata.category(c) != 'Mn'
+        )
+
+    def _buscar_cgp(codigo_seccion, cgp_map):
+        """
+        Busca ConceptoGlobalPeriodo por código de sección usando:
+        1. Coincidencia exacta (ya sin acento).
+        2. Alias de códigos cortos/variantes comunes.
+        Devuelve (cgp, fuente) o (None, None).
+        """
+        normalizado = _strip_accents(codigo_seccion)
+        # 1) coincidencia directa tras normalizar acentos
+        cgp = cgp_map.get(normalizado)
+        if cgp:
+            return cgp
+        # 2) alias → código oficial
+        global_codigo = _ALIAS_GLOBAL.get(normalizado)
+        if global_codigo:
+            return cgp_map.get(global_codigo)
+        return None
 
     tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk, activo=True)
     anio = int(request.GET.get('anio') or date.today().year)
@@ -559,12 +605,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     for config in configs:
         contrato = config.contrato
         # Cargar conceptos globales del período para este contrato
-        # Indexados por código en mayúsculas para matching con ConceptoBono.codigo
+        # Indexados por código normalizado (sin acentos, mayúsculas)
         cgp_qs = ConceptoGlobalPeriodo.objects.filter(
             contrato=contrato, anio=anio, mes=mes
         ).select_related('concepto')
         conceptos_globales_periodo = {
-            cgp.concepto.codigo.upper(): cgp
+            _strip_accents(cgp.concepto.codigo): cgp
             for cgp in cgp_qs
         }
 
@@ -641,7 +687,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         cumplidos += 1
 
                 # Puntaje: usar ConceptoGlobalPeriodo si existe para este código de sección
-                cgp = conceptos_globales_periodo.get(seccion.codigo.upper())
+                # Matching robusto: normalización de acentos + alias de códigos cortos
+                cgp = _buscar_cgp(seccion.codigo, conceptos_globales_periodo)
                 if cgp is not None:
                     # % viene del indicador global del contrato (producción, seguridad, etc.)
                     puntaje = float(cgp.porcentaje_bono)

@@ -250,7 +250,8 @@
                     <td>{{ fila.dias_operativos }}</td>
                     <td class="cell-bono-base">
                         <input type="number" step="0.01" min="0"
-                               value="{{ fila.bono_base }}"
+                               value="{{ fila.bono_base|floatformat:0 }}"
+                               placeholder="S/ bono"
                                class="bono-base-input"
                                data-bono-pk="{{ fila.bono_pk }}"
                                onchange="recalcularFila(this.closest('tr'))">
