@@ -658,32 +658,17 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         filas_cumplimiento = []
         filas_metraje = []
 
-        # ── Metraje ponderado del contrato (calculado una vez, aplica a todos ──
-        # los trabajadores de tipo METRAJE del mismo contrato).
-        # Fórmula: Σ(metros_maquina × dias_maquina) / Σ(dias_maquina)
-        # donde días_maquina = nº de fechas distintas con turno en el período.
-        from django.db.models import Sum, Count
-        maquinas_metraje = (
-            TurnoAvance.objects
-            .filter(
-                turno__contrato=contrato,
-                turno__fecha__gte=fecha_inicio,
-                turno__fecha__lte=fecha_fin,
-            )
-            .values('turno__maquina')
-            .annotate(
-                metros_total=Sum('metros_perforados'),
-                dias_maquina=Count('turno__fecha', distinct=True),
-            )
-        )
-        _num = sum(
-            (row['metros_total'] or Decimal('0')) * row['dias_maquina']
-            for row in maquinas_metraje
-        )
-        _den = sum(row['dias_maquina'] for row in maquinas_metraje)
-        metraje_ponderado_contrato = (
-            (Decimal(str(_num)) / Decimal(str(_den))).quantize(Decimal('0.001'))
-            if _den > 0 else Decimal('0')
+        # ── Metraje acumulado del contrato: suma directa de metros perforados ──
+        # según los reportes de perforación (TurnoAvance) del período.
+        from django.db.models import Sum
+        _metraje_total = TurnoAvance.objects.filter(
+            turno__contrato=contrato,
+            turno__fecha__gte=fecha_inicio,
+            turno__fecha__lte=fecha_fin,
+        ).aggregate(total=Sum('metros_perforados'))['total']
+        metraje_total_contrato = (
+            Decimal(str(_metraje_total)).quantize(Decimal('0.001'))
+            if _metraje_total else Decimal('0')
         )
 
         for trab in trabajadores:
@@ -753,22 +738,19 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             # ── TRABAJADORES DE METRAJE: cálculo directo ──────────────────────
             if tipo_calc == 'metraje':
                 seg_cgp = conceptos_globales_periodo.get('SEGURIDAD')
-                cxm_cgp = conceptos_globales_periodo.get('CXM')
                 seg_puntaje = float(seg_cgp.porcentaje_bono) if seg_cgp else 0.0
-                cxm_puntaje = float(cxm_cgp.porcentaje_bono) if cxm_cgp else 0.0
                 seg_activo = seg_puntaje >= 100
-                cxm_activo = cxm_puntaje >= 100
 
+                # CXM no aplica para BA-OPERADORES — solo Seguridad suma bonificación
                 mult_seg = Decimal('0.04') if seg_activo else Decimal('0')
-                mult_cxm = Decimal('0.04') if cxm_activo else Decimal('0')
-                mult_total = Decimal('1') + mult_seg + mult_cxm
-                mult_total_pct = int(mult_total * 100)  # 100, 104, 108
+                mult_total = Decimal('1') + mult_seg
+                mult_total_pct = int(mult_total * 100)  # 100 o 104
 
                 est_m = EstructuraSalarial.objects.filter(
                     contrato=config.contrato, cargo_contratado=cargo_trab, activo=True
                 ).first()
                 metraje_base_val = est_m.metraje_base if est_m and est_m.metraje_base else Decimal('0')
-                metraje_acum_val = metraje_ponderado_contrato  # calculado automáticamente
+                metraje_acum_val = metraje_total_contrato  # suma de metros perforados del período
                 bono_por_metro_val = bono_trab.bono_base  # tarifa por metro (unit rate)
 
                 # Persiste el valor calculado para referencia histórica
@@ -810,18 +792,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'bono_por_metraje': float(bono_por_metro_val),
                     'metraje_base': float(metraje_base_val),
                     'metraje_acumulado': float(metraje_acum_val),
-                    'metraje_ponderado_detalle': [
-                        {
-                            'maquina': str(row['turno__maquina']),
-                            'metros': float(row['metros_total'] or 0),
-                            'dias': int(row['dias_maquina']),
-                        }
-                        for row in maquinas_metraje
-                    ],
                     'seg_puntaje': seg_puntaje,
-                    'cxm_puntaje': cxm_puntaje,
                     'seg_activo': seg_activo,
-                    'cxm_activo': cxm_activo,
                     'mult_total_pct': mult_total_pct,
                     'monto_ajustado': float(monto_ajustado),
                     'bono_calculado': float(bono_calculado),

@@ -357,28 +357,22 @@
                     <th class="th-blue">Bono p/metro (S/m)</th>
                     <th class="th-blue">Metraje base (m)</th>
                     <th class="th-slate">Seguridad %</th>
-                    <th class="th-slate">Costo por metro %</th>
                     <th class="th-yellow">Total %</th>
                     <th class="th-teal">Monto (S/m &times; %)</th>
-                    <th class="th-navy">
-                        Metraje pond. acum. (m)
-                        <i class="fas fa-info-circle" style="font-size:9px;opacity:.7;cursor:help;"
-                           title="Promedio ponderado por días: Σ(metros_máquina × días_máquina) / Σ(días_máquina)"></i>
-                    </th>
+                    <th class="th-navy">Metraje acum. (m)</th>
                     <th class="th-green">Total</th>
                 </tr>
             </thead>
             <tbody>
                 <tr class="row-contrato">
-                    <td colspan="10"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
+                    <td colspan="9"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
                 </tr>
                 {% for fila in contrato_data.filas_metraje %}
                 <tr class="metraje-row"
                     data-bono-pk="{{ fila.bono_pk }}"
                     data-bono-por-metro="{{ fila.bono_por_metraje }}"
                     data-metraje-base="{{ fila.metraje_base }}"
-                    data-seg-activo="{{ fila.seg_activo|yesno:'true,false' }}"
-                    data-cxm-activo="{{ fila.cxm_activo|yesno:'true,false' }}">
+                    data-seg-activo="{{ fila.seg_activo|yesno:'true,false' }}">
                     <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
                     <td class="cell-cargo">{{ fila.cargo }}</td>
                     <td>{{ fila.bono_por_metraje|floatformat:3 }}</td>
@@ -389,19 +383,12 @@
                         </span>
                         <br><small style="font-weight:400;font-size:10px;">({{ fila.seg_puntaje|floatformat:0 }}%)</small>
                     </td>
-                    <td class="td-pct {% if fila.cxm_activo %}pct-100{% else %}pct-low{% endif %}">
-                        <span class="{% if fila.cxm_activo %}kpi-ok{% else %}kpi-fail{% endif %}">
-                            {% if fila.cxm_activo %}SI{% else %}NO{% endif %}
-                        </span>
-                        <br><small style="font-weight:400;font-size:10px;">({{ fila.cxm_puntaje|floatformat:0 }}%)</small>
-                    </td>
                     <td class="td-pct">{{ fila.mult_total_pct }}%</td>
                     <td class="td-monto metraje-monto-ajustado">{{ fila.monto_ajustado|floatformat:3 }}</td>
-                    <td class="td-acum"
-                        title="Promedio ponderado:{% for m in fila.metraje_ponderado_detalle %} {{ m.maquina }}: {{ m.metros|floatformat:1 }}m × {{ m.dias }}d;{% endfor %}">
+                    <td class="td-acum">
                         {{ fila.metraje_acumulado|floatformat:3 }} m
                         <br><small style="font-weight:400;font-size:10px;opacity:.7;">
-                            <i class="fas fa-calculator"></i> {{ fila.metraje_ponderado_detalle|length }} máq.
+                            <i class="fas fa-ruler-horizontal"></i> suma reportes
                         </small>
                     </td>
                     <td class="td-total metraje-bono-calc">
