@@ -15,7 +15,11 @@ from datetime import date
 from django.db import transaction
 from django.utils import timezone
 
-from drilling.models import Trabajador, AsistenciaDiaria
+from drilling.models import Trabajador
+# Importar desde tareo_compat para usar la misma tabla que el Resumen de Planilla.
+# Si NEW_TAREO=True → TareoEntry (tabla tareo_entry)
+# Si NEW_TAREO=False → AsistenciaDiaria legacy (tabla asistencia_diaria)
+from drilling.tareo_compat import AsistenciaDiaria
 from drilling.models_payroll import (
     ESTADOS_DIA_TRABAJADO,
     TipoBono,
@@ -33,28 +37,35 @@ ZERO = Decimal('0.00')
 ONE = Decimal('1.0000')
 
 
-# TRABAJADO = TD + TN + DL + DA  (mes calendario 1-30), igual que la nota
-# del Resumen de Planilla.
-_CODIGOS_TRABAJADO_NORMALIZADOS = ('TD', 'TN', 'DL', 'DA')
+# Estados RAW almacenados en la tabla que el MAPEO_CODIGOS transforma en
+# TD, TN, DL o DA — fórmula TRABAJADO = TD+TN+DL+DA (mes calendario 1-30).
+# Se incluyen los alias largos porque TareoEntry puede recibirlos desde V1.
+_ESTADOS_TRABAJADO_RAW = (
+    'TD', 'TRABAJO_DIA',           # → TD
+    'TN', 'TRABAJO_NOCHE',         # → TN
+    'DL', 'DIA_LIBRE', 'DESCANSO', # → DL
+    'DA', 'DIA_APOYO',             # → DA
+)
 
 
 def contar_dias_trabajados(trabajador, fecha_inicio, fecha_fin):
     """
     Cuenta los días trabajados para un trabajador en el rango calendario.
-    Fórmula: TRABAJADO = TD + TN + DL + DA  (mes calendario 1-30).
+    Fórmula: TRABAJADO = TD+TN+DL+DA (mes calendario 1-30), igual que la
+    columna TRABAJADO del Resumen de Planilla.
     """
     import calendar as _cal
     # Capear al día 30, igual que la Matriz Resumen de Planilla
     ultimo_dia_mes = _cal.monthrange(fecha_fin.year, fecha_fin.month)[1]
     fecha_fin_cal = date(fecha_fin.year, fecha_fin.month, min(30, ultimo_dia_mes))
-    # El inicio del rango calendario es el día 1 del mes
+    # Rango calendario: día 1 al día 30 del mes
     fecha_inicio_cal = date(fecha_fin.year, fecha_fin.month, 1)
 
     return AsistenciaDiaria.objects.filter(
         trabajador=trabajador,
         fecha__gte=fecha_inicio_cal,
         fecha__lte=fecha_fin_cal,
-        estado__in=_CODIGOS_TRABAJADO_NORMALIZADOS,
+        estado__in=_ESTADOS_TRABAJADO_RAW,
     ).count()
 
 

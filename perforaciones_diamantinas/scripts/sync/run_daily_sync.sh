@@ -17,6 +17,7 @@ CONSUMOS_LOG="${LOG_DIR}/sync_consumos.log"
 
 mkdir -p "${LOG_DIR}"
 
+
 if [[ ! -f "${MANAGE_PY}" ]]; then
   echo "[${TIMESTAMP}] ERROR: no se encontro manage.py en ${PROJECT_ROOT}" | tee -a "${MAIN_LOG}"
   exit 1
