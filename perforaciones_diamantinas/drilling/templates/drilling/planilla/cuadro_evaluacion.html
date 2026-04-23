@@ -325,7 +325,9 @@
                             {% if sec.fuente_puntaje == 'global' %}<i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;opacity:.6;margin-left:2px;"></i>{% endif %}
                         </td>
                         {% endif %}
-                        <td class="td-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}">S/ {{ sec.monto }}</td>
+                        <td class="td-monto seccion-monto"
+                            data-concepto-pk="{{ sec.concepto_pk }}"
+                            data-peso="{{ sec.peso }}">S/ {{ sec.monto }}</td>
                     {% endfor %}
                     <td class="td-total fila-total">S/ {{ fila.total }}</td>
                 </tr>
@@ -414,50 +416,29 @@
 
 {% block extra_js %}
 <script>
-// Mapa concepto_pk → peso (%), construido desde los datos de la primera fila disponible.
-// Aplica igual a todas las filas porque los pesos son del tipo de bono, no del trabajador.
-const SECCIONES_MAP = {
-    {% for contrato_nombre, contrato_data in datos_por_contrato.items %}
-    {% for fila in contrato_data.filas %}
-    {% if forloop.first and forloop.parentloop.first %}
-    {% for sec in fila.secciones %}
-    "{{ sec.concepto_pk }}": {{ sec.peso }},
-    {% endfor %}
-    {% endif %}
-    {% endfor %}
-    {% endfor %}
-};
-
 function recalcularFila(tr) {
     if (!tr) return;
     const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
-
     let sumaTotal = 0;
 
-    // Iterar secciones buscando por concepto_pk en las celdas de monto y pct
-    // Cada sección tiene una celda .seccion-monto y una celda .seccion-pct con el mismo data-concepto-pk
     tr.querySelectorAll('.seccion-monto').forEach(function(montoCell) {
         const conceptoPk = montoCell.dataset.conceptoPk;
-        // Buscar la celda de puntaje/calificación del mismo concepto
-        const pctCell = tr.querySelector('.seccion-pct[data-concepto-pk="' + conceptoPk + '"]');
+        const peso       = parseFloat(montoCell.dataset.peso) || 0;
+        const pctCell    = tr.querySelector('.seccion-pct[data-concepto-pk="' + conceptoPk + '"]');
         if (!pctCell) return;
-
-        // Buscar el peso en SECCIONES_MAP (por concepto_pk) — ver abajo
-        const peso = SECCIONES_MAP[conceptoPk] || 0;
 
         let puntaje;
         const sel = pctCell.querySelector('select.tabla-calif-select');
         if (sel) {
-            // Sección con tabla fija (combobox)
-            puntaje = parseFloat(sel.value) || 0;
+            puntaje = parseFloat(sel.value);   // valor puede ser 0, 50, 80, 100
+            if (isNaN(puntaje)) puntaje = 0;
         } else {
-            // Sección con % global o checkboxes
             const globalPuntaje = pctCell.dataset.puntajeGlobal;
             if (globalPuntaje !== undefined && globalPuntaje !== '') {
                 puntaje = parseFloat(globalPuntaje);
             } else {
                 const pctValor = pctCell.querySelector('.pct-valor');
-                puntaje = pctValor ? parseFloat(pctValor.textContent) || 0 : 0;
+                puntaje = pctValor ? (parseFloat(pctValor.textContent) || 0) : 0;
             }
         }
 
