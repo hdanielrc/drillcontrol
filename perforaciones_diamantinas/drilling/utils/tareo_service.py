@@ -464,7 +464,9 @@ class TareoService:
                         registro = proyecciones_existentes[clave]
                         registro.estado = estado_esperado
                         registro.guardia_snapshot = trabajador.guardia_asignada
-                        registro.maquina_snapshot = trabajador.maquina_asignada
+                        # No sobreescribir maquina_snapshot para preservar asignación histórica por celda
+                        if registro.maquina_snapshot_id is None:
+                            registro.maquina_snapshot = trabajador.maquina_asignada
                         registros_a_actualizar.append(registro)
                     else:
                         create_kwargs = {
@@ -790,12 +792,14 @@ class TareoService:
 
                     clave = (trabajador.id, fecha_actual)
                     if clave in proyecciones_existentes:
-                        # Actualizar proyección existente (corrige estado,
-                        # máquina y guardia sin perder el id del registro)
+                        # Actualizar proyección existente (corrige estado y guardia sin
+                        # perder el id del registro ni la máquina asignada por celda)
                         p = proyecciones_existentes[clave]
                         p.estado           = estado_esperado
                         p.guardia_snapshot = guardia
-                        p.maquina_snapshot = maquina
+                        # No sobreescribir maquina_snapshot para preservar asignación histórica por celda
+                        if p.maquina_snapshot_id is None:
+                            p.maquina_snapshot = maquina
                         registros_a_actualizar.append(p)
                     else:
                         # Registro nuevo
