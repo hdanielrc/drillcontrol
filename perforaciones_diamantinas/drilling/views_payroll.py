@@ -233,6 +233,7 @@ def config_bono_edit(request, pk):
             instance=config, prefix='escalas'
         ) if es_escalon else None
 
+    import json as _json
     return render(request, 'drilling/planilla/config_bono_form.html', {
         'form': form,
         'config': config,
@@ -241,6 +242,10 @@ def config_bono_edit(request, pk):
         'es_multi': es_multi,
         'es_escalon': es_escalon,
         'titulo': f'Editar Configuración — {config.tipo_bono.codigo}',
+        # JSON pre-serializado para el JS del template
+        'cargos_aplicables_json': _json.dumps(config.cargos_aplicables or []),
+        'montos_por_cargo_json': _json.dumps(config.montos_por_cargo or {}),
+        'tipo_calculo_json': _json.dumps(config.tipo_calculo_por_trabajador or {}),
     })
 
 

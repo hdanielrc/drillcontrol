@@ -46,13 +46,18 @@
                     </div>
                     <div class="card-body">
                         {# Hidden: multi-select requerido por el form (se sincroniza por JS) #}
-                        <div style="display:none;" data-cargos-guardados="{{ config.cargos_aplicables|default:'[]'|safe }}">
+                        <div style="display:none;" data-cargos-guardados="{{ cargos_aplicables_json|default:'[]' }}">
                             {{ form.cargos_seleccionados }}
                         </div>
                         {# Hidden: JSON de montos por cargo, serializado por JS al submit #}
-                        {{ form.montos_por_cargo_json }}
+                        {# Se pre-carga el valor guardado para que el JS lo lea al inicializar #}
+                        <input type="hidden" id="id_montos_por_cargo_json"
+                               name="montos_por_cargo_json"
+                               value="{{ montos_por_cargo_json|default:'{}' }}">
                         {# Hidden: JSON de tipo de cálculo por trabajador {"DNI": "metraje"|"cumplimiento"} #}
-                        {{ form.tipo_calculo_por_trabajador_json }}
+                        <input type="hidden" id="id_tipo_calculo_por_trabajador_json"
+                               name="tipo_calculo_por_trabajador_json"
+                               value="{{ tipo_calculo_json|default:'{}' }}">
 
                         <div class="row">
                             <!-- Columna izquierda: cargos disponibles -->
