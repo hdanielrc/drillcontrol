@@ -429,9 +429,6 @@ const SECCIONES = [
 function recalcularFila(tr) {
     if (!tr) return;
     const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
-    const diasTrab = parseInt(tr.querySelector('.dias-trab') ? tr.querySelector('.dias-trab').textContent : tr.children[3].textContent) || 0;
-    const diasOp   = parseInt(tr.querySelector('.dias-op') ? tr.querySelector('.dias-op').textContent : tr.children[4].textContent) || 30;
-    const diasFactor = diasOp > 0 ? diasTrab / diasOp : 0;
 
     let colOffset = 6;
     let sumaSeccionesSinDias = 0;
@@ -488,7 +485,7 @@ function recalcularFila(tr) {
         }
     });
 
-    const totalFila = (sumaSeccionesSinDias * diasFactor).toFixed(2);
+    const totalFila = sumaSeccionesSinDias.toFixed(2);
     tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila;
 }
 
