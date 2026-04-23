@@ -828,12 +828,27 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     if calif.cumple:
                         cumplidos += 1
 
-                # Puntaje: usar ConceptoGlobalPeriodo si existe para este código de sección
-                # Matching robusto: normalización de acentos + prefijo startswith
+                # Puntaje: según modalidad de la sección
                 global_codigo = _codigo_a_global(seccion.codigo)
                 cgp = conceptos_globales_periodo.get(global_codigo) if global_codigo else None
-                if cgp is not None:
-                    # % viene del indicador global del contrato (producción, seguridad, etc.)
+
+                if seccion.tabla_calificacion:
+                    # Tabla fija: leer desde BonoTrabajadorDetalle (persistido)
+                    detalle_tc, _ = BonoTrabajadorDetalle.objects.get_or_create(
+                        bono=bono_trab,
+                        concepto=seccion,
+                        defaults={
+                            'puntaje': Decimal('100'),
+                            'monto_max_concepto': Decimal(str(
+                                float(bono_trab.bono_base) * float(seccion.peso_default) / 100
+                            )),
+                            'monto_calculado': Decimal('0'),
+                        }
+                    )
+                    puntaje = int(detalle_tc.puntaje)
+                    fuente_puntaje = 'tabla_fija'
+                elif cgp is not None:
+                    # % viene del indicador global del contrato
                     puntaje = float(cgp.porcentaje_bono)
                     fuente_puntaje = 'global'
                 else:
@@ -861,6 +876,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'fuente_puntaje': fuente_puntaje,
                     'monto': monto_seccion,
                     'metraje_mult_pct': float(metraje_mult * 100),  # 0, 4 ó 8
+                    'tabla_calificacion': seccion.tabla_calificacion,
                 })
 
             # Aplicar factor de días al total de la fila
@@ -907,11 +923,15 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     secciones_header = []
     for seccion in secciones:
         criterios = seccion.criterios.filter(activo=True).order_by('orden')
+        # Para secciones con tabla_calificacion no hay columnas de criterios:
+        # solo 2 columnas (dropdown-% y monto)
+        num_crit_cols = 0 if seccion.tabla_calificacion else criterios.count()
         secciones_header.append({
             'nombre': seccion.nombre,
             'peso': float(seccion.peso_default),
             'criterios': list(criterios.values_list('nombre', flat=True)),
-            'colspan': criterios.count() + 2,  # criterios + % + monto
+            'colspan': num_crit_cols + 2,
+            'tabla_calificacion': seccion.tabla_calificacion,
         })
 
     MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -1003,6 +1023,15 @@ def cuadro_guardar(request, tipo_bono_pk):
                 bono_trabajador=bono_trab,
                 criterio_id=int(crit_pk_str),
             ).update(cumple=bool(cumple))
+
+        # Actualizar puntajes de tabla fija (INCIDENCIAS / PRODUCCION_META)
+        puntajes_tabla = bd.get('puntajes_tabla', {})
+        for concepto_pk_str, puntaje_val in puntajes_tabla.items():
+            BonoTrabajadorDetalle.objects.update_or_create(
+                bono=bono_trab,
+                concepto_id=int(concepto_pk_str),
+                defaults={'puntaje': Decimal(str(puntaje_val))},
+            )
 
         actualizados += 1
 

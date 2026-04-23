@@ -91,6 +91,20 @@ class ConceptoBono(models.Model):
     )
     orden = models.PositiveSmallIntegerField(default=0, verbose_name='Orden')
 
+    TABLA_CALIFICACION_CHOICES = [
+        ('', 'Criterios (checkboxes)'),
+        ('INCIDENCIAS', 'Tabla de Incidencias (0 / 1-2 / 3-4 / ≥5)'),
+        ('PRODUCCION_META', 'Tabla Producción vs Meta (≥95% / 90-94% / 85-89% / ≤84%)'),
+    ]
+    tabla_calificacion = models.CharField(
+        max_length=20,
+        choices=TABLA_CALIFICACION_CHOICES,
+        blank=True,
+        default='',
+        verbose_name='Tabla de Calificación',
+        help_text='Si se establece, muestra un desplegable de calificación fija en lugar de checkboxes.',
+    )
+
     class Meta:
         db_table = 'payroll_concepto_bono'
         ordering = ['tipo_bono', 'orden']

@@ -151,6 +151,28 @@
     }
     .month-selector select { font-size: 13px; padding: 4px 8px; }
     .save-indicator { display: none; color: #28a745; font-weight: 700; }
+
+    /* ── Desplegable de tabla fija de calificación ── */
+    .tabla-calif-select {
+        width: 100%;
+        min-width: 175px;
+        font-size: 11px;
+        font-weight: 600;
+        border: 1px solid #aed6f1;
+        border-radius: 4px;
+        padding: 3px 6px;
+        background: #fffbea;
+        color: #856404;
+        cursor: pointer;
+    }
+    .tabla-calif-select:focus { border-color: #28a745; outline: none; }
+    .th-tabla-calif {
+        background: #fff3cd;
+        color: #5a3e00;
+        font-weight: 700;
+        font-size: 11px;
+        min-width: 180px;
+    }
 </style>
 {% endblock %}
 
@@ -231,10 +253,14 @@
                 <!-- Fila 2: Criterios por sección -->
                 <tr>
                     {% for sec in secciones_header %}
+                        {% if sec.tabla_calificacion %}
+                        <th class="th-tabla-calif">Calificación</th>
+                        {% else %}
                         {% for crit_nombre in sec.criterios %}
                         <th class="th-criterio" title="{{ crit_nombre }}">{{ crit_nombre }}</th>
                         {% endfor %}
                         <th class="th-yellow">%</th>
+                        {% endif %}
                         <th class="th-teal">Monto</th>
                     {% endfor %}
                 </tr>
@@ -260,6 +286,29 @@
                                onchange="recalcularFila(this.closest('tr'))">
                     </td>
                     {% for sec in fila.secciones %}
+                        {% if sec.tabla_calificacion %}
+                        {# ── Sección con tabla fija: desplegable de calificación ── #}
+                        <td class="td-pct seccion-pct" data-concepto-pk="{{ sec.concepto_pk }}">
+                            <select class="tabla-calif-select"
+                                    data-bono-pk="{{ fila.bono_pk }}"
+                                    data-concepto-pk="{{ sec.concepto_pk }}"
+                                    data-tabla="{{ sec.tabla_calificacion }}"
+                                    onchange="recalcularFila(this.closest('tr'))">
+                                {% if sec.tabla_calificacion == 'INCIDENCIAS' %}
+                                <option value="100" {% if sec.puntaje == 100 %}selected{% endif %}>0 incidencias — 100%</option>
+                                <option value="80"  {% if sec.puntaje == 80  %}selected{% endif %}>1-2 incidencias — 80%</option>
+                                <option value="50"  {% if sec.puntaje == 50  %}selected{% endif %}>3-4 incidencias — 50%</option>
+                                <option value="0"   {% if sec.puntaje == 0   %}selected{% endif %}>≥5 incidencias — 0%</option>
+                                {% elif sec.tabla_calificacion == 'PRODUCCION_META' %}
+                                <option value="100" {% if sec.puntaje == 100 %}selected{% endif %}>≥95% Meta — 100%</option>
+                                <option value="85"  {% if sec.puntaje == 85  %}selected{% endif %}>90-94% Meta — 85%</option>
+                                <option value="65"  {% if sec.puntaje == 65  %}selected{% endif %}>85-89% Meta — 65%</option>
+                                <option value="50"  {% if sec.puntaje == 50  %}selected{% endif %}>≤84% Meta — 50%</option>
+                                {% endif %}
+                            </select>
+                        </td>
+                        {% else %}
+                        {# ── Sección con criterios (checkboxes) ── #}
                         {% for crit in sec.criterios %}
                         <td class="cell-check">
                             <input type="checkbox"
@@ -275,6 +324,7 @@
                             <span class="pct-valor">{{ sec.puntaje }}%</span>
                             {% if sec.fuente_puntaje == 'global' %}<i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;opacity:.6;margin-left:2px;"></i>{% endif %}
                         </td>
+                        {% endif %}
                         <td class="td-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}">S/ {{ sec.monto }}</td>
                     {% endfor %}
                     <td class="td-total fila-total">S/ {{ fila.total }}</td>
@@ -367,7 +417,12 @@
 // Estructura de secciones (pesos) inyectada desde Django
 const SECCIONES = [
     {% for sec in secciones_header %}
-    {nombre: "{{ sec.nombre }}", peso: {{ sec.peso }}, numCriterios: {{ sec.criterios|length}} },
+    {
+        nombre: "{{ sec.nombre }}",
+        peso: {{ sec.peso }},
+        numCriterios: {% if sec.tabla_calificacion %}0{% else %}{{ sec.criterios|length }}{% endif %},
+        tablaCalificacion: "{{ sec.tabla_calificacion }}"
+    },
     {% endfor %}
 ];
 
@@ -382,35 +437,55 @@ function recalcularFila(tr) {
     let sumaSeccionesSinDias = 0;
 
     SECCIONES.forEach(sec => {
-        let cumplidos = 0;
-        for (let i = 0; i < sec.numCriterios; i++) {
-            const cell = tr.children[colOffset + i];
-            const cb = cell.querySelector('input[type="checkbox"]');
-            if (cb && cb.checked) cumplidos++;
+        let puntaje;
+
+        if (sec.tablaCalificacion) {
+            // ── Tabla fija: leer del <select> ──
+            const pctIdx   = colOffset;        // celda td-pct contiene el <select>
+            const montoIdx = colOffset + 1;
+            const pctCell  = tr.children[pctIdx];
+            const sel      = pctCell ? pctCell.querySelector('select.tabla-calif-select') : null;
+            puntaje = sel ? (parseFloat(sel.value) || 0) : 0;
+
+            const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
+            sumaSeccionesSinDias += parseFloat(montoSeccion);
+            if (tr.children[montoIdx]) {
+                tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
+            }
+            colOffset = montoIdx + 1;
+        } else {
+            // ── Criterios (checkboxes) ──
+            let cumplidos = 0;
+            for (let i = 0; i < sec.numCriterios; i++) {
+                const cell = tr.children[colOffset + i];
+                const cb = cell ? cell.querySelector('input[type="checkbox"]') : null;
+                if (cb && cb.checked) cumplidos++;
+            }
+
+            const pctIdx   = colOffset + sec.numCriterios;
+            const montoIdx = pctIdx + 1;
+            const pctCell  = tr.children[pctIdx];
+
+            const globalPuntaje = pctCell ? pctCell.dataset.puntajeGlobal : undefined;
+            puntaje = (globalPuntaje !== undefined)
+                ? parseFloat(globalPuntaje)
+                : (sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100);
+
+            const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
+            sumaSeccionesSinDias += parseFloat(montoSeccion);
+
+            if (pctCell) {
+                const pctValor = pctCell.querySelector('.pct-valor');
+                if (pctValor) pctValor.textContent = puntaje + '%';
+                else pctCell.textContent = puntaje + '%';
+                pctCell.className = 'td-pct seccion-pct ' +
+                    (puntaje === 100 ? 'pct-100' : puntaje >= 80 ? 'pct-80' : 'pct-low');
+            }
+            if (tr.children[montoIdx]) {
+                tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
+            }
+            colOffset = montoIdx + 1;
         }
-
-        const pctIdx   = colOffset + sec.numCriterios;
-        const montoIdx = pctIdx + 1;
-        const pctCell  = tr.children[pctIdx];
-
-        const globalPuntaje = pctCell.dataset.puntajeGlobal;
-        const puntaje = (globalPuntaje !== undefined)
-            ? parseFloat(globalPuntaje)
-            : (sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100);
-
-        const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
-        sumaSeccionesSinDias += parseFloat(montoSeccion);
-
-        const pctValor = pctCell.querySelector('.pct-valor');
-        if (pctValor) pctValor.textContent = puntaje + '%';
-        else pctCell.textContent = puntaje + '%';
-
-        pctCell.className = 'cell-pct seccion-pct ' +
-            (puntaje === 100 ? 'pct-100' : puntaje >= 80 ? 'pct-80' : 'pct-low');
-
-        tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
-
-        colOffset = montoIdx + 1;
     });
 
     const totalFila = (sumaSeccionesSinDias * diasFactor).toFixed(2);
@@ -420,18 +495,22 @@ function recalcularFila(tr) {
 function guardarTodo() {
     const bonos = [];
 
-    // Trabajadores cumplimiento: enviar criterios + bono_base + monto_final calculado
+    // Trabajadores cumplimiento: enviar criterios + puntajes_tabla + bono_base + monto_final
     document.querySelectorAll('.worker-row').forEach(tr => {
         const bonoPk = tr.dataset.bonoPk;
         const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
         const criterios = {};
+        const puntajes_tabla = {};
         tr.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             if (cb.dataset.criterioPk) criterios[cb.dataset.criterioPk] = cb.checked;
+        });
+        tr.querySelectorAll('select.tabla-calif-select').forEach(sel => {
+            if (sel.dataset.conceptoPk) puntajes_tabla[sel.dataset.conceptoPk] = parseFloat(sel.value) || 0;
         });
         // Leer el total ya calculado en el DOM
         const totalCell = tr.querySelector('.fila-total');
         const montoFinal = totalCell ? parseFloat(totalCell.textContent.replace(/[^0-9.\-]/g, '')) || 0 : 0;
-        bonos.push({bono_pk: parseInt(bonoPk), bono_base: bonoBase, criterios: criterios, monto_final: montoFinal});
+        bonos.push({bono_pk: parseInt(bonoPk), bono_base: bonoBase, criterios: criterios, puntajes_tabla: puntajes_tabla, monto_final: montoFinal});
     });
 
     // Trabajadores metraje: enviar bono_pk + monto_final calculado
