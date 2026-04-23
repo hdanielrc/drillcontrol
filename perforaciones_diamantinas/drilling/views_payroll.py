@@ -14,7 +14,7 @@ from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy, reverse
 
 from .models import Contrato, Trabajador
-from .models import TurnoAvance  # metraje acumulado por máquina
+from .models import TurnoAvance, TurnoTrabajador  # metraje acumulado por trabajador
 from .models_payroll import (
     TipoBono,
     ConceptoBono,
@@ -658,18 +658,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         filas_cumplimiento = []
         filas_metraje = []
 
-        # ── Metraje acumulado del contrato: suma directa de metros perforados ──
-        # según los reportes de perforación (TurnoAvance) del período.
-        from django.db.models import Sum
-        _metraje_total = TurnoAvance.objects.filter(
-            turno__contrato=contrato,
-            turno__fecha__gte=fecha_inicio,
-            turno__fecha__lte=fecha_fin,
-        ).aggregate(total=Sum('metros_perforados'))['total']
-        metraje_total_contrato = (
-            Decimal(str(_metraje_total)).quantize(Decimal('0.001'))
-            if _metraje_total else Decimal('0')
-        )
+        # El metraje se calcula por trabajador dentro del bucle;
+        # aquí no se pre-computa nada a nivel de contrato para este bono.
 
         for trab in trabajadores:
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
@@ -750,7 +740,20 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     contrato=config.contrato, cargo_contratado=cargo_trab, activo=True
                 ).first()
                 metraje_base_val = est_m.metraje_base if est_m and est_m.metraje_base else Decimal('0')
-                metraje_acum_val = metraje_total_contrato  # suma de metros perforados del período
+
+                # Metraje acumulado del trabajador: suma de metros perforados
+                # en los turnos donde aparece como trabajador en el período.
+                from django.db.models import Sum as _Sum
+                _metros = TurnoAvance.objects.filter(
+                    turno__contrato=contrato,
+                    turno__fecha__gte=fecha_inicio,
+                    turno__fecha__lte=fecha_fin,
+                    turno__trabajadores_turno__trabajador=trab,
+                ).aggregate(total=_Sum('metros_perforados'))['total']
+                metraje_acum_val = (
+                    Decimal(str(_metros)).quantize(Decimal('0.001'))
+                    if _metros else Decimal('0')
+                )
                 bono_por_metro_val = bono_trab.bono_base  # tarifa por metro (unit rate)
 
                 # Persiste el valor calculado para referencia histórica
