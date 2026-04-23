@@ -414,79 +414,60 @@
 
 {% block extra_js %}
 <script>
-// Estructura de secciones (pesos) inyectada desde Django
-const SECCIONES = [
-    {% for sec in secciones_header %}
-    {
-        nombre: "{{ sec.nombre }}",
-        peso: {{ sec.peso }},
-        numCriterios: {% if sec.tabla_calificacion %}0{% else %}{{ sec.criterios|length }}{% endif %},
-        tablaCalificacion: "{{ sec.tabla_calificacion }}"
-    },
+// Mapa concepto_pk → peso (%), construido desde los datos de la primera fila disponible.
+// Aplica igual a todas las filas porque los pesos son del tipo de bono, no del trabajador.
+const SECCIONES_MAP = {
+    {% for contrato_nombre, contrato_data in datos_por_contrato.items %}
+    {% for fila in contrato_data.filas %}
+    {% if forloop.first and forloop.parentloop.first %}
+    {% for sec in fila.secciones %}
+    "{{ sec.concepto_pk }}": {{ sec.peso }},
     {% endfor %}
-];
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+};
 
 function recalcularFila(tr) {
     if (!tr) return;
     const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
 
-    let colOffset = 6;
-    let sumaSeccionesSinDias = 0;
+    let sumaTotal = 0;
 
-    SECCIONES.forEach(sec => {
+    // Iterar secciones buscando por concepto_pk en las celdas de monto y pct
+    // Cada sección tiene una celda .seccion-monto y una celda .seccion-pct con el mismo data-concepto-pk
+    tr.querySelectorAll('.seccion-monto').forEach(function(montoCell) {
+        const conceptoPk = montoCell.dataset.conceptoPk;
+        // Buscar la celda de puntaje/calificación del mismo concepto
+        const pctCell = tr.querySelector('.seccion-pct[data-concepto-pk="' + conceptoPk + '"]');
+        if (!pctCell) return;
+
+        // Buscar el peso en SECCIONES_MAP (por concepto_pk) — ver abajo
+        const peso = SECCIONES_MAP[conceptoPk] || 0;
+
         let puntaje;
-
-        if (sec.tablaCalificacion) {
-            // ── Tabla fija: leer del <select> ──
-            const pctIdx   = colOffset;        // celda td-pct contiene el <select>
-            const montoIdx = colOffset + 1;
-            const pctCell  = tr.children[pctIdx];
-            const sel      = pctCell ? pctCell.querySelector('select.tabla-calif-select') : null;
-            puntaje = sel ? (parseFloat(sel.value) || 0) : 0;
-
-            const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
-            sumaSeccionesSinDias += parseFloat(montoSeccion);
-            if (tr.children[montoIdx]) {
-                tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
-            }
-            colOffset = montoIdx + 1;
+        const sel = pctCell.querySelector('select.tabla-calif-select');
+        if (sel) {
+            // Sección con tabla fija (combobox)
+            puntaje = parseFloat(sel.value) || 0;
         } else {
-            // ── Criterios (checkboxes) ──
-            let cumplidos = 0;
-            for (let i = 0; i < sec.numCriterios; i++) {
-                const cell = tr.children[colOffset + i];
-                const cb = cell ? cell.querySelector('input[type="checkbox"]') : null;
-                if (cb && cb.checked) cumplidos++;
-            }
-
-            const pctIdx   = colOffset + sec.numCriterios;
-            const montoIdx = pctIdx + 1;
-            const pctCell  = tr.children[pctIdx];
-
-            const globalPuntaje = pctCell ? pctCell.dataset.puntajeGlobal : undefined;
-            puntaje = (globalPuntaje !== undefined)
-                ? parseFloat(globalPuntaje)
-                : (sec.numCriterios > 0 ? Math.round(cumplidos * 100 / sec.numCriterios) : 100);
-
-            const montoSeccion = (bonoBase * (sec.peso / 100) * (puntaje / 100)).toFixed(2);
-            sumaSeccionesSinDias += parseFloat(montoSeccion);
-
-            if (pctCell) {
+            // Sección con % global o checkboxes
+            const globalPuntaje = pctCell.dataset.puntajeGlobal;
+            if (globalPuntaje !== undefined && globalPuntaje !== '') {
+                puntaje = parseFloat(globalPuntaje);
+            } else {
                 const pctValor = pctCell.querySelector('.pct-valor');
-                if (pctValor) pctValor.textContent = puntaje + '%';
-                else pctCell.textContent = puntaje + '%';
-                pctCell.className = 'td-pct seccion-pct ' +
-                    (puntaje === 100 ? 'pct-100' : puntaje >= 80 ? 'pct-80' : 'pct-low');
+                puntaje = pctValor ? parseFloat(pctValor.textContent) || 0 : 0;
             }
-            if (tr.children[montoIdx]) {
-                tr.children[montoIdx].textContent = 'S/ ' + parseFloat(montoSeccion).toFixed(2);
-            }
-            colOffset = montoIdx + 1;
         }
+
+        const montoSeccion = bonoBase * (peso / 100) * (puntaje / 100);
+        sumaTotal += montoSeccion;
+        montoCell.textContent = 'S/ ' + montoSeccion.toFixed(2);
     });
 
-    const totalFila = sumaSeccionesSinDias.toFixed(2);
-    tr.querySelector('.fila-total').textContent = 'S/ ' + totalFila;
+    const totalCell = tr.querySelector('.fila-total');
+    if (totalCell) totalCell.textContent = 'S/ ' + sumaTotal.toFixed(2);
 }
 
 function guardarTodo() {
