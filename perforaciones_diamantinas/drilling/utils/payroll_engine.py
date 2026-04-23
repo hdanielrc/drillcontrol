@@ -33,24 +33,29 @@ ZERO = Decimal('0.00')
 ONE = Decimal('1.0000')
 
 
+# Códigos normalizados que cuentan como día trabajado — idéntico a la lógica
+# del Resumen de Planilla (MAPEO_CODIGOS → check 'TD','TN','T','DL','DA','DA1').
+_CODIGOS_TRABAJADO_NORMALIZADOS = ('TD', 'TN', 'T', 'DL', 'DA', 'DA1')
+
+
 def contar_dias_trabajados(trabajador, fecha_inicio, fecha_fin):
     """
     Cuenta los días trabajados para un trabajador en el rango calendario.
-    Fórmula: TRABAJADO = TD + TN + DL + DA  (igual que la Matriz Resumen de Planilla).
-    El rango se limita al día 30 del mes (nunca día 31) para consistencia.
+    Fórmula: TD+TN+T+DL+DA+DA1 — idéntico a la columna TRABAJADO del Resumen
+    de Planilla (mes calendario 1-30).
     """
     import calendar as _cal
-    # Capear al día 30 igual que la Matriz Resumen de Planilla
+    # Capear al día 30, igual que la Matriz Resumen de Planilla
     ultimo_dia_mes = _cal.monthrange(fecha_fin.year, fecha_fin.month)[1]
     fecha_fin_cal = date(fecha_fin.year, fecha_fin.month, min(30, ultimo_dia_mes))
-    # Si fecha_inicio es del mismo mes, usar tal cual; si viene del mes anterior mantener
-    fecha_inicio_cal = fecha_inicio
+    # El inicio del rango calendario es el día 1 del mes
+    fecha_inicio_cal = date(fecha_fin.year, fecha_fin.month, 1)
 
     return AsistenciaDiaria.objects.filter(
         trabajador=trabajador,
         fecha__gte=fecha_inicio_cal,
         fecha__lte=fecha_fin_cal,
-        estado__in=ESTADOS_DIA_TRABAJADO,
+        estado__in=_CODIGOS_TRABAJADO_NORMALIZADOS,
     ).count()
 
 

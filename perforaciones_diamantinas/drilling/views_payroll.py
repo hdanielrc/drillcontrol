@@ -620,6 +620,24 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             for cgp in cgp_qs
         }
 
+        # Sincronizar V1 (AsistenciaTrabajador) → V2 (AsistenciaDiaria) para
+        # este contrato y período operativo, igual que hace la vista del tareo.
+        # Garantiza que contar_dias_trabajados refleje los mismos datos que el
+        # Resumen de Planilla.
+        try:
+            from .utils.tareo_service import TareoService as _TareoService
+            _mes_ant = mes - 1 if mes > 1 else 12
+            _anio_ant = anio if mes > 1 else anio - 1
+            _sync_inicio = date(_anio_ant, _mes_ant, 23)
+            _TareoService.importar_desde_v1(
+                contrato=contrato,
+                fecha_inicio=_sync_inicio,
+                fecha_fin=fecha_fin,
+                usuario=request.user,
+            )
+        except Exception:
+            pass  # El sync es best-effort; no debe romper la vista
+
         # Obtener o crear período
         periodo, _ = PeriodoBono.objects.get_or_create(
             contrato=contrato, anio=anio, mes=mes,
