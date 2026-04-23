@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Count, Q, Avg, F
+from django.db.models import Sum, Count, Q, Avg, F, Min, Max
 from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
