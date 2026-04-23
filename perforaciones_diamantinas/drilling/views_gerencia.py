@@ -778,39 +778,89 @@ def meta_turno_delete(request, pk):
 @login_required
 @gerente_required
 def dias_maquina(request):
-    """Tabla de días asignados por trabajador/máquina según el tareo."""
+    """Días asignados por trabajador/máquina en un mes operativo, desde AsistenciaDiaria."""
+    import calendar as _cal
+    from .models import AsistenciaDiaria
+
+    # ── Navegación de mes operativo (mismo patrón que gerencia_programacion) ──
+    mes_offset = int(request.GET.get('mes_offset', 0))
+    fecha_ref  = date_class.today()
+    if mes_offset != 0:
+        mes_ref  = fecha_ref.month + mes_offset
+        anio_ref = fecha_ref.year
+        while mes_ref < 1:
+            mes_ref  += 12
+            anio_ref -= 1
+        while mes_ref > 12:
+            mes_ref  -= 12
+            anio_ref += 1
+        ultimo_dia = _cal.monthrange(anio_ref, mes_ref)[1]
+        fecha_ref  = fecha_ref.replace(year=anio_ref, month=mes_ref, day=min(fecha_ref.day, ultimo_dia))
+
+    fecha_inicio, fecha_fin = _calcular_periodo_operativo(fecha_ref)
+    año_op, mes_op          = _mes_operativo_de_fecha(fecha_ref)
+
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    # ── Filtros adicionales ───────────────────────────────────────────────────
     contrato_id = request.GET.get('contrato')
     maquina_id  = request.GET.get('maquina')
     busqueda    = request.GET.get('q', '').strip()
 
+    # ── Query directo sobre AsistenciaDiaria (siempre fresco, filtrable por mes) ─
     qs = (
-        ResumenDiasMaquina.objects
-        .select_related('trabajador', 'maquina', 'maquina__contrato')
+        AsistenciaDiaria.objects
+        .filter(fecha__range=[fecha_inicio, fecha_fin], maquina_snapshot__isnull=False)
+        .values(
+            'trabajador_id',
+            'trabajador__nombres',
+            'trabajador__apepat',
+            'trabajador__apemat',
+            'trabajador__dni',
+            'trabajador__cargo',
+            'maquina_snapshot_id',
+            'maquina_snapshot__nombre',
+            'maquina_snapshot__contrato__nombre_contrato',
+        )
+        .annotate(
+            total_dias=Count('id'),
+            primera_asignacion=Min('fecha'),
+            ultima_asignacion=Max('fecha'),
+        )
         .order_by('-total_dias')
     )
 
     if contrato_id:
-        qs = qs.filter(maquina__contrato_id=contrato_id)
+        qs = qs.filter(maquina_snapshot__contrato_id=contrato_id)
     if maquina_id:
-        qs = qs.filter(maquina_id=maquina_id)
+        qs = qs.filter(maquina_snapshot_id=maquina_id)
     if busqueda:
         qs = qs.filter(
             Q(trabajador__nombres__icontains=busqueda) |
             Q(trabajador__apepat__icontains=busqueda)  |
             Q(trabajador__dni__icontains=busqueda)     |
-            Q(maquina__nombre__icontains=busqueda)
+            Q(maquina_snapshot__nombre__icontains=busqueda)
         )
 
-    contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
-    maquinas  = Maquina.objects.filter(estado='OPERATIVO').order_by('nombre')
+    registros   = list(qs)
+    max_dias    = registros[0]['total_dias'] if registros else 1
+    contratos   = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+    maquinas    = Maquina.objects.order_by('nombre')
 
     return render(request, 'drilling/gerencia/dias_maquina.html', {
-        'registros':    qs,
-        'contratos':    contratos,
-        'maquinas':     maquinas,
-        'contrato_id':  contrato_id,
-        'maquina_id':   maquina_id,
-        'busqueda':     busqueda,
-        'total':        qs.count(),
-        'tabla_vacia':  not ResumenDiasMaquina.objects.exists(),
+        'registros':     registros,
+        'max_dias':      max_dias,
+        'contratos':     contratos,
+        'maquinas':      maquinas,
+        'contrato_id':   contrato_id,
+        'maquina_id':    maquina_id,
+        'busqueda':      busqueda,
+        'total':         len(registros),
+        'mes_offset':    mes_offset,
+        'año_op':        año_op,
+        'mes_op':        mes_op,
+        'nombre_mes':    MESES[mes_op],
+        'fecha_inicio':  fecha_inicio,
+        'fecha_fin':     fecha_fin,
     })

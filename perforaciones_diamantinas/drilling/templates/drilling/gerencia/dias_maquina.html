@@ -5,7 +5,6 @@
 <style>
     :root {
         --dm-primary: #084163;
-        --dm-accent:  #0d6efd;
     }
 
     body { background: #f4f6f9; }
@@ -17,8 +16,23 @@
         border-radius: 10px;
         margin-bottom: 1.2rem;
     }
-    .dm-header h4 { margin: 0; font-weight: 700; }
+    .dm-header h4  { margin: 0; font-weight: 700; }
     .dm-header small { opacity: .75; font-size: .85rem; }
+
+    .periodo-nav {
+        background: white;
+        border-radius: 8px;
+        padding: .8rem 1.2rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,.08);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .periodo-nav .label { font-size: .75rem; color: #6c757d; text-transform: uppercase; letter-spacing: .04em; }
+    .periodo-nav .value { font-size: 1rem; font-weight: 700; color: var(--dm-primary); }
+    .periodo-nav .rango { font-size: .8rem; color: #6c757d; }
 
     .filtros-card {
         background: white;
@@ -55,28 +69,13 @@
         padding: .3em .7em;
         border-radius: 20px;
         font-weight: 700;
-    }
-
-    .alerta-vacia {
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        border-radius: 8px;
-        padding: 1rem 1.4rem;
-        margin-bottom: 1rem;
-    }
-
-    .stat-box {
-        background: white;
-        border-radius: 8px;
-        padding: .9rem 1.2rem;
-        box-shadow: 0 1px 4px rgba(0,0,0,.08);
+        min-width: 2rem;
+        display: inline-block;
         text-align: center;
     }
-    .stat-box .num { font-size: 1.6rem; font-weight: 800; color: var(--dm-primary); }
-    .stat-box .lbl { font-size: .75rem; color: #6c757d; }
 
-    .bar-wrap { width: 80px; display: inline-block; vertical-align: middle; margin-left: .4rem; }
-    .bar-inner { height: 8px; border-radius: 4px; background: var(--dm-primary); }
+    .bar-wrap  { width: 70px; display: inline-block; vertical-align: middle; margin-left: .5rem; }
+    .bar-inner { height: 8px; border-radius: 4px; background: var(--dm-primary); min-width: 2px; }
 </style>
 {% endblock %}
 
@@ -84,7 +83,7 @@
 <div class="container-fluid py-3">
 
     <!-- HEADER -->
-    <div class="dm-header d-flex justify-content-between align-items-center">
+    <div class="dm-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h4><i class="fas fa-table me-2"></i>Días por Máquina</h4>
             <small>Días acumulados de cada trabajador en cada máquina según el tareo</small>
@@ -94,30 +93,33 @@
         </a>
     </div>
 
-    <!-- ALERTA SI LA TABLA ESTÁ VACÍA -->
-    {% if tabla_vacia %}
-    <div class="alerta-vacia">
-        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-        <strong>Tabla vacía.</strong> Ejecuta el comando para poblarla:
-        <code class="ms-2">python manage.py recalcular_dias_maquina</code>
-    </div>
-    {% endif %}
-
-    <!-- STATS RÁPIDAS -->
-    {% if not tabla_vacia %}
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="stat-box">
-                <div class="num">{{ total }}</div>
-                <div class="lbl">Combinaciones encontradas</div>
-            </div>
+    <!-- NAVEGACIÓN MES OPERATIVO -->
+    <div class="periodo-nav">
+        <div>
+            <div class="label">Mes operativo</div>
+            <div class="value">{{ nombre_mes }} {{ año_op }}</div>
+            <div class="rango">{{ fecha_inicio|date:"d/m/Y" }} — {{ fecha_fin|date:"d/m/Y" }}</div>
+        </div>
+        <div class="btn-group ms-auto" role="group">
+            <a href="?mes_offset={{ mes_offset|add:'-1' }}{% if contrato_id %}&contrato={{ contrato_id }}{% endif %}{% if maquina_id %}&maquina={{ maquina_id }}{% endif %}{% if busqueda %}&q={{ busqueda }}{% endif %}"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-chevron-left"></i> Anterior
+            </a>
+            <a href="?mes_offset=0{% if contrato_id %}&contrato={{ contrato_id }}{% endif %}{% if maquina_id %}&maquina={{ maquina_id }}{% endif %}{% if busqueda %}&q={{ busqueda }}{% endif %}"
+               class="btn btn-outline-secondary btn-sm {% if mes_offset == 0 %}disabled{% endif %}">
+                <i class="fas fa-calendar-day"></i> Actual
+            </a>
+            <a href="?mes_offset={{ mes_offset|add:'1' }}{% if contrato_id %}&contrato={{ contrato_id }}{% endif %}{% if maquina_id %}&maquina={{ maquina_id }}{% endif %}{% if busqueda %}&q={{ busqueda }}{% endif %}"
+               class="btn btn-outline-secondary btn-sm {% if mes_offset == 0 %}disabled{% endif %}">
+                Siguiente <i class="fas fa-chevron-right"></i>
+            </a>
         </div>
     </div>
-    {% endif %}
 
     <!-- FILTROS -->
     <div class="filtros-card">
         <form method="get" class="row g-2 align-items-end">
+            <input type="hidden" name="mes_offset" value="{{ mes_offset }}">
             <div class="col-12 col-md-4">
                 <label class="form-label fw-semibold mb-1" style="font-size:.82rem;">Buscar trabajador / máquina</label>
                 <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm"
@@ -149,7 +151,7 @@
                 <button type="submit" class="btn btn-sm btn-primary flex-grow-1">
                     <i class="fas fa-filter me-1"></i> Filtrar
                 </button>
-                <a href="{% url 'gerencia-dias-maquina' %}" class="btn btn-sm btn-outline-secondary">
+                <a href="?mes_offset={{ mes_offset }}" class="btn btn-sm btn-outline-secondary">
                     <i class="fas fa-times"></i>
                 </a>
             </div>
@@ -159,7 +161,6 @@
     <!-- TABLA PRINCIPAL -->
     <div class="tabla-card">
         {% if registros %}
-        {% with max_dias=registros.0.total_dias %}
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
@@ -170,59 +171,46 @@
                         <th>Cargo</th>
                         <th>Máquina</th>
                         <th>Contrato</th>
-                        <th class="text-center">Días asignado</th>
-                        <th>Primera asignación</th>
-                        <th>Última asignación</th>
+                        <th class="text-center">Días en el período</th>
+                        <th>Primera fecha</th>
+                        <th>Última fecha</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in registros %}
                     <tr>
                         <td class="text-muted">{{ forloop.counter }}</td>
-                        <td><strong>{{ r.trabajador.apepat }} {{ r.trabajador.apemat }}, {{ r.trabajador.nombres }}</strong></td>
-                        <td class="text-muted font-monospace">{{ r.trabajador.dni }}</td>
-                        <td>{{ r.trabajador.cargo|default:"—" }}</td>
-                        <td><i class="fas fa-drill me-1 text-secondary" style="font-size:.75rem;"></i>{{ r.maquina.nombre }}</td>
-                        <td class="text-muted" style="font-size:.78rem;">{{ r.maquina.contrato.nombre_contrato }}</td>
+                        <td>
+                            <strong>{{ r.trabajador__apepat }} {{ r.trabajador__apemat }}</strong>
+                            <span class="text-muted">, {{ r.trabajador__nombres }}</span>
+                        </td>
+                        <td class="text-muted font-monospace">{{ r.trabajador__dni }}</td>
+                        <td style="font-size:.78rem;">{{ r.trabajador__cargo|default:"—" }}</td>
+                        <td><i class="fas fa-cog me-1 text-secondary" style="font-size:.75rem;"></i>{{ r.maquina_snapshot__nombre }}</td>
+                        <td class="text-muted" style="font-size:.78rem;">{{ r.maquina_snapshot__contrato__nombre_contrato }}</td>
                         <td class="text-center">
                             <span class="badge-dias">{{ r.total_dias }}</span>
                             <span class="bar-wrap">
                                 <div class="bar-inner" style="width:{% widthratio r.total_dias max_dias 100 %}%"></div>
                             </span>
                         </td>
-                        <td class="text-muted" style="font-size:.8rem;">
-                            {% if r.primera_asignacion %}{{ r.primera_asignacion|date:"d/m/Y" }}{% else %}—{% endif %}
-                        </td>
-                        <td class="text-muted" style="font-size:.8rem;">
-                            {% if r.ultima_asignacion %}{{ r.ultima_asignacion|date:"d/m/Y" }}{% else %}—{% endif %}
-                        </td>
+                        <td class="text-muted" style="font-size:.8rem;">{{ r.primera_asignacion|date:"d/m/Y" }}</td>
+                        <td class="text-muted" style="font-size:.8rem;">{{ r.ultima_asignacion|date:"d/m/Y" }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% endwith %}
+        <div class="px-3 py-2 text-muted border-top" style="font-size:.78rem;">
+            {{ total }} combinación{{ total|pluralize:"es" }} trabajador/máquina — {{ nombre_mes }} {{ año_op }}
+        </div>
         {% else %}
         <div class="text-center py-5 text-muted">
             <i class="fas fa-search fa-2x mb-3 d-block opacity-25"></i>
-            {% if tabla_vacia %}
-            No hay datos — ejecuta <code>recalcular_dias_maquina</code> primero.
-            {% else %}
-            Sin resultados para los filtros aplicados.
-            {% endif %}
+            Sin datos de tareo para <strong>{{ nombre_mes }} {{ año_op }}</strong>
+            {% if contrato_id or maquina_id or busqueda %}con los filtros aplicados{% endif %}.
         </div>
         {% endif %}
-    </div>
-
-    <!-- NOTA AL PIE -->
-    <div class="text-muted mt-2" style="font-size:.75rem;">
-        <i class="fas fa-info-circle me-1"></i>
-        Datos desde <code>AsistenciaDiaria.maquina_snapshot</code>.
-        Actualizar con: <code>python manage.py recalcular_dias_maquina</code>
-        &nbsp;·&nbsp; Última actualización:
-        {% with ult=registros.0 %}
-            {% if ult %}{{ ult.actualizado_en|date:"d/m/Y H:i" }}{% else %}—{% endif %}
-        {% endwith %}
     </div>
 
 </div>
