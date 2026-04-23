@@ -897,13 +897,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'tabla_calificacion': seccion.tabla_calificacion,
                 })
 
-            # Aplicar factor de días al total de la fila
-            dias_trab = bono_trab.dias_trabajados
-            dias_base = bono_trab.dias_base or 30
-            dias_factor = Decimal(str(dias_trab)) / Decimal(str(dias_base)) if dias_base > 0 else Decimal('0')
-
-            # Fórmula cumplimiento: suma_secciones × días_factor
-            total_monto_trab = (total_monto_trab * dias_factor).quantize(Decimal('0.01'))
+            # Fórmula cumplimiento: suma de secciones (sin factor días — se
+            # aplicará más adelante cuando se integre el cálculo por días).
+            total_monto_trab = total_monto_trab.quantize(Decimal('0.01'))
 
             # Auto-persistir monto_final en cada carga (no esperar a que el usuario pulse Guardar)
             if bono_trab.monto_final != total_monto_trab:
