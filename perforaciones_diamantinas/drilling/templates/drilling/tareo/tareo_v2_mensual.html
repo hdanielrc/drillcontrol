@@ -777,10 +777,17 @@
             </button>
 
             <!-- Botón para ver la representación semanal en la app (renombrado) -->
-            <button type="button" class="btn-proyeccion" style="background:#117a65; margin-left:8px;" 
+            <button type="button" class="btn-proyeccion" style="background:#117a65; margin-left:8px;"
                     onclick="window.location.href='{% url 'tareo-v2-semana-visualizar' %}?contrato={{ contrato.id }}&fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}'"
                     title="Ver Distribución de guardias (matriz + distribución) en la aplicación">
                 👁️ Ver Distribución de guardias
+            </button>
+
+            <!-- Días acumulados por máquina -->
+            <button type="button" class="btn-proyeccion" style="background:#084163; margin-left:8px;"
+                    onclick="window.location.href='{% url 'gerencia-dias-maquina' %}'"
+                    title="Ver días acumulados de cada trabajador en cada máquina">
+                📊 Días por Máquina
             </button>
 
             {% if user.is_staff or user.is_superuser %}
