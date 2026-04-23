@@ -334,6 +334,8 @@ urlpatterns = [
     # GERENCIA - Meta por Turno (override de celda individual)
     path('gerencia/meta-turno/guardar/', views_gerencia.meta_turno_save, name='gerencia-meta-turno-save'),
     path('gerencia/meta-turno/<int:pk>/eliminar/', views_gerencia.meta_turno_delete, name='gerencia-meta-turno-delete'),
+    # GERENCIA - Días por máquina (resumen tareo)
+    path('gerencia/dias-maquina/', views_gerencia.dias_maquina, name='gerencia-dias-maquina'),
     
     # =========================================================================
     # MANTENIMIENTO DE MÁQUINAS

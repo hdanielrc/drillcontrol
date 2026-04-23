@@ -10,7 +10,8 @@ from decimal import Decimal
 from collections import defaultdict
 from .models import (
     Turno, TurnoAvance, Maquina, Trabajador, Contrato,
-    TurnoActividad, Sondaje, ProgramacionMes, TipoTurno, MetaTurno
+    TurnoActividad, Sondaje, ProgramacionMes, TipoTurno, MetaTurno,
+    ResumenDiasMaquina,
 )
 
 
@@ -772,3 +773,44 @@ def meta_turno_delete(request, pk):
     mt = get_object_or_404(MetaTurno, pk=pk)
     mt.delete()
     return JsonResponse({'deleted': True})
+
+
+@login_required
+@gerente_required
+def dias_maquina(request):
+    """Tabla de días asignados por trabajador/máquina según el tareo."""
+    contrato_id = request.GET.get('contrato')
+    maquina_id  = request.GET.get('maquina')
+    busqueda    = request.GET.get('q', '').strip()
+
+    qs = (
+        ResumenDiasMaquina.objects
+        .select_related('trabajador', 'maquina', 'maquina__contrato')
+        .order_by('-total_dias')
+    )
+
+    if contrato_id:
+        qs = qs.filter(maquina__contrato_id=contrato_id)
+    if maquina_id:
+        qs = qs.filter(maquina_id=maquina_id)
+    if busqueda:
+        qs = qs.filter(
+            Q(trabajador__nombres__icontains=busqueda) |
+            Q(trabajador__apepat__icontains=busqueda)  |
+            Q(trabajador__dni__icontains=busqueda)     |
+            Q(maquina__nombre__icontains=busqueda)
+        )
+
+    contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+    maquinas  = Maquina.objects.filter(estado='OPERATIVO').order_by('nombre')
+
+    return render(request, 'drilling/gerencia/dias_maquina.html', {
+        'registros':    qs,
+        'contratos':    contratos,
+        'maquinas':     maquinas,
+        'contrato_id':  contrato_id,
+        'maquina_id':   maquina_id,
+        'busqueda':     busqueda,
+        'total':        qs.count(),
+        'tabla_vacia':  not ResumenDiasMaquina.objects.exists(),
+    })

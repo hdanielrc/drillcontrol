@@ -1459,3 +1459,13 @@ class AbastecimientoArticuloAdmin(admin.ModelAdmin):
                 request,
                 f'{sincronizados} abastecimientos re-sincronizados con Historial de Brocas'
             )
+
+
+@admin.register(ResumenDiasMaquina)
+class ResumenDiasMaquinaAdmin(admin.ModelAdmin):
+    list_display = ['trabajador', 'maquina', 'total_dias', 'primera_asignacion', 'ultima_asignacion', 'actualizado_en']
+    list_filter = ['maquina']
+    search_fields = ['trabajador__nombre', 'trabajador__apellido', 'maquina__nombre']
+    ordering = ['-total_dias']
+    list_per_page = 100
+    readonly_fields = ['trabajador', 'maquina', 'total_dias', 'primera_asignacion', 'ultima_asignacion', 'actualizado_en']
