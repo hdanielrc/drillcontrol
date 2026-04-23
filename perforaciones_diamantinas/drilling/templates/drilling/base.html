@@ -148,15 +148,9 @@
                             </a></li>
                             {% if user.can_supervise_operations %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><h6 class="dropdown-header">Metas</h6></li>
-                            <li><a class="dropdown-item" href="{% url 'metas-maquina-gestionar' %}">
-                                <i class="fas fa-bullseye"></i> Gestionar Metas
-                            </a></li>
-                            <li><a class="dropdown-item" href="{% url 'metas-maquina-list' %}">
-                                <i class="fas fa-list-alt"></i> Ver Todas las Metas
-                            </a></li>
-                            <li><a class="dropdown-item" href="{% url 'metas-valorizacion-reporte' %}">
-                                <i class="fas fa-chart-bar"></i> Valorización
+                            <li><h6 class="dropdown-header">Programación</h6></li>
+                            <li><a class="dropdown-item" href="{% url 'gerencia-programacion' %}">
+                                <i class="fas fa-calendar-alt"></i> Programación Mensual
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header">Administración</h6></li>

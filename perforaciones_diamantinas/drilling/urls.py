@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 from . import api_views
 from . import auth_views
@@ -254,14 +255,14 @@ urlpatterns = [
     # Stock y Reportes
     path('stock/disponible/', views.StockDisponibleView.as_view(), name='stock-disponible'),
     
-    # Metas de Máquinas
-    path('metas/', views.metas_maquina_list, name='metas-maquina-list'),
-    path('metas/gestionar/', views.metas_maquina_gestionar, name='metas-maquina-gestionar'),
-    path('metas/nueva/', views.metas_maquina_create, name='metas-maquina-create'),
-    path('metas/<int:pk>/editar/', views.metas_maquina_edit, name='metas-maquina-edit'),
-    path('metas/<int:pk>/eliminar/', views.metas_maquina_delete, name='metas-maquina-delete'),
-    path('metas/<int:pk>/dividir/', views.metas_maquina_dividir, name='metas-maquina-dividir'),
-    path('metas/valorizacion/', views.metas_valorizacion_reporte, name='metas-valorizacion-reporte'),
+    # Metas de Máquinas → redirigido a Programación
+    path('metas/', RedirectView.as_view(pattern_name='gerencia-programacion', permanent=True), name='metas-maquina-list'),
+    path('metas/gestionar/', RedirectView.as_view(pattern_name='gerencia-programacion', permanent=True), name='metas-maquina-gestionar'),
+    path('metas/nueva/', RedirectView.as_view(pattern_name='gerencia-programacion', permanent=True), name='metas-maquina-create'),
+    path('metas/<int:pk>/editar/', RedirectView.as_view(url='/gerencia/programacion/', permanent=True), name='metas-maquina-edit'),
+    path('metas/<int:pk>/eliminar/', RedirectView.as_view(url='/gerencia/programacion/', permanent=True), name='metas-maquina-delete'),
+    path('metas/<int:pk>/dividir/', RedirectView.as_view(url='/gerencia/programacion/', permanent=True), name='metas-maquina-dividir'),
+    path('metas/valorizacion/', RedirectView.as_view(pattern_name='gerencia-programacion', permanent=True), name='metas-valorizacion-reporte'),
     
     # Precios Unitarios
     path('precios-unitarios/', views.precios_unitarios_list, name='precios-unitarios-list'),
