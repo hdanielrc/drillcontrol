@@ -33,16 +33,15 @@ ZERO = Decimal('0.00')
 ONE = Decimal('1.0000')
 
 
-# Códigos normalizados que cuentan como día trabajado — idéntico a la lógica
-# del Resumen de Planilla (MAPEO_CODIGOS → check 'TD','TN','T','DL','DA','DA1').
-_CODIGOS_TRABAJADO_NORMALIZADOS = ('TD', 'TN', 'T', 'DL', 'DA', 'DA1')
+# TRABAJADO = TD + TN + DL + DA  (mes calendario 1-30), igual que la nota
+# del Resumen de Planilla.
+_CODIGOS_TRABAJADO_NORMALIZADOS = ('TD', 'TN', 'DL', 'DA')
 
 
 def contar_dias_trabajados(trabajador, fecha_inicio, fecha_fin):
     """
     Cuenta los días trabajados para un trabajador en el rango calendario.
-    Fórmula: TD+TN+T+DL+DA+DA1 — idéntico a la columna TRABAJADO del Resumen
-    de Planilla (mes calendario 1-30).
+    Fórmula: TRABAJADO = TD + TN + DL + DA  (mes calendario 1-30).
     """
     import calendar as _cal
     # Capear al día 30, igual que la Matriz Resumen de Planilla
