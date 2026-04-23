@@ -540,7 +540,7 @@ function guardarTodo() {
             alert('Error al guardar: ' + (data.error || 'desconocido'));
         }
     })
-    alert('Error de conexión: ' + err));
+    .catch(err => alert('Error de conexión: ' + err));
 }
 
 // Recalcular todas las filas al cargar la página
