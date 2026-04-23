@@ -5536,6 +5536,48 @@ class MetaTurno(models.Model):
 
 
 # =============================================================================
+# SECCIÓN: RESUMEN DÍAS TRABAJADOR → MÁQUINA (tabla auxiliar de análisis)
+# Poblar/refrescar con: python manage.py recalcular_dias_maquina
+# =============================================================================
+
+class ResumenDiasMaquina(models.Model):
+    """
+    Cuántos días ha sido asignado cada trabajador a cada máquina según AsistenciaDiaria.
+    Tabla de solo lectura — se regenera con el comando recalcular_dias_maquina.
+    """
+    trabajador = models.ForeignKey(
+        'Trabajador',
+        on_delete=models.CASCADE,
+        related_name='resumen_dias_maquina',
+        db_index=True,
+    )
+    maquina = models.ForeignKey(
+        'Maquina',
+        on_delete=models.CASCADE,
+        related_name='resumen_dias_trabajadores',
+        db_index=True,
+    )
+    total_dias = models.PositiveIntegerField(default=0, verbose_name='Total días asignado')
+    primera_asignacion = models.DateField(null=True, blank=True, verbose_name='Primera fecha')
+    ultima_asignacion = models.DateField(null=True, blank=True, verbose_name='Última fecha')
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'resumen_dias_maquina'
+        verbose_name = 'Resumen Días por Máquina'
+        verbose_name_plural = 'Resumen Días por Máquina'
+        unique_together = [('trabajador', 'maquina')]
+        ordering = ['-total_dias']
+        indexes = [
+            models.Index(fields=['trabajador']),
+            models.Index(fields=['maquina']),
+        ]
+
+    def __str__(self):
+        return f"{self.trabajador} → {self.maquina}: {self.total_dias} días"
+
+
+# =============================================================================
 # SECCIÓN: API INTEGRATION - Staging Tables (ELIMINADO)
 # =============================================================================
 
