@@ -286,7 +286,15 @@
                                onchange="recalcularFila(this.closest('tr'))">
                     </td>
                     {% for sec in fila.secciones %}
-                        {% if sec.tabla_calificacion %}
+                        {% if sec.fuente_puntaje == 'global' %}
+                        {# ── Concepto global: siempre muestra % como texto (no combobox) ── #}
+                        <td class="td-pct seccion-pct {% if sec.puntaje == 100 %}pct-100{% elif sec.puntaje >= 80 %}pct-80{% else %}pct-low{% endif %}"
+                            data-concepto-pk="{{ sec.concepto_pk }}"
+                            data-puntaje-global="{{ sec.puntaje }}">
+                            <span class="pct-valor">{{ sec.puntaje }}%</span>
+                            <i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;opacity:.6;margin-left:2px;"></i>
+                        </td>
+                        {% elif sec.tabla_calificacion %}
                         {# ── Sección con tabla fija: desplegable de calificación ── #}
                         <td class="td-pct seccion-pct" data-concepto-pk="{{ sec.concepto_pk }}">
                             <select class="tabla-calif-select"

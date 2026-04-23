@@ -850,7 +850,13 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 global_codigo = _codigo_a_global(seccion.codigo)
                 cgp = conceptos_globales_periodo.get(global_codigo) if global_codigo else None
 
-                if seccion.tabla_calificacion:
+                if cgp is not None:
+                    # Concepto global del contrato: mayor prioridad en todos los bonos.
+                    # Esto hace que PRODUCCIÓN en BA-ADMINISTRACIÓN use el mismo %
+                    # que en logísticos y residentes.
+                    puntaje = float(cgp.porcentaje_bono)
+                    fuente_puntaje = 'global'
+                elif seccion.tabla_calificacion:
                     # Tabla fija: leer desde BonoTrabajadorDetalle (persistido)
                     detalle_tc, _ = BonoTrabajadorDetalle.objects.get_or_create(
                         bono=bono_trab,
@@ -865,10 +871,6 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     )
                     puntaje = int(detalle_tc.puntaje)
                     fuente_puntaje = 'tabla_fija'
-                elif cgp is not None:
-                    # % viene del indicador global del contrato
-                    puntaje = float(cgp.porcentaje_bono)
-                    fuente_puntaje = 'global'
                 else:
                     # Fallback: conteo manual de criterios (checkboxes)
                     puntaje = round(cumplidos * 100 / total_crit) if total_crit > 0 else 100
