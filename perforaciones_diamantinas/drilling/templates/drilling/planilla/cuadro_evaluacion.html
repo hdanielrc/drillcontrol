@@ -360,12 +360,14 @@
                     <th class="th-yellow">Total %</th>
                     <th class="th-teal">Monto (S/m &times; %)</th>
                     <th class="th-navy">Metraje acum. (m)</th>
+                    <th class="th-blue" title="Días trabajados en máquina / Días mes operativo">Base prorrateada (m)</th>
+                    <th class="th-navy" title="Metros acum. máquina × (días trab. / días mes op.)">Acum. prorrateado (m)</th>
                     <th class="th-green">Total</th>
                 </tr>
             </thead>
             <tbody>
                 <tr class="row-contrato">
-                    <td colspan="9"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
+                    <td colspan="11"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
                 </tr>
                 {% for fila in contrato_data.filas_metraje %}
                 <tr class="metraje-row"
@@ -389,6 +391,18 @@
                         {{ fila.metraje_acumulado|floatformat:3 }} m
                         <br><small style="font-weight:400;font-size:10px;opacity:.7;">
                             <i class="fas fa-ruler-horizontal"></i> suma reportes
+                        </small>
+                    </td>
+                    <td class="td-acum" title="({{ fila.metraje_base|floatformat:2 }} / {{ fila.dias_mes_operativo }}) × {{ fila.dias_en_maquina }}">
+                        {{ fila.metraje_base_prorrateo|floatformat:2 }} m
+                        <br><small style="font-weight:400;font-size:10px;opacity:.7;">
+                            {{ fila.dias_en_maquina }}/{{ fila.dias_mes_operativo }} días
+                        </small>
+                    </td>
+                    <td class="td-acum" title="({{ fila.metros_acum_maquina|floatformat:2 }} / {{ fila.dias_mes_operativo }}) × {{ fila.dias_en_maquina }}">
+                        {{ fila.metraje_acum_prorrateo|floatformat:2 }} m
+                        <br><small style="font-weight:400;font-size:10px;opacity:.7;">
+                            máq: {{ fila.metros_acum_maquina|floatformat:1 }} m
                         </small>
                     </td>
                     <td class="td-total metraje-bono-calc">

@@ -658,8 +658,40 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         filas_cumplimiento = []
         filas_metraje = []
 
-        # El metraje se calcula por trabajador dentro del bucle;
-        # aquí no se pre-computa nada a nivel de contrato para este bono.
+        # ── Pre-carga para prorrateo de metraje ──────────────────────────────
+        from .models import ResumenDiasMaquina, Turno
+        from .utils.periodo_operativo import get_rango_mes_operativo, cantidad_dias_mes_operativo
+        from django.db.models import Sum as _SumM
+
+        _op_inicio, _op_fin = get_rango_mes_operativo(anio, mes)
+        _dias_mes_op = cantidad_dias_mes_operativo(anio, mes)
+
+        # metros_acumulados por maquina_id en el período operativo
+        _metros_maquina = {}
+        _rows = (
+            TurnoAvance.objects.filter(
+                turno__contrato=contrato,
+                turno__fecha__gte=_op_inicio,
+                turno__fecha__lte=_op_fin,
+                turno__estado__in=['COMPLETADO', 'APROBADO'],
+            )
+            .values('turno__maquina_id')
+            .annotate(total=_SumM('metros_perforados'))
+        )
+        for _r in _rows:
+            if _r['turno__maquina_id']:
+                _metros_maquina[_r['turno__maquina_id']] = Decimal(str(_r['total'] or 0))
+
+        # dias trabajados por trabajador en su maquina principal (tareo V2)
+        _dias_trab_maquina = {}
+        _rdm_qs = ResumenDiasMaquina.objects.filter(
+            trabajador__contrato=contrato
+        ).values('trabajador_id', 'maquina_id', 'total_dias')
+        for _rdm in _rdm_qs:
+            _tid = _rdm['trabajador_id']
+            # Si el trabajador tiene múltiples máquinas, tomar la de mayor días
+            if _tid not in _dias_trab_maquina or _rdm['total_dias'] > _dias_trab_maquina[_tid][1]:
+                _dias_trab_maquina[_tid] = (_rdm['maquina_id'], _rdm['total_dias'])
 
         for trab in trabajadores:
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
@@ -785,6 +817,20 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         observacion=f'Cálculo automático metraje: {float(metraje_acum_val):.3f}m × {float(monto_ajustado):.3f}',
                     )
 
+                # Prorrateo por días trabajados en máquina
+                _maq_id, _dias_en_maq = _dias_trab_maquina.get(trab.pk, (None, 0))
+                _metros_maq = _metros_maquina.get(_maq_id, Decimal('0')) if _maq_id else Decimal('0')
+                _d_op = Decimal(str(_dias_mes_op))
+                _d_en_maq = Decimal(str(_dias_en_maq))
+                metraje_base_prorrateo = (
+                    (metraje_base_val / _d_op * _d_en_maq).quantize(Decimal('0.01'))
+                    if _d_op > 0 else Decimal('0')
+                )
+                metraje_acum_prorrateo = (
+                    (_metros_maq / _d_op * _d_en_maq).quantize(Decimal('0.01'))
+                    if _d_op > 0 else Decimal('0')
+                )
+
                 filas_metraje.append({
                     'bono_pk': bono_trab.pk,
                     'trabajador_pk': trab.pk,
@@ -801,6 +847,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'monto_ajustado': float(monto_ajustado),
                     'bono_calculado': float(bono_calculado),
                     'total': float(total_metraje),
+                    'dias_mes_operativo': _dias_mes_op,
+                    'dias_en_maquina': _dias_en_maq,
+                    'maquina_id': _maq_id,
+                    'metros_acum_maquina': float(_metros_maq),
+                    'metraje_base_prorrateo': float(metraje_base_prorrateo),
+                    'metraje_acum_prorrateo': float(metraje_acum_prorrateo),
                 })
                 continue  # no procesar secciones para trabajadores de metraje
 
