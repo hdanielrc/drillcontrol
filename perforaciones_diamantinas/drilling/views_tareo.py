@@ -1779,18 +1779,6 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
 
     titulo_cell = ws.cell(row=row, column=1, value="MÁQUINAS ASIGNADAS DURANTE EL MES OPERATIVO")
     titulo_cell.font = Font(bold=True, size=12)
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
-    row += 1
-
-    encabezados = ["N°", "APELLIDOS Y NOMBRES", "CARGO", "MÁQUINA(S) ASIGNADA(S)", "DÍAS CON MÁQUINA"]
-    col_widths = [5, 35, 25, 40, 16]
-    for col_idx, (encabezado, ancho) in enumerate(zip(encabezados, col_widths), start=1):
-        cell = ws.cell(row=row, column=col_idx, value=encabezado)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws.column_dimensions[get_column_letter(col_idx)].width = ancho
-    ws.row_dimensions[row].height = 25
     row += 1
 
     # Obtener asistencias con maquina_snapshot para el período
@@ -1803,19 +1791,26 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
         .order_by(f'{emp_field}__apepat', f'{emp_field}__nombres')
     )
 
-    # Agrupar por trabajador → set de máquinas y conteo de días
+    # Agrupar por trabajador → {maquina_nombre: días}
     from collections import defaultdict
-    maquinas_por_trab = defaultdict(lambda: {'maquinas': set(), 'dias': 0, 'trabajador': None})
+    # datos_trab: {trab_pk: {'trabajador': obj, 'dias_maquina': {maq_nombre: count}}}
+    datos_trab = {}
+    maquinas_vistas = set()
     for asist in asist_con_maquina:
         trab = getattr(asist, emp_field)
         key = trab.pk
-        maquinas_por_trab[key]['trabajador'] = trab
-        maquinas_por_trab[key]['maquinas'].add(asist.maquina_snapshot.nombre)
-        maquinas_por_trab[key]['dias'] += 1
+        maq_nombre = asist.maquina_snapshot.nombre
+        maquinas_vistas.add(maq_nombre)
+        if key not in datos_trab:
+            datos_trab[key] = {'trabajador': trab, 'dias_maquina': defaultdict(int)}
+        datos_trab[key]['dias_maquina'][maq_nombre] += 1
 
-    # Ordenar por apellido
+    # Lista de máquinas ordenadas (columnas dinámicas)
+    maquinas_cols = sorted(maquinas_vistas)
+
+    # Filas ordenadas por apellido
     filas = sorted(
-        maquinas_por_trab.values(),
+        datos_trab.values(),
         key=lambda x: (
             getattr(x['trabajador'], 'apepat', '') or '',
             getattr(x['trabajador'], 'nombres', '') or '',
@@ -1825,6 +1820,27 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     if not filas:
         ws.cell(row=row, column=1, value="Sin registros de máquinas en este período.").font = Font(italic=True)
     else:
+        # Encabezados: N° | APELLIDOS Y NOMBRES | CARGO | <maquina1> | <maquina2> | ... | TOTAL
+        num_maq_cols = len(maquinas_cols)
+        total_cols = 3 + num_maq_cols + 1  # fijas + máquinas + TOTAL
+
+        # Título merge ahora que conocemos el ancho
+        ws.merge_cells(start_row=row - 1, start_column=1, end_row=row - 1, end_column=total_cols)
+
+        encabezados_fijos = ["N°", "APELLIDOS Y NOMBRES", "CARGO"]
+        col_widths_fijos = [5, 35, 25]
+        encabezados_all = encabezados_fijos + maquinas_cols + ["TOTAL DÍAS"]
+        col_widths_all = col_widths_fijos + [14] * num_maq_cols + [12]
+
+        for col_idx, (encabezado, ancho) in enumerate(zip(encabezados_all, col_widths_all), start=1):
+            cell = ws.cell(row=row, column=col_idx, value=encabezado)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws.column_dimensions[get_column_letter(col_idx)].width = ancho
+        ws.row_dimensions[row].height = 30
+        row += 1
+
         for item_num, fila in enumerate(filas, start=1):
             trab = fila['trabajador']
             nombre_completo = ' '.join(filter(None, [
@@ -1833,15 +1849,18 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
                 getattr(trab, 'nombres', ''),
             ]))
             cargo = getattr(trab, 'cargo', '') or ''
-            maquinas_str = ', '.join(sorted(fila['maquinas']))
-            dias = fila['dias']
+            dias_maquina = fila['dias_maquina']
+            total_dias = sum(dias_maquina.values())
 
             fill = alt_fill if item_num % 2 == 0 else None
-            valores = [item_num, nombre_completo, cargo, maquinas_str, dias]
-            aligns = ['center', 'left', 'left', 'left', 'center']
-            for col_idx, (val, align) in enumerate(zip(valores, aligns), start=1):
+            valores_fijos = [item_num, nombre_completo, cargo]
+            valores_maq = [dias_maquina.get(m, '') for m in maquinas_cols]
+            valores_all = valores_fijos + valores_maq + [total_dias]
+            aligns_all = ['center', 'left', 'left'] + ['center'] * num_maq_cols + ['center']
+
+            for col_idx, (val, align) in enumerate(zip(valores_all, aligns_all), start=1):
                 cell = ws.cell(row=row, column=col_idx, value=val)
-                cell.alignment = Alignment(horizontal=align, vertical='center', wrap_text=True)
+                cell.alignment = Alignment(horizontal=align, vertical='center')
                 cell.font = Font(size=10)
                 if fill:
                     cell.fill = fill
