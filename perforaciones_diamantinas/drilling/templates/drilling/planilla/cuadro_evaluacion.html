@@ -57,6 +57,12 @@
     .bono-table tbody tr.metraje-row:hover {
         background: #eaf3fb !important;
     }
+    .bono-table tbody tr.has-desglose:hover {
+        background: #dceefb !important;
+    }
+    .bono-table tbody tr.desglose-maquinas-row td {
+        border-top: none;
+    }
 
     /* ── Colores de headers ── */
     .th-dark    { background: #1a3a4f; color: #fff; }
@@ -369,12 +375,22 @@
                     <td colspan="10"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
                 </tr>
                 {% for fila in contrato_data.filas_metraje %}
-                <tr class="metraje-row"
+                <tr class="metraje-row {% if fila.desglose_maquinas|length > 1 %}has-desglose{% endif %}"
                     data-bono-pk="{{ fila.bono_pk }}"
                     data-bono-por-metro="{{ fila.bono_por_metraje }}"
                     data-metraje-base="{{ fila.metraje_base }}"
-                    data-seg-activo="{{ fila.seg_activo|yesno:'true,false' }}">
-                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
+                    data-seg-activo="{{ fila.seg_activo|yesno:'true,false' }}"
+                    {% if fila.desglose_maquinas|length > 1 %}
+                    style="cursor:pointer;"
+                    onclick="toggleDesglose('desglose-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')"
+                    title="Clic para ver desglose por máquina"
+                    {% endif %}>
+                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">
+                        {% if fila.desglose_maquinas|length > 1 %}
+                        <span style="color:#6c757d;font-size:10px;margin-right:3px;">&#9660;</span>
+                        {% endif %}
+                        {{ fila.nombre_completo }}
+                    </td>
                     <td class="cell-cargo">{{ fila.cargo }}</td>
                     <td>{{ fila.bono_por_metraje|floatformat:3 }}</td>
                     <td>{{ fila.metraje_base|floatformat:0 }}</td>
@@ -386,17 +402,14 @@
                     </td>
                     <td class="td-pct">{{ fila.mult_total_pct }}%</td>
                     <td class="td-monto metraje-monto-ajustado">{{ fila.monto_ajustado|floatformat:3 }}</td>
-                    <td class="td-acum" title="({{ fila.metraje_base|floatformat:2 }} / {{ fila.dias_mes_operativo }}) × {{ fila.dias_en_maquina }}">
+                    <td class="td-acum">
                         {{ fila.metraje_base_prorrateo|floatformat:2 }} m
                         <br><small style="font-weight:400;font-size:10px;opacity:.7;">
                             {{ fila.dias_en_maquina }}/{{ fila.dias_mes_operativo }} días
                         </small>
                     </td>
-                    <td class="td-acum" title="({{ fila.metros_acum_maquina|floatformat:2 }} / {{ fila.dias_mes_operativo }}) × {{ fila.dias_en_maquina }}">
+                    <td class="td-acum">
                         {{ fila.metraje_acum_prorrateo|floatformat:2 }} m
-                        <br><small style="font-weight:400;font-size:10px;opacity:.7;">
-                            máq: {{ fila.metros_acum_maquina|floatformat:1 }} m
-                        </small>
                     </td>
                     <td class="td-total metraje-bono-calc">
                         S/ {{ fila.total|floatformat:2 }}
@@ -405,6 +418,39 @@
                         </small>
                     </td>
                 </tr>
+                {% if fila.desglose_maquinas|length > 1 %}
+                <tr id="desglose-{{ forloop.parentloop.counter }}-{{ forloop.counter }}" class="desglose-maquinas-row" style="display:none;">
+                    <td colspan="10" style="padding:0;background:#f8f9fa;border-top:none;">
+                        <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:#e9ecef;color:#495057;">
+                                    <th style="padding:4px 12px;text-align:left;font-weight:600;">Máquina</th>
+                                    <th style="padding:4px 8px;">Días en máq.</th>
+                                    <th style="padding:4px 8px;">Metros acum.</th>
+                                    <th style="padding:4px 8px;">Base prorrat. (m)</th>
+                                    <th style="padding:4px 8px;">Acum. prorrat. (m)</th>
+                                    <th style="padding:4px 8px;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for maq in fila.desglose_maquinas %}
+                                <tr style="border-top:1px solid #dee2e6;">
+                                    <td style="padding:4px 12px;text-align:left;font-weight:500;">{{ maq.maquina_nombre }}</td>
+                                    <td style="padding:4px 8px;text-align:center;">{{ maq.dias }}</td>
+                                    <td style="padding:4px 8px;text-align:center;">{{ maq.metros_acum|floatformat:1 }} m</td>
+                                    <td style="padding:4px 8px;text-align:center;">{{ maq.base_prorrateo|floatformat:2 }} m</td>
+                                    <td style="padding:4px 8px;text-align:center;">{{ maq.acum_prorrateo|floatformat:2 }} m</td>
+                                    <td style="padding:4px 8px;text-align:center;font-weight:600;color:#155724;">
+                                        S/ {{ maq.total|floatformat:2 }}
+                                        <br><small style="font-weight:400;opacity:.7;">({{ maq.acum_prorrateo|floatformat:2 }} &minus; {{ maq.base_prorrateo|floatformat:2 }}) &times; {{ fila.monto_ajustado|floatformat:3 }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
@@ -418,6 +464,12 @@
 
 {% block extra_js %}
 <script>
+function toggleDesglose(id) {
+    var row = document.getElementById(id);
+    if (!row) return;
+    row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
 function recalcularFila(tr) {
     if (!tr) return;
     const bonoBase = parseFloat(tr.querySelector('.bono-base-input').value) || 0;
