@@ -36,7 +36,7 @@ WITH turnos_metros AS (
         END AS mes_op,
         COALESCE(ta.metros_perforados, 0) AS metros
     FROM public.turnos t
-    LEFT JOIN public.turno_avance ta ON ta.turno = t.id
+    LEFT JOIN public.turno_avance ta ON ta.turno_id = t.id
     WHERE t.estado IN ('COMPLETADO', 'APROBADO')
 ),
 metros_por_maquina AS (
