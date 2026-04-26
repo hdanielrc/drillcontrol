@@ -5571,6 +5571,7 @@ class ResumenDiasMaquina(models.Model):
         indexes = [
             models.Index(fields=['trabajador']),
             models.Index(fields=['maquina']),
+            
         ]
 
     def __str__(self):
