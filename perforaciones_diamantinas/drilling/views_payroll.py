@@ -687,8 +687,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         _maquina_nombres = dict(_Maquina.objects.filter(contrato=contrato).values_list('id', 'nombre'))
 
         # días trabajados por trabajador+máquina en el período operativo
-        # fuente: AsistenciaDiaria (V2) con estados TD/TN/DL/DA y maquina_snapshot asignada
+        # fuente: AsistenciaDiaria (V2) con maquina_snapshot asignada
+        # estados que cuentan como "día en máquina" (mismo criterio que trabajado_cal en tareo):
+        #   T=Trabajado, TD=Turno Día, TN=Turno Noche, TI=Trabajado+Incentivo,
+        #   DL=Día Libre, DA=Día Apoyo, DA1=Día Apoyo+1HE
         # resultado: {trabajador_id: [(maquina_id, dias), ...]}
+        _ESTADOS_EN_MAQUINA = ['T', 'TD', 'TN', 'TI', 'DL', 'DA', 'DA1']
         _dias_trab_maquinas = {}
         _ad_rows = (
             AsistenciaDiaria.objects.filter(
@@ -696,7 +700,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 fecha__gte=_op_inicio,
                 fecha__lte=_op_fin,
                 maquina_snapshot__isnull=False,
-                estado__in=['TD', 'TN', 'DL', 'DA'],
+                estado__in=_ESTADOS_EN_MAQUINA,
             )
             .values('trabajador_id', 'maquina_snapshot_id')
             .annotate(dias=_CountM('id'))
