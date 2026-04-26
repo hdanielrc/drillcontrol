@@ -1800,11 +1800,11 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
         )
         .exclude(maquina_snapshot__isnull=True)
         .select_related(emp_field, 'maquina_snapshot')
-        .order_by(f'{emp_field}__apellido_paterno', f'{emp_field}__nombre')
+        .order_by(f'{emp_field}__apepat', f'{emp_field}__nombres')
     )
 
     # Agrupar por trabajador → set de máquinas y conteo de días
-    from collections import defaultdict, OrderedDict
+    from collections import defaultdict
     maquinas_por_trab = defaultdict(lambda: {'maquinas': set(), 'dias': 0, 'trabajador': None})
     for asist in asist_con_maquina:
         trab = getattr(asist, emp_field)
@@ -1817,8 +1817,8 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     filas = sorted(
         maquinas_por_trab.values(),
         key=lambda x: (
-            getattr(x['trabajador'], 'apellido_paterno', '') or '',
-            getattr(x['trabajador'], 'nombre', '') or '',
+            getattr(x['trabajador'], 'apepat', '') or '',
+            getattr(x['trabajador'], 'nombres', '') or '',
         )
     )
 
@@ -1828,9 +1828,9 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
         for item_num, fila in enumerate(filas, start=1):
             trab = fila['trabajador']
             nombre_completo = ' '.join(filter(None, [
-                getattr(trab, 'apellido_paterno', ''),
-                getattr(trab, 'apellido_materno', ''),
-                getattr(trab, 'nombre', '') or getattr(trab, 'nombres', ''),
+                getattr(trab, 'apepat', ''),
+                getattr(trab, 'apemat', ''),
+                getattr(trab, 'nombres', ''),
             ]))
             cargo = getattr(trab, 'cargo', '') or ''
             maquinas_str = ', '.join(sorted(fila['maquinas']))
