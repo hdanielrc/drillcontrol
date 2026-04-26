@@ -4,28 +4,41 @@ from django.db import connection
 from drilling.models import ResumenDiasMaquina
 
 
+_SQL_CREATE_VIEW = """
+CREATE OR REPLACE VIEW public.vw_tareo_trabajador_maquina AS
+SELECT
+    te.fecha,
+    te.trabajador_id,
+    te.maquina_snapshot_id AS maquina_id
+FROM public.tareo_entry te
+WHERE te.maquina_snapshot_id IS NOT NULL
+  AND te.estado IN ('TRABAJO', 'TD', 'TN', 'TI', 'DA')
+"""
+
 _SQL_RESUMEN = """
-    SELECT
-        trabajador_id,
-        maquina_id,
-        COUNT(*)          AS total_dias,
-        MIN(fecha)        AS primera_asignacion,
-        MAX(fecha)        AS ultima_asignacion
-    FROM public.vw_tareo_trabajador_maquina
-    GROUP BY trabajador_id, maquina_id
+SELECT
+    trabajador_id,
+    maquina_id,
+    COUNT(*)          AS total_dias,
+    MIN(fecha)        AS primera_asignacion,
+    MAX(fecha)        AS ultima_asignacion
+FROM public.vw_tareo_trabajador_maquina
+GROUP BY trabajador_id, maquina_id
 """
 
 
 class Command(BaseCommand):
     help = (
-        'Regenera resumen_dias_maquina desde la vista vw_tareo_trabajador_maquina '
-        '(tareo V2). Fuente: tareo_entry con maquina_snapshot asignada y estado de trabajo.'
+        'Crea/actualiza vw_tareo_trabajador_maquina y regenera resumen_dias_maquina '
+        'desde tareo V2 (tareo_entry con maquina_snapshot asignada y estado de trabajo).'
     )
 
     def handle(self, *args, **options):
-        self.stdout.write('Leyendo vw_tareo_trabajador_maquina...')
-
         with connection.cursor() as cursor:
+            self.stdout.write('Creando/actualizando vista vw_tareo_trabajador_maquina...')
+            cursor.execute(_SQL_CREATE_VIEW)
+
+            self.stdout.write('Leyendo conteos...')
             cursor.execute(_SQL_RESUMEN)
             filas = cursor.fetchall()
 
