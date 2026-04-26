@@ -1731,10 +1731,13 @@ def _crear_hoja_leyenda(ws):
 
 def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     """Crea la hoja de informe con estadísticas"""
+    from openpyxl.styles import Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
+
     ws['A1'] = f"INFORME DE TAREO - {contrato.nombre_contrato.upper()}"
     ws['A1'].font = Font(bold=True, size=14)
     ws['A2'] = f"Período: {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
-    
+
     # Estadísticas
     trabajadores = _trabajadores_tareo_qs(contrato, fecha_inicio, fecha_fin)
     # Preferir AsistenciaDiaria (V2) para estadísticas del informe
@@ -1743,21 +1746,21 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     asistencias = AsistenciaDiaria.objects.filter(
         **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
     )
-    
+
     row = 4
     ws.cell(row=row, column=1).value = "Total Trabajadores"
     ws.cell(row=row, column=2).value = trabajadores.count()
     ws.cell(row=row, column=1).font = Font(bold=True)
-    
+
     row += 1
     ws.cell(row=row, column=1).value = "Total Registros de Asistencia"
     ws.cell(row=row, column=2).value = asistencias.count()
     ws.cell(row=row, column=1).font = Font(bold=True)
-    
+
     row += 2
     ws.cell(row=row, column=1).value = "Distribución por Estado:"
     ws.cell(row=row, column=1).font = Font(bold=True, underline="single")
-    
+
     row += 1
     # Contar por estado
     estados = asistencias.values('estado').annotate(total=Count('estado')).order_by('-total')
@@ -1767,6 +1770,83 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
         descripcion = LEYENDA.get(codigo, estado['estado'])
         ws.cell(row=row, column=1).value = f"{codigo} - {descripcion}"
         ws.cell(row=row, column=2).value = estado['total']
+
+    # ── Tabla de máquinas asignadas por trabajador ──────────────────────────
+    row += 3
+    header_fill = PatternFill(fill_type='solid', fgColor='1F4E79')
+    header_font = Font(bold=True, color='FFFFFF', size=10)
+    alt_fill = PatternFill(fill_type='solid', fgColor='D6E4F0')
+
+    titulo_cell = ws.cell(row=row, column=1, value="MÁQUINAS ASIGNADAS DURANTE EL MES OPERATIVO")
+    titulo_cell.font = Font(bold=True, size=12)
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+    row += 1
+
+    encabezados = ["N°", "APELLIDOS Y NOMBRES", "CARGO", "MÁQUINA(S) ASIGNADA(S)", "DÍAS CON MÁQUINA"]
+    col_widths = [5, 35, 25, 40, 16]
+    for col_idx, (encabezado, ancho) in enumerate(zip(encabezados, col_widths), start=1):
+        cell = ws.cell(row=row, column=col_idx, value=encabezado)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.column_dimensions[get_column_letter(col_idx)].width = ancho
+    ws.row_dimensions[row].height = 25
+    row += 1
+
+    # Obtener asistencias con maquina_snapshot para el período
+    asist_con_maquina = (
+        AsistenciaDiaria.objects.filter(
+            **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+        )
+        .exclude(maquina_snapshot__isnull=True)
+        .select_related(emp_field, 'maquina_snapshot')
+        .order_by(f'{emp_field}__apellido_paterno', f'{emp_field}__nombre')
+    )
+
+    # Agrupar por trabajador → set de máquinas y conteo de días
+    from collections import defaultdict, OrderedDict
+    maquinas_por_trab = defaultdict(lambda: {'maquinas': set(), 'dias': 0, 'trabajador': None})
+    for asist in asist_con_maquina:
+        trab = getattr(asist, emp_field)
+        key = trab.pk
+        maquinas_por_trab[key]['trabajador'] = trab
+        maquinas_por_trab[key]['maquinas'].add(asist.maquina_snapshot.nombre)
+        maquinas_por_trab[key]['dias'] += 1
+
+    # Ordenar por apellido
+    filas = sorted(
+        maquinas_por_trab.values(),
+        key=lambda x: (
+            getattr(x['trabajador'], 'apellido_paterno', '') or '',
+            getattr(x['trabajador'], 'nombre', '') or '',
+        )
+    )
+
+    if not filas:
+        ws.cell(row=row, column=1, value="Sin registros de máquinas en este período.").font = Font(italic=True)
+    else:
+        for item_num, fila in enumerate(filas, start=1):
+            trab = fila['trabajador']
+            nombre_completo = ' '.join(filter(None, [
+                getattr(trab, 'apellido_paterno', ''),
+                getattr(trab, 'apellido_materno', ''),
+                getattr(trab, 'nombre', '') or getattr(trab, 'nombres', ''),
+            ]))
+            cargo = getattr(trab, 'cargo', '') or ''
+            maquinas_str = ', '.join(sorted(fila['maquinas']))
+            dias = fila['dias']
+
+            fill = alt_fill if item_num % 2 == 0 else None
+            valores = [item_num, nombre_completo, cargo, maquinas_str, dias]
+            aligns = ['center', 'left', 'left', 'left', 'center']
+            for col_idx, (val, align) in enumerate(zip(valores, aligns), start=1):
+                cell = ws.cell(row=row, column=col_idx, value=val)
+                cell.alignment = Alignment(horizontal=align, vertical='center', wrap_text=True)
+                cell.font = Font(size=10)
+                if fill:
+                    cell.fill = fill
+            ws.row_dimensions[row].height = 18
+            row += 1
 
 
 @login_required
