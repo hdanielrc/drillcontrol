@@ -1781,12 +1781,16 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     titulo_cell.font = Font(bold=True, size=12)
     row += 1
 
-    # Obtener asistencias REALES (no proyecciones) con maquina_snapshot para el período
+    # Obtener asistencias REALES con maquina_snapshot para el período
+    # TareoEntry usa `tipo='REAL'`; AsistenciaDiaria usa `es_proyeccion=False`
+    _asis_filter = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+    try:
+        AsistenciaDiaria._meta.get_field('es_proyeccion')
+        _asis_filter['es_proyeccion'] = False
+    except Exception:
+        _asis_filter['tipo'] = 'REAL'
     asist_con_maquina = (
-        AsistenciaDiaria.objects.filter(
-            **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin},
-            es_proyeccion=False,
-        )
+        AsistenciaDiaria.objects.filter(**_asis_filter)
         .exclude(maquina_snapshot__isnull=True)
         .select_related(emp_field, 'maquina_snapshot')
         .order_by(f'{emp_field}__apepat', f'{emp_field}__nombres')
