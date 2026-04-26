@@ -9,7 +9,8 @@
       "Bash(python manage.py showmigrations drilling)",
       "Bash(git diff:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m ':*)"
+      "Bash(git commit -m ':*)",
+      "Bash(awk '{print $9, $5}')"
     ]
   }
 }
