@@ -1730,7 +1730,7 @@ def _crear_hoja_leyenda(ws):
 
 
 def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
-    """Crea la hoja de informe con estadísticas"""
+    """Crea la hoja de informe con estadísticas — v2 mes operativo 26-25"""
     from openpyxl.styles import Alignment, PatternFill
     from openpyxl.utils import get_column_letter
     from datetime import date as _date_cls
