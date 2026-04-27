@@ -382,6 +382,8 @@ urlpatterns = [
     # APIs
     path('planilla/api/conceptos/<int:tipo_bono_pk>/', views_payroll.api_conceptos_tipo_bono, name='planilla-api-conceptos'),
     path('planilla/periodos/<int:periodo_pk>/exportar/', views_payroll.api_exportar_bonos_excel, name='planilla-exportar-excel'),
+    # Demo standalone del cuadro de evaluación
+    path('planilla/cuadro/demo/', views_payroll.cuadro_evaluacion_demo, name='planilla-cuadro-demo'),
     # Cuadro de Evaluación (formato Excel)
     path('planilla/cuadro/<int:tipo_bono_pk>/', views_payroll.cuadro_evaluacion, name='planilla-cuadro'),
     path('planilla/cuadro/<int:tipo_bono_pk>/guardar/', views_payroll.cuadro_guardar, name='planilla-cuadro-guardar'),

@@ -59,6 +59,15 @@ from .mixins import AdminOrContractFilterMixin
 
 
 # ===========================================
+# DEMO — template standalone cuadro evaluación
+# ===========================================
+
+@login_required
+def cuadro_evaluacion_demo(request):
+    return render(request, 'drilling/planilla/cuadro_evaluacion_demo.html')
+
+
+# ===========================================
 # HUB PRINCIPAL DE PLANILLA
 # ===========================================
 
