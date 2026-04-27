@@ -699,6 +699,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
         # días trabajados por trabajador+máquina en el período operativo 26-25
         # estados que cuentan: T, TD, TN, TI, DL, DA, DA1
+        # solo registros reales (es_proyeccion=False), igual que la tabla Excel del tareo
         # resultado: {trabajador_id: [(maquina_id, dias), ...]}
         _ESTADOS_EN_MAQUINA = ['T', 'TD', 'TN', 'TI', 'DL', 'DA', 'DA1']
         _dias_trab_maquinas = {}
@@ -708,6 +709,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 fecha__gte=_op_inicio,
                 fecha__lte=_op_fin,
                 maquina_snapshot__isnull=False,
+                es_proyeccion=False,
                 estado__in=_ESTADOS_EN_MAQUINA,
             )
             .values('trabajador_id', 'maquina_snapshot_id')
