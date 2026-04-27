@@ -199,6 +199,7 @@
             font-weight: 600;
         }
     </style>
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
     {% if user.is_authenticated %}

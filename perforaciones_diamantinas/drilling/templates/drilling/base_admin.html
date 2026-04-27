@@ -136,6 +136,7 @@
         .metric-card.warning { border-left-color: var(--secondary-yellow); }
         .metric-card.danger { border-left-color: #ef4444; }
     </style>
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
     {% if user.is_authenticated %}
