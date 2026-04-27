@@ -73,9 +73,10 @@ def planilla_hub(request):
     tipos_bono = TipoBono.objects.filter(activo=True).prefetch_related('conceptos').order_by('codigo')
 
     # Últimos períodos
-    periodos = PeriodoBono.objects.all().order_by('-anio', '-mes')[:10]
+    periodos_qs = PeriodoBono.objects.all().order_by('-anio', '-mes')
     if not user.has_access_to_all_contracts() and contrato:
-        periodos = periodos.filter(contrato=contrato)
+        periodos_qs = periodos_qs.filter(contrato=contrato)
+    periodos = periodos_qs[:10]
 
     # Contratos disponibles
     if user.has_access_to_all_contracts():
