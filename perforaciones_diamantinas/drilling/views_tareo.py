@@ -1793,7 +1793,6 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
         AsistenciaDiaria.objects.filter(**_asis_filter)
         .exclude(maquina_snapshot__isnull=True)
         .select_related(emp_field, 'maquina_snapshot')
-        .order_by(f'{emp_field}__apepat', f'{emp_field}__nombres')
     )
 
     # Agrupar por trabajador → {maquina_nombre: días}
