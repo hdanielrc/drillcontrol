@@ -1733,18 +1733,29 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     """Crea la hoja de informe con estadísticas"""
     from openpyxl.styles import Alignment, PatternFill
     from openpyxl.utils import get_column_letter
+    from datetime import date as _date_cls
+
+    # Calcular rango del mes operativo (26 del mes anterior al 25 del mes del cierre).
+    # fecha_fin determina el mes de cierre; el operativo siempre es 26→25.
+    mes_cierre = fecha_fin.month
+    anio_cierre = fecha_fin.year
+    if mes_cierre == 1:
+        fi_op = _date_cls(anio_cierre - 1, 12, 26)
+    else:
+        fi_op = _date_cls(anio_cierre, mes_cierre - 1, 26)
+    ff_op = _date_cls(anio_cierre, mes_cierre, 25)
 
     ws['A1'] = f"INFORME DE TAREO - {contrato.nombre_contrato.upper()}"
     ws['A1'].font = Font(bold=True, size=14)
-    ws['A2'] = f"Período: {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
+    ws['A2'] = f"Período operativo: {fi_op.strftime('%d/%m/%Y')} - {ff_op.strftime('%d/%m/%Y')}"
 
     # Estadísticas
-    trabajadores = _trabajadores_tareo_qs(contrato, fecha_inicio, fecha_fin)
+    trabajadores = _trabajadores_tareo_qs(contrato, fi_op, ff_op)
     # Preferir AsistenciaDiaria (V2) para estadísticas del informe
     from .tareo_compat import AsistenciaDiaria
     emp_field = _emp_field_name()
     asistencias = AsistenciaDiaria.objects.filter(
-        **{f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+        **{f"{emp_field}__contrato": contrato, 'fecha__gte': fi_op, 'fecha__lte': ff_op}
     )
 
     row = 4
@@ -1781,9 +1792,9 @@ def _crear_hoja_informe(ws, contrato, fecha_inicio, fecha_fin):
     titulo_cell.font = Font(bold=True, size=12)
     row += 1
 
-    # Obtener asistencias REALES con maquina_snapshot para el período
+    # Obtener asistencias REALES con maquina_snapshot para el período operativo
     # TareoEntry usa `tipo='REAL'`; AsistenciaDiaria usa `es_proyeccion=False`
-    _asis_filter = {f"{emp_field}__contrato": contrato, 'fecha__gte': fecha_inicio, 'fecha__lte': fecha_fin}
+    _asis_filter = {f"{emp_field}__contrato": contrato, 'fecha__gte': fi_op, 'fecha__lte': ff_op}
     try:
         AsistenciaDiaria._meta.get_field('es_proyeccion')
         _asis_filter['es_proyeccion'] = False
