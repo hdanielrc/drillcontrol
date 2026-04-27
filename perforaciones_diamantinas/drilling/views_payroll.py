@@ -698,10 +698,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         _maquina_nombres = dict(_Maquina.objects.filter(contrato=contrato).values_list('id', 'nombre'))
 
         # días trabajados por trabajador+máquina en el período operativo 26-25
-        # estados que cuentan: T, TD, TN, TI, DL, DA, DA1
-        # solo registros reales (es_proyeccion=False), igual que la tabla Excel del tareo
+        # misma lógica que la tabla Excel del tareo: solo registros reales con máquina asignada,
+        # sin filtrar por estado (igual que views_tareo.py línea 1800-1806)
         # resultado: {trabajador_id: [(maquina_id, dias), ...]}
-        _ESTADOS_EN_MAQUINA = ['T', 'TD', 'TN', 'TI', 'DL', 'DA', 'DA1']
         _dias_trab_maquinas = {}
         _ad_rows = (
             AsistenciaDiaria.objects.filter(
@@ -710,7 +709,6 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 fecha__lte=_op_fin,
                 maquina_snapshot__isnull=False,
                 es_proyeccion=False,
-                estado__in=_ESTADOS_EN_MAQUINA,
             )
             .values('trabajador_id', 'maquina_snapshot_id')
             .annotate(dias=_CountM('id'))
