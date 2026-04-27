@@ -669,7 +669,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         filas_metraje = []
 
         # ── Pre-carga para prorrateo de metraje ──────────────────────────────
-        from .models import AsistenciaDiaria
+        from .tareo_compat import AsistenciaDiaria, NEW_TAREO as _NEW_TAREO
         from .utils.periodo_operativo import get_rango_mes_operativo, cantidad_dias_mes_operativo
         from django.db.models import Sum as _SumM, Count as _CountM
 
@@ -698,17 +698,18 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         _maquina_nombres = dict(_Maquina.objects.filter(contrato=contrato).values_list('id', 'nombre'))
 
         # días trabajados por trabajador+máquina en el período operativo 26-25
-        # misma lógica que la tabla Excel del tareo: solo registros reales con máquina asignada,
-        # sin filtrar por estado (igual que views_tareo.py línea 1800-1806)
+        # misma lógica que la tabla Excel del tareo (views_tareo.py línea 1795-1807):
+        # TareoEntry usa tipo='REAL'; AsistenciaDiaria legacy usa es_proyeccion=False
         # resultado: {trabajador_id: [(maquina_id, dias), ...]}
         _dias_trab_maquinas = {}
+        _real_filter = {'tipo': 'REAL'} if _NEW_TAREO else {'es_proyeccion': False}
         _ad_rows = (
             AsistenciaDiaria.objects.filter(
                 trabajador__contrato=contrato,
                 fecha__gte=_op_inicio,
                 fecha__lte=_op_fin,
                 maquina_snapshot__isnull=False,
-                es_proyeccion=False,
+                **_real_filter,
             )
             .values('trabajador_id', 'maquina_snapshot_id')
             .annotate(dias=_CountM('id'))
