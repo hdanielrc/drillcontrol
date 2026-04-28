@@ -17,8 +17,14 @@
             <form method="post" novalidate>
                 {% csrf_token %}
 
-                {% if form.non_field_errors %}
+                {% if form.errors %}
                 <div class="alert alert-danger">
+                    <strong><i class="fas fa-exclamation-triangle me-1"></i> Corrija los siguientes errores:</strong>
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                        <p class="mb-0"><strong>{{ field.label }}:</strong> {{ error }}</p>
+                        {% endfor %}
+                    {% endfor %}
                     {% for error in form.non_field_errors %}
                     <p class="mb-0">{{ error }}</p>
                     {% endfor %}
@@ -29,14 +35,17 @@
                     <div class="col-md-3">
                         <label class="form-label fw-bold">Contrato *</label>
                         {{ form.contrato }}
+                        {% if form.contrato.errors %}<div class="text-danger small">{{ form.contrato.errors.0 }}</div>{% endif %}
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">CTR (Centro de Costo) *</label>
                         {{ form.contrato_servicio }}
+                        {% if form.contrato_servicio.errors %}<div class="text-danger small">{{ form.contrato_servicio.errors.0 }}</div>{% endif %}
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">Cargo Contratado *</label>
                         {{ form.cargo_contratado }}
+                        {% if form.cargo_contratado.errors %}<div class="text-danger small">{{ form.cargo_contratado.errors.0 }}</div>{% endif %}
                         <datalist id="cargos-list">
                             {% for cargo in cargos %}
                             <option value="{{ cargo }}">
@@ -46,6 +55,7 @@
                     <div class="col-md-3">
                         <label class="form-label fw-bold">Máquina</label>
                         {{ form.maquina }}
+                        {% if form.maquina.errors %}<div class="text-danger small">{{ form.maquina.errors.0 }}</div>{% endif %}
                         <small class="text-muted">Opcional — dejar vacío para aplicar a todas</small>
                     </div>
                 </div>

@@ -743,6 +743,23 @@ class EstructuraSalarial(models.Model):
         maq = f' | Máq:{self.maquina.nombre}' if self.maquina_id else ''
         return f"{self.contrato} | CTR:{ctr} | {self.cargo_contratado}{maq} (v{self.version})"
 
+    def validate_constraints(self, exclude=None):
+        """Evita falsos positivos: solo valida cada UniqueConstraint condicional
+        cuando la instancia cumple la condición del constraint."""
+        from django.core.exceptions import ValidationError
+        for constraint in self._meta.constraints:
+            name = getattr(constraint, 'name', '')
+            # unique_estructura_sin_maquina solo aplica a estructuras SIN máquina
+            if name == 'unique_estructura_sin_maquina' and self.maquina_id is not None:
+                continue
+            # unique_estructura_con_maquina solo aplica a estructuras CON máquina
+            if name == 'unique_estructura_con_maquina' and self.maquina_id is None:
+                continue
+            try:
+                constraint.validate(self.__class__, self, exclude=exclude, using=self._state.db)
+            except ValidationError as exc:
+                raise exc
+
     def guardar_historial(self, usuario=None, motivo=''):
         """Crea un snapshot del estado actual antes de modificar."""
         HistorialEstructuraSalarial.objects.create(
