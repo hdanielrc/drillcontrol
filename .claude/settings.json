@@ -13,7 +13,8 @@
       "Bash(python manage.py --version)",
       "Bash(venv/Scripts/python.exe manage.py makemigrations drilling --name=\"estructurasalarial_maquina\")",
       "Bash(python manage.py makemigrations drilling --name=\"estructurasalarial_maquina\")",
-      "Bash(python manage.py migrate drilling)"
+      "Bash(python manage.py migrate drilling)",
+      "Bash(venv\\\\Scripts\\\\python.exe manage.py check --deploy)"
     ]
   }
 }

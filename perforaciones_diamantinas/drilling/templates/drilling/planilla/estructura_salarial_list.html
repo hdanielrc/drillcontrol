@@ -52,13 +52,18 @@
                 </thead>
                 <tbody>
                     {% for e in estructuras %}
-                    <tr>
+                    <tr {% if e.maquina %}class="table-warning"{% endif %}>
                         <td>{{ e.contrato.nombre_contrato }}</td>
                         <td>
                             <span class="badge bg-info text-dark">{{ e.contrato_servicio.codigo_centro_costo }}</span>
                             <small class="text-muted">{{ e.contrato_servicio.get_tipo_servicio_display }}</small>
                         </td>
-                        <td><strong>{{ e.cargo_contratado }}</strong></td>
+                        <td>
+                            <strong>{{ e.cargo_contratado }}</strong>
+                            {% if not e.maquina and e.tiene_variantes_maquina %}
+                            <span class="badge bg-secondary ms-1" title="Tiene variantes configuradas por máquina"><i class="fas fa-cog"></i> +máq.</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if e.maquina %}
                             <span class="badge bg-warning text-dark"><i class="fas fa-cog me-1"></i>{{ e.maquina.nombre }}</span>
@@ -86,6 +91,11 @@
                                 <a href="{% url 'planilla-estructura-salarial-historial' e.pk %}" class="btn btn-outline-info" title="Historial">
                                     <i class="fas fa-history"></i>
                                 </a>
+                                {% if not e.maquina %}
+                                <a href="{% url 'planilla-estructura-salarial-create' %}" class="btn btn-outline-warning" title="Agregar variante por máquina">
+                                    <i class="fas fa-cog"></i>
+                                </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

@@ -1625,11 +1625,21 @@ def _sync_sueldo_trabajadores(estructura):
 @login_required
 def estructura_salarial_list(request):
     """Lista de todas las estructuras salariales."""
+    from django.db.models import Exists, OuterRef
     user = request.user
     contrato_filter = request.GET.get('contrato', '')
 
     estructuras = EstructuraSalarial.objects.select_related(
         'contrato', 'contrato_servicio', 'maquina', 'creado_por'
+    ).annotate(
+        tiene_variantes_maquina=Exists(
+            EstructuraSalarial.objects.filter(
+                contrato=OuterRef('contrato'),
+                contrato_servicio=OuterRef('contrato_servicio'),
+                cargo_contratado=OuterRef('cargo_contratado'),
+                maquina__isnull=False,
+            )
+        )
     ).order_by('contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado', 'maquina__nombre')
 
     if not user.has_access_to_all_contracts() and user.contrato:
@@ -1877,17 +1887,38 @@ def api_cargos_por_ctr(request, contrato_id, ctr_id):
 
     result = []
     for c in cargos:
+        cargo_nombre = c['cargo']
         existing = EstructuraSalarial.objects.filter(
             contrato_id=contrato_id,
             contrato_servicio=ctr,
-            cargo_contratado=c['cargo'],
+            cargo_contratado=cargo_nombre,
             maquina=maquina,
         ).first()
 
+        # Estructura general (maquina=None) — usada como fallback cuando se selecciona máquina
+        general = None
+        if maquina:
+            general = EstructuraSalarial.objects.filter(
+                contrato_id=contrato_id,
+                contrato_servicio=ctr,
+                cargo_contratado=cargo_nombre,
+                maquina__isnull=True,
+            ).first()
+
+        # Cuántas máquinas específicas ya tiene este cargo
+        maquinas_count = EstructuraSalarial.objects.filter(
+            contrato_id=contrato_id,
+            contrato_servicio=ctr,
+            cargo_contratado=cargo_nombre,
+            maquina__isnull=False,
+        ).count()
+
         item = {
-            'cargo': c['cargo'],
+            'cargo': cargo_nombre,
             'cantidad': c['cantidad'],
             'tiene_estructura': existing is not None,
+            'tiene_general': general is not None,
+            'maquinas_count': maquinas_count,
         }
         if existing:
             item['estructura'] = {
@@ -1897,6 +1928,13 @@ def api_cargos_por_ctr(request, contrato_id, ctr_id):
                 'metraje_base': str(existing.metraje_base),
                 'bonificacion_area': str(existing.bonificacion_area),
                 'version': existing.version,
+            }
+        if general:
+            item['estructura_general'] = {
+                'sueldo_basico': str(general.sueldo_basico),
+                'bono_por_metraje': str(general.bono_por_metraje),
+                'metraje_base': str(general.metraje_base),
+                'bonificacion_area': str(general.bonificacion_area),
             }
         result.append(item)
 

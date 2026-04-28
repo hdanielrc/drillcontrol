@@ -155,7 +155,10 @@
         <div id="cargos_section" style="display:none;">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <span><i class="fas fa-users me-2"></i> Cargos de Trabajadores Activos — <span id="ctr_label"></span></span>
+                    <span>
+                        <i class="fas fa-users me-2"></i> Cargos de Trabajadores Activos — <span id="ctr_label"></span>
+                        <span id="maquina_label" class="badge bg-warning text-dark ms-2" style="display:none;"></span>
+                    </span>
                     <div>
                         <button type="button" class="btn btn-sm btn-outline-light me-1" id="btnSelectAll">Seleccionar todos</button>
                         <button type="button" class="btn btn-sm btn-outline-light" id="btnDeselectAll">Deseleccionar</button>
@@ -214,6 +217,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const ctrLabel = document.getElementById('ctr_label');
     const btnGuardar = document.getElementById('btnGuardar');
     const resumen = document.getElementById('resumen_seleccion');
+    const maquinaLabel = document.getElementById('maquina_label');
 
     if (!contratoSel) return; // modo edición, no hay estos elementos
 
@@ -294,6 +298,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctrLabel.textContent = data.codigo_cc;
                 tbody.innerHTML = '';
 
+                // Mostrar badge de máquina en el header
+                const maqOpt = maquinaSel.options[maquinaSel.selectedIndex];
+                if (maquinaId && maqOpt) {
+                    maquinaLabel.textContent = 'Máq: ' + maqOpt.textContent;
+                    maquinaLabel.style.display = '';
+                } else {
+                    maquinaLabel.style.display = 'none';
+                }
+
                 if (!data.cargos.length) {
                     cargosSection.style.display = 'none';
                     noCargosMsg.style.display = 'block';
@@ -304,42 +317,64 @@ document.addEventListener('DOMContentLoaded', function() {
                 cargosSection.style.display = 'block';
 
                 data.cargos.forEach((c, i) => {
-                    const est = c.estructura || {};
-                    const tieneEst = c.tiene_estructura;
-                    const badge = tieneEst
-                        ? '<span class="badge bg-success">Configurado</span>'
-                        : '<span class="badge bg-warning text-dark">Pendiente</span>';
+                    const maquinaSeleccionada = !!maquinaId;
+                    let badge, prefill, defaultChecked;
+
+                    if (c.tiene_estructura) {
+                        // Estructura específica ya configurada (general o por máquina)
+                        prefill = c.estructura || {};
+                        badge = '<span class="badge bg-success">Configurado</span>';
+                        if (!maquinaSeleccionada && c.maquinas_count > 0) {
+                            badge += ` <span class="badge bg-secondary" title="Variantes por máquina">+${c.maquinas_count} máq.</span>`;
+                        }
+                        defaultChecked = false;
+                    } else if (maquinaSeleccionada && c.tiene_general) {
+                        // Máquina seleccionada: no tiene estructura específica pero sí una general → heredar
+                        prefill = c.estructura_general || {};
+                        badge = '<span class="badge bg-info text-dark" title="Sin estructura para esta máquina — valores pre-cargados de la estructura general">Hereda General</span>';
+                        defaultChecked = false;
+                    } else {
+                        // Sin estructura de ningún tipo
+                        prefill = {};
+                        badge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+                        defaultChecked = true;
+                    }
+
+                    const notaHereda = (maquinaSeleccionada && c.tiene_general && !c.tiene_estructura)
+                        ? `<div class="text-info small mt-1"><i class="fas fa-info-circle"></i> Valores copiados de la estructura general. Marque para crear variante específica.</div>`
+                        : '';
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td class="text-center">
                             <input type="checkbox" class="form-check-input cargo-check"
-                                   name="incluir_${i}" value="1" ${!tieneEst ? 'checked' : ''}>
+                                   name="incluir_${i}" value="1" ${defaultChecked ? 'checked' : ''}>
                         </td>
                         <td>
                             <strong>${c.cargo}</strong>
                             <input type="hidden" name="cargo_${i}" value="${c.cargo}">
+                            ${notaHereda}
                         </td>
                         <td class="text-center"><span class="badge bg-secondary">${c.cantidad}</span></td>
                         <td class="text-center">${badge}</td>
                         <td>
                             <input type="number" class="form-control form-control-sm text-end"
-                                   name="sueldo_basico_${i}" value="${est.sueldo_basico || '0'}"
+                                   name="sueldo_basico_${i}" value="${prefill.sueldo_basico || '0'}"
                                    step="0.01" min="0">
                         </td>
                         <td>
                             <input type="number" class="form-control form-control-sm text-end"
-                                   name="bono_por_metraje_${i}" value="${est.bono_por_metraje || '0'}"
+                                   name="bono_por_metraje_${i}" value="${prefill.bono_por_metraje || '0'}"
                                    step="0.01" min="0">
                         </td>
                         <td>
                             <input type="number" class="form-control form-control-sm text-end"
-                                   name="metraje_base_${i}" value="${est.metraje_base || '0'}"
+                                   name="metraje_base_${i}" value="${prefill.metraje_base || '0'}"
                                    step="0.01" min="0">
                         </td>
                         <td>
                             <input type="number" class="form-control form-control-sm text-end"
-                                   name="bonificacion_area_${i}" value="${est.bonificacion_area || '0'}"
+                                   name="bonificacion_area_${i}" value="${prefill.bonificacion_area || '0'}"
                                    step="0.01" min="0">
                         </td>
                     `;
