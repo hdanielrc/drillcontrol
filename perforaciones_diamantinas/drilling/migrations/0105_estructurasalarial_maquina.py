@@ -15,21 +15,6 @@ class Migration(migrations.Migration):
             name='estructurasalarial',
             options={'ordering': ['contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado', 'maquina__nombre'], 'verbose_name': 'Estructura Salarial', 'verbose_name_plural': 'Estructuras Salariales'},
         ),
-        migrations.RenameIndex(
-            model_name='historialbonotrabajador',
-            new_name='payroll_his_bono_tr_8b3218_idx',
-            old_name='payroll_hist_bono_trab_date_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='historialbonotrabajador',
-            new_name='payroll_his_trabaja_b67e36_idx',
-            old_name='payroll_hist_trab_tipo_date_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='historialbonotrabajador',
-            new_name='payroll_his_periodo_69b074_idx',
-            old_name='payroll_hist_periodo_tipo_idx',
-        ),
         migrations.AlterUniqueTogether(
             name='estructurasalarial',
             unique_together=set(),
