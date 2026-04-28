@@ -670,6 +670,13 @@ class EstructuraSalarial(models.Model):
         verbose_name='Cargo Contratado',
         help_text='Nombre del cargo (debe coincidir con el campo cargo del Trabajador)'
     )
+    maquina = models.ForeignKey(
+        'Maquina', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='estructuras_salariales',
+        verbose_name='Máquina',
+        help_text='Máquina específica a la que aplica esta estructura. Dejar vacío para aplicar a todas.'
+    )
 
     # --- Componentes Salariales ---
     sueldo_basico = models.DecimalField(
@@ -711,18 +718,30 @@ class EstructuraSalarial(models.Model):
 
     class Meta:
         db_table = 'payroll_estructura_salarial'
-        unique_together = [('contrato', 'contrato_servicio', 'cargo_contratado')]
-        ordering = ['contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado']
+        ordering = ['contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado', 'maquina__nombre']
         verbose_name = 'Estructura Salarial'
         verbose_name_plural = 'Estructuras Salariales'
         indexes = [
             models.Index(fields=['contrato', 'activo']),
             models.Index(fields=['cargo_contratado']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['contrato', 'contrato_servicio', 'cargo_contratado'],
+                condition=models.Q(maquina__isnull=True),
+                name='unique_estructura_sin_maquina',
+            ),
+            models.UniqueConstraint(
+                fields=['contrato', 'contrato_servicio', 'cargo_contratado', 'maquina'],
+                condition=models.Q(maquina__isnull=False),
+                name='unique_estructura_con_maquina',
+            ),
+        ]
 
     def __str__(self):
         ctr = self.contrato_servicio.codigo_centro_costo if self.contrato_servicio else '—'
-        return f"{self.contrato} | CTR:{ctr} | {self.cargo_contratado} (v{self.version})"
+        maq = f' | Máq:{self.maquina.nombre}' if self.maquina_id else ''
+        return f"{self.contrato} | CTR:{ctr} | {self.cargo_contratado}{maq} (v{self.version})"
 
     def guardar_historial(self, usuario=None, motivo=''):
         """Crea un snapshot del estado actual antes de modificar."""

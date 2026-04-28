@@ -40,6 +40,7 @@
                         <th>Contrato</th>
                         <th>CTR (Centro Costo)</th>
                         <th>Cargo Contratado</th>
+                        <th>Máquina</th>
                         <th class="text-end">Sueldo Básico</th>
                         <th class="text-end">Bono Metraje</th>
                         <th class="text-end">Metraje Base</th>
@@ -58,6 +59,13 @@
                             <small class="text-muted">{{ e.contrato_servicio.get_tipo_servicio_display }}</small>
                         </td>
                         <td><strong>{{ e.cargo_contratado }}</strong></td>
+                        <td>
+                            {% if e.maquina %}
+                            <span class="badge bg-warning text-dark"><i class="fas fa-cog me-1"></i>{{ e.maquina.nombre }}</span>
+                            {% else %}
+                            <span class="text-muted small">— General —</span>
+                            {% endif %}
+                        </td>
                         <td class="text-end">S/ {{ e.sueldo_basico|floatformat:2 }}</td>
                         <td class="text-end">S/ {{ e.bono_por_metraje|floatformat:2 }}</td>
                         <td class="text-end">{{ e.metraje_base|floatformat:2 }} m</td>
@@ -83,7 +91,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">
+                        <td colspan="11" class="text-center text-muted py-4">
                             No hay estructuras salariales configuradas.
                             <a href="{% url 'planilla-estructura-salarial-create' %}">Crear la primera</a>
                         </td>

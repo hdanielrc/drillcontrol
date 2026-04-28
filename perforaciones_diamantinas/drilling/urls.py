@@ -400,6 +400,7 @@ urlpatterns = [
     path('planilla/estructura-salarial/<int:pk>/editar/', views_payroll.estructura_salarial_edit, name='planilla-estructura-salarial-edit'),
     path('planilla/estructura-salarial/<int:pk>/historial/', views_payroll.estructura_salarial_historial, name='planilla-estructura-salarial-historial'),
     path('planilla/api/ctr-por-contrato/<int:contrato_id>/', views_payroll.api_ctr_por_contrato, name='planilla-api-ctr-contrato'),
+    path('planilla/api/maquinas-por-contrato/<int:contrato_id>/', views_payroll.api_maquinas_por_contrato, name='planilla-api-maquinas-contrato'),
     path('planilla/api/cargos-por-ctr/<int:contrato_id>/<int:ctr_id>/', views_payroll.api_cargos_por_ctr, name='planilla-api-cargos-ctr'),
     path('planilla/api/cargos-activos/<int:contrato_id>/', views_payroll.api_cargos_activos_contrato, name='planilla-api-cargos-activos'),
     path('planilla/api/bonificacion-area/', views_payroll.api_bonificacion_area_cargo, name='planilla-api-bonificacion-area'),

@@ -26,15 +26,15 @@
                 {% endif %}
 
                 <div class="row mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold">Contrato *</label>
                         {{ form.contrato }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold">CTR (Centro de Costo) *</label>
                         {{ form.contrato_servicio }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold">Cargo Contratado *</label>
                         {{ form.cargo_contratado }}
                         <datalist id="cargos-list">
@@ -42,6 +42,11 @@
                             <option value="{{ cargo }}">
                             {% endfor %}
                         </datalist>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Máquina</label>
+                        {{ form.maquina }}
+                        <small class="text-muted">Opcional — dejar vacío para aplicar a todas</small>
                     </div>
                 </div>
 
@@ -110,11 +115,11 @@
         {% csrf_token %}
         <input type="hidden" name="ctr_id" id="ctr_id_hidden">
 
-        <!-- Paso 1: Seleccionar Contrato + CTR -->
+        <!-- Paso 1: Seleccionar Contrato + CTR + Máquina -->
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-body">
-                <div class="row align-items-end">
-                    <div class="col-md-5">
+                <div class="row align-items-end g-3">
+                    <div class="col-md-4">
                         <label for="sel_contrato" class="form-label fw-bold">Contrato *</label>
                         <select id="sel_contrato" name="contrato" class="form-select" required>
                             <option value="">— Seleccione contrato —</option>
@@ -123,12 +128,19 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-3">
                         <label for="sel_ctr" class="form-label fw-bold">CTR (Centro de Costo) *</label>
                         <select id="sel_ctr" class="form-select" required>
                             <option value="">— Seleccione contrato primero —</option>
                         </select>
-                        <small class="text-muted">Se filtra automáticamente según el contrato seleccionado</small>
+                        <small class="text-muted">Se filtra según contrato</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="sel_maquina" class="form-label fw-bold">Máquina <span class="text-muted fw-normal">(opcional)</span></label>
+                        <select id="sel_maquina" name="maquina" class="form-select">
+                            <option value="">— General (todas las máquinas) —</option>
+                        </select>
+                        <small class="text-muted">Se filtra según contrato</small>
                     </div>
                     <div class="col-md-2">
                         <button type="button" id="btnCargarCargos" class="btn btn-outline-primary w-100" disabled>
@@ -193,6 +205,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const contratoSel = document.getElementById('sel_contrato');
     const ctrSel = document.getElementById('sel_ctr');
+    const maquinaSel = document.getElementById('sel_maquina');
     const btnCargar = document.getElementById('btnCargarCargos');
     const cargosSection = document.getElementById('cargos_section');
     const noCargosMsg = document.getElementById('no_cargos_msg');
@@ -204,13 +217,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (!contratoSel) return; // modo edición, no hay estos elementos
 
-    // Paso 1a: Al cambiar contrato, recargar CTRs
+    function cargarMaquinas(contratoId) {
+        maquinaSel.innerHTML = '<option value="">— General (todas las máquinas) —</option>';
+        if (!contratoId) return;
+        fetch(`/planilla/api/maquinas-por-contrato/${contratoId}/`)
+            .then(r => r.json())
+            .then(data => {
+                data.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = `${m.nombre} (${m.tipo})`;
+                    maquinaSel.appendChild(opt);
+                });
+            });
+    }
+
+    // Paso 1a: Al cambiar contrato, recargar CTRs y máquinas
     contratoSel.addEventListener('change', function() {
         const id = this.value;
         ctrSel.innerHTML = '<option value="">Cargando...</option>';
         cargosSection.style.display = 'none';
         noCargosMsg.style.display = 'none';
         btnCargar.disabled = true;
+        cargarMaquinas(id);
 
         if (!id) {
             ctrSel.innerHTML = '<option value="">— Seleccione contrato primero —</option>';
@@ -238,16 +267,24 @@ document.addEventListener('DOMContentLoaded', function() {
         noCargosMsg.style.display = 'none';
     });
 
+    // Al cambiar máquina, ocultar cargos para forzar recarga
+    maquinaSel.addEventListener('change', function() {
+        cargosSection.style.display = 'none';
+        noCargosMsg.style.display = 'none';
+    });
+
     // Paso 2: Cargar cargos
     btnCargar.addEventListener('click', function() {
         const contratoId = contratoSel.value;
         const ctrId = ctrSel.value;
+        const maquinaId = maquinaSel.value;
         if (!contratoId || !ctrId) return;
 
         btnCargar.disabled = true;
         btnCargar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
 
-        fetch(`/planilla/api/cargos-por-ctr/${contratoId}/${ctrId}/`)
+        const url = `/planilla/api/cargos-por-ctr/${contratoId}/${ctrId}/${maquinaId ? '?maquina_id=' + maquinaId : ''}`;
+        fetch(url)
             .then(r => r.json())
             .then(data => {
                 btnCargar.disabled = false;

@@ -1629,8 +1629,8 @@ def estructura_salarial_list(request):
     contrato_filter = request.GET.get('contrato', '')
 
     estructuras = EstructuraSalarial.objects.select_related(
-        'contrato', 'contrato_servicio', 'creado_por'
-    ).order_by('contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado')
+        'contrato', 'contrato_servicio', 'maquina', 'creado_por'
+    ).order_by('contrato__nombre_contrato', 'contrato_servicio__tipo_servicio', 'cargo_contratado', 'maquina__nombre')
 
     if not user.has_access_to_all_contracts() and user.contrato:
         estructuras = estructuras.filter(contrato=user.contrato)
@@ -1657,11 +1657,14 @@ def estructura_salarial_create(request):
     from .models import ContratoServicio
 
     if request.method == 'POST':
+        from .models import Maquina
         contrato_id = request.POST.get('contrato')
         ctr_id = request.POST.get('ctr_id')
+        maquina_id = request.POST.get('maquina') or None
 
         contrato = get_object_or_404(Contrato, pk=contrato_id)
         ctr = get_object_or_404(ContratoServicio, pk=ctr_id)
+        maquina = Maquina.objects.filter(pk=maquina_id, contrato=contrato).first() if maquina_id else None
 
         # Recopilar datos de cada fila de cargo del POST
         i = 0
@@ -1686,6 +1689,7 @@ def estructura_salarial_create(request):
                 contrato=contrato,
                 contrato_servicio=ctr,
                 cargo_contratado=cargo,
+                maquina=maquina,
             ).first()
 
             if existing:
@@ -1703,6 +1707,7 @@ def estructura_salarial_create(request):
                     contrato=contrato,
                     contrato_servicio=ctr,
                     cargo_contratado=cargo,
+                    maquina=maquina,
                     sueldo_basico=Decimal(sueldo),
                     bono_por_metraje=Decimal(bono),
                     metraje_base=Decimal(metraje),
@@ -1735,6 +1740,7 @@ def estructura_salarial_create(request):
     else:
         contratos = Contrato.objects.none()
 
+    from .models import Maquina
     return render(request, 'drilling/planilla/estructura_salarial_form.html', {
         'contratos': contratos,
         'titulo': 'Nueva Estructura Salarial',
@@ -1836,14 +1842,26 @@ def api_ctr_por_contrato(request, contrato_id):
 
 
 @login_required
+def api_maquinas_por_contrato(request, contrato_id):
+    """API: devuelve las máquinas activas de un contrato para el selector de estructura salarial."""
+    from .models import Maquina
+    maquinas = list(Maquina.objects.filter(
+        contrato_id=contrato_id,
+    ).exclude(estado='FUERA_SERVICIO').values('id', 'nombre', 'tipo', 'estado').order_by('nombre'))
+    return JsonResponse(maquinas, safe=False)
+
+
+@login_required
 def api_cargos_por_ctr(request, contrato_id, ctr_id):
     """API: devuelve los cargos distintos de trabajadores activos para un contrato+CTR,
     junto con la estructura salarial existente si la hay."""
     from django.db.models import Count
-    from .models import ContratoServicio
+    from .models import ContratoServicio, Maquina
 
     ctr = get_object_or_404(ContratoServicio, pk=ctr_id)
     codigo_cc = ctr.codigo_centro_costo
+    maquina_id = request.GET.get('maquina_id') or None
+    maquina = Maquina.objects.filter(pk=maquina_id).first() if maquina_id else None
 
     cargos = (
         Trabajador.objects.filter(
@@ -1863,6 +1881,7 @@ def api_cargos_por_ctr(request, contrato_id, ctr_id):
             contrato_id=contrato_id,
             contrato_servicio=ctr,
             cargo_contratado=c['cargo'],
+            maquina=maquina,
         ).first()
 
         item = {

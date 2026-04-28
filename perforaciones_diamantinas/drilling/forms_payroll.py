@@ -304,7 +304,7 @@ class EstructuraSalarialForm(forms.ModelForm):
     class Meta:
         model = EstructuraSalarial
         fields = [
-            'contrato', 'contrato_servicio', 'cargo_contratado',
+            'contrato', 'contrato_servicio', 'cargo_contratado', 'maquina',
             'sueldo_basico', 'bono_por_metraje', 'metraje_base',
             'bonificacion_area', 'activo', 'observaciones',
         ]
@@ -316,6 +316,7 @@ class EstructuraSalarialForm(forms.ModelForm):
                 'placeholder': 'Ej: PERFORISTA, AYUDANTE PERFORISTA',
                 'list': 'cargos-list',
             }),
+            'maquina': forms.Select(attrs={'class': 'form-select'}),
             'sueldo_basico': forms.NumberInput(attrs={
                 'class': 'form-control', 'step': '0.01', 'min': '0',
             }),
@@ -336,10 +337,19 @@ class EstructuraSalarialForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from .models import Contrato, ContratoServicio
+        from .models import Contrato, ContratoServicio, Maquina
         self.fields['contrato'].queryset = Contrato.objects.filter(
             estado='ACTIVO'
         ).order_by('nombre_contrato')
         self.fields['contrato_servicio'].queryset = ContratoServicio.objects.filter(
             activo=True
         ).select_related('contrato').order_by('contrato__nombre_contrato', 'tipo_servicio')
+        # Filter machines by the instance's contract if editing
+        if self.instance and self.instance.pk and self.instance.contrato_id:
+            self.fields['maquina'].queryset = Maquina.objects.filter(
+                contrato=self.instance.contrato
+            ).order_by('nombre')
+        else:
+            self.fields['maquina'].queryset = Maquina.objects.none()
+        self.fields['maquina'].required = False
+        self.fields['maquina'].empty_label = '— General (todas las máquinas) —'
