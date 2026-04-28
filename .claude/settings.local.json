@@ -15,7 +15,8 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\('drilling/views_payroll.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('drilling/views_payroll.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
       "Bash(venv/Scripts/python.exe -c ' *)",
-      "Bash(python manage.py shell -c ' *)"
+      "Bash(python manage.py shell -c ' *)",
+      "Bash(python -c ' *)"
     ]
   }
 }

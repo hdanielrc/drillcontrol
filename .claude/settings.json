@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\check_syntax.py\")"
+    ]
+  }
+}

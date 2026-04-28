@@ -694,8 +694,14 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 _metros_maquina[_r['turno__maquina_id']] = Decimal(str(_r['total'] or 0))
 
         # nombre de máquinas para el desglose en template
-        from .models import Maquina as _Maquina
+        from .models import Maquina as _Maquina, MetaMaquina as _MetaMaquina
         _maquina_nombres = dict(_Maquina.objects.filter(contrato=contrato).values_list('id', 'nombre'))
+
+        # meta programada por máquina para el período (MetaMaquina.meta_metros)
+        _meta_maquina = dict(
+            _MetaMaquina.objects.filter(contrato=contrato, año=anio, mes=mes)
+            .values_list('maquina_id', 'meta_metros')
+        )
 
         # días trabajados por trabajador+máquina en el período operativo 26-25
         # misma lógica que la tabla Excel del tareo (views_tareo.py línea 1795-1807):
@@ -851,11 +857,14 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 _acum_prorrateo_total = Decimal('0')
                 _total_prorrateo_total = Decimal('0')
                 _total_dias_en_maq = 0
+                _dias_meta_cumplida = 0  # días en máquinas que superaron la meta
 
                 for _maq_id, _dias_raw in _maq_entradas:
                     _dias_en_maq = min(_dias_raw, _dias_mes_op)
                     _d_en_maq = Decimal(str(_dias_en_maq))
                     _metros_maq = _metros_maquina.get(_maq_id, Decimal('0'))
+                    _meta_maq = _meta_maquina.get(_maq_id)
+                    _meta_cumplida = _meta_maq is not None and _metros_maq >= _meta_maq
                     _base_p = (
                         (metraje_base_val / _d_op * _d_en_maq).quantize(Decimal('0.01'))
                         if _d_op > 0 else Decimal('0')
@@ -870,6 +879,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         'maquina_nombre': _maquina_nombres.get(_maq_id, f'Máq. {_maq_id}'),
                         'dias': _dias_en_maq,
                         'metros_acum': float(_metros_maq),
+                        'meta_metros': float(_meta_maq) if _meta_maq is not None else None,
+                        'meta_cumplida': _meta_cumplida,
                         'base_prorrateo': float(_base_p),
                         'acum_prorrateo': float(_acum_p),
                         'total': float(_total_p),
@@ -878,6 +889,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     _acum_prorrateo_total += _acum_p
                     _total_prorrateo_total += _total_p
                     _total_dias_en_maq += _dias_en_maq
+                    if _meta_cumplida:
+                        _dias_meta_cumplida += _dias_en_maq
 
                 # Si el trabajador no tiene asistencias con máquina, fila vacía
                 if not _maq_entradas:
@@ -900,11 +913,13 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'total': float(_total_prorrateo_total),
                     'dias_mes_operativo': _dias_mes_op,
                     'dias_en_maquina': _total_dias_en_maq,
+                    'dias_meta_cumplida': _dias_meta_cumplida,
                     'metraje_base_prorrateo': float(_base_prorrateo_total),
                     'metraje_acum_prorrateo': float(_acum_prorrateo_total),
                     'desglose_maquinas': _desglose_maquinas,
                     'tipo_calculo': tipo_calc,
                     'bono_meta_total': 0,
+                    'gran_total': float(_total_prorrateo_total),
                 })
                 if tipo_calc != 'ambos':
                     continue  # no procesar secciones para trabajadores de metraje puro
@@ -988,9 +1003,19 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             # aplicará más adelante cuando se integre el cálculo por días).
             total_monto_trab = total_monto_trab.quantize(Decimal('0.01'))
 
-            # Para trabajadores 'ambos', propagar el total meta a su fila metraje
+            # Para trabajadores 'ambos', calcular bono_meta prorrateado:
+            # solo se entrega por los días trabajados en máquinas que superaron la meta.
             if tipo_calc == 'ambos' and filas_metraje:
-                filas_metraje[-1]['bono_meta_total'] = float(total_monto_trab)
+                _fila_m = filas_metraje[-1]
+                _d_op_dec = Decimal(str(_dias_mes_op))
+                _dias_ok = Decimal(str(_fila_m['dias_meta_cumplida']))
+                if _d_op_dec > 0 and _dias_ok > 0:
+                    _bono_meta_calc = (total_monto_trab / _d_op_dec * _dias_ok).quantize(Decimal('0.01'))
+                else:
+                    _bono_meta_calc = Decimal('0')
+                _fila_m['bono_meta_total'] = float(_bono_meta_calc)
+                _fila_m['bono_meta_base'] = float(total_monto_trab)
+                _fila_m['gran_total'] = round(_fila_m['total'] + float(_bono_meta_calc), 2)
 
             # Auto-persistir monto_final en cada carga (no esperar a que el usuario pulse Guardar)
             if bono_trab.monto_final != total_monto_trab:

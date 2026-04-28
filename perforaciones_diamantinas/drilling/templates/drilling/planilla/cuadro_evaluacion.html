@@ -279,12 +279,13 @@
                     <th class="th-blue" title="(Metraje base / días mes op.) × días trab. en máquina">Base<br>prorrateada (m)</th>
                     <th class="th-navy" title="(Metros acum. máquina / días mes op.) × días trab. en máquina">Acum.<br>prorrateado (m)</th>
                     <th class="th-blue" title="Bono por cumplimiento de meta (calificación por áreas)">Bono Meta<br>(S/)</th>
+                    <th class="th-teal" title="(Acum. prorrat. − Base prorrat.) × Monto">Bono Metraje<br>(S/)</th>
                     <th class="th-green">Total</th>
                 </tr>
             </thead>
             <tbody>
                 <tr class="row-contrato">
-                    <td colspan="11"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
+                    <td colspan="12"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
                 </tr>
                 {% for fila in contrato_data.filas_metraje %}
                 <tr class="metraje-row {% if fila.desglose_maquinas|length > 1 %}has-desglose{% endif %}"
@@ -324,25 +325,34 @@
                     <td class="td-acum">
                         {{ fila.metraje_acum_prorrateo|floatformat:2 }} m
                     </td>
-                    <td class="td-monto">
-                        {% if fila.bono_meta_total %}S/ {{ fila.bono_meta_total|floatformat:2 }}{% else %}&mdash;{% endif %}
+                    <td class="td-monto" title="{% if fila.bono_meta_base %}Base cumplimiento: S/ {{ fila.bono_meta_base|floatformat:2 }} × {{ fila.dias_meta_cumplida }}/{{ fila.dias_mes_operativo }} días con meta superada{% endif %}">
+                        {% if fila.bono_meta_total %}
+                            S/ {{ fila.bono_meta_total|floatformat:2 }}
+                            {% if fila.dias_meta_cumplida is not None %}
+                            <br><small style="font-weight:400;font-size:10px;opacity:.7;">{{ fila.dias_meta_cumplida }}/{{ fila.dias_mes_operativo }} días</small>
+                            {% endif %}
+                        {% else %}&mdash;{% endif %}
                     </td>
-                    <td class="td-total metraje-bono-calc">
+                    <td class="td-monto metraje-bono-calc">
                         S/ {{ fila.total|floatformat:2 }}
                         <br><small style="font-weight:400;font-size:10px;opacity:.7;">
                             ({{ fila.metraje_acum_prorrateo|floatformat:2 }} &minus; {{ fila.metraje_base_prorrateo|floatformat:2 }}) &times; {{ fila.monto_ajustado|floatformat:3 }}
                         </small>
                     </td>
+                    <td class="td-total">
+                        S/ {{ fila.gran_total|floatformat:2 }}
+                    </td>
                 </tr>
                 {% if fila.desglose_maquinas|length > 1 %}
                 <tr id="desglose-{{ forloop.parentloop.counter }}-{{ forloop.counter }}" class="desglose-maquinas-row" style="display:none;">
-                    <td colspan="11" style="padding:0;background:#f8f9fa;border-top:none;">
+                    <td colspan="12" style="padding:0;background:#f8f9fa;border-top:none;">
                         <table style="width:100%;font-size:11px;border-collapse:collapse;">
                             <thead>
                                 <tr style="background:#e9ecef;color:#495057;">
                                     <th style="padding:4px 12px;text-align:left;font-weight:600;">Máquina</th>
                                     <th style="padding:4px 8px;">Días en máq.</th>
                                     <th style="padding:4px 8px;">Metros acum.</th>
+                                    <th style="padding:4px 8px;">Meta (m)</th>
                                     <th style="padding:4px 8px;">Base prorrat. (m)</th>
                                     <th style="padding:4px 8px;">Acum. prorrat. (m)</th>
                                     <th style="padding:4px 8px;">Total</th>
@@ -350,10 +360,20 @@
                             </thead>
                             <tbody>
                                 {% for maq in fila.desglose_maquinas %}
-                                <tr style="border-top:1px solid #dee2e6;">
+                                <tr style="border-top:1px solid #dee2e6;{% if maq.meta_cumplida %}background:#f0fff4;{% endif %}">
                                     <td style="padding:4px 12px;text-align:left;font-weight:500;">{{ maq.maquina_nombre }}</td>
                                     <td style="padding:4px 8px;text-align:center;">{{ maq.dias }}</td>
                                     <td style="padding:4px 8px;text-align:center;">{{ maq.metros_acum|floatformat:1 }} m</td>
+                                    <td style="padding:4px 8px;text-align:center;">
+                                        {% if maq.meta_metros is not None %}
+                                            {{ maq.meta_metros|floatformat:1 }} m
+                                            {% if maq.meta_cumplida %}
+                                                <span style="color:#28a745;font-size:10px;"> &#10003;</span>
+                                            {% else %}
+                                                <span style="color:#dc3545;font-size:10px;"> &#10007;</span>
+                                            {% endif %}
+                                        {% else %}&mdash;{% endif %}
+                                    </td>
                                     <td style="padding:4px 8px;text-align:center;">{{ maq.base_prorrateo|floatformat:2 }} m</td>
                                     <td style="padding:4px 8px;text-align:center;">{{ maq.acum_prorrateo|floatformat:2 }} m</td>
                                     <td style="padding:4px 8px;text-align:center;font-weight:600;color:#155724;">
