@@ -201,7 +201,7 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
             instance.tipo_calculo_por_trabajador = {
                 dni: tipo
                 for dni, tipo in tipo_calc_raw.items()
-                if tipo in ('metraje', 'cumplimiento')
+                if tipo in ('metraje', 'cumplimiento', 'ambos')
             }
         except (ValueError, TypeError):
             instance.tipo_calculo_por_trabajador = {}
