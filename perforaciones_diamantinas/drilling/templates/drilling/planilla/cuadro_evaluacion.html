@@ -405,6 +405,7 @@
                 {% for fila in contrato_data.filas_metraje %}
                 <tr class="metraje-row {% if fila.desglose_maquinas|length > 1 %}has-desglose{% endif %}"
                     data-bono-pk="{{ fila.bono_pk }}"
+                    data-tipo-calculo="{{ fila.tipo_calculo|default:'metraje' }}"
                     data-bono-por-metro="{{ fila.bono_por_metraje }}"
                     data-metraje-base="{{ fila.metraje_base }}"
                     data-seg-activo="{{ fila.seg_activo|yesno:'true,false' }}"
@@ -555,9 +556,15 @@ function guardarTodo() {
     });
 
     // Trabajadores metraje: enviar bono_pk + monto_final calculado
+    // Para "ambos", no enviar monto_final (lo gestiona la fila de cumplimiento)
     document.querySelectorAll('.metraje-row').forEach(tr => {
         const bonoPk = tr.dataset.bonoPk;
         if (!bonoPk) return;
+        const tipoCalculo = tr.dataset.tipoCalculo || 'metraje';
+        if (tipoCalculo === 'ambos') {
+            bonos.push({bono_pk: parseInt(bonoPk), criterios: {}});
+            return;
+        }
         const calcCell = tr.querySelector('.metraje-bono-calc');
         const montoFinal = calcCell ? parseFloat(calcCell.textContent.replace(/[^0-9.\-]/g, '')) || 0 : 0;
         bonos.push({bono_pk: parseInt(bonoPk), criterios: {}, monto_final: montoFinal});

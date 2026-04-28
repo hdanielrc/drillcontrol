@@ -516,42 +516,52 @@
                 const tbody = section.querySelector('tbody');
                 trabajadores.forEach(({ dni, nombre }) => {
                     const tipo = tipoCalculoMap[dni] || 'cumplimiento';
+                    const metCheck = tipo === 'metraje' || tipo === 'ambos';
+                    const cumCheck = tipo === 'cumplimiento' || tipo === 'ambos';
                     const tr = document.createElement('tr');
                     tr.dataset.dni = dni;
                     tr.innerHTML = `
                         <td class="small align-middle">${nombre} <span class="text-muted" style="font-size:10px;">${dni}</span></td>
                         <td class="text-center">
-                            <div class="btn-group btn-group-sm" role="group">
-                                <input type="radio" class="btn-check trab-tipo-radio" name="tipo_${dni}"
-                                       id="tipo_metraje_${dni}" value="metraje" autocomplete="off"
-                                       data-dni="${dni}" ${tipo === 'metraje' ? 'checked' : ''}>
-                                <label class="btn btn-outline-success py-0 px-2" for="tipo_metraje_${dni}">
-                                    <i class="fas fa-ruler-vertical me-1"></i>Metraje
-                                </label>
-                                <input type="radio" class="btn-check trab-tipo-radio" name="tipo_${dni}"
-                                       id="tipo_cumpl_${dni}" value="cumplimiento" autocomplete="off"
-                                       data-dni="${dni}" ${tipo === 'cumplimiento' ? 'checked' : ''}>
-                                <label class="btn btn-outline-primary py-0 px-2" for="tipo_cumpl_${dni}">
-                                    <i class="fas fa-chart-bar me-1"></i>Cumplimiento
-                                </label>
+                            <div class="d-flex flex-column gap-1 align-items-end">
+                                <div>
+                                    <input type="checkbox" class="btn-check trab-tipo-check"
+                                           id="tipo_metraje_${dni}" data-tipo="metraje" data-dni="${dni}"
+                                           autocomplete="off" ${metCheck ? 'checked' : ''}>
+                                    <label class="btn btn-outline-success btn-sm py-0 px-2" for="tipo_metraje_${dni}">
+                                        <i class="fas fa-ruler-vertical me-1"></i>Metraje
+                                    </label>
+                                </div>
+                                <div>
+                                    <input type="checkbox" class="btn-check trab-tipo-check"
+                                           id="tipo_cumpl_${dni}" data-tipo="cumplimiento" data-dni="${dni}"
+                                           autocomplete="off" ${cumCheck ? 'checked' : ''}>
+                                    <label class="btn btn-outline-primary btn-sm py-0 px-2" for="tipo_cumpl_${dni}">
+                                        <i class="fas fa-chart-bar me-1"></i>Cumplimiento
+                                    </label>
+                                </div>
                             </div>
                         </td>`;
                     tbody.appendChild(tr);
                 });
             });
 
-            // Event listeners para los radio buttons
-            tablasTrab.querySelectorAll('.trab-tipo-radio').forEach(radio => {
-                radio.addEventListener('change', () => {
-                    if (radio.checked) {
-                        const dni = radio.dataset.dni;
-                        if (radio.value === 'cumplimiento') {
-                            delete tipoCalculoMap[dni];
-                        } else {
-                            tipoCalculoMap[dni] = radio.value;
-                        }
-                        sincronizarTipoCalculo();
+            // Event listeners para los checkboxes de tipo de cálculo
+            tablasTrab.querySelectorAll('.trab-tipo-check').forEach(chk => {
+                chk.addEventListener('change', () => {
+                    const dni = chk.dataset.dni;
+                    const metChk = document.getElementById(`tipo_metraje_${dni}`);
+                    const cumChk = document.getElementById(`tipo_cumpl_${dni}`);
+                    const met = metChk && metChk.checked;
+                    const cum = cumChk && cumChk.checked;
+                    if (met && cum) {
+                        tipoCalculoMap[dni] = 'ambos';
+                    } else if (met) {
+                        tipoCalculoMap[dni] = 'metraje';
+                    } else {
+                        delete tipoCalculoMap[dni];  // cumplimiento es el valor por defecto
                     }
+                    sincronizarTipoCalculo();
                 });
             });
 

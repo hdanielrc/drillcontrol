@@ -784,8 +784,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 generar_detalles_vacios(bono_trab, config)
                 generar_calificaciones_criterios(bono_trab)
 
-            # ── TRABAJADORES DE METRAJE: cálculo directo ──────────────────────
-            if tipo_calc == 'metraje':
+            # ── TRABAJADORES DE METRAJE o AMBOS: cálculo directo ─────────────
+            if tipo_calc in ('metraje', 'ambos'):
                 seg_cgp = conceptos_globales_periodo.get('SEGURIDAD')
                 seg_puntaje = float(seg_cgp.porcentaje_bono) if seg_cgp else 0.0
                 seg_activo = seg_puntaje >= 100
@@ -813,7 +813,11 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     Decimal(str(_metros)).quantize(Decimal('0.001'))
                     if _metros else Decimal('0')
                 )
-                bono_por_metro_val = bono_trab.bono_base  # tarifa por metro (unit rate)
+                # Para "ambos", bono_base tiene el monto de cumplimiento; leer tarifa desde EstructuraSalarial
+                if tipo_calc == 'ambos':
+                    bono_por_metro_val = (est_m.bono_por_metraje if est_m and est_m.bono_por_metraje else Decimal('0'))
+                else:
+                    bono_por_metro_val = bono_trab.bono_base  # tarifa por metro (unit rate)
 
                 # Persiste el valor calculado para referencia histórica
                 if bono_trab.metraje_acumulado != metraje_acum_val:
@@ -823,8 +827,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 monto_ajustado = (bono_por_metro_val * mult_total).quantize(Decimal('0.001'))
                 bono_calculado = ((metraje_acum_val - metraje_base_val) * monto_ajustado).quantize(Decimal('0.01'))
 
-                # Auto-persistir monto_final en cada carga (no esperar a que el usuario pulse Guardar)
-                if bono_trab.monto_final != bono_calculado:
+                # Auto-persistir monto_final solo para metraje puro (para "ambos" lo gestiona el bloque de cumplimiento)
+                if tipo_calc != 'ambos' and bono_trab.monto_final != bono_calculado:
                     bono_trab.monto_calculado = bono_calculado
                     bono_trab.monto_final = (bono_calculado + bono_trab.monto_ajuste).quantize(Decimal('0.01'))
                     bono_trab.registrar_historial(
@@ -899,8 +903,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'metraje_base_prorrateo': float(_base_prorrateo_total),
                     'metraje_acum_prorrateo': float(_acum_prorrateo_total),
                     'desglose_maquinas': _desglose_maquinas,
+                    'tipo_calculo': tipo_calc,
                 })
-                continue  # no procesar secciones para trabajadores de metraje
+                if tipo_calc != 'ambos':
+                    continue  # no procesar secciones para trabajadores de metraje puro
 
             # Construir datos de secciones con criterios (solo cumplimiento)
             secciones_data = []
