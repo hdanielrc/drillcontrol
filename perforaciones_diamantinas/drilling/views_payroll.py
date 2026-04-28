@@ -1011,12 +1011,18 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 'total': float(total_monto_trab),
             })
 
+        # Embed metraje data into "ambos" cumplimiento filas for unified table rendering
+        _met_ambos = {f['trabajador_pk']: f for f in filas_metraje if f['tipo_calculo'] == 'ambos'}
+        for f in filas_cumplimiento:
+            if f.get('tipo_calculo') == 'ambos':
+                f['metraje_info'] = _met_ambos.get(f['trabajador_pk'])
+
         if filas_cumplimiento or filas_metraje:
             datos_por_contrato[contrato.nombre_contrato] = {
                 'contrato_pk': contrato.pk,
                 'periodo_pk': periodo.pk,
                 'filas': filas_cumplimiento,
-                'filas_metraje': filas_metraje,
+                'filas_metraje': [f for f in filas_metraje if f['tipo_calculo'] == 'metraje'],
             }
 
     # Preparar estructura de secciones para el header
@@ -1037,6 +1043,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
+    seccion_cols_span = 1 + sum(s['colspan'] for s in secciones_header)
+    total_table_cols = seccion_cols_span + 6
+
     context = {
         'tipo_bono': tipo_bono,
         'anio': anio,
@@ -1044,6 +1053,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         'mes_nombre': MESES[mes],
         'secciones_header': secciones_header,
         'datos_por_contrato': datos_por_contrato,
+        'seccion_cols_span': seccion_cols_span,
+        'total_table_cols': total_table_cols,
         'rango_anios': range(2025, date.today().year + 2),
     }
     return render(request, 'drilling/planilla/cuadro_evaluacion.html', context)

@@ -257,10 +257,10 @@
     </div>
     {% else %}
 
-    <!-- Tabla principal — Cumplimiento -->
+    <!-- Tabla unificada — Cumplimiento + Metraje -->
     <div class="tabla-seccion-titulo">
-        <i class="fas fa-check-double"></i>
-        <span>Trabajadores por Cumplimiento</span>
+        <i class="fas fa-table"></i>
+        <span>Cuadro de Evaluación</span>
         <span class="badge-tipo">Calificación por áreas</span>
     </div>
     <div class="bono-table-wrap">
@@ -297,12 +297,19 @@
             <tbody>
                 {% for contrato_nombre, contrato_data in datos_por_contrato.items %}
                 <tr class="row-contrato">
-                    <td colspan="100"><i class="fas fa-building"></i> {{ contrato_nombre|upper }}</td>
+                    <td colspan="{{ total_table_cols }}"><i class="fas fa-building"></i> {{ contrato_nombre|upper }}</td>
                 </tr>
+
+                {# ── Trabajadores de Cumplimiento (y Ambos) ── #}
                 {% for fila in contrato_data.filas %}
                 <tr class="worker-row" data-bono-pk="{{ fila.bono_pk }}">
                     <td></td>
-                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">{{ fila.nombre_completo }}</td>
+                    <td class="cell-nombre" title="{{ fila.nombre_completo }}">
+                        {{ fila.nombre_completo }}
+                        {% if fila.tipo_calculo == 'ambos' %}
+                        <span style="font-size:9px;background:#d1fae5;color:#065f46;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700;">+M</span>
+                        {% endif %}
+                    </td>
                     <td class="cell-cargo">{{ fila.cargo }}</td>
                     <td class="dias-trab">{{ fila.dias_trabajados }}</td>
                     <td class="dias-op">{{ fila.dias_operativos }}</td>
@@ -316,7 +323,6 @@
                     </td>
                     {% for sec in fila.secciones %}
                         {% if sec.fuente_puntaje == 'global' %}
-                        {# ── Concepto global: siempre muestra % como texto (no combobox) ── #}
                         <td class="td-pct seccion-pct {% if sec.puntaje == 100 %}pct-100{% elif sec.puntaje >= 80 %}pct-80{% else %}pct-low{% endif %}"
                             data-concepto-pk="{{ sec.concepto_pk }}"
                             data-puntaje-global="{{ sec.puntaje }}">
@@ -324,7 +330,6 @@
                             <i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;opacity:.6;margin-left:2px;"></i>
                         </td>
                         {% elif sec.tabla_calificacion %}
-                        {# ── Sección con tabla fija: desplegable de calificación ── #}
                         <td class="td-pct seccion-pct" data-concepto-pk="{{ sec.concepto_pk }}">
                             <select class="tabla-calif-select"
                                     data-bono-pk="{{ fila.bono_pk }}"
@@ -345,7 +350,6 @@
                             </select>
                         </td>
                         {% else %}
-                        {# ── Sección con criterios (checkboxes) ── #}
                         {% for crit in sec.criterios %}
                         <td class="cell-check">
                             <input type="checkbox"
@@ -368,52 +372,65 @@
                     {% endfor %}
                     <td class="td-total fila-total">S/ {{ fila.total }}</td>
                 </tr>
-                {% endfor %}
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 
-    <!-- ── Tablas de Trabajadores por METRAJE (una por contrato) ───────────── -->
-    {% for contrato_nombre, contrato_data in datos_por_contrato.items %}
-    {% if contrato_data.filas_metraje %}
-    <div class="tabla-seccion-titulo">
-        <i class="fas fa-bolt"></i>
-        <span>Trabajadores por Metraje</span>
-        <span class="badge-tipo" style="background:#1e9645;">{{ contrato_nombre|upper }}</span>
-    </div>
-    <div class="bono-table-wrap">
-        <table class="bono-table">
-            <thead>
-                <tr>
-                    <th class="th-dark" style="text-align:left;min-width:200px;">Trabajador</th>
-                    <th class="th-dark" style="text-align:left;min-width:130px;">Cargo</th>
-                    <th class="th-blue">Bono p/metro<br>(S/m)</th>
-                    <th class="th-blue">Metraje base<br>(m)</th>
-                    <th class="th-slate">Seguridad %</th>
-                    <th class="th-yellow">Total %</th>
-                    <th class="th-teal">Monto<br>(S/m &times; %)</th>
-                    <th class="th-blue" title="(Metraje base / días mes op.) × días trab. en máquina">Base<br>prorrateada (m)</th>
-                    <th class="th-navy" title="(Metros acum. máquina / días mes op.) × días trab. en máquina">Acum.<br>prorrateado (m)</th>
-                    <th class="th-green">Total</th>
+                {# Sub-fila de metraje para trabajadores "ambos" #}
+                {% if fila.tipo_calculo == 'ambos' and fila.metraje_info %}
+                {% with m=fila.metraje_info %}
+                <tr class="metraje-row"
+                    data-bono-pk="{{ m.bono_pk }}"
+                    data-tipo-calculo="ambos"
+                    style="background:#f0fdf4;font-size:11px;">
+                    <td></td>
+                    <td colspan="4" class="text-end" style="color:#065f46;font-size:10px;padding-right:10px;font-weight:600;">
+                        <i class="fas fa-ruler-vertical" style="font-size:9px;"></i> Bono Metraje
+                    </td>
+                    <td colspan="{{ seccion_cols_span }}" style="padding:5px 10px;">
+                        <div class="d-flex flex-wrap gap-3 align-items-center" style="font-size:11px;color:#374151;">
+                            <span><b style="color:#065f46;">S/m:</b> {{ m.bono_por_metraje|floatformat:3 }}</span>
+                            <span><b style="color:#065f46;">Base:</b> {{ m.metraje_base|floatformat:0 }} m</span>
+                            <span><b style="color:#065f46;">Seg:</b>
+                                <span class="{% if m.seg_activo %}kpi-ok{% else %}kpi-fail{% endif %}">{% if m.seg_activo %}SI{% else %}NO{% endif %}</span>
+                                ({{ m.seg_puntaje|floatformat:0 }}%)
+                            </span>
+                            <span><b style="color:#065f46;">%:</b> {{ m.mult_total_pct }}%</span>
+                            <span><b style="color:#065f46;">Monto/m:</b> {{ m.monto_ajustado|floatformat:3 }}</span>
+                            <span style="border-left:1px solid #d1fae5;padding-left:10px;">
+                                <b style="color:#065f46;">Base p.:</b> {{ m.metraje_base_prorrateo|floatformat:2 }} m
+                                &nbsp;|&nbsp;
+                                <b style="color:#065f46;">Acum p.:</b> {{ m.metraje_acum_prorrateo|floatformat:2 }} m
+                                <small style="color:#6b7280;margin-left:4px;">({{ m.dias_en_maquina }}/{{ m.dias_mes_operativo }} días)</small>
+                            </span>
+                        </div>
+                    </td>
+                    <td class="td-total metraje-bono-calc" style="font-size:11px;">
+                        S/ {{ m.total|floatformat:2 }}
+                        <br><small style="font-weight:400;font-size:10px;opacity:.7;">
+                            ({{ m.metraje_acum_prorrateo|floatformat:2 }}&minus;{{ m.metraje_base_prorrateo|floatformat:2 }})&times;{{ m.monto_ajustado|floatformat:3 }}
+                        </small>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                <tr class="row-contrato">
-                    <td colspan="10"><i class="fas fa-bolt"></i> Trabajadores por Metraje &mdash; {{ contrato_nombre|upper }}</td>
+                {% endwith %}
+                {% endif %}
+
+                {% endfor %}
+
+                {# ── Trabajadores de Metraje puro ── #}
+                {% if contrato_data.filas_metraje %}
+                <tr style="background:#e8f5e9;">
+                    <td colspan="{{ total_table_cols }}" style="padding:4px 14px;font-size:11px;font-weight:700;color:#1e9645;border-left:3px solid #1e9645;">
+                        <i class="fas fa-ruler-vertical"></i> Trabajadores por Metraje — {{ contrato_nombre|upper }}
+                    </td>
                 </tr>
                 {% for fila in contrato_data.filas_metraje %}
                 <tr class="metraje-row {% if fila.desglose_maquinas|length > 1 %}has-desglose{% endif %}"
                     data-bono-pk="{{ fila.bono_pk }}"
-                    data-tipo-calculo="{{ fila.tipo_calculo|default:'metraje' }}"
-                    data-bono-por-metro="{{ fila.bono_por_metraje }}"
-                    data-metraje-base="{{ fila.metraje_base }}"
-                    data-seg-activo="{{ fila.seg_activo|yesno:'true,false' }}"
+                    data-tipo-calculo="metraje"
                     {% if fila.desglose_maquinas|length > 1 %}
                     style="cursor:pointer;"
                     onclick="toggleDesglose('desglose-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')"
                     title="Clic para ver desglose por máquina"
                     {% endif %}>
+                    <td></td>
                     <td class="cell-nombre" title="{{ fila.nombre_completo }}">
                         {% if fila.desglose_maquinas|length > 1 %}
                         <span style="color:#6c757d;font-size:10px;margin-right:3px;">&#9660;</span>
@@ -421,35 +438,36 @@
                         {{ fila.nombre_completo }}
                     </td>
                     <td class="cell-cargo">{{ fila.cargo }}</td>
-                    <td>{{ fila.bono_por_metraje|floatformat:3 }}</td>
-                    <td>{{ fila.metraje_base|floatformat:0 }}</td>
-                    <td class="td-pct {% if fila.seg_activo %}pct-100{% else %}pct-low{% endif %}">
-                        <span class="{% if fila.seg_activo %}kpi-ok{% else %}kpi-fail{% endif %}">
-                            {% if fila.seg_activo %}SI{% else %}NO{% endif %}
-                        </span>
-                        <br><small style="font-weight:400;font-size:10px;">({{ fila.seg_puntaje|floatformat:0 }}%)</small>
-                    </td>
-                    <td class="td-pct">{{ fila.mult_total_pct }}%</td>
-                    <td class="td-monto metraje-monto-ajustado">{{ fila.monto_ajustado|floatformat:3 }}</td>
-                    <td class="td-acum">
-                        {{ fila.metraje_base_prorrateo|floatformat:2 }} m
-                        <br><small style="font-weight:400;font-size:10px;opacity:.7;">
-                            {{ fila.dias_en_maquina }}/{{ fila.dias_mes_operativo }} días
-                        </small>
-                    </td>
-                    <td class="td-acum">
-                        {{ fila.metraje_acum_prorrateo|floatformat:2 }} m
+                    <td class="dias-trab">{{ fila.dias_trabajados }}</td>
+                    <td class="dias-op">{{ fila.dias_operativos }}</td>
+                    <td colspan="{{ seccion_cols_span }}" style="padding:5px 10px;">
+                        <div class="d-flex flex-wrap gap-3 align-items-center" style="font-size:11px;color:#374151;">
+                            <span><b style="color:#065f46;">S/m:</b> {{ fila.bono_por_metraje|floatformat:3 }}</span>
+                            <span><b style="color:#065f46;">Base:</b> {{ fila.metraje_base|floatformat:0 }} m</span>
+                            <span><b style="color:#065f46;">Seg:</b>
+                                <span class="{% if fila.seg_activo %}kpi-ok{% else %}kpi-fail{% endif %}">{% if fila.seg_activo %}SI{% else %}NO{% endif %}</span>
+                                ({{ fila.seg_puntaje|floatformat:0 }}%)
+                            </span>
+                            <span><b style="color:#065f46;">%:</b> {{ fila.mult_total_pct }}%</span>
+                            <span><b style="color:#065f46;">Monto/m:</b> {{ fila.monto_ajustado|floatformat:3 }}</span>
+                            <span style="border-left:1px solid #d1fae5;padding-left:10px;">
+                                <b style="color:#065f46;">Base p.:</b> {{ fila.metraje_base_prorrateo|floatformat:2 }} m
+                                &nbsp;|&nbsp;
+                                <b style="color:#065f46;">Acum p.:</b> {{ fila.metraje_acum_prorrateo|floatformat:2 }} m
+                                <small style="color:#6b7280;margin-left:4px;">({{ fila.dias_en_maquina }}/{{ fila.dias_mes_operativo }} días)</small>
+                            </span>
+                        </div>
                     </td>
                     <td class="td-total metraje-bono-calc">
                         S/ {{ fila.total|floatformat:2 }}
                         <br><small style="font-weight:400;font-size:10px;opacity:.7;">
-                            ({{ fila.metraje_acum_prorrateo|floatformat:2 }} &minus; {{ fila.metraje_base_prorrateo|floatformat:2 }}) &times; {{ fila.monto_ajustado|floatformat:3 }}
+                            ({{ fila.metraje_acum_prorrateo|floatformat:2 }}&minus;{{ fila.metraje_base_prorrateo|floatformat:2 }})&times;{{ fila.monto_ajustado|floatformat:3 }}
                         </small>
                     </td>
                 </tr>
                 {% if fila.desglose_maquinas|length > 1 %}
                 <tr id="desglose-{{ forloop.parentloop.counter }}-{{ forloop.counter }}" class="desglose-maquinas-row" style="display:none;">
-                    <td colspan="10" style="padding:0;background:#f8f9fa;border-top:none;">
+                    <td colspan="{{ total_table_cols }}" style="padding:0;background:#f8f9fa;border-top:none;">
                         <table style="width:100%;font-size:11px;border-collapse:collapse;">
                             <thead>
                                 <tr style="background:#e9ecef;color:#495057;">
@@ -471,7 +489,7 @@
                                     <td style="padding:4px 8px;text-align:center;">{{ maq.acum_prorrateo|floatformat:2 }} m</td>
                                     <td style="padding:4px 8px;text-align:center;font-weight:600;color:#155724;">
                                         S/ {{ maq.total|floatformat:2 }}
-                                        <br><small style="font-weight:400;opacity:.7;">({{ maq.acum_prorrateo|floatformat:2 }} &minus; {{ maq.base_prorrateo|floatformat:2 }}) &times; {{ fila.monto_ajustado|floatformat:3 }}</small>
+                                        <br><small style="font-weight:400;opacity:.7;">({{ maq.acum_prorrateo|floatformat:2 }}&minus;{{ maq.base_prorrateo|floatformat:2 }})&times;{{ fila.monto_ajustado|floatformat:3 }}</small>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -481,11 +499,12 @@
                 </tr>
                 {% endif %}
                 {% endfor %}
+                {% endif %}
+
+                {% endfor %}
             </tbody>
         </table>
     </div>
-    {% endif %}
-    {% endfor %}
 
     {% endif %}
 </div>
