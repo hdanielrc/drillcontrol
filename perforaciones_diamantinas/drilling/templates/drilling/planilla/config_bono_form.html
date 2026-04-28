@@ -72,14 +72,14 @@
                             <!-- Columna derecha: tabla de cargos seleccionados con montos -->
                             <div class="col-md-7">
                                 <label class="form-label fw-bold">Cargos incluidos en este bono</label>
-                                <table class="table table-sm table-bordered mb-1" id="tablaCargosSeleccionados">
+                                <table class="table table-sm table-bordered mb-1" id="tablaCargosSeleccionados" style="font-size:11px;">
                                     <thead class="table-success">
                                         <tr>
                                             <th>Cargo</th>
-                                            <th style="width:120px;">Bono Área (S/)</th>
-                                            <th style="width:100px;">S/m (metraje)</th>
-                                            <th style="width:90px;">m base</th>
-                                            <th style="width:40px;"></th>
+                                            <th style="width:100px;">Bono Área (S/)</th>
+                                            <th style="width:80px;">S/m</th>
+                                            <th style="width:70px;">m base</th>
+                                            <th style="width:30px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tbodyCargos">
@@ -356,19 +356,20 @@
             tr.className = 'fila-cargo';
             tr.dataset.cargo = cargo;
             tr.innerHTML = `
-                <td class="small">${cargo}</td>
-                <td>
+                <td style="font-size:11px;">${cargo}</td>
+                <td style="padding:2px 4px;">
                     <div class="input-group input-group-sm">
-                        <span class="input-group-text">S/</span>
-                        <input type="number" step="0.01" min="0" class="form-control monto-cargo-input"
-                               value="${monto}" placeholder="0.00" data-cargo="${cargo}">
+                        <span class="input-group-text px-1" style="font-size:10px;">S/</span>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm monto-cargo-input"
+                               value="${monto}" placeholder="0.00" data-cargo="${cargo}"
+                               style="font-size:11px;padding:2px 4px;">
                     </div>
                 </td>
-                <td class="text-end small text-secondary">${bpm ? 'S/ ' + bpm : '<span class="text-muted">—</span>'}</td>
-                <td class="text-end small text-secondary">${mb  ? mb + ' m'   : '<span class="text-muted">—</span>'}</td>
-                <td class="text-center">
+                <td class="text-end text-secondary" style="font-size:11px;padding:2px 6px;">${bpm ? 'S/ ' + bpm : '<span class="text-muted">—</span>'}</td>
+                <td class="text-end text-secondary" style="font-size:11px;padding:2px 6px;">${mb  ? mb + ' m'   : '<span class="text-muted">—</span>'}</td>
+                <td class="text-center" style="padding:2px;">
                     <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 btn-quitar-cargo"
-                            data-cargo="${cargo}" title="Quitar cargo">
+                            data-cargo="${cargo}" title="Quitar cargo" style="font-size:10px;">
                         <i class="fas fa-times"></i>
                     </button>
                 </td>`;
@@ -629,6 +630,26 @@
                 const div = listaDisp.querySelector(`[data-cargo="${cargo}"]`);
                 if (div) div.classList.add('bg-success', 'text-white');
             });
+
+            // Cargar datos de estructura (S/m, m base) para cargos ya seleccionados en modo edición
+            const cargosACargar = [...cargosGuardados];
+            if (cargosACargar.length > 0) {
+                try {
+                    const params = new URLSearchParams({ contrato_id: contratoId, cargos: cargosACargar.join(',') });
+                    const resp2 = await fetch(`/planilla/api/bonificacion-area/?${params}`);
+                    const data2 = await resp2.json();
+                    cargosACargar.forEach(cargo => {
+                        const info = (data2.cargos || {})[cargo];
+                        if (info && info.encontrado) {
+                            estructuraMap[cargo] = {
+                                bono_por_metraje: info.bono_por_metraje || '0.00',
+                                metraje_base:     info.metraje_base     || '0.00',
+                                sueldo_basico:    info.sueldo_basico    || '0.00',
+                            };
+                        }
+                    });
+                } catch(e) { /* silenciar */ }
+            }
 
             if (Object.keys(montosMap).length > 0) {
                 renderTabla();
