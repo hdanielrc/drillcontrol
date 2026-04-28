@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(python -c ' *)",
-      "Bash(python \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\check_syntax.py\")"
+      "Bash(python \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\check_syntax.py\")",
+      "Bash(awk 'NR>=389 && NR<=410' perforaciones_diamantinas/drilling/templates/drilling/planilla/cuadro_evaluacion.html)",
+      "Bash(awk 'NR>=258 && NR<=420')",
+      "Bash(awk 'NR>=258 && NR<=350')",
+      "Bash(awk 'NR>=200 && NR<=275')",
+      "Bash(awk 'NR>=258 && NR<=270' perforaciones_diamantinas/drilling/templates/drilling/planilla/cuadro_evaluacion.html)",
+      "Bash(awk 'NR>=448 && NR<=480' perforaciones_diamantinas/drilling/templates/drilling/planilla/cuadro_evaluacion.html)"
     ]
   }
 }
