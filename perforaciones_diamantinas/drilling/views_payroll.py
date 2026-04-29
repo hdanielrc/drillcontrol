@@ -1650,7 +1650,7 @@ def estructura_salarial_list(request):
         estructuras = estructuras.filter(contrato_id=contrato_filter)
 
     if user.has_access_to_all_contracts():
-        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+        contratos = Contrato.objects.exclude(estado='FINALIZADO').order_by('nombre_contrato')
     elif user.contrato:
         contratos = Contrato.objects.filter(pk=user.contrato.pk)
     else:
@@ -1746,7 +1746,7 @@ def estructura_salarial_create(request):
     # GET: mostrar selector de contrato + CTR
     user = request.user
     if user.has_access_to_all_contracts():
-        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+        contratos = Contrato.objects.exclude(estado='FINALIZADO').order_by('nombre_contrato')
     elif user.contrato:
         contratos = Contrato.objects.filter(pk=user.contrato.pk)
     else:
