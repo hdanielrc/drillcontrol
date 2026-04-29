@@ -1,0 +1,193 @@
+{% extends base_template %}
+{% block title %}Asignación de Estructura Salarial{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-user-tag me-2"></i> Asignación de Estructura Salarial por Trabajador</h3>
+        <a href="{% url 'planilla-hub' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Filtros -->
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row align-items-center g-2">
+                {% if contratos|length > 1 %}
+                <div class="col-auto">
+                    <label class="fw-bold mb-0">Contrato:</label>
+                </div>
+                <div class="col-auto">
+                    <select name="contrato" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">— Seleccionar —</option>
+                        {% for c in contratos %}
+                        <option value="{{ c.pk }}" {% if contrato_filter == c.pk|stringformat:"d" %}selected{% endif %}>
+                            {{ c.nombre_contrato }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <input type="hidden" name="contrato" value="{{ contrato_filter }}">
+                {% endif %}
+
+                {% if cargos_disponibles %}
+                <div class="col-auto">
+                    <label class="fw-bold mb-0">Cargo:</label>
+                </div>
+                <div class="col-auto">
+                    <select name="cargo" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">— Todos —</option>
+                        {% for c in cargos_disponibles %}
+                        <option value="{{ c }}" {% if cargo_filter == c %}selected{% endif %}>{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    {% if not contrato_activo %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i> Selecciona un contrato para ver los trabajadores.
+    </div>
+    {% elif not trabajadores %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron trabajadores en este contrato.
+    </div>
+    {% else %}
+
+    <!-- Resumen -->
+    {% with total=trabajadores|length %}
+    {% with asignados=trabajadores|dictsortreversed:"asignacion"|length %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card border-0 bg-light text-center py-2">
+                <div class="fs-4 fw-bold text-primary">{{ total }}</div>
+                <small class="text-muted">Trabajadores</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 bg-success bg-opacity-10 text-center py-2">
+                <div class="fs-4 fw-bold text-success">
+                    {% with count=0 %}
+                    {% for item in trabajadores %}{% if item.asignacion %}{{ forloop.counter0|add:1 }}{% endif %}{% endfor %}
+                    {% endwith %}
+                </div>
+                <small class="text-muted">Con asignación explícita</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 bg-warning bg-opacity-10 text-center py-2">
+                <div class="fs-4 fw-bold text-warning">
+                    {% for item in trabajadores %}{% if not item.asignacion %}{{ forloop.counter0|add:1 }}{% endif %}{% endfor %}
+                </div>
+                <small class="text-muted">Sin asignación explícita</small>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+    {% endwith %}
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>DNI</th>
+                        <th>Cargo</th>
+                        <th>Máquina Asignada</th>
+                        <th>Estructura Salarial</th>
+                        <th>Sueldo Básico</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in trabajadores %}
+                    {% with t=item.trabajador a=item.asignacion %}
+                    <tr>
+                        <td>
+                            <span class="fw-semibold">{{ t.apepat }} {{ t.apemat }}</span><br>
+                            <small class="text-muted">{{ t.nombres }}</small>
+                        </td>
+                        <td><code>{{ t.dni }}</code></td>
+                        <td>
+                            <span class="badge bg-secondary">{{ t.cargo }}</span>
+                        </td>
+                        <td>
+                            {% if t.maquina_asignada %}
+                            <span class="badge bg-info text-dark">{{ t.maquina_asignada.nombre }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a %}
+                            {% with e=a.estructura_salarial %}
+                            <span class="fw-semibold">{{ e.cargo_contratado }}</span>
+                            {% if e.maquina %}
+                            <span class="badge bg-warning text-dark ms-1">{{ e.maquina.nombre }}</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark border ms-1">General</span>
+                            {% endif %}
+                            <br><small class="text-muted">CTR: {{ e.contrato_servicio.codigo_centro_costo }} | desde {{ a.fecha_inicio }}</small>
+                            {% endwith %}
+                            {% else %}
+                            <span class="text-muted fst-italic">Sin asignación explícita</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a %}
+                            <span class="text-success fw-semibold">S/ {{ a.estructura_salarial.sueldo_basico }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if a %}
+                            <span class="badge bg-success">Asignado</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'planilla-asignacion-estructura-asignar' t.pk %}"
+                               class="btn btn-sm {% if a %}btn-outline-primary{% else %}btn-primary{% endif %}"
+                               title="{% if a %}Cambiar asignación{% else %}Asignar estructura{% endif %}">
+                                <i class="fas {% if a %}fa-edit{% else %}fa-link{% endif %}"></i>
+                                {% if a %}Cambiar{% else %}Asignar{% endif %}
+                            </a>
+                            {% if a %}
+                            <form method="post" action="{% url 'planilla-asignacion-estructura-desactivar' a.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger ms-1"
+                                        onclick="return confirm('¿Quitar asignación de {{ t.apepat }} {{ t.nombres }}?')"
+                                        title="Quitar asignación">
+                                    <i class="fas fa-unlink"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

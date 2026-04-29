@@ -14,7 +14,8 @@
       "Bash(venv/Scripts/python.exe manage.py makemigrations drilling --name=\"estructurasalarial_maquina\")",
       "Bash(python manage.py makemigrations drilling --name=\"estructurasalarial_maquina\")",
       "Bash(python manage.py migrate drilling)",
-      "Bash(venv\\\\Scripts\\\\python.exe manage.py check --deploy)"
+      "Bash(venv\\\\Scripts\\\\python.exe manage.py check --deploy)",
+      "Bash(venv/Scripts/python.exe manage.py makemigrations drilling --name asignacionestructurasalarial)"
     ]
   }
 }

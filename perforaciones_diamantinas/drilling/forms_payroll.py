@@ -15,6 +15,7 @@ from .models_payroll import (
     BonoTrabajador,
     BonoTrabajadorDetalle,
     EstructuraSalarial,
+    AsignacionEstructuraSalarial,
 )
 
 
@@ -353,3 +354,36 @@ class EstructuraSalarialForm(forms.ModelForm):
             self.fields['maquina'].queryset = Maquina.objects.none()
         self.fields['maquina'].required = False
         self.fields['maquina'].empty_label = '— General (todas las máquinas) —'
+
+
+class AsignacionEstructuraSalarialForm(forms.ModelForm):
+    """Form para asignar una EstructuraSalarial específica a un trabajador."""
+
+    class Meta:
+        model = AsignacionEstructuraSalarial
+        fields = ['trabajador', 'estructura_salarial', 'fecha_inicio', 'fecha_fin', 'observaciones']
+        widgets = {
+            'trabajador': forms.HiddenInput(),
+            'estructura_salarial': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fecha_fin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+    def __init__(self, *args, contrato=None, cargo=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['estructura_salarial'].empty_label = '— Seleccionar estructura —'
+        if contrato and cargo:
+            self.fields['estructura_salarial'].queryset = EstructuraSalarial.objects.filter(
+                contrato=contrato,
+                cargo_contratado=cargo,
+                activo=True,
+            ).select_related('maquina').order_by('maquina__nombre')
+        elif contrato:
+            self.fields['estructura_salarial'].queryset = EstructuraSalarial.objects.filter(
+                contrato=contrato,
+                activo=True,
+            ).select_related('maquina').order_by('cargo_contratado', 'maquina__nombre')
+        else:
+            self.fields['estructura_salarial'].queryset = EstructuraSalarial.objects.none()
+        self.fields['fecha_fin'].required = False

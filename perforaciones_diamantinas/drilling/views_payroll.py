@@ -30,6 +30,7 @@ from .models_payroll import (
     HistorialBonoTrabajador,
     HistorialBonoTrabajador,
     ESTADOS_DIA_TRABAJADO,
+    AsignacionEstructuraSalarial,
 )
 from .forms_payroll import (
     TipoBonoForm,
@@ -41,6 +42,7 @@ from .forms_payroll import (
     AbrirPeriodoForm,
     PuntajeDetalleForm,
     EstructuraSalarialForm,
+    AsignacionEstructuraSalarialForm,
 )
 from .utils.payroll_engine import (
     abrir_periodo,
@@ -2071,3 +2073,196 @@ def api_trabajadores_por_cargo(request):
         })
 
     return JsonResponse({'cargos': resultado})
+
+
+# =============================================================================
+# ASIGNACIÓN DE ESTRUCTURA SALARIAL POR TRABAJADOR
+# =============================================================================
+
+@login_required
+def asignacion_estructura_list(request):
+    """
+    Lista de trabajadores del contrato con su asignación de estructura salarial.
+    Muestra: asignados (con estructura específica), sin asignación explícita.
+    """
+    from django.db.models import Prefetch
+
+    user = request.user
+    contrato_filter = request.GET.get('contrato', '')
+    cargo_filter = request.GET.get('cargo', '')
+
+    # Determinar contrato activo
+    if not user.has_access_to_all_contracts() and user.contrato:
+        contrato_activo = user.contrato
+    elif contrato_filter:
+        contrato_activo = get_object_or_404(Contrato, pk=contrato_filter)
+    else:
+        contrato_activo = None
+
+    trabajadores_qs = Trabajador.objects.none()
+    if contrato_activo:
+        trabajadores_qs = Trabajador.objects.filter(
+            contrato=contrato_activo,
+        ).prefetch_related(
+            Prefetch(
+                'asignaciones_estructura_salarial',
+                queryset=AsignacionEstructuraSalarial.objects.filter(
+                    activo=True
+                ).select_related('estructura_salarial__maquina', 'estructura_salarial__contrato_servicio'),
+                to_attr='asignacion_activa_list',
+            )
+        ).order_by('cargo', 'apepat', 'nombres')
+
+        if cargo_filter:
+            trabajadores_qs = trabajadores_qs.filter(cargo=cargo_filter)
+
+    # Lista de cargos únicos para el filtro
+    cargos_disponibles = []
+    if contrato_activo:
+        cargos_disponibles = (
+            Trabajador.objects.filter(contrato=contrato_activo)
+            .values_list('cargo', flat=True)
+            .distinct()
+            .order_by('cargo')
+        )
+
+    if user.has_access_to_all_contracts():
+        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+    elif user.contrato:
+        contratos = Contrato.objects.filter(pk=user.contrato.pk)
+    else:
+        contratos = Contrato.objects.none()
+
+    # Enriquecer cada trabajador con su asignación activa (si existe)
+    trabajadores_con_asignacion = []
+    for trab in trabajadores_qs:
+        asignacion = trab.asignacion_activa_list[0] if trab.asignacion_activa_list else None
+        trabajadores_con_asignacion.append({
+            'trabajador': trab,
+            'asignacion': asignacion,
+        })
+
+    return render(request, 'drilling/planilla/asignacion_estructura_list.html', {
+        'trabajadores': trabajadores_con_asignacion,
+        'contrato_activo': contrato_activo,
+        'contratos': contratos,
+        'contrato_filter': str(contrato_activo.pk) if contrato_activo else '',
+        'cargos_disponibles': cargos_disponibles,
+        'cargo_filter': cargo_filter,
+    })
+
+
+@login_required
+def asignacion_estructura_asignar(request, trabajador_pk):
+    """
+    Crear o reemplazar la asignación de estructura salarial para un trabajador.
+    Si ya existe una asignación activa, la desactiva y crea una nueva.
+    """
+    from django.utils import timezone
+
+    trabajador = get_object_or_404(Trabajador, pk=trabajador_pk)
+    contrato = trabajador.contrato
+    cargo = trabajador.cargo or ''
+
+    # Asignación activa previa (si existe)
+    asignacion_previa = AsignacionEstructuraSalarial.objects.filter(
+        trabajador=trabajador,
+        activo=True,
+    ).select_related('estructura_salarial__maquina').first()
+
+    # Estructuras disponibles para este cargo y contrato
+    estructuras_disponibles = EstructuraSalarial.objects.filter(
+        contrato=contrato,
+        cargo_contratado=cargo,
+        activo=True,
+    ).select_related('maquina', 'contrato_servicio').order_by('maquina__nombre')
+
+    if request.method == 'POST':
+        form = AsignacionEstructuraSalarialForm(
+            request.POST,
+            contrato=contrato,
+            cargo=cargo,
+        )
+        if form.is_valid():
+            # Desactivar asignación previa
+            if asignacion_previa:
+                asignacion_previa.activo = False
+                asignacion_previa.fecha_fin = form.cleaned_data['fecha_inicio']
+                asignacion_previa.save(update_fields=['activo', 'fecha_fin'])
+
+            nueva = form.save(commit=False)
+            nueva.contrato = contrato
+            nueva.trabajador = trabajador
+            nueva.activo = True
+            nueva.creado_por = request.user
+            nueva.save()
+
+            messages.success(
+                request,
+                f'Estructura salarial asignada correctamente a {trabajador.apepat} {trabajador.nombres}.'
+            )
+            return redirect(
+                f"{reverse('planilla-asignacion-estructura-list')}?contrato={contrato.pk}"
+            )
+    else:
+        form = AsignacionEstructuraSalarialForm(
+            initial={
+                'trabajador': trabajador.pk,
+                'fecha_inicio': date.today(),
+                'estructura_salarial': asignacion_previa.estructura_salarial_id if asignacion_previa else None,
+            },
+            contrato=contrato,
+            cargo=cargo,
+        )
+
+    return render(request, 'drilling/planilla/asignacion_estructura_form.html', {
+        'form': form,
+        'trabajador': trabajador,
+        'contrato': contrato,
+        'asignacion_previa': asignacion_previa,
+        'estructuras_disponibles': estructuras_disponibles,
+    })
+
+
+@login_required
+def asignacion_estructura_desactivar(request, pk):
+    """Desactiva una asignación activa (quita la asignación explícita del trabajador)."""
+    asignacion = get_object_or_404(AsignacionEstructuraSalarial, pk=pk, activo=True)
+    contrato_pk = asignacion.contrato_id
+    if request.method == 'POST':
+        asignacion.activo = False
+        asignacion.save(update_fields=['activo'])
+        messages.success(request, 'Asignación desactivada.')
+    return redirect(f"{reverse('planilla-asignacion-estructura-list')}?contrato={contrato_pk}")
+
+
+@login_required
+def api_estructuras_por_cargo(request):
+    """
+    API: devuelve las estructuras salariales disponibles para un cargo dado en un contrato.
+    Parámetros: ?contrato_id=X&cargo=AYUDANTE+DDH-I
+    """
+    contrato_id = request.GET.get('contrato_id')
+    cargo = request.GET.get('cargo', '').strip()
+
+    if not contrato_id or not cargo:
+        return JsonResponse({'estructuras': []})
+
+    estructuras = EstructuraSalarial.objects.filter(
+        contrato_id=contrato_id,
+        cargo_contratado=cargo,
+        activo=True,
+    ).select_related('maquina', 'contrato_servicio').order_by('maquina__nombre')
+
+    data = []
+    for e in estructuras:
+        data.append({
+            'id': e.pk,
+            'label': f"{e.cargo_contratado} — {'Máq: ' + e.maquina.nombre if e.maquina else 'General'} | CTR: {e.contrato_servicio.codigo_centro_costo}",
+            'maquina': e.maquina.nombre if e.maquina else None,
+            'sueldo_basico': str(e.sueldo_basico),
+            'bono_por_metraje': str(e.bono_por_metraje),
+            'bonificacion_area': str(e.bonificacion_area),
+        })
+
+    return JsonResponse({'estructuras': data})

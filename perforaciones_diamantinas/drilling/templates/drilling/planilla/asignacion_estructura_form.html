@@ -1,0 +1,244 @@
+{% extends base_template %}
+{% block title %}Asignar Estructura Salarial{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-user-tag me-2"></i> Asignar Estructura Salarial</h3>
+        <a href="{% url 'planilla-asignacion-estructura-list' %}?contrato={{ contrato.pk }}"
+           class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <!-- Info del trabajador -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="mb-1">
+                        <i class="fas fa-user me-2 text-primary"></i>
+                        {{ trabajador.apepat }} {{ trabajador.apemat }}, {{ trabajador.nombres }}
+                    </h5>
+                    <span class="badge bg-secondary me-2">{{ trabajador.cargo }}</span>
+                    <code class="text-muted">DNI: {{ trabajador.dni }}</code>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Máquina asignada</small>
+                    {% if trabajador.maquina_asignada %}
+                    <span class="badge bg-info text-dark">{{ trabajador.maquina_asignada.nombre }}</span>
+                    {% else %}
+                    <span class="text-muted">Sin máquina asignada</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Contrato</small>
+                    <strong>{{ contrato.nombre_contrato }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if asignacion_previa %}
+    <!-- Asignación previa activa -->
+    <div class="alert alert-warning border-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Asignación actual:</strong>
+        {{ asignacion_previa.estructura_salarial.cargo_contratado }}
+        {% if asignacion_previa.estructura_salarial.maquina %}
+        — Máquina: <strong>{{ asignacion_previa.estructura_salarial.maquina.nombre }}</strong>
+        {% else %}
+        — <em>Estructura general</em>
+        {% endif %}
+        | Sueldo básico: <strong>S/ {{ asignacion_previa.estructura_salarial.sueldo_basico }}</strong>
+        | Desde: {{ asignacion_previa.fecha_inicio }}
+        <br>
+        <small class="text-muted">Al guardar, esta asignación se desactivará y será reemplazada por la nueva.</small>
+    </div>
+    {% endif %}
+
+    {% if form.errors %}
+    <div class="alert alert-danger">
+        <i class="fas fa-times-circle me-2"></i> <strong>Por favor corrige los errores:</strong>
+        <ul class="mb-0 mt-2">
+            {% for field in form %}
+            {% for error in field.errors %}
+            <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+            {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-link me-2"></i>
+                    {% if asignacion_previa %}Cambiar Asignación{% else %}Nueva Asignación{% endif %}
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.trabajador }}
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Estructura Salarial</label>
+                            {{ form.estructura_salarial }}
+                            {% if form.estructura_salarial.errors %}
+                            <div class="text-danger small mt-1">{{ form.estructura_salarial.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                Selecciona la estructura específica para este trabajador.
+                                {% if estructuras_disponibles|length == 1 %}
+                                Solo existe una estructura para el cargo <strong>{{ trabajador.cargo }}</strong>.
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Vista previa de la estructura seleccionada -->
+                        <div id="preview-estructura" class="mb-3 d-none">
+                            <div class="card border-success">
+                                <div class="card-body py-2">
+                                    <div class="row text-center">
+                                        <div class="col-3">
+                                            <small class="text-muted d-block">Sueldo Básico</small>
+                                            <strong class="text-success" id="prev-sueldo">—</strong>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted d-block">Bono Metraje</small>
+                                            <strong id="prev-bono">—</strong>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted d-block">Metraje Base</small>
+                                            <strong id="prev-metraje">—</strong>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted d-block">Bonif. Área</small>
+                                            <strong id="prev-bonif">—</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Fecha de Inicio</label>
+                                {{ form.fecha_inicio }}
+                                {% if form.fecha_inicio.errors %}
+                                <div class="text-danger small mt-1">{{ form.fecha_inicio.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Fecha de Fin <span class="text-muted fw-normal">(opcional)</span></label>
+                                {{ form.fecha_fin }}
+                                {% if form.fecha_fin.errors %}
+                                <div class="text-danger small mt-1">{{ form.fecha_fin.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Observaciones <span class="text-muted fw-normal">(opcional)</span></label>
+                            {{ form.observaciones }}
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                {% if asignacion_previa %}Actualizar Asignación{% else %}Guardar Asignación{% endif %}
+                            </button>
+                            <a href="{% url 'planilla-asignacion-estructura-list' %}?contrato={{ contrato.pk }}"
+                               class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel lateral: estructuras disponibles -->
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light">
+                    <i class="fas fa-list me-2"></i> Estructuras disponibles para <strong>{{ trabajador.cargo }}</strong>
+                </div>
+                <div class="card-body p-0">
+                    {% if estructuras_disponibles %}
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Máquina</th>
+                                <th class="text-end">Sueldo</th>
+                                <th class="text-end">Bono</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in estructuras_disponibles %}
+                            <tr>
+                                <td>
+                                    {% if e.maquina %}
+                                    <span class="badge bg-warning text-dark">{{ e.maquina.nombre }}</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark border">General</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-semibold text-success">S/ {{ e.sueldo_basico }}</td>
+                                <td class="text-end text-muted">S/ {{ e.bono_por_metraje }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="p-3 text-muted fst-italic">
+                        No hay estructuras configuradas para el cargo <strong>{{ trabajador.cargo }}</strong>
+                        en este contrato.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    // Carga datos de la estructura seleccionada vía API para mostrar vista previa
+    const selectEstructura = document.getElementById('id_estructura_salarial');
+    const preview = document.getElementById('preview-estructura');
+    const contrato_id = '{{ contrato.pk }}';
+    const cargo = '{{ trabajador.cargo|escapejs }}';
+
+    let estructurasData = {};
+
+    fetch(`/planilla/api/estructuras-por-cargo/?contrato_id=${contrato_id}&cargo=${encodeURIComponent(cargo)}`)
+        .then(r => r.json())
+        .then(data => {
+            data.estructuras.forEach(e => { estructurasData[e.id] = e; });
+            actualizarPreview();
+        })
+        .catch(() => {});
+
+    function actualizarPreview() {
+        const id = selectEstructura ? selectEstructura.value : null;
+        if (id && estructurasData[id]) {
+            const e = estructurasData[id];
+            document.getElementById('prev-sueldo').textContent = 'S/ ' + parseFloat(e.sueldo_basico).toFixed(2);
+            document.getElementById('prev-bono').textContent = 'S/ ' + parseFloat(e.bono_por_metraje).toFixed(2);
+            document.getElementById('prev-metraje').textContent = '—';
+            document.getElementById('prev-bonif').textContent = 'S/ ' + parseFloat(e.bonificacion_area).toFixed(2);
+            preview.classList.remove('d-none');
+        } else {
+            preview.classList.add('d-none');
+        }
+    }
+
+    if (selectEstructura) {
+        selectEstructura.addEventListener('change', actualizarPreview);
+    }
+})();
+</script>
+{% endblock %}

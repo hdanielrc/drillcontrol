@@ -828,3 +828,68 @@ class HistorialEstructuraSalarial(models.Model):
 
     def __str__(self):
         return f"{self.estructura.cargo_contratado} — v{self.version} ({self.created_at:%d/%m/%Y %H:%M})"
+
+
+# =============================================================================
+# ASIGNACIÓN DE ESTRUCTURA SALARIAL POR TRABAJADOR
+# =============================================================================
+
+class AsignacionEstructuraSalarial(models.Model):
+    """
+    Puente entre un trabajador y su EstructuraSalarial específica.
+    Necesario cuando existen múltiples estructuras para el mismo cargo
+    diferenciadas por máquina (ej: AYUDANTE DDH-I con XRD80, XRD120, XLM75).
+    Solo puede haber una asignación activa por trabajador a la vez.
+    """
+    contrato = models.ForeignKey(
+        'Contrato', on_delete=models.CASCADE,
+        related_name='asignaciones_estructura_salarial',
+        verbose_name='Contrato'
+    )
+    trabajador = models.ForeignKey(
+        'Trabajador', on_delete=models.CASCADE,
+        related_name='asignaciones_estructura_salarial',
+        verbose_name='Trabajador'
+    )
+    estructura_salarial = models.ForeignKey(
+        EstructuraSalarial, on_delete=models.PROTECT,
+        related_name='asignaciones',
+        verbose_name='Estructura Salarial'
+    )
+    fecha_inicio = models.DateField(verbose_name='Fecha de Inicio')
+    fecha_fin = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha de Fin',
+        help_text='Dejar vacío si la asignación está vigente'
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    observaciones = models.TextField(blank=True, verbose_name='Observaciones')
+    creado_por = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='asignaciones_estructura_salarial_creadas',
+        verbose_name='Creado por'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'payroll_asignacion_estructura_salarial'
+        ordering = ['trabajador__apepat', 'trabajador__nombres', '-created_at']
+        verbose_name = 'Asignación Estructura Salarial'
+        verbose_name_plural = 'Asignaciones Estructura Salarial'
+        indexes = [
+            models.Index(fields=['contrato', 'activo']),
+            models.Index(fields=['trabajador', 'activo']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['trabajador'],
+                condition=models.Q(activo=True),
+                name='unique_asignacion_activa_por_trabajador',
+            )
+        ]
+
+    def __str__(self):
+        cargo = self.estructura_salarial.cargo_contratado if self.estructura_salarial_id else '—'
+        nombre = f"{self.trabajador.apepat} {self.trabajador.nombres}" if self.trabajador_id else '—'
+        return f"{nombre} → {cargo}"
