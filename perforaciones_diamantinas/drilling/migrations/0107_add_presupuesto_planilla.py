@@ -30,31 +30,6 @@ class Migration(migrations.Migration):
                 'ordering': ['-anio', '-mes', 'contrato__nombre_contrato'],
             },
         ),
-        migrations.RenameIndex(
-            model_name='asignacionestructurasalarial',
-            new_name='payroll_asi_contrat_32b47f_idx',
-            old_name='payroll_asi_contrat_activo_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='asignacionestructurasalarial',
-            new_name='payroll_asi_trabaja_795d03_idx',
-            old_name='payroll_asi_trabaja_activo_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='historialbonotrabajador',
-            new_name='payroll_his_bono_tr_8b3218_idx',
-            old_name='payroll_hist_bono_trab_date_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='historialbonotrabajador',
-            new_name='payroll_his_trabaja_b67e36_idx',
-            old_name='payroll_hist_trab_tipo_date_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='historialbonotrabajador',
-            new_name='payroll_his_periodo_69b074_idx',
-            old_name='payroll_hist_periodo_tipo_idx',
-        ),
         migrations.AddField(
             model_name='presupuestoplanilla',
             name='contrato',
