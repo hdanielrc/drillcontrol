@@ -1,0 +1,235 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boleta — {{ trabajador.apepat }} {{ trabajador.nombres }} — {{ periodo.mes|stringformat:"02d" }}/{{ periodo.anio }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Arial', sans-serif; font-size: 11px; color: #222; background: #f5f5f5; }
+        .boleta { width: 740px; margin: 20px auto; background: white; border: 1px solid #ccc; padding: 24px; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a56a0; padding-bottom: 12px; margin-bottom: 16px; }
+        .empresa { font-size: 16px; font-weight: bold; color: #1a56a0; }
+        .empresa-sub { font-size: 11px; color: #555; margin-top: 4px; }
+        .boleta-titulo { text-align: right; }
+        .boleta-titulo h2 { font-size: 14px; color: #1a56a0; font-weight: bold; }
+        .boleta-titulo .periodo { font-size: 12px; color: #444; margin-top: 4px; }
+        .datos-trabajador { background: #f0f4fa; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        .dato { display: flex; flex-direction: column; }
+        .dato label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .dato span { font-weight: bold; font-size: 11px; margin-top: 2px; }
+        .seccion-titulo { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #1a56a0; border-bottom: 1px solid #1a56a0; padding-bottom: 4px; margin-bottom: 8px; margin-top: 14px; letter-spacing: 0.5px; }
+        table.haberes { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        table.haberes th { font-size: 9px; text-transform: uppercase; color: #888; border-bottom: 1px solid #ddd; padding: 4px 8px; text-align: left; }
+        table.haberes td { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+        table.haberes td.monto { text-align: right; font-weight: bold; }
+        table.haberes tr.subtotal td { font-weight: bold; background: #f8f8f8; border-top: 1px solid #ddd; }
+        .totales { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1.5px solid #1a56a0; border-radius: 6px; overflow: hidden; margin-top: 16px; }
+        .total-col { padding: 12px 16px; }
+        .total-col:first-child { border-right: 1px solid #1a56a0; }
+        .total-col label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+        .total-col .monto-total { font-size: 18px; font-weight: bold; color: #1a56a0; }
+        .neto-pagar { background: #1a56a0; color: white; }
+        .neto-pagar label { color: rgba(255,255,255,0.8) !important; }
+        .neto-pagar .monto-total { color: white !important; font-size: 22px; }
+        .firma-section { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .firma { text-align: center; border-top: 1px solid #999; padding-top: 8px; font-size: 10px; color: #666; }
+        .pie { margin-top: 20px; font-size: 9px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 8px; }
+        .badge-tipo { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: bold; margin-right: 4px; }
+        .badge-rem { background: #dbeafe; color: #1e40af; }
+        .badge-ext { background: #fef3c7; color: #92400e; }
+        @media print {
+            body { background: white; }
+            .boleta { margin: 0; border: none; width: 100%; }
+            .no-print { display: none !important; }
+            @page { margin: 10mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="text-align:center; padding:12px; background:#1a56a0;">
+        <button onclick="window.print()" style="background:white;color:#1a56a0;border:none;padding:8px 20px;border-radius:4px;font-weight:bold;cursor:pointer;margin-right:8px;">
+            🖨️ Imprimir
+        </button>
+        <button onclick="window.close()" style="background:rgba(255,255,255,0.2);color:white;border:1px solid white;padding:8px 20px;border-radius:4px;cursor:pointer;">
+            Cerrar
+        </button>
+    </div>
+
+    <div class="boleta">
+        <!-- Encabezado -->
+        <div class="header">
+            <div>
+                <div class="empresa">VILBRAGROUP S.A.C.</div>
+                <div class="empresa-sub">Perforaciones Diamantinas</div>
+                <div class="empresa-sub">{{ periodo.contrato.nombre_contrato }}</div>
+            </div>
+            <div class="boleta-titulo">
+                <h2>BOLETA DE PAGO</h2>
+                <div class="periodo">Período: {{ periodo.mes|stringformat:"02d" }} / {{ periodo.anio }}</div>
+                <div class="periodo">{{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_fin|date:"d/m/Y" }}</div>
+            </div>
+        </div>
+
+        <!-- Datos del Trabajador -->
+        <div class="datos-trabajador">
+            <div class="dato">
+                <label>Apellidos y Nombres</label>
+                <span>{{ trabajador.apepat }} {{ trabajador.apemat }}, {{ trabajador.nombres }}</span>
+            </div>
+            <div class="dato">
+                <label>DNI</label>
+                <span>{{ trabajador.dni }}</span>
+            </div>
+            <div class="dato">
+                <label>Cargo</label>
+                <span>{{ trabajador.cargo }}</span>
+            </div>
+            <div class="dato">
+                <label>Régimen Laboral</label>
+                <span>{{ trabajador.regimen_laboral|default:"—" }}</span>
+            </div>
+            <div class="dato">
+                <label>Estado</label>
+                <span>{{ trabajador.estado }}</span>
+            </div>
+            <div class="dato">
+                <label>Período de Bonos</label>
+                <span>{{ periodo.estado }}</span>
+            </div>
+        </div>
+
+        <!-- Sueldo Básico -->
+        {% if datos.sueldo_basico %}
+        <div class="seccion-titulo">Remuneración Base (Referencial)</div>
+        <table class="haberes">
+            <thead>
+                <tr>
+                    <th>Concepto</th>
+                    <th style="text-align:right">Monto (S/)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Sueldo Básico</td>
+                    <td class="monto">{{ datos.sueldo_basico|floatformat:2 }}</td>
+                </tr>
+                {% if datos.bonificacion_area %}
+                <tr>
+                    <td>Bonificación por Área</td>
+                    <td class="monto">{{ datos.bonificacion_area|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- Bonos Remunerativos -->
+        {% if datos.bonos_remunerativos %}
+        <div class="seccion-titulo">Bonos Remunerativos</div>
+        <table class="haberes">
+            <thead>
+                <tr>
+                    <th>Bono</th>
+                    <th style="text-align:center">Días Trab.</th>
+                    <th style="text-align:center">Días Base</th>
+                    <th style="text-align:center">Factor</th>
+                    <th style="text-align:right">Monto (S/)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bono in datos.bonos_remunerativos %}
+                <tr>
+                    <td>
+                        <span class="badge-tipo badge-rem">{{ bono.tipo_bono.codigo }}</span>
+                        {{ bono.tipo_bono.nombre }}
+                    </td>
+                    <td style="text-align:center">{{ bono.dias_trabajados }}</td>
+                    <td style="text-align:center">{{ bono.dias_base }}</td>
+                    <td style="text-align:center">{{ bono.factor_cumplimiento|floatformat:2 }}</td>
+                    <td class="monto">{{ bono.monto_final|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="subtotal">
+                    <td colspan="4">Subtotal Remunerativos</td>
+                    <td class="monto">{{ datos.total_remunerativo|floatformat:2 }}</td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- Bonos Extraordinarios -->
+        {% if datos.bonos_extraordinarios %}
+        <div class="seccion-titulo">Bonos Extraordinarios</div>
+        <table class="haberes">
+            <thead>
+                <tr>
+                    <th>Bono</th>
+                    <th style="text-align:center">Días Trab.</th>
+                    <th style="text-align:center">Días Base</th>
+                    <th style="text-align:center">Factor</th>
+                    <th style="text-align:right">Monto (S/)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bono in datos.bonos_extraordinarios %}
+                <tr>
+                    <td>
+                        <span class="badge-tipo badge-ext">{{ bono.tipo_bono.codigo }}</span>
+                        {{ bono.tipo_bono.nombre }}
+                    </td>
+                    <td style="text-align:center">{{ bono.dias_trabajados }}</td>
+                    <td style="text-align:center">{{ bono.dias_base }}</td>
+                    <td style="text-align:center">{{ bono.factor_cumplimiento|floatformat:2 }}</td>
+                    <td class="monto">{{ bono.monto_final|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="subtotal">
+                    <td colspan="4">Subtotal Extraordinarios</td>
+                    <td class="monto">{{ datos.total_extraordinario|floatformat:2 }}</td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- Totales finales -->
+        <div class="totales">
+            <div class="total-col">
+                <label>Total Bonos del Período</label>
+                <div class="monto-total">S/ {{ datos.total_bonos|floatformat:2 }}</div>
+                {% if datos.sueldo_basico %}
+                <div style="font-size:10px; color:#888; margin-top:6px;">
+                    + S/ {{ datos.sueldo_basico|floatformat:2 }} básico referencial
+                </div>
+                {% endif %}
+            </div>
+            <div class="total-col neto-pagar">
+                <label>TOTAL A PERCIBIR</label>
+                <div class="monto-total">S/ {{ datos.total_con_basico|floatformat:2 }}</div>
+                <div style="font-size:10px; margin-top:6px; opacity:0.8;">Período {{ periodo.mes|stringformat:"02d" }}/{{ periodo.anio }}</div>
+            </div>
+        </div>
+
+        <!-- Firmas -->
+        <div class="firma-section">
+            <div class="firma">
+                <br>
+                Firma del Trabajador<br>
+                {{ trabajador.apepat }} {{ trabajador.nombres }} — DNI {{ trabajador.dni }}
+            </div>
+            <div class="firma">
+                <br>
+                Administrador / RRHH<br>
+                {{ periodo.contrato.nombre_contrato }}
+            </div>
+        </div>
+
+        <!-- Pie -->
+        <div class="pie">
+            Documento generado el {% now "d/m/Y H:i" %} — Sistema de Control de Perforaciones Diamantinas —
+            Período {{ periodo.estado }}
+        </div>
+    </div>
+</body>
+</html>

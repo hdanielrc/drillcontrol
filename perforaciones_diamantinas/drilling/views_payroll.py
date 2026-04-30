@@ -28,9 +28,9 @@ from .models_payroll import (
     EstructuraSalarial,
     HistorialEstructuraSalarial,
     HistorialBonoTrabajador,
-    HistorialBonoTrabajador,
     ESTADOS_DIA_TRABAJADO,
     AsignacionEstructuraSalarial,
+    PresupuestoPlanilla,
 )
 from .forms_payroll import (
     TipoBonoForm,
@@ -57,7 +57,7 @@ from .utils.payroll_engine import (
     generar_detalles_vacios,
     calcular_bono_multi_concepto,
 )
-from .mixins import AdminOrContractFilterMixin
+from .mixins import AdminOrContractFilterMixin, rol_requerido
 
 
 # ===========================================
@@ -282,6 +282,7 @@ def periodo_list(request):
 
 
 @login_required
+@rol_requerido('GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'RESIDENTE')
 def periodo_abrir(request):
     if request.method != 'POST':
         return redirect('planilla-periodo-list')
@@ -340,6 +341,7 @@ def periodo_detalle(request, pk):
 
 
 @login_required
+@rol_requerido('GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR', 'RESIDENTE')
 def periodo_calcular(request, pk):
     periodo = get_object_or_404(PeriodoBono, pk=pk)
     try:
@@ -351,6 +353,7 @@ def periodo_calcular(request, pk):
 
 
 @login_required
+@rol_requerido('GERENCIA', 'CONTROL_PROYECTOS', 'ADMINISTRADOR')
 def periodo_aprobar(request, pk):
     periodo = get_object_or_404(PeriodoBono, pk=pk)
     try:
@@ -2073,6 +2076,186 @@ def api_trabajadores_por_cargo(request):
         })
 
     return JsonResponse({'cargos': resultado})
+
+
+# ===========================================
+# ETAPA 0 — VALIDACIÓN PRE-CÁLCULO
+# ===========================================
+
+@login_required
+def periodo_validar(request, pk):
+    """
+    Muestra el diagnóstico de alertas para un período antes de calcular.
+    Permite al usuario identificar y corregir datos faltantes.
+    """
+    from .utils.payroll_engine import validar_periodo
+    periodo = get_object_or_404(PeriodoBono, pk=pk)
+    validacion = validar_periodo(periodo)
+    context = {
+        'periodo': periodo,
+        'validacion': validacion,
+    }
+    return render(request, 'drilling/planilla/periodo_validacion.html', context)
+
+
+# ===========================================
+# ETAPA 3 — RESUMEN CONSOLIDADO POR TRABAJADOR
+# ===========================================
+
+@login_required
+def periodo_resumen_trabajador(request, pk, trabajador_pk):
+    """
+    Vista consolidada de bonos de un trabajador en un período.
+    Muestra: sueldo básico referencial + bonos remunerativos + extraordinarios.
+    """
+    from .utils.payroll_engine import resumen_por_trabajador
+    periodo = get_object_or_404(PeriodoBono, pk=pk)
+    trabajador = get_object_or_404(Trabajador, pk=trabajador_pk)
+    datos = resumen_por_trabajador(periodo, trabajador)
+    context = {
+        'periodo': periodo,
+        'trabajador': trabajador,
+        'datos': datos,
+    }
+    return render(request, 'drilling/planilla/resumen_trabajador.html', context)
+
+
+# ===========================================
+# ETAPA 4 — CONCILIACIÓN TAREO-PAYROLL
+# ===========================================
+
+@login_required
+def periodo_conciliacion(request, pk):
+    """
+    Compara los días calculados en payroll contra los registros de asistencia.
+    Detecta desajustes entre cierre de tareo y período de bonos.
+    """
+    from .utils.payroll_engine import conciliar_periodo_tareo
+    periodo = get_object_or_404(PeriodoBono, pk=pk)
+    conciliacion = conciliar_periodo_tareo(periodo)
+    context = {
+        'periodo': periodo,
+        'conciliacion': conciliacion,
+    }
+    return render(request, 'drilling/planilla/conciliacion.html', context)
+
+
+# ===========================================
+# ETAPA 5 — BOLETA DE PAGO HTML IMPRIMIBLE
+# ===========================================
+
+@login_required
+def periodo_boleta(request, pk, trabajador_pk):
+    """
+    Genera la boleta de pago imprimible de un trabajador para el período.
+    Muestra: sueldo básico + bonos desglosados por tipo + total.
+    """
+    from .utils.payroll_engine import resumen_por_trabajador
+    periodo = get_object_or_404(PeriodoBono, pk=pk)
+    trabajador = get_object_or_404(Trabajador, pk=trabajador_pk)
+    datos = resumen_por_trabajador(periodo, trabajador)
+    context = {
+        'periodo': periodo,
+        'trabajador': trabajador,
+        'datos': datos,
+        'es_boleta': True,
+    }
+    return render(request, 'drilling/planilla/boleta_pago.html', context)
+
+
+# ===========================================
+# ETAPA 6 — PRESUPUESTO VS REAL
+# ===========================================
+
+@login_required
+def presupuesto_planilla(request):
+    """
+    Vista de comparación presupuesto vs real de planilla por contrato y mes.
+    Muestra: monto presupuestado ingresado vs monto real calculado en PeriodoBono.
+    """
+    from django.db.models import Sum
+    from .models_payroll import PresupuestoPlanilla
+
+    user = request.user
+    contrato = user.contrato
+    today = date.today()
+
+    anio = int(request.GET.get('anio', today.year))
+    mes = int(request.GET.get('mes', today.month))
+
+    # Contratos visibles
+    if user.has_access_to_all_contracts():
+        from .models import Contrato
+        contratos = Contrato.objects.filter(estado='ACTIVO').order_by('nombre_contrato')
+    elif contrato:
+        contratos = Contrato.objects.filter(pk=contrato.pk)
+    else:
+        contratos = Contrato.objects.none()
+
+    filas = []
+    for c in contratos:
+        presupuestos = PresupuestoPlanilla.objects.filter(
+            contrato=c, anio=anio, mes=mes
+        )
+        total_presupuestado = presupuestos.aggregate(total=Sum('monto_presupuestado'))['total'] or 0
+
+        periodo_real = PeriodoBono.objects.filter(
+            contrato=c, anio=anio, mes=mes
+        ).first()
+
+        total_real = 0
+        if periodo_real:
+            total_real = BonoTrabajador.objects.filter(
+                periodo=periodo_real
+            ).aggregate(total=Sum('monto_final'))['total'] or 0
+
+        desviacion_abs = float(total_real) - float(total_presupuestado)
+        desviacion_pct = (desviacion_abs / float(total_presupuestado) * 100) if total_presupuestado else None
+
+        filas.append({
+            'contrato': c,
+            'total_presupuestado': total_presupuestado,
+            'total_real': total_real,
+            'desviacion_abs': desviacion_abs,
+            'desviacion_pct': desviacion_pct,
+            'periodo': periodo_real,
+            'presupuestos_detalle': list(presupuestos),
+        })
+
+    # Formulario para ingresar presupuesto
+    if request.method == 'POST':
+        contrato_id = request.POST.get('contrato_id')
+        concepto = request.POST.get('concepto', 'BONOS')
+        monto = request.POST.get('monto', '0')
+        anio_post = int(request.POST.get('anio', anio))
+        mes_post = int(request.POST.get('mes', mes))
+        try:
+            from .models import Contrato as ContratoModel
+            contrato_obj = ContratoModel.objects.get(pk=contrato_id)
+            PresupuestoPlanilla.objects.update_or_create(
+                contrato=contrato_obj,
+                anio=anio_post,
+                mes=mes_post,
+                concepto=concepto,
+                defaults={
+                    'monto_presupuestado': monto,
+                    'registrado_por': user,
+                }
+            )
+            messages.success(request, 'Presupuesto guardado.')
+        except Exception as e:
+            messages.error(request, f'Error al guardar presupuesto: {e}')
+        return redirect(f"{request.path}?anio={anio_post}&mes={mes_post}")
+
+    context = {
+        'filas': filas,
+        'anio': anio,
+        'mes': mes,
+        'contratos': contratos,
+        'meses': [(i, date(2000, i, 1).strftime('%B')) for i in range(1, 13)],
+        'anios': range(today.year - 2, today.year + 2),
+    }
+    return render(request, 'drilling/planilla/presupuesto.html', context)
 
 
 # =============================================================================

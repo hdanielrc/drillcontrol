@@ -433,6 +433,65 @@ def cerrar_periodo(periodo):
     return periodo
 
 
+def validar_periodo(periodo):
+    """
+    Valida un período antes de calcular. Retorna dict con alertas clasificadas.
+    'puede_calcular' es False si hay alertas tipo ERROR.
+    """
+    alertas = []
+
+    bonos = BonoTrabajador.objects.filter(
+        periodo=periodo
+    ).select_related('trabajador', 'tipo_bono', 'configuracion').prefetch_related('detalles')
+
+    trabajadores_vistos = set()
+    for bono in bonos:
+        t = bono.trabajador
+        if t.pk not in trabajadores_vistos:
+            trabajadores_vistos.add(t.pk)
+            if not t.regimen_laboral:
+                alertas.append({
+                    'tipo': 'ERROR',
+                    'trabajador': t,
+                    'mensaje': 'Sin régimen laboral configurado',
+                })
+            elif not t.fecha_inicio_ciclo and bono.configuracion and bono.configuracion.usa_dias_regimen:
+                alertas.append({
+                    'tipo': 'WARN',
+                    'trabajador': t,
+                    'mensaje': 'Sin fecha de inicio de ciclo — se usará proporción directa',
+                })
+            # Verificar que tiene asistencias registradas en el período
+            dias = contar_dias_trabajados(t, periodo.fecha_inicio, periodo.fecha_fin)
+            if dias == 0:
+                alertas.append({
+                    'tipo': 'WARN',
+                    'trabajador': t,
+                    'mensaje': '0 días trabajados registrados en asistencia',
+                })
+
+        if bono.tipo_bono.tipo_calculo == 'MULTI_CONCEPTO':
+            detalles_vacios = bono.detalles.filter(puntaje=0)
+            if detalles_vacios.exists() and bono.detalles.exists():
+                alertas.append({
+                    'tipo': 'WARN',
+                    'trabajador': t,
+                    'mensaje': f'Bono {bono.tipo_bono.codigo}: conceptos con puntaje 0 sin evaluar',
+                })
+
+    errores = [a for a in alertas if a['tipo'] == 'ERROR']
+    advertencias = [a for a in alertas if a['tipo'] == 'WARN']
+
+    return {
+        'puede_calcular': len(errores) == 0,
+        'alertas': alertas,
+        'errores': errores,
+        'advertencias': advertencias,
+        'total_errores': len(errores),
+        'total_advertencias': len(advertencias),
+    }
+
+
 def resumen_periodo(periodo):
     """
     Retorna un diccionario con estadísticas del período.
@@ -465,4 +524,103 @@ def resumen_periodo(periodo):
         'total_remunerativo': total_remunerativo,
         'total_extraordinario': total_extraordinario,
         'total_general': total_remunerativo + total_extraordinario,
+    }
+
+
+def conciliar_periodo_tareo(periodo):
+    """
+    Compara los días trabajados del payroll engine contra los registros de
+    AsistenciaDiaria para detectar desajustes. Retorna dict con resultados.
+    """
+    bonos = BonoTrabajador.objects.filter(
+        periodo=periodo
+    ).select_related('trabajador').order_by('trabajador__apepat', 'trabajador__nombres')
+
+    vistos = set()
+    resultados = []
+    total_ok = 0
+    total_diferencias = 0
+
+    for bono in bonos:
+        t = bono.trabajador
+        if t.pk in vistos:
+            continue
+        vistos.add(t.pk)
+
+        dias_asistencia = contar_dias_trabajados(t, periodo.fecha_inicio, periodo.fecha_fin)
+        dias_payroll = bono.dias_trabajados
+        diferencia = dias_asistencia - dias_payroll
+
+        fila = {
+            'trabajador': t,
+            'dias_asistencia': dias_asistencia,
+            'dias_payroll': dias_payroll,
+            'diferencia': diferencia,
+            'ok': diferencia == 0,
+        }
+        resultados.append(fila)
+        if diferencia == 0:
+            total_ok += 1
+        else:
+            total_diferencias += 1
+
+    # Buscar cierre mensual de tareo para el período
+    from drilling.models import CierreMensualTareo
+    cierre = CierreMensualTareo.objects.filter(
+        contrato=periodo.contrato,
+        fecha_inicio__lte=periodo.fecha_inicio,
+        fecha_fin__gte=periodo.fecha_fin,
+    ).first()
+
+    return {
+        'periodo': periodo,
+        'cierre_tareo': cierre,
+        'resultados': resultados,
+        'total_ok': total_ok,
+        'total_diferencias': total_diferencias,
+        'conciliado': total_diferencias == 0,
+    }
+
+
+def resumen_por_trabajador(periodo, trabajador):
+    """
+    Devuelve el desglose completo de bonos de un trabajador en el período,
+    más el sueldo básico referencial de su EstructuraSalarial.
+    """
+    from django.db.models import Sum
+    from drilling.models_payroll import EstructuraSalarial, AsignacionEstructuraSalarial
+
+    bonos = BonoTrabajador.objects.filter(
+        periodo=periodo,
+        trabajador=trabajador,
+    ).select_related('tipo_bono', 'configuracion').prefetch_related('detalles__concepto')
+
+    bonos_remunerativos = [b for b in bonos if b.tipo_bono.categoria == 'REMUNERATIVO']
+    bonos_extraordinarios = [b for b in bonos if b.tipo_bono.categoria == 'EXTRAORDINARIO']
+
+    total_remunerativo = sum(b.monto_final for b in bonos_remunerativos) or ZERO
+    total_extraordinario = sum(b.monto_final for b in bonos_extraordinarios) or ZERO
+    total_bonos = total_remunerativo + total_extraordinario
+
+    # Sueldo básico referencial desde EstructuraSalarial
+    sueldo_basico = ZERO
+    bonificacion_area = ZERO
+    asignacion = AsignacionEstructuraSalarial.objects.filter(
+        trabajador=trabajador, activo=True
+    ).select_related('estructura_salarial').first()
+    if asignacion:
+        sueldo_basico = asignacion.estructura_salarial.sueldo_basico
+        bonificacion_area = asignacion.estructura_salarial.bonificacion_area
+
+    return {
+        'trabajador': trabajador,
+        'periodo': periodo,
+        'sueldo_basico': sueldo_basico,
+        'bonificacion_area': bonificacion_area,
+        'bonos_remunerativos': bonos_remunerativos,
+        'bonos_extraordinarios': bonos_extraordinarios,
+        'total_remunerativo': total_remunerativo,
+        'total_extraordinario': total_extraordinario,
+        'total_bonos': total_bonos,
+        'total_con_basico': sueldo_basico + bonificacion_area + total_bonos,
     }

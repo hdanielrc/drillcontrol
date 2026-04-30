@@ -376,6 +376,11 @@ urlpatterns = [
     path('planilla/periodos/<int:pk>/', views_payroll.periodo_detalle, name='planilla-periodo-detalle'),
     path('planilla/periodos/<int:pk>/calcular/', views_payroll.periodo_calcular, name='planilla-periodo-calcular'),
     path('planilla/periodos/<int:pk>/aprobar/', views_payroll.periodo_aprobar, name='planilla-periodo-aprobar'),
+    path('planilla/periodos/<int:pk>/validar/', views_payroll.periodo_validar, name='planilla-periodo-validar'),
+    path('planilla/periodos/<int:pk>/conciliacion/', views_payroll.periodo_conciliacion, name='planilla-periodo-conciliacion'),
+    path('planilla/periodos/<int:pk>/trabajador/<int:trabajador_pk>/', views_payroll.periodo_resumen_trabajador, name='planilla-resumen-trabajador'),
+    path('planilla/periodos/<int:pk>/boleta/<int:trabajador_pk>/', views_payroll.periodo_boleta, name='planilla-boleta'),
+    path('planilla/presupuesto/', views_payroll.presupuesto_planilla, name='planilla-presupuesto'),
     # Evaluaciones
     path('planilla/bono/<int:bono_pk>/evaluar/', views_payroll.evaluar_bono, name='planilla-evaluar-bono'),
     path('planilla/periodos/<int:periodo_pk>/tipo/<int:tipo_bono_pk>/evaluar/', views_payroll.evaluar_bono_masivo, name='planilla-evaluar-masivo'),

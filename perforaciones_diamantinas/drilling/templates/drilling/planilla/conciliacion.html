@@ -1,0 +1,144 @@
+{% extends base_template %}
+{% block title %}Conciliación Tareo — Período {{ periodo.mes|stringformat:"02d" }}/{{ periodo.anio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1">
+                <i class="fas fa-balance-scale me-2"></i>
+                Conciliación Tareo-Payroll
+            </h3>
+            <small class="text-muted">
+                {{ periodo.contrato.nombre_contrato }} —
+                Período {{ periodo.mes|stringformat:"02d" }}/{{ periodo.anio }}
+            </small>
+        </div>
+        <a href="{% url 'planilla-periodo-detalle' periodo.pk %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver
+        </a>
+    </div>
+
+    <!-- Estado del cierre de tareo -->
+    {% if conciliacion.cierre_tareo %}
+    <div class="alert alert-{% if conciliacion.cierre_tareo.estado == 'CERRADO' %}success{% else %}warning{% endif %} d-flex align-items-center mb-4">
+        <i class="fas fa-{% if conciliacion.cierre_tareo.estado == 'CERRADO' %}lock{% else %}unlock{% endif %} me-3"></i>
+        <div>
+            Cierre de Tareo:
+            <strong>{{ conciliacion.cierre_tareo.estado }}</strong> —
+            {{ conciliacion.cierre_tareo.fecha_inicio|date:"d/m/Y" }} al {{ conciliacion.cierre_tareo.fecha_fin|date:"d/m/Y" }}
+            {% if conciliacion.cierre_tareo.estado != 'CERRADO' %}
+            <br><small>El cierre de tareo aún no está cerrado. Los datos de asistencia pueden cambiar.</small>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning d-flex align-items-center mb-4">
+        <i class="fas fa-exclamation-triangle me-3"></i>
+        <div>
+            <strong>No se encontró un Cierre Mensual de Tareo</strong> para el rango de este período.
+            La comparación se realiza directamente contra los registros de asistencia.
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Resumen de conciliación -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm text-center py-3 border-start border-4
+                {% if conciliacion.conciliado %}border-success{% else %}border-danger{% endif %}">
+                {% if conciliacion.conciliado %}
+                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                <p class="mb-0 fw-bold text-success">Conciliado</p>
+                <small class="text-muted">Todos los días coinciden</small>
+                {% else %}
+                <i class="fas fa-exclamation-circle fa-2x text-danger mb-2"></i>
+                <p class="mb-0 fw-bold text-danger">Hay diferencias</p>
+                <small class="text-muted">Revisar trabajadores marcados en rojo</small>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <span class="text-success fw-bold fs-3">{{ conciliacion.total_ok }}</span>
+                <small class="text-muted">Trabajadores OK</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <span class="text-danger fw-bold fs-3">{{ conciliacion.total_diferencias }}</span>
+                <small class="text-muted">Con diferencias</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de detalle -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0">
+                <i class="fas fa-table me-2"></i>
+                Detalle por Trabajador
+            </h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="tablaConciliacion">
+                <thead class="table-light">
+                    <tr>
+                        <th>Trabajador</th>
+                        <th>DNI</th>
+                        <th>Cargo</th>
+                        <th class="text-center">Días (Asistencia)</th>
+                        <th class="text-center">Días (Payroll)</th>
+                        <th class="text-center">Diferencia</th>
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in conciliacion.resultados %}
+                    <tr class="{% if not fila.ok %}table-danger{% endif %}">
+                        <td>
+                            <strong>{{ fila.trabajador.apepat }} {{ fila.trabajador.apemat }}</strong><br>
+                            <small class="text-muted">{{ fila.trabajador.nombres }}</small>
+                        </td>
+                        <td>{{ fila.trabajador.dni }}</td>
+                        <td><span class="badge bg-secondary">{{ fila.trabajador.cargo }}</span></td>
+                        <td class="text-center fw-bold">{{ fila.dias_asistencia }}</td>
+                        <td class="text-center">{{ fila.dias_payroll }}</td>
+                        <td class="text-center">
+                            {% if fila.diferencia != 0 %}
+                            <span class="badge bg-danger">{{ fila.diferencia|floatformat:0 }}</span>
+                            {% else %}
+                            <span class="badge bg-success">0</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if fila.ok %}
+                            <i class="fas fa-check-circle text-success"></i>
+                            {% else %}
+                            <i class="fas fa-times-circle text-danger"></i>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No hay trabajadores en este período.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if not conciliacion.conciliado %}
+    <div class="alert alert-info mt-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>¿Qué hacer con las diferencias?</strong><br>
+        Una diferencia positiva significa más días en asistencia que en payroll (recalcular el período).
+        Una diferencia negativa puede indicar datos de asistencia corregidos después del cálculo.
+        Recalcule el período para sincronizar los datos.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

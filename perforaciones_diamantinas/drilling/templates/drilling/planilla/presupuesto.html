@@ -1,0 +1,181 @@
+{% extends base_template %}
+{% block title %}Presupuesto vs Real — {{ mes|stringformat:"02d" }}/{{ anio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1">
+                <i class="fas fa-chart-bar me-2"></i>
+                Presupuesto vs Real — Planilla
+            </h3>
+            <small class="text-muted">Comparación de monto presupuestado contra el ejecutado en PeriodoBono</small>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Año</label>
+                    <select name="anio" class="form-select form-select-sm">
+                        {% for a in anios %}
+                        <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Mes</label>
+                    <select name="mes" class="form-select form-select-sm">
+                        {% for num, nombre in meses %}
+                        <option value="{{ num }}" {% if num == mes %}selected{% endif %}>{{ nombre|capfirst }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-filter me-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla Presupuesto vs Real -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+                <i class="fas fa-table me-2"></i>
+                Comparativo por Contrato — {{ mes|stringformat:"02d" }}/{{ anio }}
+            </h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Contrato</th>
+                        <th class="text-end">Presupuestado (S/)</th>
+                        <th class="text-end">Real (S/)</th>
+                        <th class="text-end">Desviación (S/)</th>
+                        <th class="text-center">Desviación %</th>
+                        <th class="text-center">Estado Período</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in filas %}
+                    <tr>
+                        <td>
+                            <strong>{{ fila.contrato.nombre_contrato }}</strong>
+                            <br><small class="text-muted">{{ fila.contrato.tipo_contrato|default:"" }}</small>
+                        </td>
+                        <td class="text-end">
+                            S/ {{ fila.total_presupuestado|floatformat:2 }}
+                        </td>
+                        <td class="text-end fw-bold">
+                            {% if fila.total_real %}
+                            S/ {{ fila.total_real|floatformat:2 }}
+                            {% else %}
+                            <span class="text-muted">Sin período</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end
+                            {% if fila.desviacion_abs > 0 %}text-danger{% elif fila.desviacion_abs < 0 %}text-success{% else %}text-muted{% endif %}">
+                            {% if fila.total_presupuestado %}
+                            {% if fila.desviacion_abs > 0 %}+{% endif %}S/ {{ fila.desviacion_abs|floatformat:2 }}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if fila.desviacion_pct is not None %}
+                            <span class="badge
+                                {% if fila.desviacion_pct > 10 %}bg-danger
+                                {% elif fila.desviacion_pct > 5 %}bg-warning text-dark
+                                {% elif fila.desviacion_pct < -5 %}bg-success
+                                {% else %}bg-secondary{% endif %}">
+                                {% if fila.desviacion_pct > 0 %}+{% endif %}{{ fila.desviacion_pct|floatformat:1 }}%
+                            </span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if fila.periodo %}
+                            <span class="badge
+                                {% if fila.periodo.estado == 'CERRADO' %}bg-secondary
+                                {% elif fila.periodo.estado == 'APROBADO' %}bg-success
+                                {% elif fila.periodo.estado == 'CALCULADO' %}bg-info
+                                {% else %}bg-primary{% endif %}">
+                                {{ fila.periodo.estado }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">Sin período</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if fila.periodo %}
+                            <a href="{% url 'planilla-periodo-detalle' fila.periodo.pk %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No hay datos para este período.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Formulario para ingresar presupuesto -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h6 class="mb-0">
+                <i class="fas fa-edit me-2"></i>
+                Ingresar / Actualizar Presupuesto
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="POST" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <input type="hidden" name="mes" value="{{ mes }}">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Contrato</label>
+                    <select name="contrato_id" class="form-select form-select-sm" required>
+                        <option value="">— Seleccionar —</option>
+                        {% for c in contratos %}
+                        <option value="{{ c.pk }}">{{ c.nombre_contrato }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Concepto</label>
+                    <select name="concepto" class="form-select form-select-sm">
+                        <option value="BONOS">Total Bonos</option>
+                        <option value="BONOS_REMUNERATIVOS">Bonos Remunerativos</option>
+                        <option value="BONOS_EXTRAORDINARIOS">Bonos Extraordinarios</option>
+                        <option value="BASICO">Sueldo Básico</option>
+                        <option value="OTRO">Otro</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Monto Presupuestado (S/)</label>
+                    <input type="number" name="monto" class="form-control form-control-sm"
+                           step="0.01" min="0" placeholder="0.00" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -82,6 +82,9 @@
                                 <a href="{% url 'planilla-periodo-detalle' p.pk %}" class="btn btn-outline-primary" title="Ver detalle">
                                     <i class="fas fa-eye"></i>
                                 </a>
+                                <a href="{% url 'planilla-periodo-validar' p.pk %}" class="btn btn-outline-warning" title="Validar antes de calcular">
+                                    <i class="fas fa-clipboard-check"></i>
+                                </a>
                                 {% if p.estado == 'ABIERTO' or p.estado == 'CALCULADO' %}
                                 <a href="{% url 'planilla-periodo-calcular' p.pk %}" class="btn btn-outline-info" title="Calcular"
                                    onclick="return confirm('¿Ejecutar el cálculo de bonos para este período?')">
@@ -92,6 +95,11 @@
                                 <a href="{% url 'planilla-periodo-aprobar' p.pk %}" class="btn btn-outline-success" title="Aprobar"
                                    onclick="return confirm('¿Aprobar este período? Los montos quedarán congelados.')">
                                     <i class="fas fa-check"></i>
+                                </a>
+                                {% endif %}
+                                {% if p.estado != 'ABIERTO' %}
+                                <a href="{% url 'planilla-periodo-conciliacion' p.pk %}" class="btn btn-outline-info" title="Conciliación tareo-payroll">
+                                    <i class="fas fa-balance-scale"></i>
                                 </a>
                                 {% endif %}
                                 <a href="{% url 'planilla-exportar-excel' p.pk %}" class="btn btn-outline-dark" title="Exportar Excel">

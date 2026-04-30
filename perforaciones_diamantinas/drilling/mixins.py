@@ -1,5 +1,34 @@
+from functools import wraps
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.contrib import messages
+from django.shortcuts import redirect
+
+
+def rol_requerido(*roles):
+    """
+    Decorador de vista que verifica que el usuario tenga uno de los roles indicados.
+    Uso: @rol_requerido('GERENCIA', 'ADMINISTRADOR')
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                from django.contrib.auth.views import redirect_to_login
+                return redirect_to_login(request.get_full_path())
+            # is_system_admin o ADMINISTRADOR_GENERAL tienen acceso total
+            if getattr(request.user, 'is_system_admin', False) or request.user.role == 'ADMINISTRADOR_GENERAL':
+                return view_func(request, *args, **kwargs)
+            if request.user.role not in roles:
+                messages.error(
+                    request,
+                    f'No tiene permisos para esta acción. Se requiere uno de: {", ".join(roles)}.'
+                )
+                return redirect('planilla-hub')
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
 
 class AdminOrContractFilterMixin(LoginRequiredMixin):
     """Mixin para filtrar datos por contrato o permitir acceso completo a admins"""

@@ -11,13 +11,21 @@
             </h3>
             <small class="text-muted">{{ periodo.contrato.nombre_contrato }} — {{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_fin|date:"d/m/Y" }}</small>
         </div>
-        <div>
-            <a href="{% url 'planilla-periodo-list' %}" class="btn btn-outline-secondary me-2">
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'planilla-periodo-list' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Volver
             </a>
             <a href="{% url 'planilla-exportar-excel' periodo.pk %}" class="btn btn-outline-success">
-                <i class="fas fa-file-excel me-1"></i> Exportar Excel
+                <i class="fas fa-file-excel me-1"></i> Excel
             </a>
+            <a href="{% url 'planilla-periodo-validar' periodo.pk %}" class="btn btn-outline-warning">
+                <i class="fas fa-clipboard-check me-1"></i> Validar
+            </a>
+            {% if periodo.estado != 'ABIERTO' %}
+            <a href="{% url 'planilla-periodo-conciliacion' periodo.pk %}" class="btn btn-outline-info">
+                <i class="fas fa-balance-scale me-1"></i> Conciliación
+            </a>
+            {% endif %}
             {% if periodo.estado == 'ABIERTO' or periodo.estado == 'CALCULADO' %}
             <a href="{% url 'planilla-periodo-calcular' periodo.pk %}" class="btn btn-info text-white"
                onclick="return confirm('¿Ejecutar el cálculo de bonos?')">
@@ -134,9 +142,7 @@
                         <th class="text-end">Calculado</th>
                         <th class="text-end">Ajuste</th>
                         <th class="text-end fw-bold">Final</th>
-                        {% if grupo.tipo_bono.tipo_calculo == 'MULTI_CONCEPTO' %}
                         <th></th>
-                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -157,6 +163,21 @@
                         <td>
                             <a href="{% url 'planilla-evaluar-bono' bono.pk %}" class="btn btn-sm btn-outline-secondary" title="Evaluar">
                                 <i class="fas fa-star"></i>
+                            </a>
+                            <a href="{% url 'planilla-resumen-trabajador' periodo.pk bono.trabajador.pk %}" class="btn btn-sm btn-outline-info" title="Ver resumen consolidado">
+                                <i class="fas fa-user"></i>
+                            </a>
+                            <a href="{% url 'planilla-boleta' periodo.pk bono.trabajador.pk %}" class="btn btn-sm btn-outline-primary" title="Boleta de pago" target="_blank">
+                                <i class="fas fa-print"></i>
+                            </a>
+                        </td>
+                        {% else %}
+                        <td>
+                            <a href="{% url 'planilla-resumen-trabajador' periodo.pk bono.trabajador.pk %}" class="btn btn-sm btn-outline-info" title="Ver resumen consolidado">
+                                <i class="fas fa-user"></i>
+                            </a>
+                            <a href="{% url 'planilla-boleta' periodo.pk bono.trabajador.pk %}" class="btn btn-sm btn-outline-primary" title="Boleta de pago" target="_blank">
+                                <i class="fas fa-print"></i>
                             </a>
                         </td>
                         {% endif %}

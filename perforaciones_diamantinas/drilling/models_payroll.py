@@ -893,3 +893,53 @@ class AsignacionEstructuraSalarial(models.Model):
         cargo = self.estructura_salarial.cargo_contratado if self.estructura_salarial_id else '—'
         nombre = f"{self.trabajador.apepat} {self.trabajador.nombres}" if self.trabajador_id else '—'
         return f"{nombre} → {cargo}"
+
+
+# =============================================================================
+# PRESUPUESTO DE PLANILLA
+# =============================================================================
+
+class PresupuestoPlanilla(models.Model):
+    """
+    Presupuesto mensual de planilla por contrato y concepto.
+    Permite comparar lo planificado vs lo ejecutado (real de PeriodoBono).
+    """
+    CONCEPTOS = [
+        ('BASICO', 'Sueldo Básico'),
+        ('BONOS_REMUNERATIVOS', 'Bonos Remunerativos'),
+        ('BONOS_EXTRAORDINARIOS', 'Bonos Extraordinarios'),
+        ('BONOS', 'Total Bonos'),
+        ('OTRO', 'Otro'),
+    ]
+
+    contrato = models.ForeignKey(
+        'Contrato', on_delete=models.CASCADE,
+        related_name='presupuestos_planilla',
+        verbose_name='Contrato'
+    )
+    anio = models.IntegerField(verbose_name='Año')
+    mes = models.IntegerField(verbose_name='Mes')
+    concepto = models.CharField(max_length=30, choices=CONCEPTOS, default='BONOS', verbose_name='Concepto')
+    monto_presupuestado = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Monto Presupuestado (S/)'
+    )
+    registrado_por = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='presupuestos_planilla_registrados',
+        verbose_name='Registrado por'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'payroll_presupuesto_planilla'
+        unique_together = [('contrato', 'anio', 'mes', 'concepto')]
+        ordering = ['-anio', '-mes', 'contrato__nombre_contrato']
+        verbose_name = 'Presupuesto de Planilla'
+        verbose_name_plural = 'Presupuestos de Planilla'
+
+    def __str__(self):
+        contrato_nombre = self.contrato.nombre_contrato if self.contrato_id else '—'
+        mes_fmt = f"{self.mes:02d}/{self.anio}"
+        return f"{contrato_nombre} — {mes_fmt} — {self.get_concepto_display()}: S/ {self.monto_presupuestado}"
