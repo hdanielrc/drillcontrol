@@ -15,7 +15,27 @@
       "Bash(python manage.py makemigrations drilling --name=\"estructurasalarial_maquina\")",
       "Bash(python manage.py migrate drilling)",
       "Bash(venv\\\\Scripts\\\\python.exe manage.py check --deploy)",
-      "Bash(venv/Scripts/python.exe manage.py makemigrations drilling --name asignacionestructurasalarial)"
+      "Bash(venv/Scripts/python.exe manage.py makemigrations drilling --name asignacionestructurasalarial)",
+      "Bash(uv --version)",
+      "Bash(pipx --version)",
+      "Bash(graphify --version)",
+      "Read(//c/Users/PERDLAP140.VILBRAGROUP/.claude/skills/graphify/**)",
+      "Bash(graphify --help)",
+      "Bash(python -c \"import graphify; print\\('graphify package version:', getattr\\(graphify, '__version__', 'unknown'\\)\\)\")",
+      "Bash(pip show *)",
+      "Bash(pip list *)",
+      "Bash(python -c \"import graphify, os; print\\(os.path.dirname\\(graphify.__file__\\)\\)\")",
+      "Bash(python -m pip show graphifyy)",
+      "Bash(python -m pip list)",
+      "Bash(python -c \"import graphify\")",
+      "Bash(python -c \"import sys; open\\('.graphify_python', 'w'\\).write\\(sys.executable\\)\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(python)",
+      "Bash(python .graphify_make_chunks.py)",
+      "Bash(graphify hook *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\PERDLAP140.VILBRAGROUP\\Desktop\\drillcontrol"
     ]
   }
 }

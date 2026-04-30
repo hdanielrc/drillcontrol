@@ -1,0 +1,40 @@
+# Folders explicitly requested by the user
+node_modules/
+.next/
+dist/
+build/
+.venv/
+venv/
+
+# Heavy / generated assets specific to this Django project
+staticfiles/
+logs/
+**/__pycache__/
+*.pyc
+
+# Django auto-generated migrations (100+ files, noisy, no semantic value)
+**/migrations/
+
+# Templates / fixtures (CSV import templates, not Django HTML templates)
+plantillas/
+
+# Django HTML templates - low semantic value for code knowledge graph
+# (AST already captures which view renders which template)
+**/templates/
+
+# Git internals
+.git/
+
+# Editor / OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Already-collected artifacts and reports
+graphify-out/
+*.log
+output*.txt
+temp_view.txt
+clasif_resultado.txt
+migrations_output.txt
