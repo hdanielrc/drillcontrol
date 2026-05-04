@@ -943,3 +943,78 @@ class PresupuestoPlanilla(models.Model):
         contrato_nombre = self.contrato.nombre_contrato if self.contrato_id else '—'
         mes_fmt = f"{self.mes:02d}/{self.anio}"
         return f"{contrato_nombre} — {mes_fmt} — {self.get_concepto_display()}: S/ {self.monto_presupuestado}"
+
+
+# =============================================================================
+# LIQUIDACIÓN DE TRABAJADORES
+# =============================================================================
+
+class LiquidacionTrabajador(models.Model):
+    """
+    Registro formal del finiquito al momento del cese de un trabajador.
+    Permite trazabilidad del proceso de baja y los montos involucrados.
+    """
+    TIPO_BAJA_CHOICES = [
+        ('RENUNCIA', 'Renuncia voluntaria'),
+        ('DESPIDO', 'Despido'),
+        ('FIN_CONTRATO', 'Fin de contrato'),
+        ('JUBILACION', 'Jubilación'),
+        ('FALLECIMIENTO', 'Fallecimiento'),
+        ('OTRO', 'Otro'),
+    ]
+    ESTADO_CHOICES = [
+        ('BORRADOR', 'Borrador'),
+        ('APROBADO', 'Aprobado'),
+    ]
+
+    trabajador = models.ForeignKey(
+        'Trabajador', on_delete=models.PROTECT,
+        related_name='liquidaciones',
+        verbose_name='Trabajador'
+    )
+    contrato = models.ForeignKey(
+        'Contrato', on_delete=models.PROTECT,
+        related_name='liquidaciones_trabajadores',
+        verbose_name='Contrato'
+    )
+    fecha_cese = models.DateField(verbose_name='Fecha de Cese')
+    tipo_baja = models.CharField(
+        max_length=20, choices=TIPO_BAJA_CHOICES, default='FIN_CONTRATO',
+        verbose_name='Tipo de Baja'
+    )
+    bonos_ultimo_periodo = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Bonos Último Período (S/)',
+        help_text='Monto de bonos del período parcial de cese'
+    )
+    vacaciones_pendientes_dias = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0,
+        verbose_name='Días de Vacaciones Pendientes'
+    )
+    observaciones = models.TextField(blank=True, verbose_name='Observaciones')
+    estado = models.CharField(
+        max_length=10, choices=ESTADO_CHOICES, default='BORRADOR',
+        verbose_name='Estado'
+    )
+    aprobado_por = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='liquidaciones_aprobadas',
+        verbose_name='Aprobado por'
+    )
+    registrado_por = models.ForeignKey(
+        'CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='liquidaciones_registradas',
+        verbose_name='Registrado por'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'payroll_liquidacion_trabajador'
+        ordering = ['-fecha_cese', 'trabajador__apepat']
+        verbose_name = 'Liquidación de Trabajador'
+        verbose_name_plural = 'Liquidaciones de Trabajadores'
+
+    def __str__(self):
+        nombre = f"{self.trabajador.apepat} {self.trabajador.nombres}" if self.trabajador_id else '—'
+        return f"Liquidación {nombre} — {self.fecha_cese}"

@@ -34,6 +34,7 @@ except Exception as e:
 from django.db.models import Max
 from django.db import transaction
 from drilling.models import Trabajador, Contrato, ContratoServicio, TrabajadorContratoHistorial
+from drilling.models_payroll import AsignacionEstructuraSalarial
 
 # Configuración de Logging
 logging.basicConfig(
@@ -203,8 +204,18 @@ def _registrar_cambio_contrato_historial(trabajador, contrato_nuevo, contrato_an
                 f"Historial actualizado para {trabajador}: {updates}"
             )
 
+    # Cerrar asignación salarial activa cuando el trabajador es cesado
+    if fecha_cese_real:
+        cerradas = AsignacionEstructuraSalarial.objects.filter(
+            trabajador=trabajador, activo=True, fecha_fin__isnull=True
+        ).update(fecha_fin=fecha_cese_real, activo=False)
+        if cerradas:
+            logger.info(
+                f"Asignación salarial cerrada para {trabajador} (fecha_cese={fecha_cese_real})"
+            )
 
-def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
+
+def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None, marcar_ausentes=False, dias_ausente_umbral=3):
     logger.info("Iniciando sincronización de trabajadores...")
     
     url = api_url if api_url else API_URL
@@ -234,7 +245,8 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
     processed_count = 0
     created_count = 0
     updated_count = 0
-    
+    dni_procesados = set()  # DNIs vistos en esta ejecución de sync
+
     # Cache: codigo_centro_costo -> Contrato object
     # Incluye tanto el codigo_centro_costo principal del Contrato
     # como los CCs adicionales definidos en ContratoServicio
@@ -393,12 +405,52 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
                     created_count += 1
                 else:
                     updated_count += 1
-            
+
+            dni_procesados.add(dni)
+
             if processed_count % 100 == 0:
                 logger.info(f"Procesados {processed_count} trabajadores...")
 
         except Exception as e:
             logger.error(f"Error procesando trabajador DNI {dni}: {e}")
+
+    # Detectar trabajadores que no aparecieron en esta respuesta de la API
+    ausentes_count = 0
+    marcados_count = 0
+    if not filter_centro:
+        umbral_fecha = date.today() - timedelta(days=dias_ausente_umbral)
+        candidatos_ausentes = Trabajador.objects.filter(
+            synced=True,
+            fecha_cese__isnull=True,
+        ).exclude(
+            estado_api__iexact='inactivo'
+        ).exclude(
+            dni__in=dni_procesados
+        ).values_list('dni', 'nombres', 'apepat', 'last_synced_at')
+
+        for dni_a, nombres_a, apepat_a, last_sync in candidatos_ausentes:
+            ausentes_count += 1
+            logger.warning(
+                f"AUSENTE DE API: {apepat_a} {nombres_a} (DNI: {dni_a}, último sync: {last_sync})"
+            )
+            if marcar_ausentes and last_sync and last_sync.date() <= umbral_fecha:
+                if not dry_run:
+                    with transaction.atomic():
+                        t = Trabajador.objects.select_for_update().get(dni=dni_a)
+                        if t.fecha_cese is None:
+                            t.fecha_cese = date.today()
+                            t.save(update_fields=['fecha_cese', 'last_synced_at'])
+                            _registrar_cambio_contrato_historial(t, t.contrato, t.contrato_id, False)
+                            marcados_count += 1
+                            logger.warning(
+                                f"Marcado como cesado (ausente {dias_ausente_umbral}+ días): "
+                                f"{apepat_a} {nombres_a} (DNI: {dni_a})"
+                            )
+                else:
+                    marcados_count += 1
+                    logger.warning(
+                        f"[DRY-RUN] Se marcaría como cesado: {apepat_a} {nombres_a} (DNI: {dni_a})"
+                    )
 
     logger.info("="*40)
     logger.info("RESUMEN DE SINCRONIZACIÓN DE TRABAJADORES")
@@ -406,7 +458,26 @@ def sync_trabajadores(dry_run=False, filter_centro=None, api_url=None):
     logger.info(f"Total procesados: {processed_count}")
     logger.info(f"Creados: {created_count}")
     logger.info(f"Actualizados: {updated_count}")
+    if not filter_centro:
+        logger.info(f"Ausentes de API (sin fecha_cese): {ausentes_count}")
+        if marcar_ausentes:
+            logger.info(f"Marcados como cesados (ausentes {dias_ausente_umbral}+ días): {marcados_count}")
     logger.info("="*40)
 
 if __name__ == "__main__":
-    sync_trabajadores()
+    import argparse
+    parser = argparse.ArgumentParser(description='Sincroniza trabajadores desde la API de Vilbragroup')
+    parser.add_argument('--dry-run', action='store_true', help='Simula sin hacer cambios')
+    parser.add_argument('--marcar-ausentes', action='store_true',
+                        help='Marca como cesados trabajadores ausentes de la API por más del umbral de días')
+    parser.add_argument('--dias-umbral', type=int, default=3,
+                        help='Días sin aparecer en API antes de marcar como cesado (default: 3)')
+    parser.add_argument('--filtro-cc', default=None, help='Filtrar por centro de costo')
+    args = parser.parse_args()
+
+    sync_trabajadores(
+        dry_run=args.dry_run,
+        filter_centro=args.filtro_cc,
+        marcar_ausentes=args.marcar_ausentes,
+        dias_ausente_umbral=args.dias_umbral,
+    )

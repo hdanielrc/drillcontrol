@@ -9,7 +9,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.db import transaction, models
 from django.db.models import Sum, Count, Avg, Max, Min, OuterRef, Subquery
 from django.urls import reverse_lazy
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
@@ -841,8 +841,13 @@ class TrabajadorDeleteView(AdminOrContractFilterMixin, DeleteView):
     success_url = reverse_lazy('trabajador-list')
 
     def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Trabajador eliminado exitosamente')
-        return super().delete(request, *args, **kwargs)
+        trabajador = self.get_object()
+        trabajador.fecha_cese = date.today()
+        trabajador.estado = 'INACTIVO'
+        trabajador.estado_api = 'INACTIVO'
+        trabajador.save(update_fields=['fecha_cese', 'estado', 'estado_api'])
+        messages.success(request, f'Trabajador {trabajador} dado de baja del sistema.')
+        return HttpResponseRedirect(self.success_url)
 
 # ===============================
 # MAQUINA VIEWS - CRUD COMPLETO

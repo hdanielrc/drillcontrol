@@ -287,10 +287,15 @@ def abrir_periodo(contrato, anio, mes, usuario=None):
     if not created and periodo.estado != 'ABIERTO':
         raise ValueError(f"El período {mes:02d}/{anio} ya está en estado {periodo.estado}")
 
-    # Obtener trabajadores activos del contrato
-    trabajadores = Trabajador.objects.filter(
-        contrato=contrato,
-        estado='ACTIVO',
+    # Obtener trabajadores del contrato vigentes en el período:
+    # - activos (estado_api insensible a mayúsculas), o
+    # - cesados dentro del período (para que reciban bonos del mes de cese)
+    from django.db.models import Q
+    trabajadores = Trabajador.objects.filter(contrato=contrato).filter(
+        Q(estado_api__iexact='activo') |
+        Q(fecha_cese__isnull=False, fecha_cese__gte=fecha_inicio)
+    ).filter(
+        Q(fecha_inicio_labores__isnull=True) | Q(fecha_inicio_labores__lte=fecha_fin)
     )
 
     # Obtener configuraciones de bonos activas para esta fecha

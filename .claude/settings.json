@@ -41,7 +41,10 @@
       "PowerShell($env:Path = \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\\\\venv\\\\Scripts;\" + $env:Path; Set-Location \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\"; python -c \"import django; import os; os.environ.setdefault\\('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings'\\); django.setup\\(\\); from drilling import views_payroll; print\\('OK - views_payroll importado correctamente'\\)\" 2>&1 | Select-String -Pattern \"OK|Error|Traceback|Import\" | Select-Object -First 20)",
       "PowerShell($env:Path = \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\\\\venv\\\\Scripts;\" + $env:Path; Set-Location \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\"; python -c \"import django; import os; os.environ.setdefault\\('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings'\\); django.setup\\(\\); from drilling.utils.payroll_engine import validar_periodo, conciliar_periodo_tareo, resumen_por_trabajador; print\\('OK - funciones engine importadas correctamente'\\)\" 2>&1)",
       "PowerShell($env:Path = \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\\\\venv\\\\Scripts;\" + $env:Path; Set-Location \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\"; python -c \"import django; import os; os.environ.setdefault\\('DJANGO_SETTINGS_MODULE', 'perforaciones_diamantinas.settings'\\); django.setup\\(\\); from drilling.mixins import rol_requerido; print\\('OK - rol_requerido importado'\\)\" 2>&1)",
-      "Bash(grep -E \"\\\\.\\(html|js\\)$\")"
+      "Bash(grep -E \"\\\\.\\(html|js\\)$\")",
+      "Bash(xargs ls *)",
+      "Bash(venv/Scripts/python.exe manage.py makemigrations drilling --name liquidacion_trabajador)",
+      "Bash(python manage.py makemigrations drilling --name liquidacion_trabajador)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PERDLAP140.VILBRAGROUP\\Desktop\\drillcontrol"
