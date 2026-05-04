@@ -2286,7 +2286,7 @@ def asignacion_estructura_list(request):
     if contrato_activo:
         trabajadores_qs = Trabajador.objects.filter(
             contrato=contrato_activo,
-        ).prefetch_related(
+        ).select_related('maquina_asignada').prefetch_related(
             Prefetch(
                 'asignaciones_estructura_salarial',
                 queryset=AsignacionEstructuraSalarial.objects.filter(
@@ -2360,13 +2360,29 @@ def asignacion_estructura_asignar(request, trabajador_pk):
         activo=True,
     ).select_related('maquina', 'contrato_servicio').order_by('maquina__nombre')
 
+    # Sugerir la estructura que coincide con la máquina asignada al trabajador
+    estructura_sugerida = None
+    if not asignacion_previa and trabajador.maquina_asignada_id:
+        estructura_sugerida = estructuras_disponibles.filter(
+            maquina=trabajador.maquina_asignada
+        ).first()
+        if not estructura_sugerida:
+            estructura_sugerida = estructuras_disponibles.filter(maquina__isnull=True).first()
+
     if request.method == 'POST':
         form = AsignacionEstructuraSalarialForm(
             request.POST,
             contrato=contrato,
             cargo=cargo,
+            maquina_trabajador=trabajador.maquina_asignada,
         )
         if form.is_valid():
+            if getattr(form, 'add_warning', False):
+                messages.warning(
+                    request,
+                    f'Asignación guardada, pero la estructura seleccionada corresponde a una máquina distinta '
+                    f'a la operativa de {trabajador.apepat} {trabajador.nombres}. Revisa si es correcto.'
+                )
             # Desactivar asignación previa
             if asignacion_previa:
                 asignacion_previa.activo = False
@@ -2392,10 +2408,14 @@ def asignacion_estructura_asignar(request, trabajador_pk):
             initial={
                 'trabajador': trabajador.pk,
                 'fecha_inicio': date.today(),
-                'estructura_salarial': asignacion_previa.estructura_salarial_id if asignacion_previa else None,
+                'estructura_salarial': (
+                    asignacion_previa.estructura_salarial_id if asignacion_previa
+                    else (estructura_sugerida.pk if estructura_sugerida else None)
+                ),
             },
             contrato=contrato,
             cargo=cargo,
+            maquina_trabajador=trabajador.maquina_asignada,
         )
 
     return render(request, 'drilling/planilla/asignacion_estructura_form.html', {
@@ -2404,6 +2424,7 @@ def asignacion_estructura_asignar(request, trabajador_pk):
         'contrato': contrato,
         'asignacion_previa': asignacion_previa,
         'estructuras_disponibles': estructuras_disponibles,
+        'estructura_sugerida': estructura_sugerida,
     })
 
 
@@ -2445,6 +2466,7 @@ def api_estructuras_por_cargo(request):
             'maquina': e.maquina.nombre if e.maquina else None,
             'sueldo_basico': str(e.sueldo_basico),
             'bono_por_metraje': str(e.bono_por_metraje),
+            'metraje_base': str(e.metraje_base),
             'bonificacion_area': str(e.bonificacion_area),
         })
 

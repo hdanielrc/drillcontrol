@@ -150,13 +150,25 @@
                         <select id="sel_maquina" name="maquina" class="form-select">
                             <option value="">— General (todas las máquinas) —</option>
                         </select>
-                        <small class="text-muted">Se filtra según contrato</small>
+                        <small class="text-muted">
+                            <strong>Vacío</strong> = estructura general (aplica a todos).
+                            <strong>Con máquina</strong> = variante específica que sobreescribe la general para esa máquina.
+                        </small>
                     </div>
                     <div class="col-md-2">
                         <button type="button" id="btnCargarCargos" class="btn btn-outline-primary w-100" disabled>
                             <i class="fas fa-search me-1"></i> Cargar Cargos
                         </button>
                     </div>
+                </div>
+
+                <!-- Banner contextual: aparece cuando se selecciona una máquina específica -->
+                <div id="banner-variante-maquina" class="alert alert-info border-info py-2 mt-2 mb-0 d-none">
+                    <i class="fas fa-cogs me-2"></i>
+                    <strong>Creando variante por máquina:</strong>
+                    <span class="badge bg-primary ms-1" id="badge-nombre-maquina"></span>
+                    — Los valores que ingreses sobreescriben la estructura general <em>solo para esta máquina</em>.
+                    Los cargos con estructura general precargan sus valores como punto de partida.
                 </div>
             </div>
         </div>
@@ -281,10 +293,19 @@ document.addEventListener('DOMContentLoaded', function() {
         noCargosMsg.style.display = 'none';
     });
 
-    // Al cambiar máquina, ocultar cargos para forzar recarga
+    // Al cambiar máquina, ocultar cargos para forzar recarga y mostrar banner de variante
+    const bannerVariante = document.getElementById('banner-variante-maquina');
+    const badgeNombreMaquina = document.getElementById('badge-nombre-maquina');
     maquinaSel.addEventListener('change', function() {
         cargosSection.style.display = 'none';
         noCargosMsg.style.display = 'none';
+        if (this.value) {
+            const nombreMaq = this.options[this.selectedIndex].textContent;
+            badgeNombreMaquina.textContent = nombreMaq;
+            bannerVariante.classList.remove('d-none');
+        } else {
+            bannerVariante.classList.add('d-none');
+        }
     });
 
     // Paso 2: Cargar cargos

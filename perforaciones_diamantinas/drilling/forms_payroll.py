@@ -370,8 +370,10 @@ class AsignacionEstructuraSalarialForm(forms.ModelForm):
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
-    def __init__(self, *args, contrato=None, cargo=None, **kwargs):
+    def __init__(self, *args, contrato=None, cargo=None, maquina_trabajador=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._maquina_trabajador = maquina_trabajador
+        self.add_warning = False
         self.fields['estructura_salarial'].empty_label = '— Seleccionar estructura —'
         if contrato and cargo:
             self.fields['estructura_salarial'].queryset = EstructuraSalarial.objects.filter(
@@ -387,3 +389,11 @@ class AsignacionEstructuraSalarialForm(forms.ModelForm):
         else:
             self.fields['estructura_salarial'].queryset = EstructuraSalarial.objects.none()
         self.fields['fecha_fin'].required = False
+
+    def clean_estructura_salarial(self):
+        estructura = self.cleaned_data.get('estructura_salarial')
+        if (estructura and self._maquina_trabajador
+                and estructura.maquina_id
+                and estructura.maquina_id != self._maquina_trabajador.pk):
+            self.add_warning = True
+        return estructura

@@ -143,6 +143,12 @@
                             {% else %}
                             <span class="badge bg-light text-dark border ms-1">General</span>
                             {% endif %}
+                            {% if t.maquina_asignada and e.maquina and t.maquina_asignada != e.maquina %}
+                            <span class="badge bg-danger ms-1"
+                                  title="Estructura para {{ e.maquina.nombre }}, trabajador opera {{ t.maquina_asignada.nombre }}">
+                                <i class="fas fa-exclamation-triangle"></i> Desincronía
+                            </span>
+                            {% endif %}
                             <br><small class="text-muted">CTR: {{ e.contrato_servicio.codigo_centro_costo }} | desde {{ a.fecha_inicio }}</small>
                             {% endwith %}
                             {% else %}

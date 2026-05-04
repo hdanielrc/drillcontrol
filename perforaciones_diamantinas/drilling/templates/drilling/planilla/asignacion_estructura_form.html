@@ -39,6 +39,19 @@
         </div>
     </div>
 
+    {% if estructura_sugerida and not asignacion_previa %}
+    <!-- Banner de sugerencia automática por máquina del trabajador -->
+    <div class="alert alert-info border-info py-2">
+        <i class="fas fa-magic me-2"></i>
+        <strong>Sugerencia automática:</strong> Se pre-seleccionó la estructura que corresponde a la máquina
+        <span class="badge bg-info text-dark">{{ trabajador.maquina_asignada.nombre }}</span>
+        asignada al trabajador.
+        {% if not estructura_sugerida.maquina %}
+        <span class="text-muted">(No existe variante para esta máquina — se usó la estructura general.)</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% if asignacion_previa %}
     <!-- Asignación previa activa -->
     <div class="alert alert-warning border-warning">
@@ -96,6 +109,12 @@
                                 {% if estructuras_disponibles|length == 1 %}
                                 Solo existe una estructura para el cargo <strong>{{ trabajador.cargo }}</strong>.
                                 {% endif %}
+                            </div>
+                            <div id="warning-maquina" class="alert alert-warning py-2 mt-2 d-none">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                La estructura seleccionada corresponde a una máquina distinta a la asignada al trabajador
+                                (<strong>{{ trabajador.maquina_asignada.nombre }}</strong>).
+                                <strong>Revisa antes de guardar.</strong>
                             </div>
                         </div>
 
@@ -206,11 +225,12 @@
 
 <script>
 (function () {
-    // Carga datos de la estructura seleccionada vía API para mostrar vista previa
     const selectEstructura = document.getElementById('id_estructura_salarial');
     const preview = document.getElementById('preview-estructura');
+    const warningMaquina = document.getElementById('warning-maquina');
     const contrato_id = '{{ contrato.pk }}';
     const cargo = '{{ trabajador.cargo|escapejs }}';
+    const maquinaTrabajador = '{{ trabajador.maquina_asignada.nombre|default:""|escapejs }}';
 
     let estructurasData = {};
 
@@ -228,11 +248,23 @@
             const e = estructurasData[id];
             document.getElementById('prev-sueldo').textContent = 'S/ ' + parseFloat(e.sueldo_basico).toFixed(2);
             document.getElementById('prev-bono').textContent = 'S/ ' + parseFloat(e.bono_por_metraje).toFixed(2);
-            document.getElementById('prev-metraje').textContent = '—';
+            document.getElementById('prev-metraje').textContent = parseFloat(e.metraje_base || 0).toFixed(2) + ' m';
             document.getElementById('prev-bonif').textContent = 'S/ ' + parseFloat(e.bonificacion_area).toFixed(2);
             preview.classList.remove('d-none');
+            verificarCoherencia(e);
         } else {
             preview.classList.add('d-none');
+            if (warningMaquina) warningMaquina.classList.add('d-none');
+        }
+    }
+
+    function verificarCoherencia(estructuraData) {
+        if (!warningMaquina || !maquinaTrabajador) return;
+        const maquinaEstructura = estructuraData.maquina || '';
+        if (maquinaEstructura && maquinaTrabajador !== maquinaEstructura) {
+            warningMaquina.classList.remove('d-none');
+        } else {
+            warningMaquina.classList.add('d-none');
         }
     }
 
