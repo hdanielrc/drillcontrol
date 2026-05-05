@@ -1138,69 +1138,77 @@ def cuadro_guardar(request, tipo_bono_pk):
     bonos_data = data.get('bonos', [])
     actualizados = 0
 
-    for bd in bonos_data:
-        bono_pk = bd.get('bono_pk')
-        if not bono_pk:
-            continue
+    try:
+        for bd in bonos_data:
+            bono_pk = bd.get('bono_pk')
+            if not bono_pk:
+                continue
 
-        try:
-            bono_trab = BonoTrabajador.objects.get(pk=bono_pk)
-        except BonoTrabajador.DoesNotExist:
-            continue
+            try:
+                bono_trab = BonoTrabajador.objects.select_related(
+                    'periodo', 'trabajador', 'tipo_bono'
+                ).get(pk=bono_pk)
+            except BonoTrabajador.DoesNotExist:
+                continue
 
-        # Actualizar bono_base si cambió
-        nuevo_base = bd.get('bono_base')
-        if nuevo_base is not None:
-            bono_trab.bono_base = Decimal(str(nuevo_base))
-            bono_trab.save(update_fields=['bono_base'])
+            # Actualizar bono_base si cambió
+            nuevo_base = bd.get('bono_base')
+            if nuevo_base is not None:
+                bono_trab.bono_base = Decimal(str(nuevo_base))
+                bono_trab.save(update_fields=['bono_base'])
 
-        # Actualizar días si los envían
-        dias_trab = bd.get('dias_trabajados')
-        dias_op = bd.get('dias_operativos')
-        if dias_trab is not None:
-            bono_trab.dias_trabajados = int(dias_trab)
-        if dias_op is not None:
-            bono_trab.dias_base = int(dias_op)
-        if dias_trab is not None or dias_op is not None:
-            bono_trab.save(update_fields=['dias_trabajados', 'dias_base'])
+            # Actualizar días si los envían
+            dias_trab = bd.get('dias_trabajados')
+            dias_op = bd.get('dias_operativos')
+            if dias_trab is not None:
+                bono_trab.dias_trabajados = int(dias_trab)
+            if dias_op is not None:
+                bono_trab.dias_base = int(dias_op)
+            if dias_trab is not None or dias_op is not None:
+                bono_trab.save(update_fields=['dias_trabajados', 'dias_base'])
 
-        # Actualizar metraje_acumulado (trabajadores de tipo metraje)
-        metraje_acumulado = bd.get('metraje_acumulado')
-        if metraje_acumulado is not None:
-            bono_trab.metraje_acumulado = Decimal(str(metraje_acumulado))
-            bono_trab.save(update_fields=['metraje_acumulado'])
+            # Actualizar metraje_acumulado (trabajadores de tipo metraje)
+            metraje_acumulado = bd.get('metraje_acumulado')
+            if metraje_acumulado is not None:
+                bono_trab.metraje_acumulado = Decimal(str(metraje_acumulado))
+                bono_trab.save(update_fields=['metraje_acumulado'])
 
-        # Actualizar monto_final (total calculado enviado desde el DOM)
-        monto_final = bd.get('monto_final')
-        if monto_final is not None:
-            monto_final_dec = Decimal(str(monto_final))
-            bono_trab.monto_calculado = monto_final_dec
-            bono_trab.monto_final = monto_final_dec + bono_trab.monto_ajuste
-            bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
-            bono_trab.registrar_historial(
-                fuente='GUARDAR',
-                usuario=request.user,
-                observacion='Guardado manual desde cuadro de calificación',
-            )
+            # Actualizar monto_final (total calculado enviado desde el DOM)
+            monto_final = bd.get('monto_final')
+            if monto_final is not None:
+                monto_final_dec = Decimal(str(monto_final))
+                bono_trab.monto_calculado = monto_final_dec
+                bono_trab.monto_final = monto_final_dec + bono_trab.monto_ajuste
+                bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
+                bono_trab.registrar_historial(
+                    fuente='GUARDAR',
+                    usuario=request.user,
+                    observacion='Guardado manual desde cuadro de calificación',
+                )
 
-        # Actualizar criterios
-        criterios_dict = bd.get('criterios', {})
-        for crit_pk_str, cumple in criterios_dict.items():
-            CalificacionCriterio.objects.filter(
-                bono_trabajador=bono_trab,
-                criterio_id=int(crit_pk_str),
-            ).update(cumple=bool(cumple))
+            # Actualizar criterios
+            criterios_dict = bd.get('criterios', {})
+            for crit_pk_str, cumple in criterios_dict.items():
+                CalificacionCriterio.objects.filter(
+                    bono_trabajador=bono_trab,
+                    criterio_id=int(crit_pk_str),
+                ).update(cumple=bool(cumple))
 
-        # Actualizar puntajes de tabla fija (INCIDENCIAS / PRODUCCION_META)
-        puntajes_tabla = bd.get('puntajes_tabla', {})
-        for concepto_pk_str, puntaje_val in puntajes_tabla.items():
-            BonoTrabajadorDetalle.objects.update_or_create(
-                bono=bono_trab,
-                concepto_id=int(concepto_pk_str),
-                defaults={'puntaje': Decimal(str(puntaje_val))},
-            )
+            # Actualizar puntajes de tabla fija (INCIDENCIAS / PRODUCCION_META)
+            puntajes_tabla = bd.get('puntajes_tabla', {})
+            for concepto_pk_str, puntaje_val in puntajes_tabla.items():
+                BonoTrabajadorDetalle.objects.update_or_create(
+                    bono=bono_trab,
+                    concepto_id=int(concepto_pk_str),
+                    defaults={'puntaje': Decimal(str(puntaje_val))},
+                )
 
-        actualizados += 1
+            actualizados += 1
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception('Error en cuadro_guardar')
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
     return JsonResponse({'ok': True, 'actualizados': actualizados})
 
