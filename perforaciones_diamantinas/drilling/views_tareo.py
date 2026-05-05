@@ -873,6 +873,7 @@ MAPEO_CODIGOS = {
     'LF': 'L',
     'LCG': 'L',
     'L': 'L',
+    'MDL': 'MDL',
 }
 
 # LEYENDA DE CÓDIGOS
@@ -896,6 +897,7 @@ LEYENDA = {
     'L': 'LICENCIA',
     'C': 'CESADO',
     'TC': 'TRABAJO EN CALIENTE',
+    'MDL': 'MEDIO DÍA LIBRE',
 }
 
 # Colores vivos por código para el Excel (formato ARGB sin #)
@@ -921,6 +923,7 @@ COLORES_EXCEL = {
     'C':   'FF212121',  # Negro — Cesado
     'TC':  'FFFF1744',  # Rojo neón — Trabajo en Caliente
     'LF':  'FF4A148C',  # Morado oscuro — Licencia por Fallecimiento
+    'MDL': 'FFFFFF00',  # Amarillo — Medio Día Libre
 }
 
 
@@ -1352,6 +1355,8 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                                 if _cal_inicio <= fecha_actual <= _cal_fin:
                                     if codigo in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
                                         trabajado_cal += 1
+                                    elif codigo == 'MDL':
+                                        trabajado_cal += 0.5
                                     if codigo_raw in ('PT', 'PERMISO_PATERNIDAD'):
                                         paternidad_cal += 1
                                     if codigo == 'REC':
@@ -1457,6 +1462,8 @@ def _crear_hoja_tareo(ws, contrato, fecha_inicio, fecha_fin, num_dias):
                             if _cal_inicio <= fecha_actual <= _cal_fin:
                                 if codigo in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
                                     trabajado_cal += 1
+                                elif codigo == 'MDL':
+                                    trabajado_cal += 0.5
                                 if codigo_raw in ('PT', 'PERMISO_PATERNIDAD'):
                                     paternidad_cal += 1
                                 if codigo == 'REC':
@@ -3582,6 +3589,8 @@ def tareo_v2_mensual_view(request):
                     if _cal_inicio <= f <= _cal_fin:
                         if codigo in ('TD', 'TN', 'T', 'DL', 'DA', 'DA1'):
                             trabajado_cal += 1
+                        elif codigo == 'MDL':
+                            trabajado_cal += 0.5
                         if estado_raw in ('PT', 'PERMISO_PATERNIDAD'):
                             paternidad_cal += 1
                         if codigo == 'REC':

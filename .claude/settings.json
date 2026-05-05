@@ -52,7 +52,12 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "PowerShell($skillDir = \"$env:USERPROFILE\\\\.claude\\\\skills\\\\caveman\"; if \\(!\\(Test-Path $skillDir\\)\\) { New-Item -ItemType Directory -Path $skillDir -Force }; Write-Output \"Dir: $skillDir\")",
-      "Edit(~/.claude/skills/caveman/**)"
+      "Edit(~/.claude/skills/caveman/**)",
+      "Bash(find \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\\\\\" -type f -name \"*.py\" | head -20)",
+      "Bash(Select-String -Path \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\\\\drilling\\\\templates\\\\drilling\\\\tareo\\\\tareo_v2_mensual.html\" -Pattern \"DA\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(Format-Table LineNumber, Line -AutoSize)",
+      "Bash(venv\\\\Scripts\\\\python.exe manage.py makemigrations drilling --name tareo_mdl_dias_decimal)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PERDLAP140.VILBRAGROUP\\Desktop\\drillcontrol"

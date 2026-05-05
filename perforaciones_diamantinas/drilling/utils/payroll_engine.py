@@ -13,6 +13,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from datetime import date
 
 from django.db import transaction
+from django.db.models import Case, When, Value, DecimalField as _DField, Sum as _DSum
 from django.utils import timezone
 
 from drilling.models import Trabajador
@@ -38,21 +39,22 @@ ONE = Decimal('1.0000')
 
 
 # Estados RAW almacenados en la tabla que el MAPEO_CODIGOS transforma en
-# TD, TN, DL o DA — fórmula TRABAJADO = TD+TN+DL+DA (mes calendario 1-30).
+# TD, TN, DL o DA — fórmula TRABAJADO = TD+TN+DL+DA+MDL×0.5 (mes calendario 1-30).
 # Se incluyen los alias largos porque TareoEntry puede recibirlos desde V1.
 _ESTADOS_TRABAJADO_RAW = (
-    'TD', 'TRABAJO_DIA',           # → TD
-    'TN', 'TRABAJO_NOCHE',         # → TN
-    'DL', 'DIA_LIBRE', 'DESCANSO', # → DL
-    'DA', 'DIA_APOYO',             # → DA
+    'TD', 'TRABAJO_DIA',           # → TD  (1.0)
+    'TN', 'TRABAJO_NOCHE',         # → TN  (1.0)
+    'DL', 'DIA_LIBRE', 'DESCANSO', # → DL  (1.0)
+    'DA', 'DIA_APOYO',             # → DA  (1.0)
+    'MDL',                         # Medio Día Libre (0.5)
 )
 
 
 def contar_dias_trabajados(trabajador, fecha_inicio, fecha_fin):
     """
     Cuenta los días trabajados para un trabajador en el rango calendario.
-    Fórmula: TRABAJADO = TD+TN+DL+DA (mes calendario 1-30), igual que la
-    columna TRABAJADO del Resumen de Planilla.
+    Fórmula: TRABAJADO = TD+TN+DL+DA+MDL×0.5 (mes calendario 1-30).
+    MDL vale 0.5; el resto valen 1.0. Retorna Decimal.
     """
     import calendar as _cal
     # Capear al día 30, igual que la Matriz Resumen de Planilla
@@ -61,12 +63,21 @@ def contar_dias_trabajados(trabajador, fecha_inicio, fecha_fin):
     # Rango calendario: día 1 al día 30 del mes
     fecha_inicio_cal = date(fecha_fin.year, fecha_fin.month, 1)
 
-    return AsistenciaDiaria.objects.filter(
+    result = AsistenciaDiaria.objects.filter(
         trabajador=trabajador,
         fecha__gte=fecha_inicio_cal,
         fecha__lte=fecha_fin_cal,
         estado__in=_ESTADOS_TRABAJADO_RAW,
-    ).count()
+    ).aggregate(
+        total=_DSum(
+            Case(
+                When(estado='MDL', then=Value(Decimal('0.5'))),
+                default=Value(Decimal('1.0')),
+                output_field=_DField(max_digits=5, decimal_places=1),
+            )
+        )
+    )
+    return result['total'] or ZERO
 
 
 def calcular_dias_base_regimen(trabajador, fecha_inicio, fecha_fin):

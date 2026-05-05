@@ -16,19 +16,20 @@ Arquitectura:
 - HistorialEstructuraSalarial: Historial de versiones de estructura salarial
 """
 
+from decimal import Decimal
+
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Estados de asistencia que cuentan como "día trabajado" para bonos
-# Estados de AsistenciaDiaria que cuentan como día trabajado
-# Incluye formas cortas (TD, TN, DL, DA) Y formas largas (TRABAJO_DIA, DIA_LIBRE, etc.)
-# Fórmula: TRABAJADO = TD + TN + DL + DA  (mes calendario 1-30)
+# MDL vale 0.5; el resto valen 1.0. Fórmula: TD+TN+DL+DA+MDL×0.5 (mes calendario 1-30)
 ESTADOS_DIA_TRABAJADO = (
     'TD', 'TRABAJO_DIA',
     'TN', 'TRABAJO_NOCHE',
     'T',  'TRABAJADO', 'TRABAJO',
     'DL', 'DIA_LIBRE', 'DESCANSO',
     'DA', 'DIA_APOYO', 'DA1',
+    'MDL',  # Medio Día Libre — vale 0.5, no 1.0
 )
 
 
@@ -302,7 +303,7 @@ class BonoTrabajador(models.Model):
         verbose_name='Bono Base (S/)',
         help_text='Monto base del bono para este trabajador. Editable por usuario.'
     )
-    dias_trabajados = models.PositiveSmallIntegerField(default=0, verbose_name='Días Trabajados')
+    dias_trabajados = models.DecimalField(max_digits=5, decimal_places=1, default=Decimal('0.0'), verbose_name='Días Trabajados')
     dias_base = models.PositiveSmallIntegerField(default=0, verbose_name='Días Operativos')
     factor_cumplimiento = models.DecimalField(
         max_digits=5, decimal_places=4, default=1,
@@ -396,7 +397,7 @@ class HistorialBonoTrabajador(models.Model):
     monto_calculado = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monto Calculado (S/)')
     monto_ajuste    = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Ajuste Manual (S/)')
     monto_final     = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monto Final (S/)')
-    dias_trabajados = models.PositiveSmallIntegerField(default=0, verbose_name='Días Trabajados')
+    dias_trabajados = models.DecimalField(max_digits=5, decimal_places=1, default=Decimal('0.0'), verbose_name='Días Trabajados')
     dias_base       = models.PositiveSmallIntegerField(default=0, verbose_name='Días Operativos')
 
     # Auditoría

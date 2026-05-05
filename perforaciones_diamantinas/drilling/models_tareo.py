@@ -76,13 +76,14 @@ class TareoEntry(models.Model):
     fecha = models.DateField(db_index=True)
 
     ESTADO_CHOICES = [
-        ('TRABAJO', 'Trabajo'),
-        ('TD', 'Turno Día'),
-        ('TN', 'Turno Noche'),
-        ('DESCANSO', 'Descanso'),
-        ('FALTA', 'Falta'),
+        ('TRABAJO',    'Trabajo'),
+        ('TD',         'Turno Día'),
+        ('TN',         'Turno Noche'),
+        ('DESCANSO',   'Descanso'),
+        ('MDL',        'Medio Día Libre'),
+        ('FALTA',      'Falta'),
         ('VACACIONES', 'Vacaciones'),
-        ('PERMISO', 'Permiso'),
+        ('PERMISO',    'Permiso'),
     ]
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='TRABAJO', db_index=True)
 
