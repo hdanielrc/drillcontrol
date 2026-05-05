@@ -44,7 +44,15 @@
       "Bash(grep -E \"\\\\.\\(html|js\\)$\")",
       "Bash(xargs ls *)",
       "Bash(venv/Scripts/python.exe manage.py makemigrations drilling --name liquidacion_trabajador)",
-      "Bash(python manage.py makemigrations drilling --name liquidacion_trabajador)"
+      "Bash(python manage.py makemigrations drilling --name liquidacion_trabajador)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\PERDLAP140.VILBRAGROUP\\\\Desktop\\\\drillcontrol\\\\perforaciones_diamantinas\\\\\" -Recurse -Directory | Select-Object -ExpandProperty FullName | head -30)",
+      "Bash(npx skills *)",
+      "PowerShell(npx skills add https://github.com/juliusbrussee/caveman --skill caveman)",
+      "PowerShell(Get-Command node, npm, npx -ErrorAction SilentlyContinue)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "PowerShell($skillDir = \"$env:USERPROFILE\\\\.claude\\\\skills\\\\caveman\"; if \\(!\\(Test-Path $skillDir\\)\\) { New-Item -ItemType Directory -Path $skillDir -Force }; Write-Output \"Dir: $skillDir\")",
+      "Edit(~/.claude/skills/caveman/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PERDLAP140.VILBRAGROUP\\Desktop\\drillcontrol"

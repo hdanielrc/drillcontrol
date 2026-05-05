@@ -897,9 +897,41 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     if _meta_cumplida:
                         _dias_meta_cumplida += _dias_en_maq
 
-                # Si el trabajador no tiene asistencias con máquina, fila vacía
+                # Supervisores: no aparecen en turnos; prorratieo desde EstructuraSalarial.
+                # ACUM = (Σ metros_maquinas_asignadas / N_maquinas) × (dias_trabajados / dias_op)
+                # BASE = metraje_base × (dias_trabajados / dias_op)  [sin cambio]
                 if not _maq_entradas:
                     _desglose_maquinas = []
+                    _dias_fallback = min(bono_trab.dias_trabajados, _dias_mes_op)
+                    _d_fb = Decimal(str(_dias_fallback))
+                    if _d_op > 0 and _dias_fallback > 0:
+                        _estructuras_sup = list(EstructuraSalarial.objects.filter(
+                            contrato=config.contrato,
+                            cargo_contratado=cargo_trab,
+                            activo=True,
+                        ))
+                        # Determinar conjunto de máquinas según EstructuraSalarial
+                        _maq_ids_sup = [e.maquina_id for e in _estructuras_sup if e.maquina_id]
+                        if _maq_ids_sup:
+                            # Estructuras con máquinas específicas
+                            _metros_sup = {mid: _metros_maquina.get(mid, Decimal('0')) for mid in _maq_ids_sup}
+                        else:
+                            # Sin máquina asignada → todas las máquinas del contrato
+                            _metros_sup = dict(_metros_maquina)
+
+                        _n_maq_sup = len(_metros_sup)
+                        _suma_metros_sup = sum(_metros_sup.values(), Decimal('0'))
+                        # Promedio de metros entre las máquinas del supervisor
+                        _metros_prom_sup = (
+                            (_suma_metros_sup / Decimal(str(_n_maq_sup))).quantize(Decimal('0.001'))
+                            if _n_maq_sup > 0 else Decimal('0')
+                        )
+                        _base_prorrateo_total = (metraje_base_val / _d_op * _d_fb).quantize(Decimal('0.01'))
+                        _acum_prorrateo_total = (_metros_prom_sup / _d_op * _d_fb).quantize(Decimal('0.01'))
+                        _total_prorrateo_total = (
+                            (_acum_prorrateo_total - _base_prorrateo_total) * monto_ajustado
+                        ).quantize(Decimal('0.01'))
+                        _total_dias_en_maq = _dias_fallback
 
                 filas_metraje.append({
                     'bono_pk': bono_trab.pk,
