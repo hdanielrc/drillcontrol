@@ -404,9 +404,10 @@ urlpatterns = [
     path('planilla/estructura-salarial/crear/', views_payroll.estructura_salarial_create, name='planilla-estructura-salarial-create'),
     path('planilla/estructura-salarial/<int:pk>/editar/', views_payroll.estructura_salarial_edit, name='planilla-estructura-salarial-edit'),
     path('planilla/estructura-salarial/<int:pk>/historial/', views_payroll.estructura_salarial_historial, name='planilla-estructura-salarial-historial'),
-    path('planilla/asignacion-estructura/', views_payroll.asignacion_estructura_list, name='planilla-asignacion-estructura-list'),
-    path('planilla/asignacion-estructura/<int:trabajador_pk>/asignar/', views_payroll.asignacion_estructura_asignar, name='planilla-asignacion-estructura-asignar'),
-    path('planilla/asignacion-estructura/<int:pk>/desactivar/', views_payroll.asignacion_estructura_desactivar, name='planilla-asignacion-estructura-desactivar'),
+    # DEPRECADO — AsignacionEstructuraSalarial reemplazado por lookup automático por máquina
+    # path('planilla/asignacion-estructura/', views_payroll.asignacion_estructura_list, name='planilla-asignacion-estructura-list'),
+    # path('planilla/asignacion-estructura/<int:trabajador_pk>/asignar/', views_payroll.asignacion_estructura_asignar, name='planilla-asignacion-estructura-asignar'),
+    # path('planilla/asignacion-estructura/<int:pk>/desactivar/', views_payroll.asignacion_estructura_desactivar, name='planilla-asignacion-estructura-desactivar'),
     path('planilla/api/estructuras-por-cargo/', views_payroll.api_estructuras_por_cargo, name='planilla-api-estructuras-por-cargo'),
     path('planilla/api/ctr-por-contrato/<int:contrato_id>/', views_payroll.api_ctr_por_contrato, name='planilla-api-ctr-contrato'),
     path('planilla/api/maquinas-por-contrato/<int:contrato_id>/', views_payroll.api_maquinas_por_contrato, name='planilla-api-maquinas-contrato'),

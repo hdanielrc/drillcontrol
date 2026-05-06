@@ -13,7 +13,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from datetime import date
 
 from django.db import transaction
-from django.db.models import Case, When, Value, DecimalField as _DField, Sum as _DSum
+from django.db.models import Case, When, Value, DecimalField as _DField, Sum as _DSum, Count as _Count
 from django.utils import timezone
 
 from drilling.models import Trabajador
@@ -32,6 +32,7 @@ from drilling.models_payroll import (
     BonoTrabajadorDetalle,
     CriterioBono,
     CalificacionCriterio,
+    EstructuraSalarial,
 )
 
 ZERO = Decimal('0.00')
@@ -598,14 +599,52 @@ def conciliar_periodo_tareo(periodo):
     }
 
 
+def resolver_estructura_salarial(trabajador, contrato, cargo, fecha_inicio, fecha_fin):
+    """
+    Determina EstructuraSalarial para un trabajador en un período.
+    Usa la máquina con más días trabajados (maquina_snapshot) en AsistenciaDiaria.
+    Fallback: estructura sin máquina (general para el cargo).
+    """
+    maquina_dominante = (
+        AsistenciaDiaria.objects
+        .filter(
+            trabajador=trabajador,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin,
+            estado__in=_ESTADOS_TRABAJADO_RAW,
+            maquina_snapshot__isnull=False,
+        )
+        .values('maquina_snapshot')
+        .annotate(dias=_Count('id'))
+        .order_by('-dias')
+        .values_list('maquina_snapshot_id', flat=True)
+        .first()
+    )
+
+    if maquina_dominante:
+        est = EstructuraSalarial.objects.filter(
+            contrato=contrato,
+            cargo_contratado=cargo,
+            maquina_id=maquina_dominante,
+            activo=True,
+        ).first()
+        if est:
+            return est
+
+    return EstructuraSalarial.objects.filter(
+        contrato=contrato,
+        cargo_contratado=cargo,
+        maquina__isnull=True,
+        activo=True,
+    ).first()
+
+
 def resumen_por_trabajador(periodo, trabajador):
     """
     Devuelve el desglose completo de bonos de un trabajador en el período,
     más el sueldo básico referencial de su EstructuraSalarial.
     """
     from django.db.models import Sum
-    from drilling.models_payroll import EstructuraSalarial, AsignacionEstructuraSalarial
-
     bonos = BonoTrabajador.objects.filter(
         periodo=periodo,
         trabajador=trabajador,
@@ -618,15 +657,14 @@ def resumen_por_trabajador(periodo, trabajador):
     total_extraordinario = sum(b.monto_final for b in bonos_extraordinarios) or ZERO
     total_bonos = total_remunerativo + total_extraordinario
 
-    # Sueldo básico referencial desde EstructuraSalarial
+    # Sueldo básico referencial desde EstructuraSalarial (resuelto por máquina del período)
     sueldo_basico = ZERO
     bonificacion_area = ZERO
-    asignacion = AsignacionEstructuraSalarial.objects.filter(
-        trabajador=trabajador, activo=True
-    ).select_related('estructura_salarial').first()
-    if asignacion:
-        sueldo_basico = asignacion.estructura_salarial.sueldo_basico
-        bonificacion_area = asignacion.estructura_salarial.bonificacion_area
+    cargo = trabajador.cargo or getattr(trabajador, 'cargo_headcount', '') or ''
+    est = resolver_estructura_salarial(trabajador, periodo.contrato, cargo, periodo.fecha_inicio, periodo.fecha_fin)
+    if est:
+        sueldo_basico = est.sueldo_basico
+        bonificacion_area = est.bonificacion_area
 
     return {
         'trabajador': trabajador,

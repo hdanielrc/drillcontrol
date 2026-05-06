@@ -556,6 +556,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     from collections import OrderedDict
     import unicodedata
     from .models_payroll import ConceptoGlobalPeriodo
+    from drilling.utils.payroll_engine import resolver_estructura_salarial as _resolver_est
 
     # Prefijos ordenados de mayor a menor longitud para evitar falsos matches.
     # Cualquier ConceptoBono.codigo que empiece con uno de estos prefijos
@@ -741,11 +742,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             def _bono_base_para(cfg, cargo, tipo):
                 """Retorna el monto base según el tipo de cálculo del trabajador."""
                 if tipo == 'metraje':
-                    est = EstructuraSalarial.objects.filter(
-                        contrato=cfg.contrato,
-                        cargo_contratado=cargo,
-                        activo=True,
-                    ).first()
+                    est = _resolver_est(trab, cfg.contrato, cargo, fecha_inicio, fecha_fin)
                     if est and est.bono_por_metraje:
                         # Almacenar solo la TARIFA por metro (no el producto con metraje_base)
                         return est.bono_por_metraje
@@ -806,9 +803,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 mult_total = Decimal('1') + mult_seg
                 mult_total_pct = int(mult_total * 100)  # 100 o 104
 
-                est_m = EstructuraSalarial.objects.filter(
-                    contrato=config.contrato, cargo_contratado=cargo_trab, activo=True
-                ).first()
+                est_m = _resolver_est(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
                 metraje_base_val = est_m.metraje_base if est_m and est_m.metraje_base else Decimal('0')
 
                 # Metraje acumulado del trabajador: suma de metros perforados
@@ -905,11 +900,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     _dias_fallback = min(bono_trab.dias_trabajados, _dias_mes_op)
                     _d_fb = Decimal(str(_dias_fallback))
                     if _d_op > 0 and _dias_fallback > 0:
-                        _estructuras_sup = list(EstructuraSalarial.objects.filter(
-                            contrato=config.contrato,
-                            cargo_contratado=cargo_trab,
-                            activo=True,
-                        ))
+                        _est_sup = _resolver_est(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
+                        _estructuras_sup = [_est_sup] if _est_sup else []
                         # Determinar conjunto de máquinas según EstructuraSalarial
                         _maq_ids_sup = [e.maquina_id for e in _estructuras_sup if e.maquina_id]
                         if _maq_ids_sup:
