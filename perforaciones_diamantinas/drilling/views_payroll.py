@@ -762,7 +762,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             _est_por_maquina = {maq_id: est for est, _, maq_id in _structs_trab if maq_id}
 
             # ── Determinar tipo de cálculo del trabajador ─────────────────────
-            tipo_calc = (config.tipo_calculo_por_trabajador or {}).get(trab.dni, 'cumplimiento')
+            _default_calc = getattr(config, 'tipo_calculo_default', 'cumplimiento') or 'cumplimiento'
+            tipo_calc = (config.tipo_calculo_por_trabajador or {}).get(trab.dni, _default_calc)
 
             def _bono_base_para(cfg, cargo, tipo):
                 """Retorna el monto base según el tipo de cálculo del trabajador."""

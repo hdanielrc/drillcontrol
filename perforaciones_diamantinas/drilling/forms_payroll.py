@@ -115,7 +115,7 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
         model = ConfiguracionBonoContrato
         fields = [
             'contrato', 'tipo_bono', 'monto_base_mensual', 'monto_por_dia',
-            'usa_dias_regimen', 'dias_base_fijo', 'activo',
+            'usa_dias_regimen', 'dias_base_fijo', 'tipo_calculo_default', 'activo',
             'vigencia_desde', 'vigencia_hasta', 'observaciones',
         ]
         widgets = {
@@ -125,6 +125,7 @@ class ConfiguracionBonoContratoForm(forms.ModelForm):
             'monto_por_dia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'usa_dias_regimen': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'dias_base_fijo': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'tipo_calculo_default': forms.Select(attrs={'class': 'form-select'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'vigencia_desde': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
             'vigencia_hasta': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),

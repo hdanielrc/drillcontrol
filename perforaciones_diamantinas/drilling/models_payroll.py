@@ -162,8 +162,20 @@ class ConfiguracionBonoContrato(models.Model):
         help_text=(
             'DNI → "metraje" | "cumplimiento". '
             'Ej: {"12345678": "metraje"}. '
-            'Vacío o sin clave = trabajador calcula por cumplimiento KPI (lógica normal).'
+            'Vacío o sin clave = usa tipo_calculo_default.'
         )
+    )
+    TIPO_CALCULO_DEFAULT_CHOICES = [
+        ('cumplimiento', 'Cumplimiento KPI (default)'),
+        ('metraje', 'Metraje (todos por metro)'),
+        ('ambos', 'Ambos (cumplimiento + metraje)'),
+    ]
+    tipo_calculo_default = models.CharField(
+        max_length=20,
+        choices=TIPO_CALCULO_DEFAULT_CHOICES,
+        default='cumplimiento',
+        verbose_name='Tipo de Cálculo por Defecto',
+        help_text='Tipo de cálculo aplicado a trabajadores sin entrada en tipo_calculo_por_trabajador.',
     )
     activo = models.BooleanField(default=True)
     vigencia_desde = models.DateField(verbose_name='Vigencia Desde')
