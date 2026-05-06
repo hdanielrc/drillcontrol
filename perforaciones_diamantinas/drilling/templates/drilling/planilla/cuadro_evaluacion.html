@@ -349,7 +349,13 @@
                             {% if sec.fuente_puntaje == 'global' %}<i class="fas fa-globe" title="% desde Conceptos Globales" style="font-size:9px;opacity:.6;margin-left:2px;"></i>{% endif %}
                         </td>
                         {% endif %}
-                        <td class="td-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}" data-peso="{{ sec.peso }}">S/ {{ sec.monto|floatformat:2 }}</td>
+                        <td class="td-monto seccion-monto" data-concepto-pk="{{ sec.concepto_pk }}" data-peso="{{ sec.peso }}"
+                            {% if sec.factor_maq is not None %}title="Bruto: S/ {{ sec.monto_bruto|floatformat:2 }} × factor {{ sec.factor_maq|floatformat:1 }}% (≥90% por máquina){% for m in sec.desglose_factor_maq %} | {{ m.maquina_nombre }}: {{ m.pct_cumplimiento }}%{% if m.aporta %} ✓{% else %} ✗{% endif %}{% endfor %}"{% endif %}>
+                            S/ {{ sec.monto|floatformat:2 }}
+                            {% if sec.factor_maq is not None and sec.factor_maq < 100 %}
+                            <br><small style="color:#c0392b;font-size:10px;font-weight:600;">× {{ sec.factor_maq|floatformat:1 }}%</small>
+                            {% endif %}
+                        </td>
                     {% endfor %}
                     <td class="td-total fila-total">S/ {{ fila.total|floatformat:2 }}</td>
                 </tr>

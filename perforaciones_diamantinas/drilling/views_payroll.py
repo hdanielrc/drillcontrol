@@ -975,6 +975,34 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 if tipo_calc != 'ambos':
                     continue  # no procesar secciones para trabajadores de metraje puro
 
+            # ── Factor de máquinas para BONO META (cumplimiento) ─────────────
+            # Regla: ≥90% en una máquina → esa máquina aporta al Bono Meta.
+            # factor = días en máquinas ≥90% / total días trabajados en máquinas.
+            # Si el trabajador no tiene entradas de máquina, factor = 1.0 (sin penalización).
+            _maq_entradas_cumpl = _dias_trab_maquinas.get(trab.pk, [])
+            _dias_ok_cumpl = 0
+            _total_dias_maq_cumpl = 0
+            _desglose_factor_cumpl = []
+            for _maq_id_c, _dias_raw_c in _maq_entradas_cumpl:
+                _dias_c = min(_dias_raw_c, _dias_mes_op)
+                _metros_c = _metros_maquina.get(_maq_id_c, Decimal('0'))
+                _meta_c = _meta_maquina.get(_maq_id_c)
+                _pct_c = (float(_metros_c) / float(_meta_c) * 100) if _meta_c else 0.0
+                _aporta_c = _meta_c is not None and _pct_c >= 90
+                _total_dias_maq_cumpl += _dias_c
+                if _aporta_c:
+                    _dias_ok_cumpl += _dias_c
+                _desglose_factor_cumpl.append({
+                    'maquina_nombre': _maquina_nombres.get(_maq_id_c, f'Máq. {_maq_id_c}'),
+                    'dias': _dias_c,
+                    'pct_cumplimiento': round(_pct_c, 1),
+                    'aporta': _aporta_c,
+                })
+            if _total_dias_maq_cumpl > 0:
+                _factor_maq_cumpl = _dias_ok_cumpl / _total_dias_maq_cumpl
+            else:
+                _factor_maq_cumpl = 1.0  # sin datos de máquina → sin penalización
+
             # Construir datos de secciones con criterios (solo cumplimiento)
             secciones_data = []
             total_monto_trab = Decimal('0')
@@ -1034,7 +1062,14 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 metraje_mult = _METRAJE_MULT.get(global_codigo, Decimal('0'))
 
                 # Fórmula cumplimiento: bono_base × peso% × puntaje%
-                monto_seccion = round(bono_base * (peso / 100) * (puntaje / 100), 2)
+                # Para la sección PRODUCCION (Bono Meta): aplicar factor de máquinas ≥90%.
+                monto_seccion_base = round(bono_base * (peso / 100) * (puntaje / 100), 2)
+                if global_codigo == 'PRODUCCION' and _total_dias_maq_cumpl > 0:
+                    monto_seccion = round(monto_seccion_base * _factor_maq_cumpl, 2)
+                    _factor_maq_aplicado = _factor_maq_cumpl
+                else:
+                    monto_seccion = monto_seccion_base
+                    _factor_maq_aplicado = None
 
                 total_monto_trab += Decimal(str(monto_seccion))
 
@@ -1046,6 +1081,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'puntaje': puntaje,
                     'fuente_puntaje': fuente_puntaje,
                     'monto': monto_seccion,
+                    'monto_bruto': monto_seccion_base,
+                    'factor_maq': round(_factor_maq_aplicado * 100, 1) if _factor_maq_aplicado is not None else None,
+                    'desglose_factor_maq': _desglose_factor_cumpl if _factor_maq_aplicado is not None else [],
                     'metraje_mult_pct': float(metraje_mult * 100),  # 0, 4 ó 8
                     'tabla_calificacion': seccion.tabla_calificacion,
                 })
