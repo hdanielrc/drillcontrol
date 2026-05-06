@@ -2432,9 +2432,7 @@ def asignacion_estructura_asignar(request, trabajador_pk):
                 request,
                 f'Estructura salarial asignada correctamente a {trabajador.apepat} {trabajador.nombres}.'
             )
-            return redirect(
-                f"{reverse('planilla-asignacion-estructura-list')}?contrato={contrato.pk}"
-            )
+            return redirect(reverse('planilla-hub'))
     else:
         form = AsignacionEstructuraSalarialForm(
             initial={
@@ -2469,7 +2467,7 @@ def asignacion_estructura_desactivar(request, pk):
         asignacion.activo = False
         asignacion.save(update_fields=['activo'])
         messages.success(request, 'Asignación desactivada.')
-    return redirect(f"{reverse('planilla-asignacion-estructura-list')}?contrato={contrato_pk}")
+    return redirect(reverse('planilla-hub'))
 
 
 @login_required
