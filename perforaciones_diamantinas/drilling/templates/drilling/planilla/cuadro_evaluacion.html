@@ -428,11 +428,11 @@
                     <td class="td-acum">
                         {{ fila.metraje_acum_prorrateo|floatformat:2 }} m
                     </td>
-                    <td class="td-monto" title="{% if fila.bono_meta_base %}Base cumplimiento: S/ {{ fila.bono_meta_base|floatformat:2 }} × {{ fila.dias_meta_cumplida }}/{{ fila.dias_mes_operativo }} días con meta superada{% endif %}">
+                    <td class="td-monto" title="{% if fila.bono_meta_base %}Regla: ≥90% en máquina → aporta al Bono Meta. Factor = {{ fila.dias_meta_cumplida }}/{{ fila.dias_en_maquina }} días en máq. ≥90% / total días en máq. Base cumplimiento: S/ {{ fila.bono_meta_base|floatformat:2 }}{% endif %}">
                         {% if fila.bono_meta_total %}
                             S/ {{ fila.bono_meta_total|floatformat:2 }}
                             {% if fila.dias_meta_cumplida is not None %}
-                            <br><small style="font-weight:400;font-size:10px;opacity:.7;">{{ fila.dias_meta_cumplida }}/{{ fila.dias_mes_operativo }} días</small>
+                            <br><small style="font-weight:400;font-size:10px;opacity:.7;">{{ fila.dias_meta_cumplida }}/{{ fila.dias_en_maquina }} días (≥90%)</small>
                             {% endif %}
                         {% else %}&mdash;{% endif %}
                     </td>
@@ -456,6 +456,8 @@
                                     <th style="padding:4px 8px;">Días en máq.</th>
                                     <th style="padding:4px 8px;">Metros acum.</th>
                                     <th style="padding:4px 8px;">Meta (m)</th>
+                                    <th style="padding:4px 8px;">% Cumpl.</th>
+                                    <th style="padding:4px 8px;">Aporta Meta</th>
                                     <th style="padding:4px 8px;">Base prorrat. (m)</th>
                                     <th style="padding:4px 8px;">Acum. prorrat. (m)</th>
                                     <th style="padding:4px 8px;">Total</th>
@@ -463,17 +465,28 @@
                             </thead>
                             <tbody>
                                 {% for maq in fila.desglose_maquinas %}
-                                <tr style="border-top:1px solid #dee2e6;{% if maq.meta_cumplida %}background:#f0fff4;{% endif %}">
+                                <tr style="border-top:1px solid #dee2e6;{% if maq.meta_cumplida %}background:#f0fff4;{% else %}background:#fff8f8;{% endif %}">
                                     <td style="padding:4px 12px;text-align:left;font-weight:500;">{{ maq.maquina_nombre }}</td>
                                     <td style="padding:4px 8px;text-align:center;">{{ maq.dias }}</td>
                                     <td style="padding:4px 8px;text-align:center;">{{ maq.metros_acum|floatformat:1 }} m</td>
                                     <td style="padding:4px 8px;text-align:center;">
                                         {% if maq.meta_metros is not None %}
                                             {{ maq.meta_metros|floatformat:1 }} m
+                                        {% else %}&mdash;{% endif %}
+                                    </td>
+                                    <td style="padding:4px 8px;text-align:center;">
+                                        {% if maq.meta_metros is not None %}
+                                            <span style="font-weight:600;color:{% if maq.pct_cumplimiento >= 90 %}#28a745{% else %}#dc3545{% endif %};">
+                                                {{ maq.pct_cumplimiento|floatformat:1 }}%
+                                            </span>
+                                        {% else %}&mdash;{% endif %}
+                                    </td>
+                                    <td style="padding:4px 8px;text-align:center;">
+                                        {% if maq.meta_metros is not None %}
                                             {% if maq.meta_cumplida %}
-                                                <span style="color:#28a745;font-size:10px;"> &#10003;</span>
+                                                <span style="color:#28a745;font-weight:600;" title="≥ 90% — aporta al Bono Meta">&#10003; Sí</span>
                                             {% else %}
-                                                <span style="color:#dc3545;font-size:10px;"> &#10007;</span>
+                                                <span style="color:#dc3545;font-weight:600;" title="< 90% — no aporta al Bono Meta">&#10007; No</span>
                                             {% endif %}
                                         {% else %}&mdash;{% endif %}
                                     </td>

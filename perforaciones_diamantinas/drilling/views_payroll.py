@@ -854,7 +854,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     _d_en_maq = Decimal(str(_dias_en_maq))
                     _metros_maq = _metros_maquina.get(_maq_id, Decimal('0'))
                     _meta_maq = _meta_maquina.get(_maq_id)
-                    _meta_cumplida = _meta_maq is not None and _metros_maq >= _meta_maq
+                    # Regla: ≥ 90% de la meta en esa máquina → aporta al Bono Meta
+                    _pct_maq = (float(_metros_maq) / float(_meta_maq) * 100) if _meta_maq else 0.0
+                    _meta_cumplida = _meta_maq is not None and _pct_maq >= 90
                     # Estructura específica de esta máquina; fallback a est_m (dominante)
                     _est_maq = _est_por_maquina.get(_maq_id) or est_m
                     _metraje_base_maq = (
@@ -883,6 +885,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         'dias': _dias_en_maq,
                         'metros_acum': float(_metros_maq),
                         'meta_metros': float(_meta_maq) if _meta_maq is not None else None,
+                        'pct_cumplimiento': round(_pct_maq, 1),
                         'meta_cumplida': _meta_cumplida,
                         'bono_por_metro': float(_bono_metro_maq),
                         'metraje_base_maq': float(_metraje_base_maq),
@@ -1052,13 +1055,13 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             total_monto_trab = total_monto_trab.quantize(Decimal('0.01'))
 
             # Para trabajadores 'ambos', calcular bono_meta prorrateado:
-            # solo se entrega por los días trabajados en máquinas que superaron la meta.
+            # Regla: factor = días en máquinas ≥90% / total días trabajados en máquinas.
             if tipo_calc == 'ambos' and filas_metraje:
                 _fila_m = filas_metraje[-1]
-                _d_op_dec = Decimal(str(_dias_mes_op))
                 _dias_ok = Decimal(str(_fila_m['dias_meta_cumplida']))
-                if _d_op_dec > 0 and _dias_ok > 0:
-                    _bono_meta_calc = (total_monto_trab / _d_op_dec * _dias_ok).quantize(Decimal('0.01'))
+                _total_dias_maq_dec = Decimal(str(_fila_m['dias_en_maquina']))
+                if _total_dias_maq_dec > 0 and _dias_ok > 0:
+                    _bono_meta_calc = (total_monto_trab * _dias_ok / _total_dias_maq_dec).quantize(Decimal('0.01'))
                 else:
                     _bono_meta_calc = Decimal('0')
                 _fila_m['bono_meta_total'] = float(_bono_meta_calc)
