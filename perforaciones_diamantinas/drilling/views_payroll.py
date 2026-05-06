@@ -557,6 +557,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     import unicodedata
     from .models_payroll import ConceptoGlobalPeriodo
     from drilling.utils.payroll_engine import resolver_estructura_salarial as _resolver_est
+    from drilling.utils.payroll_engine import resolver_estructuras_por_maquinas as _resolver_ests
 
     # Prefijos ordenados de mayor a menor longitud para evitar falsos matches.
     # Cualquier ConceptoBono.codigo que empiece con uno de estos prefijos
@@ -736,6 +737,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
             from decimal import Decimal as _D
 
+            # Mapa maquina_id → EstructuraSalarial para prorrateo por máquina
+            _structs_trab = _resolver_ests(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
+            _est_por_maquina = {maq_id: est for est, _, maq_id in _structs_trab if maq_id}
+
             # ── Determinar tipo de cálculo del trabajador ─────────────────────
             tipo_calc = (config.tipo_calculo_por_trabajador or {}).get(trab.dni, 'cumplimiento')
 
@@ -830,24 +835,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     bono_trab.metraje_acumulado = metraje_acum_val
                     bono_trab.save(update_fields=['metraje_acumulado'])
 
+                # monto_ajustado referencial (tarifa dominante × mult); se usa como fallback en el loop
                 monto_ajustado = (bono_por_metro_val * mult_total).quantize(Decimal('0.001'))
-                bono_calculado = ((metraje_acum_val - metraje_base_val) * monto_ajustado).quantize(Decimal('0.01'))
-
-                # Auto-persistir monto_final solo para metraje puro (para "ambos" lo gestiona el bloque de cumplimiento)
-                if tipo_calc != 'ambos' and bono_trab.monto_final != bono_calculado:
-                    bono_trab.monto_calculado = bono_calculado
-                    bono_trab.monto_final = (bono_calculado + bono_trab.monto_ajuste).quantize(Decimal('0.01'))
-                    bono_trab.registrar_historial(
-                        fuente='CALCULO',
-                        usuario=request.user,
-                        observacion=f'Cálculo automático metraje: {float(metraje_acum_val):.3f}m × {float(monto_ajustado):.3f}',
-                    )
-                    bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
-                    bono_trab.registrar_historial(
-                        fuente='CALCULO',
-                        usuario=request.user,
-                        observacion=f'Cálculo automático metraje: {float(metraje_acum_val):.3f}m × {float(monto_ajustado):.3f}',
-                    )
+                # bono_calculado se asigna después del loop de prorrateo por máquina
 
                 # Prorrateo por máquina: una entrada por cada máquina donde trabajó
                 _d_op = Decimal(str(_dias_mes_op))
@@ -865,15 +855,28 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     _metros_maq = _metros_maquina.get(_maq_id, Decimal('0'))
                     _meta_maq = _meta_maquina.get(_maq_id)
                     _meta_cumplida = _meta_maq is not None and _metros_maq >= _meta_maq
+                    # Estructura específica de esta máquina; fallback a est_m (dominante)
+                    _est_maq = _est_por_maquina.get(_maq_id) or est_m
+                    _metraje_base_maq = (
+                        _est_maq.metraje_base
+                        if _est_maq and _est_maq.metraje_base
+                        else metraje_base_val
+                    )
+                    _bono_metro_maq = (
+                        _est_maq.bono_por_metraje
+                        if _est_maq and _est_maq.bono_por_metraje
+                        else bono_por_metro_val
+                    )
+                    _monto_ajustado_maq = (_bono_metro_maq * mult_total).quantize(Decimal('0.001'))
                     _base_p = (
-                        (metraje_base_val / _d_op * _d_en_maq).quantize(Decimal('0.01'))
+                        (_metraje_base_maq / _d_op * _d_en_maq).quantize(Decimal('0.01'))
                         if _d_op > 0 else Decimal('0')
                     )
                     _acum_p = (
                         (_metros_maq / _d_op * _d_en_maq).quantize(Decimal('0.01'))
                         if _d_op > 0 else Decimal('0')
                     )
-                    _total_p = ((_acum_p - _base_p) * monto_ajustado).quantize(Decimal('0.01'))
+                    _total_p = ((_acum_p - _base_p) * _monto_ajustado_maq).quantize(Decimal('0.01'))
                     _desglose_maquinas.append({
                         'maquina_id': _maq_id,
                         'maquina_nombre': _maquina_nombres.get(_maq_id, f'Máq. {_maq_id}'),
@@ -881,6 +884,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         'metros_acum': float(_metros_maq),
                         'meta_metros': float(_meta_maq) if _meta_maq is not None else None,
                         'meta_cumplida': _meta_cumplida,
+                        'bono_por_metro': float(_bono_metro_maq),
+                        'metraje_base_maq': float(_metraje_base_maq),
                         'base_prorrateo': float(_base_p),
                         'acum_prorrateo': float(_acum_p),
                         'total': float(_total_p),
@@ -924,6 +929,20 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                             (_acum_prorrateo_total - _base_prorrateo_total) * monto_ajustado
                         ).quantize(Decimal('0.01'))
                         _total_dias_en_maq = _dias_fallback
+
+                # bono_calculado = suma prorateada por máquina (ya incluye tarifas específicas por equipo)
+                bono_calculado = _total_prorrateo_total
+
+                # Auto-persistir monto_final solo para metraje puro (para "ambos" lo gestiona el bloque de cumplimiento)
+                if tipo_calc != 'ambos' and bono_trab.monto_final != bono_calculado:
+                    bono_trab.monto_calculado = bono_calculado
+                    bono_trab.monto_final = (bono_calculado + bono_trab.monto_ajuste).quantize(Decimal('0.01'))
+                    bono_trab.registrar_historial(
+                        fuente='CALCULO',
+                        usuario=request.user,
+                        observacion=f'Cálculo automático metraje prorateado por máquina: S/{float(bono_calculado):.2f}',
+                    )
+                    bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
 
                 filas_metraje.append({
                     'bono_pk': bono_trab.pk,

@@ -639,6 +639,56 @@ def resolver_estructura_salarial(trabajador, contrato, cargo, fecha_inicio, fech
     ).first()
 
 
+def resolver_estructuras_por_maquinas(trabajador, contrato, cargo, fecha_inicio, fecha_fin):
+    """
+    Retorna [(EstructuraSalarial, dias, maquina_id), ...] para cada máquina trabajada
+    en el período. Días sin máquina o sin estructura específica se agrupan bajo la
+    estructura general (maquina=NULL) como fallback.
+    """
+    maquinas_dias = (
+        AsistenciaDiaria.objects
+        .filter(
+            trabajador=trabajador,
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin,
+            estado__in=_ESTADOS_TRABAJADO_RAW,
+        )
+        .values('maquina_snapshot')
+        .annotate(dias=_Count('id'))
+        .order_by('-dias')
+    )
+
+    resultado = []
+    dias_sin_estructura = 0
+
+    for row in maquinas_dias:
+        maq_id = row['maquina_snapshot']
+        dias = row['dias']
+        if maq_id:
+            est = EstructuraSalarial.objects.filter(
+                contrato=contrato,
+                cargo_contratado=cargo,
+                maquina_id=maq_id,
+                activo=True,
+            ).first()
+            if est:
+                resultado.append((est, dias, maq_id))
+                continue
+        dias_sin_estructura += dias
+
+    if dias_sin_estructura > 0:
+        est_general = EstructuraSalarial.objects.filter(
+            contrato=contrato,
+            cargo_contratado=cargo,
+            maquina__isnull=True,
+            activo=True,
+        ).first()
+        if est_general:
+            resultado.append((est_general, dias_sin_estructura, None))
+
+    return resultado  # [(estructura, dias, maquina_id_or_None), ...]
+
+
 def resumen_por_trabajador(periodo, trabajador):
     """
     Devuelve el desglose completo de bonos de un trabajador en el período,
@@ -657,14 +707,23 @@ def resumen_por_trabajador(periodo, trabajador):
     total_extraordinario = sum(b.monto_final for b in bonos_extraordinarios) or ZERO
     total_bonos = total_remunerativo + total_extraordinario
 
-    # Sueldo básico referencial desde EstructuraSalarial (resuelto por máquina del período)
+    # Sueldo básico referencial prorateado por días en cada máquina del período
     sueldo_basico = ZERO
     bonificacion_area = ZERO
     cargo = trabajador.cargo or getattr(trabajador, 'cargo_headcount', '') or ''
-    est = resolver_estructura_salarial(trabajador, periodo.contrato, cargo, periodo.fecha_inicio, periodo.fecha_fin)
-    if est:
-        sueldo_basico = est.sueldo_basico
-        bonificacion_area = est.bonificacion_area
+    estructuras = resolver_estructuras_por_maquinas(
+        trabajador, periodo.contrato, cargo, periodo.fecha_inicio, periodo.fecha_fin
+    )
+    if estructuras:
+        total_dias_est = Decimal(str(sum(dias for _, dias, _ in estructuras))) or Decimal('1')
+        sueldo_basico = sum(
+            est.sueldo_basico * Decimal(str(dias)) / total_dias_est
+            for est, dias, _ in estructuras
+        ).quantize(Decimal('0.01'))
+        bonificacion_area = sum(
+            est.bonificacion_area * Decimal(str(dias)) / total_dias_est
+            for est, dias, _ in estructuras
+        ).quantize(Decimal('0.01'))
 
     return {
         'trabajador': trabajador,
