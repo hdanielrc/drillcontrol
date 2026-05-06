@@ -312,7 +312,7 @@
                                onchange="recalcularFila(this.closest('tr'))">
                     </td>
                     {% for sec in fila.secciones %}
-                        {% if sec.tabla_calificacion %}
+                        {% if sec.tabla_calificacion and sec.fuente_puntaje != 'global' %}
                         <td class="td-pct seccion-pct" data-concepto-pk="{{ sec.concepto_pk }}">
                             <select class="tabla-calif-select"
                                     data-bono-pk="{{ fila.bono_pk }}"
@@ -331,6 +331,14 @@
                                 <option value="50"  {% if sec.puntaje == 50  %}selected{% endif %}>≤84% Meta — 50%</option>
                                 {% endif %}
                             </select>
+                        </td>
+                        {% elif sec.fuente_puntaje == 'global' %}
+                        <td class="td-pct seccion-pct {% if sec.puntaje == 100 %}pct-100{% elif sec.puntaje >= 80 %}pct-80{% else %}pct-low{% endif %}"
+                            data-concepto-pk="{{ sec.concepto_pk }}"
+                            data-puntaje-global="{{ sec.puntaje }}"
+                            title="Valor desde Conceptos Globales — solo lectura">
+                            <span class="pct-valor">{{ sec.puntaje }}%</span>
+                            <i class="fas fa-globe" style="font-size:9px;opacity:.6;margin-left:2px;"></i>
                         </td>
                         {% else %}
                         {% for crit in sec.criterios %}
