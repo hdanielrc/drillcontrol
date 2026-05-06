@@ -434,12 +434,14 @@
                     <td class="td-acum">
                         {{ fila.metraje_acum_prorrateo|floatformat:2 }} m
                     </td>
-                    <td class="td-monto" title="{% if fila.bono_meta_base %}Regla: ≥90% en máquina → aporta al Bono Meta. Factor = {{ fila.dias_meta_cumplida }}/{{ fila.dias_en_maquina }} días en máq. ≥90% / total días en máq. Base cumplimiento: S/ {{ fila.bono_meta_base|floatformat:2 }}{% endif %}">
+                    <td class="td-monto" title="{% if fila.bono_meta_base %}Regla: ≥90% en máquina → aporta al Bono Meta. Base cargo: S/ {{ fila.bono_meta_base|floatformat:2 }} × {{ fila.dias_meta_cumplida }}/{{ fila.dias_en_maquina }} días{% endif %}">
                         {% if fila.bono_meta_total %}
                             S/ {{ fila.bono_meta_total|floatformat:2 }}
                             {% if fila.dias_meta_cumplida is not None %}
                             <br><small style="font-weight:400;font-size:10px;opacity:.7;">{{ fila.dias_meta_cumplida }}/{{ fila.dias_en_maquina }} días (≥90%)</small>
                             {% endif %}
+                        {% elif fila.tiene_meta_config is False and fila.tipo_calculo == 'metraje' %}
+                            <span style="color:#aaa;font-size:10px;" title="Ingrese MetaMaquina para este período">Sin meta config.</span>
                         {% else %}&mdash;{% endif %}
                     </td>
                     <td class="td-monto metraje-bono-calc">

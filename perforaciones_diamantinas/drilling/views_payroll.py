@@ -701,12 +701,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 _metros_maquina[_r['turno__maquina_id']] = Decimal(str(_r['total'] or 0))
 
         # nombre de máquinas para el desglose en template
-        from .models import Maquina as _Maquina, MetaMaquina as _MetaMaquina
+        from .models import Maquina as _Maquina, ProgramacionMes as _ProgramacionMes
         _maquina_nombres = dict(_Maquina.objects.filter(contrato=contrato).values_list('id', 'nombre'))
 
-        # meta programada por máquina para el período (MetaMaquina.meta_metros)
+        # meta programada por máquina: usa ProgramacionMes (misma fuente que /gerencia/programacion/)
         _meta_maquina = dict(
-            _MetaMaquina.objects.filter(contrato=contrato, año=anio, mes=mes)
+            _ProgramacionMes.objects.filter(maquina__contrato=contrato, año=anio, mes=mes)
             .values_list('maquina_id', 'meta_metros')
         )
 
@@ -936,14 +936,38 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 # bono_calculado = suma prorateada por máquina (ya incluye tarifas específicas por equipo)
                 bono_calculado = _total_prorrateo_total
 
+                # ── Bono Meta para metraje puro: base mensual del cargo × factor ≥90% ──
+                # Base: montos_por_cargo[cargo] o monto_base_mensual (misma fuente que cumplimiento).
+                # Factor: días en máquinas ≥90% / total días en máquinas.
+                # Requiere MetaMaquina configurada; si no hay datos → 0 (sin penalización implícita).
+                _monto_meta_base = (
+                    Decimal(str(config.montos_por_cargo[cargo_trab]))
+                    if (config.montos_por_cargo and cargo_trab in config.montos_por_cargo)
+                    else config.monto_base_mensual
+                )
+                if _total_dias_en_maq > 0 and _dias_meta_cumplida > 0:
+                    _bono_meta_calc_m = (
+                        _monto_meta_base
+                        * Decimal(str(_dias_meta_cumplida))
+                        / Decimal(str(_total_dias_en_maq))
+                    ).quantize(Decimal('0.01'))
+                else:
+                    _bono_meta_calc_m = Decimal('0')
+
+                # Hay MetaMaquina configurada para al menos una máquina del desglose?
+                _tiene_meta_config = any(
+                    m['meta_metros'] is not None for m in _desglose_maquinas
+                ) if _desglose_maquinas else False
+
                 # Auto-persistir monto_final solo para metraje puro (para "ambos" lo gestiona el bloque de cumplimiento)
-                if tipo_calc != 'ambos' and bono_trab.monto_final != bono_calculado:
-                    bono_trab.monto_calculado = bono_calculado
-                    bono_trab.monto_final = (bono_calculado + bono_trab.monto_ajuste).quantize(Decimal('0.01'))
+                _total_con_meta = _total_prorrateo_total + _bono_meta_calc_m
+                if tipo_calc != 'ambos' and bono_trab.monto_final != _total_con_meta:
+                    bono_trab.monto_calculado = _total_con_meta
+                    bono_trab.monto_final = (_total_con_meta + bono_trab.monto_ajuste).quantize(Decimal('0.01'))
                     bono_trab.registrar_historial(
                         fuente='CALCULO',
                         usuario=request.user,
-                        observacion=f'Cálculo automático metraje prorateado por máquina: S/{float(bono_calculado):.2f}',
+                        observacion=f'Cálculo automático metraje: S/{float(bono_calculado):.2f} + Bono Meta: S/{float(_bono_meta_calc_m):.2f}',
                     )
                     bono_trab.save(update_fields=['monto_calculado', 'monto_final'])
 
@@ -969,8 +993,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'metraje_acum_prorrateo': float(_acum_prorrateo_total),
                     'desglose_maquinas': _desglose_maquinas,
                     'tipo_calculo': tipo_calc,
-                    'bono_meta_total': 0,
-                    'gran_total': float(_total_prorrateo_total),
+                    'bono_meta_total': float(_bono_meta_calc_m),
+                    'bono_meta_base': float(_monto_meta_base),
+                    'tiene_meta_config': _tiene_meta_config,
+                    'gran_total': float(_total_con_meta),
                 })
                 if tipo_calc != 'ambos':
                     continue  # no procesar secciones para trabajadores de metraje puro
