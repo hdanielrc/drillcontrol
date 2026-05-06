@@ -302,8 +302,11 @@ def periodo_abrir(request):
     mes = int(form.cleaned_data['mes'])
 
     try:
-        periodo, registros = abrir_periodo(contrato, anio, mes, user)
-        messages.success(request, f'Período {mes:02d}/{anio} abierto. {registros} registros de bonos creados.')
+        periodo, registros, eliminados = abrir_periodo(contrato, anio, mes, user)
+        msg = f'Período {mes:02d}/{anio} abierto. {registros} registros de bonos creados.'
+        if eliminados:
+            msg += f' {eliminados} registros fuera de configuración eliminados.'
+        messages.success(request, msg)
     except ValueError as e:
         messages.warning(request, str(e))
 
@@ -317,13 +320,30 @@ def periodo_detalle(request, pk):
     # Resumen
     resumen = resumen_periodo(periodo)
 
-    # Bonos agrupados por tipo
+    # Cargar configuraciones de bono vigentes para filtrar por cargo
+    configs_by_tipo = {
+        c.tipo_bono_id: c
+        for c in ConfiguracionBonoContrato.objects.filter(contrato=periodo.contrato, activo=True)
+    }
+
+    # Bonos agrupados por tipo, filtrados por cargos_aplicables de la config
     bonos_por_tipo = {}
     bonos_qs = BonoTrabajador.objects.filter(
         periodo=periodo
     ).select_related('trabajador', 'tipo_bono').order_by('tipo_bono__codigo', 'trabajador__apepat')
 
     for bono in bonos_qs:
+        # Excluir trabajadores cuyo cargo no está en los cargos configurados
+        config = configs_by_tipo.get(bono.tipo_bono_id)
+        if config and config.cargos_aplicables:
+            worker_cargo = (bono.trabajador.cargo or '').strip()
+            worker_cargo_hc = (bono.trabajador.cargo_headcount or '').strip()
+            if not any(
+                c == worker_cargo or c == worker_cargo_hc
+                for c in config.cargos_aplicables
+            ):
+                continue
+
         codigo = bono.tipo_bono.codigo
         if codigo not in bonos_por_tipo:
             bonos_por_tipo[codigo] = {

@@ -320,6 +320,26 @@ def abrir_periodo(contrato, anio, mes, usuario=None):
     configs_vigentes = [c for c in configs if c.vigente_en_fecha(fecha_inicio)]
 
     registros_creados = 0
+    registros_eliminados = 0
+
+    # Para cada config vigente, eliminar BonoTrabajador de trabajadores que ya no cumplen el filtro
+    for config in configs_vigentes:
+        tipo_bono = config.tipo_bono
+        cargos_filter = config.cargos_aplicables if config.cargos_aplicables else tipo_bono.cargos_aplicables
+        if cargos_filter:
+            from django.db.models import Q
+            q_validos = Q()
+            if config.cargos_aplicables:
+                for cargo in cargos_filter:
+                    q_validos |= Q(trabajador__cargo=cargo) | Q(trabajador__cargo_headcount=cargo)
+            else:
+                for patron in cargos_filter:
+                    q_validos |= Q(trabajador__cargo__icontains=patron) | Q(trabajador__cargo_headcount__icontains=patron)
+            eliminados, _ = BonoTrabajador.objects.filter(
+                periodo=periodo, tipo_bono=tipo_bono
+            ).exclude(q_validos).delete()
+            registros_eliminados += eliminados
+
     for trabajador in trabajadores:
         for config in configs_vigentes:
             # Filtrar por cargos: config.cargos_aplicables tiene prioridad
@@ -361,7 +381,7 @@ def abrir_periodo(contrato, anio, mes, usuario=None):
                     generar_detalles_vacios(bono, config)
                     generar_calificaciones_criterios(bono)
 
-    return periodo, registros_creados
+    return periodo, registros_creados, registros_eliminados
 
 
 @transaction.atomic
