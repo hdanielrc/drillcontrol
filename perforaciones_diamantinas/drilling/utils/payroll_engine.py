@@ -21,6 +21,7 @@ from drilling.models import Trabajador
 # Si NEW_TAREO=True → TareoEntry (tabla tareo_entry)
 # Si NEW_TAREO=False → AsistenciaDiaria legacy (tabla asistencia_diaria)
 from drilling.tareo_compat import AsistenciaDiaria
+from drilling.models_tareo import TareoPeriod, TareoEntry
 from drilling.models_payroll import (
     ESTADOS_DIA_TRABAJADO,
     TipoBono,
@@ -69,6 +70,37 @@ def contar_dias_trabajados(trabajador, fecha_inicio, fecha_fin):
         fecha__gte=fecha_inicio_cal,
         fecha__lte=fecha_fin_cal,
         estado__in=_ESTADOS_TRABAJADO_RAW,
+    ).aggregate(
+        total=_DSum(
+            Case(
+                When(estado='MDL', then=Value(Decimal('0.5'))),
+                default=Value(Decimal('1.0')),
+                output_field=_DField(max_digits=5, decimal_places=1),
+            )
+        )
+    )
+    return result['total'] or ZERO
+
+
+_ESTADOS_TRABAJADO_V2 = ('TRABAJO', 'TD', 'TN', 'DESCANSO', 'MDL')
+
+
+def contar_dias_trabajados_v2(trabajador, tareo_period):
+    """
+    Cuenta días trabajados desde TareoEntry V2 en el período operativo 26-25.
+    Solo registros tipo='REAL' (excluye proyecciones automáticas).
+    Estados: TRABAJO/TD/TN/DESCANSO = 1.0, MDL = 0.5.
+    Retorna ZERO si tareo_period es None o no tiene fechas definidas.
+    """
+    if not tareo_period or not tareo_period.fecha_inicio or not tareo_period.fecha_fin:
+        return ZERO
+
+    result = TareoEntry.objects.filter(
+        trabajador=trabajador,
+        fecha__gte=tareo_period.fecha_inicio,
+        fecha__lte=tareo_period.fecha_fin,
+        estado__in=_ESTADOS_TRABAJADO_V2,
+        tipo='REAL',
     ).aggregate(
         total=_DSum(
             Case(
@@ -415,18 +447,26 @@ def calcular_periodo(periodo, usuario=None):
         trabajador = bono.trabajador
         tipo = config.tipo_bono.tipo_calculo
 
-        # 1. Contar días trabajados
-        dias_trabajados = contar_dias_trabajados(
-            trabajador, periodo.fecha_inicio, periodo.fecha_fin
-        )
-
-        # 2. Calcular días base
-        if config.usa_dias_regimen:
-            dias_base = calcular_dias_base_regimen(
+        # 1. Contar días trabajados y días base
+        if config.tipo_bono.usa_periodo_operativo_tareo:
+            # Bonos BA-: período operativo 26-25 desde TareoEntry V2, dias_base siempre 30
+            tareo_period = TareoPeriod.objects.filter(
+                contrato=periodo.contrato,
+                anio=periodo.anio,
+                mes=periodo.mes,
+            ).first()
+            dias_trabajados = contar_dias_trabajados_v2(trabajador, tareo_period)
+            dias_base = 30
+        else:
+            dias_trabajados = contar_dias_trabajados(
                 trabajador, periodo.fecha_inicio, periodo.fecha_fin
             )
-        else:
-            dias_base = config.dias_base_fijo or 30
+            if config.usa_dias_regimen:
+                dias_base = calcular_dias_base_regimen(
+                    trabajador, periodo.fecha_inicio, periodo.fecha_fin
+                )
+            else:
+                dias_base = config.dias_base_fijo or 30
 
         bono.dias_trabajados = dias_trabajados
         bono.dias_base = dias_base

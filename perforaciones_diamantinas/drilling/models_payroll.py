@@ -56,6 +56,14 @@ class TipoBono(models.Model):
     tipo_calculo = models.CharField(max_length=20, choices=TIPO_CALCULO_CHOICES, verbose_name='Tipo de Cálculo')
     descripcion = models.TextField(blank=True, verbose_name='Descripción')
     es_sistema = models.BooleanField(default=False, help_text='Los bonos del sistema (B1-B4) no se pueden eliminar')
+    usa_periodo_operativo_tareo = models.BooleanField(
+        default=False,
+        verbose_name='Usar período operativo Tareo V2 (26-25)',
+        help_text=(
+            'Si True: dias_base=30 fijo y dias_trabajados se cuenta del período '
+            'operativo 26-25 definido en TareoPeriod. Aplica a bonos BA- de área.'
+        )
+    )
     activo = models.BooleanField(default=True)
     cargos_aplicables = models.JSONField(
         default=list, blank=True,
