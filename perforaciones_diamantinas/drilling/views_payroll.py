@@ -838,7 +838,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 # bono_calculado se asigna después del loop de prorrateo por máquina
 
                 # Prorrateo por máquina: una entrada por cada máquina donde trabajó
-                _d_op = Decimal(str(_dias_mes_op))
+                # Bonos BA-: denominador fijo 30; resto: días reales del período operativo
+                _d_op = Decimal('30') if tipo_bono.usa_periodo_operativo_tareo else Decimal(str(_dias_mes_op))
+                _dias_op_limite = 30 if tipo_bono.usa_periodo_operativo_tareo else _dias_mes_op
                 _maq_entradas = _dias_trab_maquinas.get(trab.pk, [])
                 _desglose_maquinas = []
                 _base_prorrateo_total = Decimal('0')
@@ -848,7 +850,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 _dias_meta_cumplida = 0  # días en máquinas que superaron la meta
 
                 for _maq_id, _dias_raw in _maq_entradas:
-                    _dias_en_maq = min(_dias_raw, _dias_mes_op)
+                    _dias_en_maq = min(_dias_raw, _dias_op_limite)
                     _d_en_maq = Decimal(str(_dias_en_maq))
                     _metros_maq = _metros_maquina.get(_maq_id, Decimal('0'))
                     _meta_maq = _meta_maquina.get(_maq_id)
@@ -903,7 +905,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 # BASE = metraje_base × (dias_trabajados / dias_op)  [sin cambio]
                 if not _maq_entradas:
                     _desglose_maquinas = []
-                    _dias_fallback = min(bono_trab.dias_trabajados, _dias_mes_op)
+                    _dias_fallback = min(bono_trab.dias_trabajados, _dias_op_limite)
                     _d_fb = Decimal(str(_dias_fallback))
                     if _d_op > 0 and _dias_fallback > 0:
                         _est_sup = _resolver_est(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
