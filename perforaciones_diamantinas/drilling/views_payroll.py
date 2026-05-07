@@ -909,9 +909,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     if _meta_cumplida:
                         _dias_meta_cumplida += _dias_en_maq
 
-                # Supervisores: no aparecen en turnos; prorratieo desde EstructuraSalarial.
-                # ACUM = (Σ metros_maquinas_asignadas / N_maquinas) × (dias_trabajados / dias_op)
-                # BASE = metraje_base × (dias_trabajados / dias_op)  [sin cambio]
+                # Administradores/Residentes/Logísticos (BA-SUPERVISIÓN): no aparecen en turnos.
+                # BASE PRORRATEADA = (Σ metros_maquinas / N_maquinas) / 30 × dias_trabajados
+                # MONTO = base_prorrateada × tarifa_por_metro
+                # dias_mes_operativo es siempre 30 fijo; dias_trabajados máx 30 desde TareoV2.
                 if not _maq_entradas:
                     _desglose_maquinas = []
                     _dias_fallback = min(bono_trab.dias_trabajados, _dias_op_limite)
@@ -930,15 +931,19 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
                         _n_maq_sup = len(_metros_sup)
                         _suma_metros_sup = sum(_metros_sup.values(), Decimal('0'))
-                        # Promedio de metros entre las máquinas del supervisor
+                        # Promedio de metraje acumulado entre las máquinas
                         _metros_prom_sup = (
                             (_suma_metros_sup / Decimal(str(_n_maq_sup))).quantize(Decimal('0.001'))
                             if _n_maq_sup > 0 else Decimal('0')
                         )
-                        _base_prorrateo_total = (metraje_base_val / _d_op * _d_fb).quantize(Decimal('0.01'))
-                        _acum_prorrateo_total = (_metros_prom_sup / _d_op * _d_fb).quantize(Decimal('0.01'))
+                        # Base prorrateada = (metraje_base / 30) × dias_trabajados
+                        # dias_mes_operativo = 30 fijo; dias_trabajados máx 30 (TareoV2 26-25)
+                        _acum_prorrateo_total = (
+                            _metros_prom_sup / Decimal('30') * _d_fb
+                        ).quantize(Decimal('0.001'))
+                        _base_prorrateo_total = _acum_prorrateo_total
                         _total_prorrateo_total = (
-                            (_acum_prorrateo_total - _base_prorrateo_total) * monto_ajustado
+                            _acum_prorrateo_total * monto_ajustado
                         ).quantize(Decimal('0.01'))
                         _total_dias_en_maq = _dias_fallback
 
