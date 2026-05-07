@@ -783,11 +783,28 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
             # Recalcular días trabajados y días base
             if tipo_bono.usa_periodo_operativo_tareo:
-                # Bonos BA-: TareoV2 período 26-25, denominador siempre 30, máximo 30 días
-                _tp_cuadro = TareoPeriod.objects.filter(
-                    contrato=contrato, anio=anio, mes=mes
-                ).first()
-                dias_trab = min(contar_dias_trabajados_v2(trab, _tp_cuadro), Decimal('30'))
+                # Bonos BA-: período operativo 26-25, denominador 30 fijo, máximo 30 días.
+                # Fuente: AsistenciaDiaria/TareoEntry (compat) con estados trabajados.
+                # Estados contados: TD/TN/DL/DA = 1.0 día, MDL = 0.5 día. V-A y permisos NO cuentan.
+                from django.db.models import Sum as _SumBA, Case as _CaseBA, When as _WhenBA, Value as _ValBA, DecimalField as _DfBA
+                _estados_ba = (
+                    'TD', 'TRABAJO_DIA', 'TN', 'TRABAJO_NOCHE',
+                    'DL', 'DIA_LIBRE', 'DESCANSO', 'DA', 'DIA_APOYO', 'MDL',
+                )
+                _dt_res = AsistenciaDiaria.objects.filter(
+                    trabajador=trab,
+                    fecha__gte=_op_inicio,
+                    fecha__lte=_op_fin,
+                    estado__in=_estados_ba,
+                    **_real_filter,
+                ).aggregate(
+                    total=_SumBA(_CaseBA(
+                        _WhenBA(estado='MDL', then=_ValBA(Decimal('0.5'))),
+                        default=_ValBA(Decimal('1.0')),
+                        output_field=_DfBA(max_digits=5, decimal_places=1),
+                    ))
+                )
+                dias_trab = min(_dt_res['total'] or Decimal('0'), Decimal('30'))
                 dias_base = 30
             else:
                 dias_trab = contar_dias_trabajados(trab, fecha_inicio, fecha_fin)
