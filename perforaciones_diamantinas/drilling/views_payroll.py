@@ -859,7 +859,11 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 _dias_meta_cumplida = 0  # días en máquinas que superaron la meta
 
                 for _maq_id, _dias_raw in _maq_entradas:
-                    _dias_en_maq = min(_dias_raw, _dias_op_limite)
+                    # BA-: días = total trabajados del tareo (TD/TN/DL/DA/MDL), no días con máquina asignada
+                    if tipo_bono.usa_periodo_operativo_tareo:
+                        _dias_en_maq = min(int(bono_trab.dias_trabajados), 30)
+                    else:
+                        _dias_en_maq = min(_dias_raw, _dias_op_limite)
                     _d_en_maq = Decimal(str(_dias_en_maq))
                     _metros_maq = _metros_maquina.get(_maq_id, Decimal('0'))
                     _meta_maq = _meta_maquina.get(_maq_id)
@@ -908,6 +912,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     _total_dias_en_maq += _dias_en_maq
                     if _meta_cumplida:
                         _dias_meta_cumplida += _dias_en_maq
+
+                # BA-: normalizar _total_dias_en_maq al valor real (evita inflación por multi-máquina)
+                if tipo_bono.usa_periodo_operativo_tareo and _maq_entradas:
+                    _total_dias_en_maq = min(int(bono_trab.dias_trabajados), 30)
 
                 # Administradores/Residentes/Logísticos (BA-SUPERVISIÓN): no aparecen en turnos.
                 # BASE PRORRATEADA = (Σ metros_maquinas / N_maquinas) / 30 × dias_trabajados
