@@ -51,12 +51,14 @@ from .utils.payroll_engine import (
     cerrar_periodo,
     resumen_periodo,
     contar_dias_trabajados,
+    contar_dias_trabajados_v2,
     calcular_dias_base_regimen,
     filtrar_trabajadores_por_cargo,
     generar_calificaciones_criterios,
     generar_detalles_vacios,
     calcular_bono_multi_concepto,
 )
+from .models_tareo import TareoPeriod
 from .mixins import AdminOrContractFilterMixin, rol_requerido
 
 
@@ -779,12 +781,19 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 bono_trab.bono_base = monto_esperado
                 fields_to_update.append('bono_base')
 
-            # Siempre recalcular días desde el tareo para mantener datos frescos
-            # (fórmula: TD+TN+DL+DA en rango calendario 1-30, igual que Resumen de Planilla)
-            dias_trab = contar_dias_trabajados(trab, fecha_inicio, fecha_fin)
-            dias_base = calcular_dias_base_regimen(trab, fecha_inicio, fecha_fin)
+            # Recalcular días trabajados y días base
+            if tipo_bono.usa_periodo_operativo_tareo:
+                # Bonos BA-: TareoV2 período 26-25, denominador siempre 30, máximo 30 días
+                _tp_cuadro = TareoPeriod.objects.filter(
+                    contrato=contrato, anio=anio, mes=mes
+                ).first()
+                dias_trab = min(contar_dias_trabajados_v2(trab, _tp_cuadro), Decimal('30'))
+                dias_base = 30
+            else:
+                dias_trab = contar_dias_trabajados(trab, fecha_inicio, fecha_fin)
+                dias_base = calcular_dias_base_regimen(trab, fecha_inicio, fecha_fin) or 30
             bono_trab.dias_trabajados = dias_trab
-            bono_trab.dias_base = dias_base or 30
+            bono_trab.dias_base = dias_base
             fields_to_update += ['dias_trabajados', 'dias_base']
 
             if fields_to_update:
@@ -986,7 +995,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     'monto_ajustado': float(monto_ajustado),
                     'bono_calculado': float(bono_calculado),
                     'total': float(_total_prorrateo_total),
-                    'dias_mes_operativo': _dias_mes_op,
+                    'dias_mes_operativo': int(_d_op),
                     'dias_en_maquina': _total_dias_en_maq,
                     'dias_meta_cumplida': _dias_meta_cumplida,
                     'metraje_base_prorrateo': float(_base_prorrateo_total),
