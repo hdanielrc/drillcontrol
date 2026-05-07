@@ -955,13 +955,16 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                             (_suma_metros_sup / Decimal(str(_n_maq_sup))).quantize(Decimal('0.001'))
                             if _n_maq_sup > 0 else Decimal('0')
                         )
-                        # Base prorrateada = (metraje_base / 30) × dias_trabajados, máx metraje_base
+                        # BASE PRORRATEADA = metraje_base / 30 × dias_trabajados (máx metraje_base)
+                        # ACUM. PRORRATEADO = metros_reales_promedio / 30 × dias_trabajados
                         # dias_mes_operativo = 30 fijo; dias_trabajados máx 30 (TareoV2 26-25)
-                        _acum_prorrateo_total = min(
+                        _base_prorrateo_total = min(
                             metraje_base_val,
                             (metraje_base_val / Decimal('30') * _d_fb),
                         ).quantize(Decimal('0.001'))
-                        _base_prorrateo_total = _acum_prorrateo_total
+                        _acum_prorrateo_total = (
+                            _metros_prom_sup / Decimal('30') * _d_fb
+                        ).quantize(Decimal('0.001'))
                         _total_prorrateo_total = (
                             _acum_prorrateo_total * monto_ajustado
                         ).quantize(Decimal('0.01'))
