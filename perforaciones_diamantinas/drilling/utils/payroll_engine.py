@@ -172,25 +172,35 @@ def calcular_bono_multi_concepto(bono_trabajador, config, dias_trabajados, dias_
     total_monto = ZERO
     suma_puntaje_ponderado = ZERO
     suma_pesos = ZERO
-    dias_factor = Decimal(dias_trabajados) / Decimal(dias_base)
+    # Capear dias_factor a 1.0: los días libres/descanso (DL) se cuentan como
+    # trabajados pero el bono_base es el máximo mensual (ej. BONIF. ÁREA).
+    # Sin cap, un 20x10 con 20 días trabajo + 10 días descanso daría factor 30/20=1.5.
+    dias_factor = min(Decimal(dias_trabajados) / Decimal(dias_base), ONE)
 
     for detalle in detalles:
         concepto = detalle.concepto
         peso = concepto.peso_default / Decimal('100')  # 30 → 0.30
 
-        # Calcular puntaje desde criterios si existen
-        criterios = CriterioBono.objects.filter(concepto=concepto, activo=True)
-        if criterios.exists():
-            total_criterios = criterios.count()
-            cumplidos = CalificacionCriterio.objects.filter(
-                bono_trabajador=bono_trabajador,
-                criterio__in=criterios,
-                cumple=True,
-            ).count()
-            puntaje = Decimal(cumplidos * 100) / Decimal(total_criterios) if total_criterios > 0 else ZERO
-            detalle.puntaje = _round2(puntaje)
+        # Para secciones con tabla_calificacion (INCIDENCIAS, PRODUCCION_META), el puntaje
+        # es gestionado por cuadro_evaluacion/cuadro_guardar y está persistido en detalle.puntaje.
+        # No se recalcula desde CalificacionCriterio para evitar que los checkboxes (que por
+        # defecto están todos en True) anulen el valor correcto del dropdown.
+        if concepto.tabla_calificacion:
+            puntaje = detalle.puntaje
         else:
-            puntaje = detalle.puntaje  # Puntaje manual si no hay criterios
+            # Calcular puntaje desde criterios si existen
+            criterios = CriterioBono.objects.filter(concepto=concepto, activo=True)
+            if criterios.exists():
+                total_criterios = criterios.count()
+                cumplidos = CalificacionCriterio.objects.filter(
+                    bono_trabajador=bono_trabajador,
+                    criterio__in=criterios,
+                    cumple=True,
+                ).count()
+                puntaje = Decimal(cumplidos * 100) / Decimal(total_criterios) if total_criterios > 0 else ZERO
+                detalle.puntaje = _round2(puntaje)
+            else:
+                puntaje = detalle.puntaje  # Puntaje manual si no hay criterios
 
         puntaje_factor = puntaje / Decimal('100')
         monto_seccion = _round2(bono_base * peso * puntaje_factor * dias_factor)

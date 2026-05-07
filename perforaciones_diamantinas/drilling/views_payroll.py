@@ -1082,6 +1082,19 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     # que en logísticos y residentes.
                     puntaje = float(cgp.porcentaje_bono)
                     fuente_puntaje = 'global'
+                    # Persistir el puntaje global en BonoTrabajadorDetalle para que
+                    # calcular_periodo/calcular_bono_multi_concepto usen el valor correcto.
+                    _monto_max = (
+                        bono_trab.bono_base * seccion.peso_default / Decimal('100')
+                    ).quantize(Decimal('0.01'))
+                    BonoTrabajadorDetalle.objects.update_or_create(
+                        bono=bono_trab,
+                        concepto=seccion,
+                        defaults={
+                            'puntaje': Decimal(str(round(puntaje))),
+                            'monto_max_concepto': _monto_max,
+                        }
+                    )
                 elif seccion.tabla_calificacion:
                     # Tabla fija: leer desde BonoTrabajadorDetalle (persistido)
                     detalle_tc, _ = BonoTrabajadorDetalle.objects.get_or_create(
