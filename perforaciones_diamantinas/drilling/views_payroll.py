@@ -783,28 +783,22 @@ def cuadro_evaluacion(request, tipo_bono_pk):
 
             # Recalcular días trabajados y días base
             if tipo_bono.usa_periodo_operativo_tareo:
-                # Bonos BA-: período operativo 26-25, denominador 30 fijo, máximo 30 días.
-                # Fuente: AsistenciaDiaria/TareoEntry (compat) con estados trabajados.
-                # Estados contados: TD/TN/DL/DA = 1.0 día, MDL = 0.5 día. V-A y permisos NO cuentan.
-                from django.db.models import Sum as _SumBA, Case as _CaseBA, When as _WhenBA, Value as _ValBA, DecimalField as _DfBA
+                # Bonos BA-: días_trabajados = 30 - count(estados NO trabajados en período 26-25).
+                # Estados trabajados: TD/TN/DL/DA/MDL. Todo lo demás (V-A, permisos, DM…) resta 1 día.
+                # El período puede tener 31 días; el máximo siempre es 30 (fijo).
                 _estados_ba = (
                     'TD', 'TRABAJO_DIA', 'TN', 'TRABAJO_NOCHE',
                     'DL', 'DIA_LIBRE', 'DESCANSO', 'DA', 'DIA_APOYO', 'MDL',
                 )
-                _dt_res = AsistenciaDiaria.objects.filter(
+                _no_trabajados = AsistenciaDiaria.objects.filter(
                     trabajador=trab,
                     fecha__gte=_op_inicio,
                     fecha__lte=_op_fin,
-                    estado__in=_estados_ba,
                     **_real_filter,
-                ).aggregate(
-                    total=_SumBA(_CaseBA(
-                        _WhenBA(estado='MDL', then=_ValBA(Decimal('0.5'))),
-                        default=_ValBA(Decimal('1.0')),
-                        output_field=_DfBA(max_digits=5, decimal_places=1),
-                    ))
-                )
-                dias_trab = min(_dt_res['total'] or Decimal('0'), Decimal('30'))
+                ).exclude(
+                    estado__in=_estados_ba,
+                ).count()
+                dias_trab = max(Decimal('0'), Decimal('30') - Decimal(str(_no_trabajados)))
                 dias_base = 30
             else:
                 dias_trab = contar_dias_trabajados(trab, fecha_inicio, fecha_fin)
