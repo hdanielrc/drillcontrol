@@ -966,7 +966,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                             _metros_prom_sup / Decimal('30') * _d_fb
                         ).quantize(Decimal('0.001'))
                         _total_prorrateo_total = (
-                            _acum_prorrateo_total * monto_ajustado
+                            (_acum_prorrateo_total - _base_prorrateo_total) * monto_ajustado
                         ).quantize(Decimal('0.01'))
                         _total_dias_en_maq = _dias_fallback
 
