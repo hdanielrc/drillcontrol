@@ -352,6 +352,22 @@ def periodo_detalle(request, pk):
             }
         bonos_por_tipo[codigo]['bonos'].append(bono)
 
+    for codigo, grupo in bonos_por_tipo.items():
+        if grupo['tipo_bono'].tipo_calculo != 'MULTI_CONCEPTO':
+            grupo['progreso'] = None
+            continue
+        bono_pks = [b.pk for b in grupo['bonos']]
+        evaluated_set = set(
+            CalificacionCriterio.objects.filter(
+                bono_trabajador_id__in=bono_pks, cumple=False
+            ).values_list('bono_trabajador_id', flat=True)
+        ) | set(
+            BonoTrabajadorDetalle.objects.filter(
+                bono_id__in=bono_pks, puntaje__gt=0
+            ).values_list('bono_id', flat=True)
+        )
+        grupo['progreso'] = {'evaluados': len(evaluated_set), 'total': len(bono_pks)}
+
     context = {
         'periodo': periodo,
         'resumen': resumen,
@@ -430,52 +446,12 @@ def evaluar_bono(request, bono_pk):
 
 @login_required
 def evaluar_bono_masivo(request, periodo_pk, tipo_bono_pk):
-    """Vista para ingresar puntajes masivamente por tipo de bono."""
+    """DEPRECATED — redirige a cuadro_evaluacion con contexto del período."""
     periodo = get_object_or_404(PeriodoBono, pk=periodo_pk)
-    tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk)
-
-    if tipo_bono.tipo_calculo != 'MULTI_CONCEPTO':
-        messages.info(request, 'Este bono no requiere evaluación de conceptos.')
-        return redirect('planilla-periodo-detalle', pk=periodo_pk)
-
-    conceptos = ConceptoBono.objects.filter(tipo_bono=tipo_bono).order_by('orden')
-
-    bonos = BonoTrabajador.objects.filter(
-        periodo=periodo,
-        tipo_bono=tipo_bono,
-    ).select_related('trabajador').prefetch_related('detalles__concepto').order_by('trabajador__apepat')
-
-    if request.method == 'POST':
-        for bono in bonos:
-            for detalle in bono.detalles.all():
-                field_name = f'puntaje_{bono.pk}_{detalle.concepto.pk}'
-                try:
-                    puntaje = Decimal(request.POST.get(field_name, '0'))
-                    if 0 <= puntaje <= 100:
-                        detalle.puntaje = puntaje
-                        detalle.save(update_fields=['puntaje'])
-                except (ValueError, TypeError):
-                    pass
-        messages.success(request, f'Puntajes masivos guardados para {tipo_bono.nombre}.')
-        return redirect('planilla-periodo-detalle', pk=periodo_pk)
-
-    # Crear matriz para el template
-    matriz = []
-    for bono in bonos:
-        detalles_dict = {d.concepto_id: d for d in bono.detalles.all()}
-        fila = {
-            'bono': bono,
-            'trabajador': bono.trabajador,
-            'detalles': [detalles_dict.get(c.pk) for c in conceptos],
-        }
-        matriz.append(fila)
-
-    return render(request, 'drilling/planilla/evaluar_masivo.html', {
-        'periodo': periodo,
-        'tipo_bono': tipo_bono,
-        'conceptos': conceptos,
-        'matriz': matriz,
-    })
+    return redirect(
+        f"{reverse('planilla-cuadro', args=[tipo_bono_pk])}"
+        f"?anio={periodo.anio}&mes={periodo.mes}&from_periodo={periodo_pk}"
+    )
 
 
 # ===========================================
@@ -630,6 +606,7 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     tipo_bono = get_object_or_404(TipoBono, pk=tipo_bono_pk, activo=True)
     anio = int(request.GET.get('anio') or date.today().year)
     mes = int(request.GET.get('mes') or date.today().month)
+    from_periodo_pk = request.GET.get('from_periodo')
     _, ultimo_dia = calendar.monthrange(anio, mes)
     fecha_inicio = date(anio, mes, 1)
     fecha_fin = date(anio, mes, ultimo_dia)
@@ -1216,6 +1193,19 @@ def cuadro_evaluacion(request, tipo_bono_pk):
     MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
+    todos_tipos = list(
+        TipoBono.objects.filter(activo=True, tipo_calculo='MULTI_CONCEPTO')
+        .order_by('codigo').values('pk', 'codigo', 'nombre')
+    )
+    tipo_anterior = tipo_siguiente = None
+    for i, t in enumerate(todos_tipos):
+        if t['pk'] == tipo_bono.pk:
+            if i > 0:
+                tipo_anterior = todos_tipos[i - 1]
+            if i < len(todos_tipos) - 1:
+                tipo_siguiente = todos_tipos[i + 1]
+            break
+
     context = {
         'tipo_bono': tipo_bono,
         'anio': anio,
@@ -1224,6 +1214,9 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         'secciones_header': secciones_header,
         'datos_por_contrato': datos_por_contrato,
         'rango_anios': range(2025, date.today().year + 2),
+        'from_periodo_pk': from_periodo_pk,
+        'tipo_anterior': tipo_anterior,
+        'tipo_siguiente': tipo_siguiente,
     }
     return render(request, 'drilling/planilla/cuadro_evaluacion.html', context)
 
@@ -1375,7 +1368,11 @@ def cuadro_calcular(request, tipo_bono_pk):
                 total_calculados += 1
 
     messages.success(request, f'Se recalcularon {total_calculados} bonos para {tipo_bono.nombre}.')
-    return redirect(f"{reverse('planilla-cuadro', args=[tipo_bono_pk])}?anio={anio}&mes={mes}")
+    from_periodo = request.POST.get('from_periodo', '')
+    redirect_url = f"{reverse('planilla-cuadro', args=[tipo_bono_pk])}?anio={anio}&mes={mes}"
+    if from_periodo:
+        redirect_url += f"&from_periodo={from_periodo}"
+    return redirect(redirect_url)
 
 
 # ===========================================

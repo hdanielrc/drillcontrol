@@ -123,10 +123,19 @@
                 <i class="fas fa-money-bill me-2"></i>
                 {{ grupo.tipo_bono.codigo }} — {{ grupo.tipo_bono.nombre }}
             </h6>
-            {% if grupo.tipo_bono.tipo_calculo == 'MULTI_CONCEPTO' and periodo.estado != 'CERRADO' %}
-            <a href="{% url 'planilla-evaluar-masivo' periodo.pk grupo.tipo_bono.pk %}" class="btn btn-sm btn-light">
-                <i class="fas fa-star me-1"></i> Evaluar Puntajes
-            </a>
+            {% if periodo.estado != 'CERRADO' %}
+            <div class="d-flex align-items-center gap-2">
+                {% if grupo.progreso %}
+                <span class="badge {% if grupo.progreso.evaluados == grupo.progreso.total %}bg-success{% elif grupo.progreso.evaluados > 0 %}bg-warning text-dark{% else %}bg-secondary{% endif %}"
+                      title="{{ grupo.progreso.evaluados }}/{{ grupo.progreso.total }} trabajadores evaluados">
+                    <i class="fas fa-check-circle me-1"></i>{{ grupo.progreso.evaluados }}/{{ grupo.progreso.total }}
+                </span>
+                {% endif %}
+                <a href="{% url 'planilla-cuadro' grupo.tipo_bono.pk %}?anio={{ periodo.anio }}&mes={{ periodo.mes }}&from_periodo={{ periodo.pk }}"
+                   class="btn btn-sm btn-light">
+                    <i class="fas fa-table me-1"></i> Abrir Cuadro
+                </a>
+            </div>
             {% endif %}
         </div>
         <div class="table-responsive">
@@ -159,19 +168,6 @@
                             {% if bono.monto_ajuste != 0 %}S/ {{ bono.monto_ajuste|floatformat:2 }}{% else %}—{% endif %}
                         </td>
                         <td class="text-end fw-bold">S/ {{ bono.monto_final|floatformat:2 }}</td>
-                        {% if grupo.tipo_bono.tipo_calculo == 'MULTI_CONCEPTO' %}
-                        <td>
-                            <a href="{% url 'planilla-evaluar-bono' bono.pk %}" class="btn btn-sm btn-outline-secondary" title="Evaluar">
-                                <i class="fas fa-star"></i>
-                            </a>
-                            <a href="{% url 'planilla-resumen-trabajador' periodo.pk bono.trabajador.pk %}" class="btn btn-sm btn-outline-info" title="Ver resumen consolidado">
-                                <i class="fas fa-user"></i>
-                            </a>
-                            <a href="{% url 'planilla-boleta' periodo.pk bono.trabajador.pk %}" class="btn btn-sm btn-outline-primary" title="Boleta de pago" target="_blank">
-                                <i class="fas fa-print"></i>
-                            </a>
-                        </td>
-                        {% else %}
                         <td>
                             <a href="{% url 'planilla-resumen-trabajador' periodo.pk bono.trabajador.pk %}" class="btn btn-sm btn-outline-info" title="Ver resumen consolidado">
                                 <i class="fas fa-user"></i>
@@ -180,7 +176,6 @@
                                 <i class="fas fa-print"></i>
                             </a>
                         </td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>

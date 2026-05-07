@@ -228,6 +228,9 @@
                     <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
                     {% endfor %}
                 </select>
+                {% if from_periodo_pk %}
+                <input type="hidden" name="from_periodo" value="{{ from_periodo_pk }}">
+                {% endif %}
             </form>
             <button class="btn btn-success btn-sm" onclick="guardarTodo()" id="btnGuardar">
                 <i class="fas fa-save"></i> Guardar
@@ -239,13 +242,34 @@
                 {% csrf_token %}
                 <input type="hidden" name="anio" value="{{ anio }}">
                 <input type="hidden" name="mes" value="{{ mes }}">
+                {% if from_periodo_pk %}
+                <input type="hidden" name="from_periodo" value="{{ from_periodo_pk }}">
+                {% endif %}
                 <button class="btn btn-primary btn-sm" type="submit">
                     <i class="fas fa-calculator"></i> Recalcular
                 </button>
             </form>
+            {% if tipo_anterior %}
+            <a href="{% url 'planilla-cuadro' tipo_anterior.pk %}?anio={{ anio }}&mes={{ mes }}{% if from_periodo_pk %}&from_periodo={{ from_periodo_pk }}{% endif %}"
+               class="btn btn-outline-secondary btn-sm" title="{{ tipo_anterior.nombre }}">
+                <i class="fas fa-chevron-left"></i> {{ tipo_anterior.codigo }}
+            </a>
+            {% endif %}
+            {% if tipo_siguiente %}
+            <a href="{% url 'planilla-cuadro' tipo_siguiente.pk %}?anio={{ anio }}&mes={{ mes }}{% if from_periodo_pk %}&from_periodo={{ from_periodo_pk }}{% endif %}"
+               class="btn btn-outline-primary btn-sm" title="{{ tipo_siguiente.nombre }}">
+                {{ tipo_siguiente.codigo }} <i class="fas fa-chevron-right"></i>
+            </a>
+            {% endif %}
+            {% if from_periodo_pk %}
+            <a href="{% url 'planilla-periodo-detalle' from_periodo_pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Volver al Período
+            </a>
+            {% else %}
             <a href="{% url 'planilla-hub' %}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-arrow-left"></i> Volver
             </a>
+            {% endif %}
         </div>
     </div>
 
