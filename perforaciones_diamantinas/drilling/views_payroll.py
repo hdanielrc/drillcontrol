@@ -957,10 +957,6 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         'DM', 'PT', 'PT1', 'V', 'R',
                         'I', 'IV', 'IVN', 'SUB', 'SB', 'LCG', 'LFC',
                     )
-                    _estados_trabajado_pos = (
-                        'TD', 'TRABAJO_DIA', 'TN', 'TRABAJO_NOCHE',
-                        'DL', 'DIA_LIBRE', 'DESCANSO', 'DA', 'DIA_APOYO', 'MDL',
-                    )
                     _faltas_just = AsistenciaDiaria.objects.filter(
                         trabajador=trab,
                         fecha__gte=_op_inicio,
@@ -968,26 +964,11 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         estado__in=_estados_falta_just,
                         **_real_filter,
                     ).count()
-                    _trab_pos_all = AsistenciaDiaria.objects.filter(
-                        trabajador=trab,
-                        fecha__gte=_op_inicio,
-                        fecha__lte=_op_fin,
-                        estado__in=_estados_trabajado_pos,
-                        **_real_filter,
-                    ).count()
-                    _mdl_count = AsistenciaDiaria.objects.filter(
-                        trabajador=trab,
-                        fecha__gte=_op_inicio,
-                        fecha__lte=_op_fin,
-                        estado='MDL',
-                        **_real_filter,
-                    ).count()
-                    # MDL vale 0.5; los demás estados trabajados valen 1.0; máximo 30 (período fijo LD)
+                    # dias_trabajado = 30 − todas las ausencias (ya calculado en bono_trab.dias_trabajados).
+                    # Usar este valor y no el conteo positivo de estados, para que un período de 31 días
+                    # físicos siempre se trate como base 30 (ej: 2 vacaciones → 28/30, no 29/30).
                     _dias_trab_ld = 30
-                    _dias_trabajado_pos = min(
-                        Decimal(str(_trab_pos_all - _mdl_count)) + Decimal(str(_mdl_count)) * Decimal('0.5'),
-                        Decimal('30'),
-                    )
+                    _dias_trabajado_pos = bono_trab.dias_trabajados
 
                     if _d_op > 0 and _dias_trabajado_pos > 0:
                         _est_sup = _resolver_est(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
