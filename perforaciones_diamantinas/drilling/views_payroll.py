@@ -699,6 +699,24 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             if _r['turno__maquina_id']:
                 _metros_maquina[_r['turno__maquina_id']] = Decimal(str(_r['total'] or 0))
 
+        # Días operativos (turnos COMPLETADOS/APROBADOS) por máquina → ponderado supervisión
+        from .models import Turno as _Turno
+        from django.db.models import Count as _CountT
+        _dias_turnos_maquina = {}
+        _dt_rows = (
+            _Turno.objects.filter(
+                contrato=contrato,
+                fecha__gte=_op_inicio,
+                fecha__lte=_op_fin,
+                estado__in=['COMPLETADO', 'APROBADO'],
+            )
+            .values('maquina_id')
+            .annotate(dias=_CountT('id'))
+        )
+        for _dt in _dt_rows:
+            if _dt['maquina_id']:
+                _dias_turnos_maquina[_dt['maquina_id']] = _dt['dias']
+
         # nombre de máquinas para el desglose en template
         from .models import Maquina as _Maquina, ProgramacionMes as _ProgramacionMes
         _maquina_nombres = dict(_Maquina.objects.filter(contrato=contrato).values_list('id', 'nombre'))
@@ -928,47 +946,86 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 if tipo_bono.usa_periodo_operativo_tareo and _maq_entradas:
                     _total_dias_en_maq = min(int(bono_trab.dias_trabajados), 30)
 
-                # Administradores/Residentes/Logísticos (BA-SUPERVISIÓN): no aparecen en turnos.
-                # BASE PRORRATEADA = (Σ metros_maquinas / N_maquinas) / 30 × dias_trabajados
-                # MONTO = base_prorrateada × tarifa_por_metro
-                # dias_mes_operativo es siempre 30 fijo; dias_trabajados máx 30 desde TareoV2.
+                # Línea de mando (BA-SUPERVISIÓN): no aparecen en turnos de máquina.
+                # calculo_base     = metraje_base / 30 × (30 − faltas_justificadas)
+                # metros_maq_prom  = promedio_ponderado_metros / 30 × dias_trabajado
+                # bono_metraje     = (metros_maq_prom − calculo_base) × tarifa
+                # Ponderado: peso de cada máquina = días de turnos COMPLETADOS/APROBADOS.
                 if not _maq_entradas:
                     _desglose_maquinas = []
-                    _dias_fallback = min(bono_trab.dias_trabajados, _dias_op_limite)
-                    _d_fb = Decimal(str(_dias_fallback))
-                    if _d_op > 0 and _dias_fallback > 0:
+                    _estados_falta_just = (
+                        'DM', 'PT', 'PT1', 'V', 'R',
+                        'I', 'IV', 'IVN', 'SUB', 'SB', 'LCG', 'LFC',
+                    )
+                    _estados_trabajado_pos = (
+                        'TD', 'TRABAJO_DIA', 'TN', 'TRABAJO_NOCHE',
+                        'DL', 'DIA_LIBRE', 'DESCANSO', 'DA', 'DIA_APOYO', 'MDL',
+                    )
+                    _faltas_just = AsistenciaDiaria.objects.filter(
+                        trabajador=trab,
+                        fecha__gte=_op_inicio,
+                        fecha__lte=_op_fin,
+                        estado__in=_estados_falta_just,
+                        **_real_filter,
+                    ).count()
+                    _trab_pos_all = AsistenciaDiaria.objects.filter(
+                        trabajador=trab,
+                        fecha__gte=_op_inicio,
+                        fecha__lte=_op_fin,
+                        estado__in=_estados_trabajado_pos,
+                        **_real_filter,
+                    ).count()
+                    _mdl_count = AsistenciaDiaria.objects.filter(
+                        trabajador=trab,
+                        fecha__gte=_op_inicio,
+                        fecha__lte=_op_fin,
+                        estado='MDL',
+                        **_real_filter,
+                    ).count()
+                    # MDL vale 0.5; los demás estados trabajados valen 1.0
+                    _dias_trab_ld = 30
+                    _dias_trabajado_pos = Decimal(str(_trab_pos_all - _mdl_count)) + Decimal(str(_mdl_count)) * Decimal('0.5')
+
+                    if _d_op > 0 and _dias_trabajado_pos > 0:
                         _est_sup = _resolver_est(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
                         _estructuras_sup = [_est_sup] if _est_sup else []
-                        # Determinar conjunto de máquinas según EstructuraSalarial
                         _maq_ids_sup = [e.maquina_id for e in _estructuras_sup if e.maquina_id]
                         if _maq_ids_sup:
-                            # Estructuras con máquinas específicas
                             _metros_sup = {mid: _metros_maquina.get(mid, Decimal('0')) for mid in _maq_ids_sup}
                         else:
-                            # Sin máquina asignada → todas las máquinas del contrato
                             _metros_sup = dict(_metros_maquina)
 
-                        _n_maq_sup = len(_metros_sup)
-                        _suma_metros_sup = sum(_metros_sup.values(), Decimal('0'))
-                        # Promedio de metraje acumulado entre las máquinas
-                        _metros_prom_sup = (
-                            (_suma_metros_sup / Decimal(str(_n_maq_sup))).quantize(Decimal('0.001'))
-                            if _n_maq_sup > 0 else Decimal('0')
+                        # Promedio ponderado: peso = días de turnos por máquina
+                        _suma_ponderada = sum(
+                            _metros_sup.get(mid, Decimal('0')) * Decimal(str(_dias_turnos_maquina.get(mid, 0)))
+                            for mid in _metros_sup
                         )
-                        # BASE PRORRATEADA = metraje_base / 30 × dias_trabajados (máx metraje_base)
-                        # ACUM. PRORRATEADO = metros_reales_promedio / 30 × dias_trabajados
-                        # dias_mes_operativo = 30 fijo; dias_trabajados máx 30 (TareoV2 26-25)
-                        _base_prorrateo_total = min(
-                            metraje_base_val,
-                            (metraje_base_val / Decimal('30') * _d_fb),
+                        _suma_dias_pond = sum(_dias_turnos_maquina.get(mid, 0) for mid in _metros_sup)
+                        if _suma_dias_pond > 0:
+                            _prom_ponderado = (_suma_ponderada / Decimal(str(_suma_dias_pond))).quantize(Decimal('0.001'))
+                        else:
+                            # Fallback aritmético si no hay datos de días de turnos
+                            _n_maq = len(_metros_sup)
+                            _prom_ponderado = (
+                                (sum(_metros_sup.values(), Decimal('0')) / Decimal(str(_n_maq))).quantize(Decimal('0.001'))
+                                if _n_maq > 0 else Decimal('0')
+                            )
+
+                        # calculo_base: metraje_base / 30 × (30 − faltas_justificadas)
+                        _dias_disponibles = max(0, _dias_trab_ld - _faltas_just)
+                        _base_prorrateo_total = (
+                            metraje_base_val / Decimal(str(_dias_trab_ld)) * Decimal(str(_dias_disponibles))
                         ).quantize(Decimal('0.001'))
+
+                        # metros_maquina_prom: promedio_ponderado / 30 × dias_trabajado
                         _acum_prorrateo_total = (
-                            _metros_prom_sup / Decimal('30') * _d_fb
+                            _prom_ponderado / Decimal(str(_dias_trab_ld)) * _dias_trabajado_pos
                         ).quantize(Decimal('0.001'))
+
                         _total_prorrateo_total = (
                             (_acum_prorrateo_total - _base_prorrateo_total) * monto_ajustado
                         ).quantize(Decimal('0.01'))
-                        _total_dias_en_maq = _dias_fallback
+                        _total_dias_en_maq = int(_dias_trabajado_pos)
 
                 # bono_calculado = suma prorateada por máquina (ya incluye tarifas específicas por equipo)
                 bono_calculado = _total_prorrateo_total
