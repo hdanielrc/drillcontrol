@@ -665,11 +665,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
             defaults={'fecha_inicio': fecha_inicio, 'fecha_fin': fecha_fin, 'estado': 'ABIERTO'}
         )
 
-        # Obtener trabajadores del contrato que aplican al cuadro
-        trabajadores = Trabajador.objects.filter(
-            contrato=contrato, estado='ACTIVO'
-        ).order_by('apepat', 'apemat', 'nombres')
-        trabajadores = filtrar_trabajadores_por_cargo(trabajadores, tipo_bono, config=config)
+        # Lista de trabajadores: construida después de calcular el período operativo
+        # para poder incluir traslados desde TrabajadorContratoHistorial (ver abajo)
 
         filas_cumplimiento = []
         filas_metraje = []
@@ -682,6 +679,33 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         # Todo usa el mismo período operativo 26-25 para consistencia
         _op_inicio, _op_fin = get_rango_mes_operativo(anio, mes)
         _dias_mes_op = cantidad_dias_mes_operativo(anio, mes)
+
+        # ── Períodos efectivos por trabajador (ingresos + traslados) ────────────
+        from django.db.models import Q as _Q
+        from .models import TrabajadorContratoHistorial as _TCH
+        _hist_qs = _TCH.objects.filter(
+            contrato=contrato,
+            fecha_inicio__lte=_op_fin,
+        ).filter(
+            _Q(fecha_fin__isnull=True) | _Q(fecha_fin__gte=_op_inicio)
+        ).values('trabajador_id', 'fecha_inicio', 'fecha_fin')
+
+        _historial_periodos = {}  # trabajador_id → (eff_inicio, eff_fin, dias_efectivos)
+        _trab_ids_en_periodo = set()
+        for _h in _hist_qs:
+            _tid = _h['trabajador_id']
+            _h_inicio = max(_op_inicio, _h['fecha_inicio'])
+            _h_fin    = min(_op_fin, _h['fecha_fin'] if _h['fecha_fin'] else _op_fin)
+            _dias_eff = (_h_fin - _h_inicio).days + 1
+            _historial_periodos[_tid] = (_h_inicio, _h_fin, _dias_eff)
+            _trab_ids_en_periodo.add(_tid)
+
+        # Trabajadores: actuales del contrato + quienes estuvieron en el período (historial)
+        trabajadores = Trabajador.objects.filter(
+            _Q(contrato=contrato) | _Q(pk__in=_trab_ids_en_periodo),
+            estado='ACTIVO',
+        ).distinct().order_by('apepat', 'apemat', 'nombres')
+        trabajadores = filtrar_trabajadores_por_cargo(trabajadores, tipo_bono, config=config)
 
         # metros_acumulados por maquina_id en el período operativo
         _metros_maquina = {}
@@ -733,26 +757,66 @@ def cuadro_evaluacion(request, tipo_bono_pk):
         # resultado: {trabajador_id: [(maquina_id, dias), ...]}
         _dias_trab_maquinas = {}
         _real_filter = {'tipo': 'REAL'} if _NEW_TAREO else {'es_proyeccion': False}
-        _ad_rows = (
-            AsistenciaDiaria.objects.filter(
-                trabajador__contrato=contrato,
-                fecha__gte=_op_inicio,
-                fecha__lte=_op_fin,
-                maquina_snapshot__isnull=False,
-                **_real_filter,
-            )
-            .values('trabajador_id', 'maquina_snapshot_id')
-            .annotate(dias=_CountM('id'))
+
+        # Bulk query: trabajadores con período completo + los sin historial (fallback)
+        _trab_ids_periodo_completo = {
+            tid for tid, (ei, ef, _de) in _historial_periodos.items()
+            if ei == _op_inicio and ef == _op_fin
+        }
+        _trab_ids_sin_historial = set(
+            Trabajador.objects.filter(contrato=contrato, estado='ACTIVO')
+            .exclude(pk__in=_historial_periodos)
+            .values_list('pk', flat=True)
         )
-        for _ad in _ad_rows:
-            _tid = _ad['trabajador_id']
-            _dias_trab_maquinas.setdefault(_tid, []).append(
-                (_ad['maquina_snapshot_id'], _ad['dias'])
+        _trab_ids_bulk = _trab_ids_periodo_completo | _trab_ids_sin_historial
+
+        if _trab_ids_bulk:
+            _ad_rows = (
+                AsistenciaDiaria.objects.filter(
+                    trabajador_id__in=_trab_ids_bulk,
+                    fecha__gte=_op_inicio,
+                    fecha__lte=_op_fin,
+                    maquina_snapshot__isnull=False,
+                    **_real_filter,
+                )
+                .values('trabajador_id', 'maquina_snapshot_id')
+                .annotate(dias=_CountM('id'))
             )
+            for _ad in _ad_rows:
+                _tid = _ad['trabajador_id']
+                _dias_trab_maquinas.setdefault(_tid, []).append(
+                    (_ad['maquina_snapshot_id'], _ad['dias'])
+                )
+
+        # Trabajadores con período parcial: query individual por fechas efectivas
+        for _tid_p, (_eff_i, _eff_f, _) in _historial_periodos.items():
+            if _eff_i == _op_inicio and _eff_f == _op_fin:
+                continue  # ya procesado en bulk
+            _ad_rows_p = (
+                AsistenciaDiaria.objects.filter(
+                    trabajador_id=_tid_p,
+                    fecha__gte=_eff_i,
+                    fecha__lte=_eff_f,
+                    maquina_snapshot__isnull=False,
+                    **_real_filter,
+                )
+                .values('maquina_snapshot_id')
+                .annotate(dias=_CountM('id'))
+            )
+            for _ad_p in _ad_rows_p:
+                _dias_trab_maquinas.setdefault(_tid_p, []).append(
+                    (_ad_p['maquina_snapshot_id'], _ad_p['dias'])
+                )
 
         for trab in trabajadores:
             cargo_trab = trab.cargo or trab.cargo_headcount or ''
             from decimal import Decimal as _D
+
+            # Período efectivo en este contrato (ingresos y traslados)
+            if trab.pk in _historial_periodos:
+                _eff_inicio, _eff_fin, _dias_efectivos = _historial_periodos[trab.pk]
+            else:
+                _eff_inicio, _eff_fin, _dias_efectivos = _op_inicio, _op_fin, _dias_mes_op
 
             # Mapa maquina_id → EstructuraSalarial para prorrateo por máquina
             _structs_trab = _resolver_ests(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
@@ -810,14 +874,15 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 )
                 _no_trabajados = AsistenciaDiaria.objects.filter(
                     trabajador=trab,
-                    fecha__gte=_op_inicio,
-                    fecha__lte=_op_fin,
+                    fecha__gte=_eff_inicio,
+                    fecha__lte=_eff_fin,
                     **_real_filter,
                 ).exclude(
                     estado__in=_estados_ba,
                 ).count()
-                dias_trab = max(Decimal('0'), Decimal('30') - Decimal(str(_no_trabajados)))
-                dias_base = 30
+                _dias_base_ba = min(30, _dias_efectivos)
+                dias_trab = max(Decimal('0'), Decimal(str(_dias_base_ba)) - Decimal(str(_no_trabajados)))
+                dias_base = _dias_base_ba
             else:
                 dias_trab = contar_dias_trabajados(trab, fecha_inicio, fecha_fin)
                 dias_base = calcular_dias_base_regimen(trab, fecha_inicio, fecha_fin) or 30
@@ -876,10 +941,11 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 # bono_calculado se asigna después del loop de prorrateo por máquina
 
                 # Prorrateo por máquina: una entrada por cada máquina donde trabajó
-                # BA-OPERADORES: denominador = días reales del período (28-31); días = tareo por máquina
-                # Otros bonos: igual (dias_mes_op siempre)
-                _d_op = Decimal(str(_dias_mes_op))
-                _dias_op_limite = _dias_mes_op
+                # BA-OPERADORES: denominador = días efectivos del trabajador en el contrato
+                # (≤ días reales del período para ingresos y traslados)
+                _dias_efectivos_op = min(_dias_mes_op, _dias_efectivos)
+                _d_op = Decimal(str(_dias_efectivos_op))
+                _dias_op_limite = _dias_efectivos_op
                 _maq_entradas = _dias_trab_maquinas.get(trab.pk, [])
                 _desglose_maquinas = []
                 _base_prorrateo_total = Decimal('0')
@@ -896,8 +962,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     )
                     _faltas_just_op = AsistenciaDiaria.objects.filter(
                         trabajador=trab,
-                        fecha__gte=_op_inicio,
-                        fecha__lte=_op_fin,
+                        fecha__gte=_eff_inicio,
+                        fecha__lte=_eff_fin,
                         estado__in=_estados_fj_op,
                         **_real_filter,
                     ).count()
@@ -972,15 +1038,14 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     )
                     _faltas_just = AsistenciaDiaria.objects.filter(
                         trabajador=trab,
-                        fecha__gte=_op_inicio,
-                        fecha__lte=_op_fin,
+                        fecha__gte=_eff_inicio,
+                        fecha__lte=_eff_fin,
                         estado__in=_estados_falta_just,
                         **_real_filter,
                     ).count()
-                    # dias_trabajado = 30 − todas las ausencias (ya calculado en bono_trab.dias_trabajados).
-                    # Usar este valor y no el conteo positivo de estados, para que un período de 31 días
-                    # físicos siempre se trate como base 30 (ej: 2 vacaciones → 28/30, no 29/30).
-                    _dias_trab_ld = 30
+                    # dias_trabajado = días_base − todas las ausencias (ya calculado en bono_trab.dias_trabajados).
+                    # Para ingresantes y traslados, días_base = min(30, días_efectivos_en_contrato).
+                    _dias_trab_ld = min(30, _dias_efectivos)
                     _dias_trabajado_pos = bono_trab.dias_trabajados
 
                     if _d_op > 0 and _dias_trabajado_pos > 0:
