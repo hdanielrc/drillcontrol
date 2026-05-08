@@ -992,10 +992,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         else bono_por_metro_val
                     )
                     _monto_ajustado_maq = (_bono_metro_maq * mult_total).quantize(Decimal('0.001'))
-                    # calculo_base: metraje_base / dias_mes_op × (dias_mes_op − faltas_justificadas)
-                    _dias_disp_op = max(0, _dias_mes_op - _faltas_just_op)
+                    # calculo_base: metraje_base / dias_op × dias_en_maquina
+                    # (la base se prorratea por días en cada máquina; no se repite el total por máquina)
                     _base_p = (
-                        (_metraje_base_maq / _d_op * Decimal(str(_dias_disp_op))).quantize(Decimal('0.01'))
+                        (_metraje_base_maq / _d_op * _d_en_maq).quantize(Decimal('0.01'))
                         if _d_op > 0 else Decimal('0')
                     )
                     # metros_maquina_prom: metros_maq / dias_mes_op × dias_trabajado_maquina
