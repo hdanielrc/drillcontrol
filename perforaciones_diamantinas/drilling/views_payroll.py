@@ -982,9 +982,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         estado='MDL',
                         **_real_filter,
                     ).count()
-                    # MDL vale 0.5; los demás estados trabajados valen 1.0
+                    # MDL vale 0.5; los demás estados trabajados valen 1.0; máximo 30 (período fijo LD)
                     _dias_trab_ld = 30
-                    _dias_trabajado_pos = Decimal(str(_trab_pos_all - _mdl_count)) + Decimal(str(_mdl_count)) * Decimal('0.5')
+                    _dias_trabajado_pos = min(
+                        Decimal(str(_trab_pos_all - _mdl_count)) + Decimal(str(_mdl_count)) * Decimal('0.5'),
+                        Decimal('30'),
+                    )
 
                     if _d_op > 0 and _dias_trabajado_pos > 0:
                         _est_sup = _resolver_est(trab, config.contrato, cargo_trab, fecha_inicio, fecha_fin)
@@ -1011,8 +1014,8 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                                 if _n_maq > 0 else Decimal('0')
                             )
 
-                        # calculo_base: metraje_base / 30 × (30 − faltas_justificadas)
-                        _dias_disponibles = max(0, _dias_trab_ld - _faltas_just)
+                        # calculo_base: metraje_base / 30 × (30 − faltas_justificadas), máx 30
+                        _dias_disponibles = min(_dias_trab_ld, max(0, _dias_trab_ld - _faltas_just))
                         _base_prorrateo_total = (
                             metraje_base_val / Decimal(str(_dias_trab_ld)) * Decimal(str(_dias_disponibles))
                         ).quantize(Decimal('0.001'))
