@@ -998,21 +998,12 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         else:
                             _metros_sup = dict(_metros_maquina)
 
-                        # Promedio ponderado: peso = días de turnos por máquina
-                        _suma_ponderada = sum(
-                            _metros_sup.get(mid, Decimal('0')) * Decimal(str(_dias_turnos_maquina.get(mid, 0)))
-                            for mid in _metros_sup
+                        # Promedio simple entre máquinas que hicieron metros en el período
+                        _n_maq = len(_metros_sup)
+                        _prom_ponderado = (
+                            (sum(_metros_sup.values(), Decimal('0')) / Decimal(str(_n_maq))).quantize(Decimal('0.001'))
+                            if _n_maq > 0 else Decimal('0')
                         )
-                        _suma_dias_pond = sum(_dias_turnos_maquina.get(mid, 0) for mid in _metros_sup)
-                        if _suma_dias_pond > 0:
-                            _prom_ponderado = (_suma_ponderada / Decimal(str(_suma_dias_pond))).quantize(Decimal('0.001'))
-                        else:
-                            # Fallback aritmético si no hay datos de días de turnos
-                            _n_maq = len(_metros_sup)
-                            _prom_ponderado = (
-                                (sum(_metros_sup.values(), Decimal('0')) / Decimal(str(_n_maq))).quantize(Decimal('0.001'))
-                                if _n_maq > 0 else Decimal('0')
-                            )
 
                         # calculo_base: metraje_base / 30 × (30 − faltas_justificadas), máx 30
                         _dias_disponibles = min(_dias_trab_ld, max(0, _dias_trab_ld - _faltas_just))
