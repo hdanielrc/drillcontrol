@@ -876,9 +876,10 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 # bono_calculado se asigna después del loop de prorrateo por máquina
 
                 # Prorrateo por máquina: una entrada por cada máquina donde trabajó
-                # Bonos BA-: denominador fijo 30; resto: días reales del período operativo
-                _d_op = Decimal('30') if tipo_bono.usa_periodo_operativo_tareo else Decimal(str(_dias_mes_op))
-                _dias_op_limite = 30 if tipo_bono.usa_periodo_operativo_tareo else _dias_mes_op
+                # BA-OPERADORES: denominador = días reales del período (28-31); días = tareo por máquina
+                # Otros bonos: igual (dias_mes_op siempre)
+                _d_op = Decimal(str(_dias_mes_op))
+                _dias_op_limite = _dias_mes_op
                 _maq_entradas = _dias_trab_maquinas.get(trab.pk, [])
                 _desglose_maquinas = []
                 _base_prorrateo_total = Decimal('0')
@@ -887,12 +888,25 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                 _total_dias_en_maq = 0
                 _dias_meta_cumplida = 0  # días en máquinas que superaron la meta
 
+                # Faltas justificadas del operador en el período → reducen calculo_base
+                if tipo_bono.usa_periodo_operativo_tareo and _maq_entradas:
+                    _estados_fj_op = (
+                        'DM', 'PT', 'PT1', 'V', 'R',
+                        'I', 'IV', 'IVN', 'SUB', 'SB', 'LCG', 'LFC',
+                    )
+                    _faltas_just_op = AsistenciaDiaria.objects.filter(
+                        trabajador=trab,
+                        fecha__gte=_op_inicio,
+                        fecha__lte=_op_fin,
+                        estado__in=_estados_fj_op,
+                        **_real_filter,
+                    ).count()
+                else:
+                    _faltas_just_op = 0
+
                 for _maq_id, _dias_raw in _maq_entradas:
-                    # BA-: días = total trabajados del tareo (TD/TN/DL/DA/MDL), no días con máquina asignada
-                    if tipo_bono.usa_periodo_operativo_tareo:
-                        _dias_en_maq = min(int(bono_trab.dias_trabajados), 30)
-                    else:
-                        _dias_en_maq = min(_dias_raw, _dias_op_limite)
+                    # BA-OPERADORES: días en máquina = real desde tareo (no total del trabajador)
+                    _dias_en_maq = min(_dias_raw, _dias_op_limite)
                     _d_en_maq = Decimal(str(_dias_en_maq))
                     _metros_maq = _metros_maquina.get(_maq_id, Decimal('0'))
                     _meta_maq = _meta_maquina.get(_maq_id)
@@ -912,10 +926,13 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                         else bono_por_metro_val
                     )
                     _monto_ajustado_maq = (_bono_metro_maq * mult_total).quantize(Decimal('0.001'))
+                    # calculo_base: metraje_base / dias_mes_op × (dias_mes_op − faltas_justificadas)
+                    _dias_disp_op = max(0, _dias_mes_op - _faltas_just_op)
                     _base_p = (
-                        (_metraje_base_maq / _d_op * _d_en_maq).quantize(Decimal('0.01'))
+                        (_metraje_base_maq / _d_op * Decimal(str(_dias_disp_op))).quantize(Decimal('0.01'))
                         if _d_op > 0 else Decimal('0')
                     )
+                    # metros_maquina_prom: metros_maq / dias_mes_op × dias_trabajado_maquina
                     _acum_p = (
                         (_metros_maq / _d_op * _d_en_maq).quantize(Decimal('0.01'))
                         if _d_op > 0 else Decimal('0')
@@ -941,10 +958,6 @@ def cuadro_evaluacion(request, tipo_bono_pk):
                     _total_dias_en_maq += _dias_en_maq
                     if _meta_cumplida:
                         _dias_meta_cumplida += _dias_en_maq
-
-                # BA-: normalizar _total_dias_en_maq al valor real (evita inflación por multi-máquina)
-                if tipo_bono.usa_periodo_operativo_tareo and _maq_entradas:
-                    _total_dias_en_maq = min(int(bono_trab.dias_trabajados), 30)
 
                 # Línea de mando (BA-SUPERVISIÓN): no aparecen en turnos de máquina.
                 # calculo_base     = metraje_base / 30 × (30 − faltas_justificadas)
